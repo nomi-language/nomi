@@ -41,10 +41,17 @@ import (
 
 const (
 	// literalSteps bounds one literal's handler: calls plus backward
-	// branches. A Regex or Date literal takes a few hundred.
+	// branches. A Regex or Date literal takes a few hundred. A handler, a
+	// checked literal's check and a refinement's rule are bounded by the
+	// steps alone: each crossing whose cost grows with an operand's value is
+	// refused before it runs (vm.Machine.Effects), so the answer is the same
+	// however busy the machine is.
 	literalSteps = 1_000_000
-	// literalTime is one literal's wall-clock backstop.
-	literalTime = 10 * time.Second
+	// renderTime is the wall-clock backstop for rendering a handler's Err
+	// payload (literalMessage). Its Render function is not walked for
+	// unbounded crossings, and a render that runs out of time falls back to
+	// the payload's row text, so the deadline never turns into an error.
+	renderTime = 10 * time.Second
 )
 
 // InvalidLiteralCode is the Code of a typed literal's diagnostic.
@@ -158,8 +165,12 @@ func (p *Program) checkLiteral(m *vm.Machine, site irbuild.LiteralSite) (d front
 	if len(found.Unbounded) > 0 {
 		return fail(fmt.Sprintf("%s cannot be checked at compile time: its handler calls a function whose cost grows with its argument (%s)", label, strings.Join(found.Unbounded, "; ")), literalHint(site.Text))
 	}
-	lim := vm.Limits{Steps: literalSteps, Deadline: time.Now().Add(literalTime)}
-	v, err := m.Evaluate(context.Background(), f, nil, lim)
+	if len(found.Seeded) > 0 {
+		d, failed, err := fail(fmt.Sprintf("%s cannot be checked at compile time: its handler reads a hash, which differs between runs (%s)", label, strings.Join(found.Seeded, "; ")), seededHashHint)
+		d.Code = SeededHashCode
+		return d, failed, err
+	}
+	v, err := m.Evaluate(context.Background(), f, nil, vm.Limits{Steps: literalSteps})
 	if errors.Is(err, vm.ErrLimit) {
 		return fail(fmt.Sprintf("%s cannot be checked at compile time: its handler did not finish within %d steps", label, literalSteps), literalHint(site.Text))
 	}
@@ -237,7 +248,7 @@ func (p *Program) literalMessage(m *vm.Machine, site irbuild.LiteralSite, payloa
 		return s
 	}
 	if site.Render != nil {
-		lim := vm.Limits{Steps: literalSteps, Deadline: time.Now().Add(literalTime)}
+		lim := vm.Limits{Steps: literalSteps, Deadline: time.Now().Add(renderTime)}
 		if v, err := m.Evaluate(context.Background(), site.Render, []any{payload}, lim); err == nil {
 			if s, ok := v.(string); ok {
 				return s

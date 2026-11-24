@@ -40,6 +40,10 @@
 //#   waiting on a channel does, and what arrives afterwards is returned to
 //#   the next read, a partial line included.
 //#
+//# `io.is_terminal(stream)` says whether one of the three, named by a
+//# `Stream`, is a terminal rather than a pipe or a file. std::terminal reads
+//# its size, reads keys and passwords from it and puts it in raw mode.
+//#
 //# ## Readers and writers
 //#
 //# `Reader.lines` and `Reader.chunks` read their reader as they run and
@@ -78,7 +82,7 @@ import
     bytes.Bytes
     display.Display
     equatable.Equatable
-    int.{Int, NonNegativeInt, PositiveInt}
+    int.{Int, Int64, NonNegativeInt, PositiveInt}
     iter.Iter
     option.Option.{self, None, Some}
     resources.{Commit, Release}
@@ -114,9 +118,13 @@ end
 //! failed = Error.Other{operation: "read", path: "a.txt", code: "EIO"}
 //! assert "${failed}" == "read a.txt: input/output error (EIO)"
 //!
+//! uncoded = Error.Other{operation: "read", path: "<request>", code: "unknown"}
+//! assert "${uncoded}" == "read <request>: failed"
+//!
 //! refused = Error.Unsupported{operation: "process.run", target: "js/wasm"}
 //! assert "${refused}" == "process.run is not supported on js/wasm"
 //! assert "${Error.TooManyOpen}" == "too many open files"
+//! assert "${Error.Truncated{path: "<gzip>"}}" == "<gzip>: the data ends early"
 //
 pub enum Error
     /// Nothing is at `path`. A write into a missing directory names the
@@ -138,13 +146,24 @@ pub enum Error
     /// first sequence that is not, from the start of the file, or of the
     /// line for a line read. `path` is `<stdin>` for standard input.
     InvalidText {path: String, offset: Int}
+    /// What was read is not valid in the format the reader decodes, such
+    /// as a compressed stream with a bad header, block or checksum
+    /// (std::compress). `reason` says what is wrong, and `path` names the
+    /// stream (`<gzip>`).
+    Corrupt {path: String, reason: String}
+    /// The stream ended before the data the reader decodes was complete,
+    /// such as a compressed stream cut short, or a request body shorter
+    /// than its `Content-Length`.
+    Truncated {path: String}
     /// The device holding `path` is full.
     NoSpace {path: String}
     /// `path` is on a read-only file system.
     ReadOnly {path: String}
     /// The process has too many files open.
     TooManyOpen
-    /// The stream was already closed.
+    /// The stream was already closed, by the program or by what it reads,
+    /// as a request body an HTTP server discarded once the response
+    /// started.
     Closed
     /// The reader at the other end of a pipe has gone, as with `| head`.
     BrokenPipe
@@ -155,7 +174,7 @@ pub enum Error
     /// classes](/tooling/building/)).
     Unsupported {operation: String, target: String}
     /// Any other failure: the operation, the path and the operating system's
-    /// error code.
+    /// error code, which is `unknown` for a failure that carries none.
     Other {operation: String, path: String, code: String}
 end
 
@@ -188,6 +207,12 @@ impl Display for Error
             Error.InvalidText{path:, offset:} ->
                 "${path}: not UTF-8 text at byte ${offset}"
 
+            Error.Corrupt{path:, reason:} ->
+                "${path}: corrupt data: ${reason}"
+
+            Error.Truncated{path:} ->
+                "${path}: the data ends early"
+
             Error.NoSpace{path:} ->
                 "${path}: no space left on the device"
 
@@ -209,13 +234,18 @@ impl Display for Error
             Error.Unsupported{operation:, target:} ->
                 "${operation} is not supported on ${target}"
 
+            Error.Other{operation:, path:, code: "unknown"} ->
+                "${operation} ${path}: failed"
+
             Error.Other{operation:, path:, code:} ->
                 "${operation} ${path}: ${code_text(code)} (${code})"
         end
     end
 end
 
-/// What an operating system error code means, for `Other`'s sentence.
+/// What an operating system error code means, for `Other`'s sentence. A
+/// failure that carries no code (`unknown`) says only that the operation
+/// failed.
 fn code_text(code: String) -> String
     case code
         "EIO"          -> "input/output error"
@@ -231,6 +261,7 @@ fn code_text(code: String) -> String
         "EINTR"        -> "interrupted"
         "ENOTSUP"      -> "operation not supported"
         "EOVERFLOW"    -> "value too large for defined data type"
+        "ESRCH"        -> "no such process"
         _              -> "operating system error"
     end
 end
@@ -415,6 +446,56 @@ host fn standard_input() -> Reader
 host fn standard_output() -> Writer
 
 host fn standard_error() -> Writer
+
+/// One of the program's three standard streams, for a question about what
+/// it is connected to: `io.is_terminal`, and std::terminal's size and
+/// colour.
+pub enum Stream
+    /// Standard input, which `io.stdin` reads.
+    Stdin
+    /// Standard output, which `io.stdout` writes.
+    Stdout
+    /// Standard error, which `io.stderr` writes.
+    Stderr
+end
+
+derive Equatable for Stream
+
+impl Stream
+    /// The number the operating system gives the stream: 0 for standard
+    /// input, 1 for output and 2 for error.
+    //! assert Stream.descriptor(.Stdin) == 0
+    //! assert Stream.descriptor(.Stderr) == 2
+    //
+    pub fn descriptor(stream: Stream) -> Int64
+        case stream
+            .Stdin  -> 0
+            .Stdout -> 1
+            .Stderr -> 2
+        end
+    end
+end
+
+/// Whether `stream` is connected to a terminal, as when a person runs the
+/// program in a shell, rather than to a pipe or a file. A program decides
+/// by it whether to draw progress or ask a question; std::terminal's
+/// `supports_color` decides colour. It is `False` inside `io.capture` and
+/// in a test, whose streams are the capture's, in a browser and in a WASI
+/// module.
+///
+/// ```nomi
+/// if io.is_terminal(.Stdin) then io.write("name: ")
+/// ```
+//! assert is_terminal(.Stdout) == False
+//! assert is_terminal(.Stdin) == False
+//
+pub fn is_terminal(stream: Stream) -> Bool
+    stream_is_terminal(Stream.descriptor(stream))
+end
+
+/// Whether the standard stream numbered `stream` is a terminal
+/// (internal/stdterminal).
+host fn stream_is_terminal(stream: Int64) -> Bool
 
 impl Reader
     /// The next line without its `\n` (and a `\r` before it), or `Ok(None)`

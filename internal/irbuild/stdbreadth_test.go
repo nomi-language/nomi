@@ -72,6 +72,7 @@ func TestIOErrorSlotsMatchRTFieldNames(t *testing.T) {
 		"NotFound": {"path"}, "AlreadyExists": {"path"}, "PermissionDenied": {"path"},
 		"NotADirectory": {"path"}, "IsADirectory": {"path"}, "DirectoryNotEmpty": {"path"},
 		"InvalidPath": {"path", "reason"}, "InvalidText": {"path", "offset"},
+		"Corrupt": {"path", "reason"}, "Truncated": {"path"},
 		"NoSpace": {"path"}, "ReadOnly": {"path"},
 		"TooManyOpen": nil, "Closed": nil, "BrokenPipe": nil, "TimedOut": nil,
 		"Unsupported": {"operation", "target"}, "Other": {"operation", "path", "code"},

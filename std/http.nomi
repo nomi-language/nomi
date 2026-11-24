@@ -18,16 +18,16 @@
 //# connection pool.
 //#
 //# A server never reads more of a request's body than a limit allows.
-//# `Request.form` and `post_form` read at most 10 MB of a URL-encoded body
-//# (Go's `ParseForm` limit), and `multipart_form` and `form_file` at most
-//# 32 MB of a multipart one; they stop one byte past the limit and return
-//# `Error.BodyTooLarge`. A limit on the request replaces both defaults, up
-//# or down: `Request.limit_body` or the `http.limit_body` middleware for a
-//# route, and the `Server`'s `max_body` for every request. Limits on one
-//# request only lower each other, so a route cannot pass the server's.
-//# `Request.text` and `json_as` read a body whole under the same limit as a
-//# URL-encoded form. `Body.read_all` and `Body.reader` read what the stream
-//# holds, stopped only by such a limit.
+//# `Request.form` and `post_form` read at most 10 MB of a URL-encoded body,
+//# and `multipart_form` and `form_file` at most 32 MB of a multipart one;
+//# they stop one byte past the limit and return `Error.BodyTooLarge`. A
+//# limit on the request replaces both defaults, up or down:
+//# `Request.limit_body` or the `http.limit_body` middleware for a route, and
+//# the `Server`'s `max_body` for every request. Limits on one request only
+//# lower each other, so a route cannot pass the server's. `Request.text` and
+//# `json_as` read a body whole under the same limit as a URL-encoded form.
+//# `Body.read_all` and `Body.reader` read what the stream holds, stopped
+//# only by such a limit.
 //#
 //# ## Middleware
 //#
@@ -42,6 +42,8 @@ import
     bytes.Bytes
     channels.{Channel, Receiver, Sender}
     code_points.Codepoint
+    compress as compression
+    compress.{Level, LevelNumber}
     context.Context
     display.Display
     duration.Duration
@@ -68,6 +70,7 @@ import
     resources.Release
     results.Infallible
     results.Result.{self, Err, Ok}
+    secret.Secret
     strings.String
     supervisors.Supervisor
     tasks.Task
@@ -77,7 +80,7 @@ import
     uuid.Uuid
 end
 
-/// A request method. `Other` holds any method Go sends as written.
+/// A request method. `Other` holds any other method, sent as written.
 pub enum Method
     Get
     Head
@@ -116,7 +119,7 @@ impl Method
         end
     end
 
-    /// The method `text` names, `Other` for one Go has no constant for.
+    /// The method `text` names, `Other` for any text no variant names.
     //! import std::http.Method
     //!
     //! assert Method.parse("DELETE") == Method.Delete
@@ -145,7 +148,7 @@ impl Display for Method
 end
 
 /// An HTTP status code. Any code from 100 to 999 is a `Status`; the
-/// constants name the ones Go names.
+/// constants name the codes that have a standard phrase (`Status.text`).
 pub type Status Int
 
 derive Equatable for Status
@@ -387,7 +390,7 @@ impl Headers
     /// Writes the headers in wire format, `Name: value` lines each ending
     /// in CRLF, sorted by name, leaving out the names in `except`. A line
     /// break in a value is written as a space and the value is trimmed, so
-    /// no value can add a line. It writes as Go's `Header.WriteSubset`.
+    /// no value can add a line.
     //! import std::http.Headers
     //! import std::io.Writer
     //!
@@ -475,16 +478,16 @@ end
 
 /// One part of a `Body.Multipart` form.
 pub enum FormPart
-    /// A field and its value: Go's `Writer.WriteField`.
+    /// A field and its value.
     Field {name: String, value: String}
-    /// A file: Go's `Writer.CreateFormFile`, with a content type.
+    /// A file, with a content type.
     File {
         field: String,
         filename: String,
         content_type: String = "application/octet-stream",
         content: Bytes,
     }
-    /// A part with headers of its own: Go's `Writer.CreatePart`.
+    /// A part with headers of its own.
     Raw {headers: Headers, content: Bytes}
 end
 
@@ -506,8 +509,8 @@ impl FormPart
         end
     end
 
-    /// The `Content-Disposition` of a file part: Go's
-    /// `multipart.FileContentDisposition`.
+    /// The `Content-Disposition` of a file part, each `\` and `"` in the
+    /// names escaped with a `\`.
     //! import std::http.FormPart
     //!
     //! assert FormPart.file_disposition("doc", "a.txt") == "form-data; name=\"doc\"; filename=\"a.txt\""
@@ -532,7 +535,7 @@ impl FormPart
     end
 end
 
-/// A file a multipart form holds: Go's `multipart.FileHeader`.
+/// A file a multipart form holds.
 pub struct FormFile
     filename: String
     headers:  Headers = Headers[]
@@ -547,7 +550,7 @@ impl FormFile
     end
 end
 
-/// A multipart form: Go's `multipart.Form`.
+/// A multipart form: its fields and its files by field name.
 pub struct MultipartForm
     values: Query = Query[]
     files:  Map<String, List<FormFile>> = {}
@@ -696,7 +699,10 @@ pub struct Request
     /// The URL. On a request a server received it is absolute: its scheme
     /// is `https` over TLS and `http` otherwise, and its host is the `Host`
     /// the client sent, as `std::http::testing.request` builds one.
-    url:     Url
+    url: Url
+    /// The headers. A request sent with no `User-Agent` sends
+    /// `nomi/<version>`, or `nomi` from a build that is not a release; a
+    /// `User-Agent` of `""` sends none.
     headers: Headers = Headers[]
     body:    Body = Body.Empty
     /// The `Host` to send in place of the URL's host. On a request a server
@@ -803,16 +809,16 @@ impl Request
         Request.form(request) |> Result.to_option() |> Option.flat_map(fn q -> Query.get(q, key))
     end
 
-    /// The first value of `key` in the body's fields, as Go's
-    /// `Request.PostFormValue`.
+    /// The first value of `key` in the fields `Request.post_form` reads,
+    /// never the URL's query.
     pub fn post_form_value(request: Request, key: String) -> Option<String>
         Request.post_form(request)
         |> Result.to_option()
         |> Option.flat_map(fn q -> Query.get(q, key))
     end
 
-    /// The multipart form the body holds, as Go's
-    /// `Request.ParseMultipartForm`. The whole form is read into memory,
+    /// The multipart form the body holds, its fields and its files. The
+    /// whole form is read into memory,
     /// so a body past 32 MB, or past the request's `body_limit` when it
     /// has one, is `Error.BodyTooLarge`; `parts` streams a larger
     /// one. It reads the body.
@@ -857,8 +863,8 @@ impl Request
         Ok(multipart_of(flat, MultipartForm{}))
     end
 
-    /// The first file in the multipart form's field `field`, as Go's
-    /// `Request.FormFile`. It reads the body.
+    /// The first file in the multipart form's field `field`, read as
+    /// `multipart_form` reads the form. It reads the body.
     //! import std::http.{Body, FormPart, Method, Request}
     //! import std::http::testing
     //!
@@ -964,8 +970,8 @@ impl Request
         |> String.lowercase()
     end
 
-    /// The cookies the request's `Cookie` headers send, as Go's
-    /// `Request.Cookies`; one that does not parse is left out.
+    /// The cookies the request's `Cookie` headers send, read as
+    /// `Cookie.parse_header` reads them; a header that fails is left out.
     //! import std::http.{Cookie, Method, Request}
     //! import std::http::testing
     //!
@@ -981,12 +987,12 @@ impl Request
         |> Iter.to_list()
     end
 
-    /// The cookies named `name`, as Go's `Request.CookiesNamed`.
+    /// The cookies named `name`, in the order they were sent.
     pub fn cookies_named(request: Request, name: String) -> List<Cookie>
         Request.cookies(request) |> Iter.filter(fn c -> c.name == name) |> Iter.to_list()
     end
 
-    /// The first cookie named `name`, as Go's `Request.Cookie`.
+    /// The first cookie named `name`.
     pub fn cookie(request: Request, name: String) -> Option<Cookie>
         Request.cookies_named(request, name) |> List.first()
     end
@@ -1000,11 +1006,11 @@ impl Request
         {..request, headers: Headers.set(.., "Cookie", line)}
     end
 
-    /// The request with a body that fails past `max` bytes, as Go's
-    /// `MaxBytesReader`: reading it then returns an `io.Error`, and the
-    /// form readers `Error.BodyTooLarge`. `max` becomes the request's
-    /// `body_limit`, which replaces the form defaults, so an upload route
-    /// can raise them; a second limit only lowers the first.
+    /// The request with a body that fails past `max` bytes: reading it then
+    /// returns an `io.Error`, and the form readers `Error.BodyTooLarge`. `max`
+    /// becomes the request's `body_limit`, which replaces the form defaults,
+    /// so an upload route can raise them; a second limit only lowers the
+    /// first.
     pub fn limit_body(request: Request, max: NonNegativeInt) -> Request
         body_limit =
             case request.body_limit
@@ -1030,36 +1036,40 @@ impl Request
     end
 
     /// The user and password of a `Basic` `Authorization` header, whose
-    /// scheme may be written in any case.
+    /// scheme may be written in any case. The password is a `Secret`, so
+    /// `Debug` shows `Secret(<hidden>)` in its place.
+    //! import std::debug.Debug
     //! import std::http.Request
+    //! import std::secret.Secret
     //! import std::url.Url
     //!
-    //! r = Request.with_basic_auth(Request{url: Url"https://example.com"}, "ann", "pw")
-    //! assert Request.basic_auth(r) == Some(("ann", "pw"))
+    //! r = Request.with_basic_auth(Request{url: Url"https://example.com"}, "ann", Secret.new("pw"))
+    //! assert Request.basic_auth(r) == Some(("ann", Secret.new("pw")))
+    //! assert Debug.inspect(Request.basic_auth(r)) == "Some((\"ann\", Secret(<hidden>)))"
     //!
     //! lower = {..r, headers: Headers[("Authorization", "basic YW5uOnB3")]}
-    //! assert Request.basic_auth(lower) == Some(("ann", "pw"))
+    //! assert Request.basic_auth(lower) == Some(("ann", Secret.new("pw")))
     //
-    pub fn basic_auth(request: Request) -> Option<(String, String)>
+    pub fn basic_auth(request: Request) -> Option<(String, Secret)>
         authorization = Headers.get(request.headers, "Authorization") |> Option.with_default("")
 
         case http_host.basic_auth(authorization)
-            [user, password] -> Some((user, password))
+            [user, password] -> Some((user, Secret.new(password)))
             _                -> None
         end
     end
 
     /// The request with a `Basic` `Authorization` header for `user` and
     /// `password`.
-    pub fn with_basic_auth(request: Request, user: String, password: String) -> Request
-        token = base64.encode(String.to_bytes("${user}:${password}"))
+    pub fn with_basic_auth(request: Request, user: String, password: Secret) -> Request
+        token = base64.encode(String.to_bytes("${user}:${Secret.expose(password)}"))
         {..request, headers: Headers.set(.., "Authorization", "Basic ${token}")}
     end
 
     /// Lets the client take until `by` from now to send the rest of the
-    /// body, past the server's `read_timeout`. Go's
-    /// `ResponseController.SetReadDeadline`. An `Err` for a request no
-    /// server received.
+    /// body, past the server's `read_timeout`.
+    ///
+    /// An `Err` for a request no server received.
     pub fn extend_read_deadline(request: Request, by: Duration) -> Result<Unit, Error>
         case request.incoming
             Some(incoming) ->
@@ -1072,8 +1082,8 @@ impl Request
     end
 
     /// Reads one request from `r` as it arrives on the wire, its body read
-    /// whole: Go's `ReadRequest`. It reads no byte past the request, so the
-    /// next one on `r` is left whole.
+    /// whole. It reads no byte past the request, so the next one on `r` is
+    /// left whole.
     //! import std::http.{Request, Method}
     //! import std::io.Reader
     //!
@@ -1117,8 +1127,8 @@ impl Request
         })
     end
 
-    /// Writes the request to `w` as a client sends it: Go's `Request.Write`,
-    /// or with `proxy` its `WriteProxy`, which names the whole URL.
+    /// Writes the request to `w` as a client sends it, naming its path and
+    /// query, or with `proxy` as a proxy is sent it, naming the whole URL.
     pub fn write_to(request: Request, w: Writer, proxy = False) -> Result<Unit, Error>
         _ = wire_request(if proxy then 1 else 0, request, w)?
         Ok(Unit)
@@ -1143,10 +1153,10 @@ impl Request
         wire_request(if body then 4 else 5, request, io.stderr)
     end
 
-    /// The parts of the request's multipart body, read as the iterator
-    /// runs, each in turn: Go's `Request.MultipartReader`, for a body too
-    /// large to read whole (`multipart_form`). An `Err` when the request
-    /// is not multipart.
+    /// The parts of the request's multipart body, read as the
+    /// iterator runs, each in turn, for a body too large to read
+    /// whole (`multipart_form`). An `Err` when the request is not
+    /// multipart.
     pub fn parts(request: Request) -> Result<Iter<Result<Part, Error>>, Error>
         content_type = Headers.get(request.headers, "Content-Type") |> Option.with_default("")
 
@@ -1196,11 +1206,13 @@ pub struct Response
     /// plain HTTP.
     tls: Option<tls.ConnectionState> = None
     /// The longest writing this response may take, in place of the
-    /// server's `write_timeout`. Go's `ResponseController.SetWriteDeadline`.
+    /// server's `write_timeout`.
     write_timeout: Option<Duration> = None
     /// Lets the handler read the request body while it writes the
-    /// response, as HTTP/1 servers otherwise refuse. Go's
-    /// `ResponseController.EnableFullDuplex`.
+    /// response. Without it, an HTTP/1 server discards what is left of the
+    /// body once the response starts, and a later read returns
+    /// `io.Error.Closed`; a body of known length with 256 KiB or more left
+    /// is kept, and the connection closes after the response.
     full_duplex: Bool = False
     /// Set by `Response.upgrade`: the server responds, then hands the
     /// connection to this function.
@@ -1209,7 +1221,7 @@ end
 
 impl Response
     /// Reads one response from `r`, to a request like `request`, its body
-    /// read whole: Go's `ReadResponse`.
+    /// read whole.
     pub fn read(r: Reader, request: Request) -> Result<Response, Error>
         message =
             http_host.wire_read_response(r, Method.text(request.method))
@@ -1241,8 +1253,8 @@ impl Response
         })
     end
 
-    /// Writes the response to `w` as a server sends it: Go's
-    /// `Response.Write`.
+    /// Writes the response to `w` as a server sends it: the status line,
+    /// the headers and the body.
     //! import std::http.{Body, Response}
     //! import std::io.Writer
     //!
@@ -1263,7 +1275,7 @@ impl Response
     /// A response that sends `status` and `headers`, then hands the
     /// connection to `on_connection`, which speaks another protocol over
     /// it, as a WebSocket server does after `101 Switching Protocols`. The
-    /// connection is closed when `on_connection` returns. Go's `Hijack`.
+    /// connection is closed when `on_connection` returns.
     pub fn upgrade(
         status:        Status = Status.switching_protocols,
         headers:       Headers,
@@ -1272,16 +1284,16 @@ impl Response
         Response{status:, headers:, upgrade: Some(on_connection)}
     end
 
-    /// The cookies the response's `Set-Cookie` headers set, as Go's
-    /// `Response.Cookies`; one that does not parse is left out.
+    /// The cookies the response's `Set-Cookie` headers set, each read by
+    /// `Cookie.parse_set_cookie`; one that does not parse is left out.
     pub fn cookies(response: Response) -> List<Cookie>
         Headers.values(response.headers, "Set-Cookie")
         |> Iter.flat_map(fn line -> Cookie.parse_set_cookie(line) |> Result.to_option())
         |> Iter.to_list()
     end
 
-    /// The response with a `Set-Cookie` header for `cookie`, as Go's
-    /// `SetCookie`; a cookie Go cannot write is left out.
+    /// The response with a `Set-Cookie` header for `cookie`; a cookie whose
+    /// name is not a token is left out.
     //! import std::http.{Cookie, Response, SameSite}
     //!
     //! r = Response.set_cookie(
@@ -1340,9 +1352,9 @@ impl Response
         }
     end
 
-    /// A plain-text response with `status` and `message`, as Go's `Error`
-    /// writes it: `text/plain; charset=utf-8`, `X-Content-Type-Options:
-    /// nosniff`, and the message and a newline.
+    /// A plain-text response with `status` and `message`:
+    /// `text/plain; charset=utf-8`, `X-Content-Type-Options: nosniff`, and
+    /// the message and a newline.
     //! import std::http.{Response, Status}
     //!
     //! r = Response.error(Status.forbidden, "no")
@@ -1383,13 +1395,22 @@ impl Response
         )
     end
 
-    /// `data` as the response to `request`. Its `Content-Type` comes from
-    /// the extension of `name` by Go's built-in table, the same on every
-    /// machine, or from the data itself, unless `headers` sets one. A
-    /// `Range` gets 206 and the parts asked for, and the `If-*` conditional
-    /// headers are checked against `modified` and the `ETag` in `headers`,
-    /// so an `If-None-Match` that names it is a 304. The response carries
-    /// `headers`. It responds as Go's `ServeContent` does.
+    /// `data` as the response to `request`. Unless `headers` sets a
+    /// `Content-Type`, it comes from the extension of `name`, the same on
+    /// every machine, for .ai .apk .apng .avif .bin .bmp .com .css .csv .doc
+    /// .docx .ehtml .eml .eps .exe .flac .gif .gz .htm .html .ico .ics .jfif
+    /// .jpeg .jpg .js .json .m4a .mjs .mp3 .mp4 .oga .ogg .ogv .opus .pdf
+    /// .pjp .pjpeg .png .ppt .pptx .ps .rdf .rtf .shtml .svg .text .tif .tiff
+    /// .txt .vtt .wasm .wav .weba .webm .webp .xbl .xbm .xht .xhtml .xls
+    /// .xlsx .xml .xsl .zip, and else from the data (`detect_content_type`).
+    /// A `Range` gets 206 and the parts asked for, several as
+    /// `multipart/byteranges`. Ranges that together ask for more than the
+    /// data get all of it with 200, and a range that starts past the end or
+    /// does not parse gets 416.
+    /// The `If-*` conditional headers are checked against `modified`, sent
+    /// as `Last-Modified`, and the `ETag` in `headers`, so an `If-None-Match`
+    /// that names it is a 304. A `HEAD` gets no body. The response carries
+    /// `headers`.
     //! import std::http.{Method, Response, Status}
     //! import std::http::testing
     //!
@@ -1682,8 +1703,8 @@ pub enum Error
     Body {error: io.Error}
     /// A server could not listen on `address`.
     Listen {address: String, reason: String}
-    /// A router pattern that breaks `Route`'s rules or that Go's
-    /// `ServeMux` refuses, or one that conflicts with an earlier pattern.
+    /// A router pattern that breaks `Route`'s rules, or one that conflicts
+    /// with an earlier pattern.
     Pattern {pattern: String, reason: String}
     /// The target has no network.
     Unsupported {reason: String}
@@ -1692,7 +1713,7 @@ end
 derive Equatable for Error
 
 impl Error
-    /// Whether the error is a timeout, as Go's `Timeout()` reports.
+    /// Whether the error is a timeout: `Error.Timeout`.
     pub fn is_timeout(error: Error) -> Bool
         case error
             .Timeout{during: _} -> True
@@ -1775,11 +1796,11 @@ end
 
 /// Which redirects a client follows.
 pub enum Redirects
-    /// Follow up to `max` redirects, as Go does (10).
+    /// Follow up to `max` redirects, 10 unless set.
     Follow {max: Int = 10}
     /// Return the redirect response itself.
     Never
-    /// Ask a function before each redirect, as Go's `CheckRedirect` does.
+    /// Ask a function before each redirect.
     /// It gets the request the redirect would send and the requests
     /// already sent, oldest first, and returns whether to send it. There
     /// is no limit but the function's.
@@ -1790,7 +1811,7 @@ end
 pub enum Redirect
     /// Send the request.
     Follow
-    /// Return the redirect response itself, as Go's `ErrUseLastResponse`.
+    /// Return the redirect response itself.
     Stop
     /// Fail the request with `Error.RedirectRefused` and `reason`.
     Refuse String
@@ -1798,7 +1819,11 @@ end
 
 /// Where a client's requests go through.
 pub enum Proxy
-    /// `HTTP_PROXY`, `HTTPS_PROXY` and `NO_PROXY`, as Go reads them.
+    /// The proxy the process's environment names, read at its first use:
+    /// `HTTPS_PROXY` for `https` and `HTTP_PROXY` for `http`, or their
+    /// lowercase names. None for `localhost`, a loopback address, or a host
+    /// `NO_PROXY` lists: comma-separated names, each covering its subdomains
+    /// (only them with a leading `.`), IP addresses, CIDR ranges, or `*`.
     FromEnvironment
     /// No proxy.
     Direct
@@ -1806,7 +1831,7 @@ pub enum Proxy
     Fixed Url
 end
 
-/// How a client's connections are made and kept: Go's `Transport` options.
+/// How a client's connections are made and kept.
 /// A timeout past about 292 years, the longest wait the clock counts, never
 /// fires.
 pub struct Transport
@@ -1824,19 +1849,24 @@ pub struct Transport
     write_buffer_size:         Option<Int> = None
     read_buffer_size:          Option<Int> = None
     force_http2:               Bool = True
-    /// The protocols the transport speaks; `None` is Go's choice, HTTP/1,
-    /// and HTTP/2 when `force_http2` is set.
+    /// The protocols the transport speaks; `None` is HTTP/1, and HTTP/2
+    /// over TLS when `force_http2` is set.
     protocols: Option<Protocols> = None
     http2:     Http2Options = Http2Options{}
-    /// Headers sent with each `CONNECT` to a proxy.
+    /// Headers sent with each `CONNECT` to a proxy; `User-Agent` defaults
+    /// as in a request's `headers`.
     proxy_connect_headers: Headers = Headers[]
     /// Sees each proxy's response to `CONNECT`; an `Err` fails the request.
-    /// Go's `OnProxyConnectResponse`. It runs on the task sending.
+    /// It runs on the task sending.
     on_proxy_connect: Option<(Url, Response) -> Result<Unit, Error>> = None
+    /// Every connection goes to the Unix socket at this path, as the Docker
+    /// API and other local daemons take requests: the URL's host is then
+    /// only the `Host` header, and no proxy is used.
+    unix_socket: Option<String> = None
 end
 
-/// The HTTP protocols a server accepts or a transport speaks: Go's
-/// `Protocols`.
+/// The HTTP protocols a server accepts or a transport speaks, HTTP/1 and
+/// HTTP/2 by default.
 pub struct Protocols
     http1: Bool = True
     /// HTTP/2 over TLS.
@@ -1868,8 +1898,12 @@ fn protocol_flags(protocols: Option<Protocols>) -> List<Bool>
     [p.http1, p.http2, p.unencrypted_http2]
 end
 
-/// HTTP/2's limits and timeouts: Go's `HTTP2Config`. `None` and `False`
-/// are Go's defaults.
+/// HTTP/2's limits and timeouts, sizes in bytes. A `None`, or a value
+/// HTTP/2 cannot use, is the default: 250 streams, header tables of 4096,
+/// frames of 1 MiB, receive buffers of 1 MiB per connection and per stream
+/// on a server and of 1 GiB and 4 MiB on a client, a `ping_timeout` of 15
+/// seconds, and no pings or write timeout. Each `False` leaves its option
+/// off.
 pub struct Http2Options
     /// The streams a client may have open at once; servers only.
     max_concurrent_streams: Option<Int> = None
@@ -1888,8 +1922,8 @@ pub struct Http2Options
     /// Closes a connection that accepts no bytes for this long.
     write_byte_timeout:              Option<Duration> = None
     permit_prohibited_cipher_suites: Bool = False
-    /// Told the kind of each HTTP/2 error, as a metrics counter would be.
-    /// Go's `CountError`.
+    /// Told the kind of each HTTP/2 error, as a metrics counter would be,
+    /// one call per error.
     on_error_count: Option<(String) -> Unit> = None
 end
 
@@ -1916,7 +1950,7 @@ fn ignore_text(_text: String) -> Unit
 end
 
 impl Transport
-    /// The options Go's `DefaultTransport` has.
+    /// Every option at its default.
     pub once default = Transport{}
 end
 
@@ -1973,16 +2007,22 @@ pub struct ClientOptions
     transport: Transport = Transport.default
     /// Replaces the transport: every request goes to this function.
     round_trip: Option<(Request) -> Result<Response, Error>> = None
-    /// `fetch` refuses a body past this many bytes (`Error.BodyTooLarge`);
-    /// `stream` streams any size.
-    max_body: Option<Int> = Some(67_108_864)
+    /// The largest response body `fetch` reads into memory, in bytes,
+    /// counted after the body is decompressed: past it, having read the
+    /// limit and one byte, `fetch` returns `Error.BodyTooLarge`, so a few
+    /// kilobytes of gzip that expand to gigabytes stop there. 64 MiB by
+    /// default; raise it for some requests with `{..client, options: {..,
+    /// max_body: Some(n)}}`, which shares the client's connections. `None`
+    /// reads any size, and `stream` streams any size, as much as its
+    /// reader reads.
+    max_body: Option<NonNegativeInt> = Some(67_108_864)
     /// Where the client keeps cookies: it sends a jar's cookies with each
     /// request and stores those each response sets. `None` keeps none.
     cookies: Option<CookieJar> = None
 end
 
 /// A client: its options and its connection pool. Make one with
-/// `Client.new` and keep it; the pool is Go's, which only std::http can name.
+/// `Client.new` and keep it; every copy of the value shares its pool.
 pub struct Client
     handle:  http_host.Client
     options: ClientOptions
@@ -2009,6 +2049,7 @@ impl Client
             end,
             proxy,
             proxy_url,
+            Option.with_default(t.unix_socket, ""),
             wait_nanos(t.tls_handshake_timeout),
             t.keep_alives,
             t.compression,
@@ -2058,8 +2099,8 @@ impl Client
     end
 
     /// The client checking servers and offering what `config` says over
-    /// TLS, in place of Go's defaults, with the same options and cookies,
-    /// or the `tls.Error` for a config Go cannot build: roots that hold no
+    /// TLS, in place of the default settings, with the same options and
+    /// cookies, or the `tls.Error` for a config that fails: roots that hold no
     /// certificate, a roots file that cannot be read, or a certificate or
     /// key that does not parse.
     //! import std::tls.{ClientConfig, Roots}
@@ -2137,8 +2178,8 @@ impl Client
 end
 
 /// The client `http.fetch` and the other module functions use: the default
-/// options over one connection pool the whole program shares, as Go's
-/// `DefaultClient`. `std::http::testing.run` responds in its place.
+/// options over one connection pool the whole program shares.
+/// `std::http::testing.run` responds in its place.
 pub fn default_client() -> Client
     Client{handle: http_host.default_client(), options: ClientOptions{}}
 end
@@ -2417,10 +2458,16 @@ end
 /// How a server listens and responds. A timeout of `None` is none, and one
 /// past about 292 years, the longest wait the clock counts, never fires.
 pub struct Server
-    /// The address to listen on, `host:port`, as Go's `Server.Addr`:
-    /// `:http` is port 80 on every interface. Port 0 picks a free one,
-    /// which `Listener.address` reports.
+    /// The address to listen on, `host:port`, where no host is every
+    /// interface and a port may be a service name: `:http` is port 80.
+    /// Port 0 picks a free one, which `Listener.address` reports.
     address: String = ":http"
+    /// Serves on this listener instead of binding `address`: a Unix
+    /// socket's from `net.listen_unix`, or one a service manager started
+    /// the program with, from `net.inherited_listeners`. A listener from
+    /// `tls.listen` serves HTTPS with its configuration when `tls` is
+    /// `None`. `serve` closes it when it returns.
+    listener: Option<net.Listener> = None
     /// The longest a client may take to send a whole request.
     read_timeout: Option<Duration> = None
     /// The longest a client may take to send a request's headers.
@@ -2429,7 +2476,7 @@ pub struct Server
     write_timeout: Option<Duration> = None
     /// The longest a kept-alive connection waits for its next request.
     idle_timeout: Option<Duration> = None
-    /// The largest request header, in bytes: Go's `DefaultMaxHeaderBytes`.
+    /// The largest request line and headers together, in bytes.
     max_header_bytes: Int = 1_048_576
     /// The largest request body, in bytes: each request is limited as
     /// `Request.limit_body` limits it, which replaces the form readers'
@@ -2441,30 +2488,29 @@ pub struct Server
     request_timeout: Option<Duration> = None
     /// How long `serve` waits for requests in flight when it stops.
     shutdown_timeout: Duration = Duration.seconds(5)
-    /// Serves HTTPS with this configuration, as Go's `ListenAndServeTLS`
-    /// does, HTTP/2 included; `None` serves plain HTTP.
+    /// Serves HTTPS with this configuration, HTTP/2 included; `None` serves
+    /// plain HTTP.
     tls: Option<tls.ServerConfig> = None
-    /// The most values one request header may hold: Go's
-    /// `DefaultMaxHeaderValueCount`, 500, when `None`.
+    /// The most values one request header may hold; `None` is 500.
     max_header_value_count: Option<Int> = None
-    /// Responds to `OPTIONS *` itself, as Go does; `False` hands it to the
-    /// handler.
+    /// Responds to `OPTIONS *` itself, with an empty 200; `False` hands it
+    /// to the handler.
     answer_options_star: Bool = True
     /// Honors the priorities HTTP/2 and HTTP/3 clients ask for.
     client_priority: Bool = True
-    /// The protocols the server accepts; `None` is Go's choice, HTTP/1
-    /// and, over TLS, HTTP/2.
+    /// The protocols the server accepts; `None` is HTTP/1 and, over TLS,
+    /// HTTP/2.
     protocols: Option<Protocols> = None
     http2:     Http2Options = Http2Options{}
-    /// Told each connection's address as its state changes. Go's
-    /// `ConnState`. It runs on the task serving, in order.
+    /// Told each connection's address as its state changes. It runs on the
+    /// task serving, in order.
     on_connection_state: Option<(String, ConnState) -> Unit> = None
-    /// Told each error Go logs about the server's connections, a line at a
-    /// time; `None` writes them to standard error. Go's `ErrorLog`.
+    /// Told each error the server meets on its connections, such as a failed
+    /// TLS handshake, a line at a time; `None` writes them to standard error.
     on_error: Option<(String) -> Unit> = None
     /// Runs when the server starts shutting down, as for connections that
-    /// were upgraded, which the shutdown does not track. Go's
-    /// `RegisterOnShutdown`.
+    /// were upgraded, which the shutdown does not track. It runs on the
+    /// task serving.
     on_shutdown: Option<() -> Unit> = None
 end
 
@@ -2492,9 +2538,9 @@ impl Listener
         http_host.address(listener.handle)
     end
 
-    /// Stops the server as Go's `Server.Shutdown` does: it stops accepting,
-    /// waits up to the server's `shutdown_timeout` for the requests it is
-    /// serving, then closes every connection. A second call does nothing.
+    /// Stops the server: it stops accepting, waits up to the server's
+    /// `shutdown_timeout` for the requests it is serving, then closes every
+    /// connection. A second call does nothing.
     pub fn shutdown(listener: Listener) -> Unit
         http_host.shutdown(listener.handle, wait_nanos(listener.server.shutdown_timeout))
     end
@@ -2506,8 +2552,8 @@ impl Listener
     end
 end
 
-/// Binds the server's address. The server accepts connections from here
-/// on; `serve` responds to the requests they send.
+/// Binds the server's address, or takes its `listener`. The server accepts
+/// connections from here on; `serve` responds to the requests they send.
 pub fn listen(server: Server = Server{}) -> Result<Listener, Error>
     durations = [
         nanos(server.read_timeout),
@@ -2530,11 +2576,14 @@ pub fn listen(server: Server = Server{}) -> Result<Listener, Error>
     on_shutdown = Option.with_default(server.on_shutdown, fn -> Unit)
     on_count = Option.with_default(server.http2.on_error_count, ignore_text)
 
+    listener = Option.map(server.listener, net.Listener.handle_of)
+
     handle =
         case server.tls
             None ->
                 http_host.listen(
                     server.address,
+                    listener,
                     durations,
                     limits,
                     flags,
@@ -2559,6 +2608,7 @@ pub fn listen(server: Server = Server{}) -> Result<Listener, Error>
 
                 http_host.listen_tls(
                     server.address,
+                    listener,
                     durations,
                     limits,
                     flags,
@@ -2595,7 +2645,7 @@ end
 /// (`Restart.Temporary`, the default); a restarted handler sends nothing.
 ///
 /// When the program shuts down, at a signal or when `main` returns, the
-/// server stops accepting at once, as Go's `Server.Shutdown` does. The
+/// server stops accepting at once, as `Listener.shutdown` does. The
 /// requests it took run to their end, for up to the server's
 /// `shutdown_timeout` and the supervisor's, and then `serve` returns.
 pub fn serve(listener: Listener, handler: Handler, supervisor: Supervisor) -> Unit
@@ -2779,10 +2829,10 @@ fn length_of(response: Response) -> Int
     Option.with_default(response.content_length, -1)
 end
 
-/// A pattern a `Router` routes by, as Go's `ServeMux` reads it:
-/// `[METHOD ][HOST]/PATH`, where a path segment `{name}` matches one
-/// segment, a last `{name...}` the rest of the path, and `{$}` only the
-/// end. A pattern with no method matches every method.
+/// A pattern a `Router` routes by: `[METHOD ][HOST]/PATH`, where a path
+/// segment `{name}` matches one segment, a last `{name...}` the rest of
+/// the path, and a last `{$}` only the end; a path that ends in `/`
+/// matches every path under it. A pattern with no method matches any.
 ///
 /// `P` is the route's path parameters: an anonymous struct with a field
 /// per wildcard, `Route<{id: Uuid}>` for `GET /posts/{id}`, or `Unit` for
@@ -2795,19 +2845,21 @@ end
 /// handler the parsed parameters and `Route.path_with` fills them into a
 /// link. The parameters are a type only: a `Route` holds its text.
 ///
-/// Two rules are stricter than Go's. The method is one of `Method`'s
-/// named variants, written in capitals as on the wire (`GET`, `HEAD`,
-/// `POST`, `PUT`, `PATCH`, `DELETE`, `CONNECT`, `OPTIONS`, `TRACE`), so a
-/// misspelled `GETX` is an error rather than a route no request reaches;
-/// `Route.with_method` takes any other. A `{` or `}` appears only in a
-/// wildcard that is a whole segment, so `/token}` is an error rather than
-/// a literal segment; a path that needs a brace percent-encodes it
-/// (`%7B`, `%7D`).
+/// The method is one of `Method`'s named variants, written in capitals as
+/// on the wire (`GET`, `HEAD`, `POST`, `PUT`, `PATCH`, `DELETE`,
+/// `CONNECT`, `OPTIONS`, `TRACE`), so a misspelled `GETX` is an error
+/// rather than a route no request reaches; `Route.with_method` takes any
+/// other. A `{` or `}` appears only in a wildcard that is a whole segment,
+/// so `/token}` is an error rather than a literal segment; a path that
+/// needs a brace percent-encodes it (`%7B`, `%7D`). A wildcard's name is
+/// a letter or `_`, then letters, digits or `_`, and appears once. The
+/// host has no wildcard. Unless the method is `CONNECT`, the path is
+/// clean: no `.` or `..` segment and no `//`.
 ///
-/// A `Route` literal is checked when the program is checked, so a pattern
-/// that breaks these rules, that Go refuses, or whose wildcards are not
-/// `P`'s fields is a compile error at the literal. A pattern built at run
-/// time goes through `Route.parse`.
+/// A `Route` literal is checked when the program is checked, so a pattern that
+/// breaks these rules or whose wildcards are not `P`'s fields is a compile
+/// error at the literal. A pattern built at run time goes through
+/// `Route.parse`.
 //! assert "${Route"GET /users/{id}"}" == "GET /users/{id}"
 //! assert Route.parse<Unit>("GET /a/{x}/{x}") |> Result.is_err()
 //! assert Route.parse<{rest: String}>("/files/{rest...}/more") |> Result.is_err()
@@ -2820,10 +2872,10 @@ derive Equatable for Route
 derive Hashable for Route
 
 impl Route<P>
-    /// The route `text` names, or `Error.Pattern` with the reason when
-    /// it breaks `Route`'s rules, Go's `ServeMux` refuses it, or its
-    /// wildcards are not `P`'s fields. The method, when there is one, is a
-    /// standard one in capitals; a near miss names the method it is close
+    /// The route `text` names, or `Error.Pattern` with the reason
+    /// when it breaks `Route`'s rules or its wildcards are not
+    /// `P`'s fields. The method, when there is one, is a standard
+    /// one in capitals; a near miss names the method it is close
     /// to.
     //! assert Route.parse("POST /orders") == Ok(Route"POST /orders")
     //! assert Err(Error.Pattern{reason:}) = Route.parse<Unit>("GET users")
@@ -2861,7 +2913,7 @@ impl Route<P>
     /// `Route` literal does not take: one `Method.Other` holds, such as
     /// WebDAV's `PROPFIND`. A standard method is written in the literal,
     /// `Route"GET /files"`. The path keeps the literal's rule for
-    /// braces, the method is a token Go accepts, with no space, and the
+    /// braces, the method is an HTTP token (RFC 9110), and the
     /// wildcards are `P`'s fields, as `Route.parse` holds them.
     //! import std::http.{Body, Method, Request, Response, Route, Router}
     //! import std::http::testing
@@ -3374,13 +3426,13 @@ impl Display for Route<P>
     end
 end
 
-/// Routes requests to handlers by pattern, with the rules of Go's
-/// `ServeMux`: `[METHOD ][HOST]/PATH`, where a path segment `{name}`
-/// matches one segment, a last `{name...}` the rest of the path, and
-/// `{$}` only the end. The most specific pattern wins; `GET` also matches
-/// `HEAD`. A request whose path is not clean, or that lacks a trailing
-/// slash a pattern has, is redirected; one whose path matches only under
-/// another method gets 405 with `Allow`; anything else gets 404.
+/// Routes requests to handlers by `Route` pattern. When several patterns match
+/// a request, the most specific wins: the one that matches only some of the
+/// requests another matches. Where neither is more specific, the one with a
+/// host wins. `GET` also matches `HEAD`. A request whose path is not clean, or
+/// that lacks a trailing slash a pattern has, is redirected; one whose path
+/// matches only under another method gets 405 with `Allow`; anything else gets
+/// 404.
 //! import std::http.{Body, Method, Request, Response, Route, Router, Status}
 //! import std::http::testing
 //!
@@ -3409,11 +3461,11 @@ pub struct Router
 end
 
 impl Router
-    /// A router over `routes`, each a route and its handler from
-    /// `Route.to` or `Route.to_with`, in order. A pattern that conflicts
-    /// with an earlier one, matching the same requests with neither more
-    /// specific, is `Error.Pattern`, where Go's `Handle` panics. Each
-    /// pattern on its own was checked when it became a `Route`.
+    /// A router over `routes`, each a route and its handler from `Route.to` or
+    /// `Route.to_with`, in order. A pattern that conflicts with an earlier one,
+    /// matching the same requests with neither more specific, is
+    /// `Error.Pattern`. Each pattern on its own was checked when it became a
+    /// `Route`.
     //! import std::http.{Error, Response, Route, Router}
     //!
     //! conflict = Router.new(
@@ -3428,8 +3480,8 @@ impl Router
         Ok(Router{mux:, handlers: routes |> Iter.map(fn e -> e.serve) |> Iter.to_list()})
     end
 
-    /// The pattern that matches `request`, or `None` when none does, as
-    /// Go's `ServeMux.Handler` finds it.
+    /// The pattern that matches `request`, as `Router.serve` chooses it, or
+    /// `None` when none does.
     pub fn find(router: Router, request: Request) -> Option<String>
         case Router.route(router, request)
             ["match", _, pattern, ..] -> Some(pattern)
@@ -3718,11 +3770,11 @@ end
 impl CrossOrigin
     /// Whether `request` passes: a safe method passes; then a
     /// `Sec-Fetch-Site` of `same-origin` or `none`, or else an `Origin`
-    /// whose host is the request's `Host`, or none at all (not a browser);
-    /// and any request from a trusted origin. An empty header counts as
-    /// missing. The bypass patterns are `cross_origin_protection`'s to
-    /// apply. The check is Go's `CrossOriginProtection.Check`, with its
-    /// reasons.
+    /// whose host is the request's `Host`, or none at all (not a
+    /// browser); and any request from a trusted origin. An empty header
+    /// counts as missing. The bypass patterns are
+    /// `cross_origin_protection`'s to apply. A request that fails is
+    /// `Error.CrossOrigin` with the reason.
     //! import std::http.{CrossOrigin, Method, Origin, Request}
     //! import std::http::testing
     //!
@@ -4286,9 +4338,8 @@ end
 ///
 /// A `Body.Stream` is compressed as it is read, and a `Body.Produce` as
 /// it writes, each `Writer.flush` passing what it wrote so far to the
-/// client, so server-sent events still arrive one by one. Go's standard
-/// library has no brotli encoder, so `compress` writes only gzip; serve
-/// `.br` files precompressed (`serve_embedded`).
+/// client, so server-sent events still arrive one by one. `compress`
+/// writes only gzip; serve `.br` files precompressed (`serve_embedded`).
 //! import std::http.{self, Body, Method, Request, Response, Status}
 //! import std::http::testing
 //!
@@ -4359,7 +4410,11 @@ fn compressed(request: Request, response: Response, options: Compress) -> Respon
 
         .Stream(r) ->
             if Headers.has(headers, "Content-Type") and compressible(headers) then
-                gzip_response(varied, headers, Body.Stream(http_host.gzip_reader(r, options.level)))
+                gzip_response(
+                    varied,
+                    headers,
+                    Body.Stream(compression.encoding_reader(.Gzip, r, gzip_level(options.level))),
+                )
             else
                 varied
             end
@@ -4367,7 +4422,7 @@ fn compressed(request: Request, response: Response, options: Compress) -> Respon
         .Produce(produce) ->
             if Headers.has(headers, "Content-Type") and compressible(headers) then
                 body = Body.Produce(fn w ->
-                    gz = http_host.gzip_writer(w, options.level)
+                    gz = compression.writer(.Gzip, w, gzip_level(options.level))
                     produced = produce(gz)
                     closed = Writer.close(gz)
                     Result.flat_map(produced, fn _: Unit -> closed)
@@ -4394,9 +4449,18 @@ fn compressed(request: Request, response: Response, options: Compress) -> Respon
                 gzip_response(
                     varied,
                     sniffed,
-                    Body.Bytes(http_host.gzip_bytes(data, options.level)),
+                    Body.Bytes(compression.encode(.Gzip, data, gzip_level(options.level))),
                 )
             end
+    end
+end
+
+/// `Compress.level` as std::compress takes it: 1 to 9, and the default
+/// for any other.
+fn gzip_level(level: Int) -> Level
+    case LevelNumber.try_from(level)
+        Some(n) -> .Custom(n)
+        None    -> .Default
     end
 end
 
@@ -4482,10 +4546,13 @@ end
 /// returns at the first byte that differs and so tells an attacker by its
 /// timing how much of a guess was right. Comparing SHA-256 digests keeps
 /// the lengths equal, so the time depends on neither, and checking both
-/// before combining them keeps a right user from showing either.
+/// before combining them keeps a right user from showing either. The
+/// password reaches `check` as a std::secret `Secret`, and `Secret.expose`
+/// gives its text.
 //! import std::hash
 //! import std::http.{self, Body, Method, Request, Response, Status}
 //! import std::http::testing
+//! import std::secret.Secret
 //!
 //! same =
 //!     fn given: String, expected: String ->
@@ -4496,9 +4563,9 @@ end
 //!     end
 //!
 //! admin_only =
-//!     fn user: String, password: String ->
+//!     fn user: String, password: Secret ->
 //!         user_ok = same(user, "admin")
-//!         password_ok = same(password, "s3cret")
+//!         password_ok = same(Secret.expose(password), "s3cret")
 //!         user_ok and password_ok
 //!     end
 //!
@@ -4512,10 +4579,13 @@ end
 //! assert Headers.get(refused.headers, "WWW-Authenticate")
 //!     == Some("Basic realm=\"admin\", charset=\"UTF-8\"")
 //!
-//! assert app(Request.with_basic_auth(visit, "admin", "guess")).status == Status.unauthorized
-//! assert Response.text(app(Request.with_basic_auth(visit, "admin", "s3cret"))) == Ok("hello admin")
+//! guess = Request.with_basic_auth(visit, "admin", Secret.new("guess"))
+//! assert app(guess).status == Status.unauthorized
+//!
+//! right = Request.with_basic_auth(visit, "admin", Secret.new("s3cret"))
+//! assert Response.text(app(right)) == Ok("hello admin")
 //
-pub fn basic_auth(handler: Handler, realm: String, check: (String, String) -> Bool) -> (
+pub fn basic_auth(handler: Handler, realm: String, check: (String, Secret) -> Bool) -> (
     Request
 ) -> Response
     quoted = String.replace(realm, "\\", "\\\\") |> String.replace("\"", "\\\"")
@@ -5155,7 +5225,7 @@ fn failed(error: io.Error) -> Response
 end
 
 /// The media type of `data`, guessed from at most its first 512 bytes by
-/// the WHATWG MIME sniffing rules, as Go's `DetectContentType` guesses it:
+/// the WHATWG MIME sniffing rules:
 /// `text/plain; charset=utf-8` for text, `application/octet-stream` when
 /// nothing matches.
 //! assert http.detect_content_type(String.to_bytes("<html>")) == "text/html; charset=utf-8"
@@ -5198,7 +5268,7 @@ end
 
 derive Equatable for SameSite
 
-/// A cookie's `Max-Age`, in place of Go's 0 and negative codes.
+/// A cookie's `Max-Age` attribute.
 pub enum MaxAge
     /// No `Max-Age` attribute.
     Unset
@@ -5210,10 +5280,10 @@ end
 derive Equatable for MaxAge
 
 /// An HTTP cookie: what a `Set-Cookie` header sets or a `Cookie` header
-/// sends. `raw_expires`, `raw` and `unparsed` are set by parsing only. A
-/// parsed expiry of any year (the year 9999 is common for "never") is
-/// `expires`; one Go cannot parse leaves `expires` `None` and is kept in
-/// `raw_expires`.
+/// sends. `raw_expires`, `raw` and `unparsed` are set by parsing only. An
+/// expiry `Wed, 21 Oct 2015 07:28:00 GMT`, or with `21-Oct-2015` as its
+/// date, is `expires`, in any year (9999 is common for "never"); one in
+/// another form leaves `expires` `None` and is kept in `raw_expires`.
 pub struct Cookie
     name:  String
     value: String
@@ -5235,7 +5305,9 @@ end
 derive Equatable for Cookie
 
 impl Cookie
-    /// The cookies of a `Cookie` header's value, as Go's `ParseCookie`.
+    /// The cookies of a `Cookie` header's value, `name=value` pairs split
+    /// by `;`. An empty value, a pair with no `=`, a name that is not a
+    /// token or a value a cookie cannot hold is an `Err`.
     //! import std::http.Cookie
     //!
     //! names = Cookie.parse_header("a=1; b=2")! |> Iter.map(fn c -> c.name) |> Iter.to_list()
@@ -5247,8 +5319,8 @@ impl Cookie
         |> Result.map_err(fn reason -> Error.Protocol{reason:})
     end
 
-    /// The cookie of a `Set-Cookie` header's value, as Go's `ParseSetCookie`,
-    /// with its `expires` in UTC whatever zone the date names.
+    /// The cookie of a `Set-Cookie` header's value, `name=value` and then
+    /// its attributes, with its `expires` in UTC whatever zone the date names.
     //! import std::http.{Cookie, MaxAge}
     //!
     //! c = Cookie.parse_set_cookie("id=7; Path=/; Max-Age=60; Secure")!
@@ -5371,8 +5443,9 @@ impl Display for Cookie
     end
 end
 
-/// Where a client keeps cookies: Go's net/http/cookiejar, with no public
-/// suffix list. Give it to a client with `ClientOptions.cookies`.
+/// Where a client keeps cookies, by RFC 6265's rules but with no public
+/// suffix list, so a server at `a.co.uk` can set a cookie that `b.co.uk`
+/// is sent. Give it to a client with `ClientOptions.cookies`.
 pub struct CookieJar
     handle: http_host.Jar
 end
@@ -5411,7 +5484,8 @@ impl CookieJar
     end
 end
 
-/// What a server's connection is doing: Go's `ConnState`.
+/// What a server's connection is doing. `Hijacked` is one a response
+/// upgraded (`Response.upgrade`).
 pub enum ConnState
     New
     Active
@@ -5461,7 +5535,7 @@ fn take_requests(listener: Listener, handler: Handler, taken: List<Task<Unit>>) 
 end
 
 /// The request a reverse proxy received and the request it will send, for
-/// its `rewrite` function: Go's `ProxyRequest`.
+/// its `rewrite` function.
 pub struct ProxyRequest
     incoming: Request
     outgoing: Request
@@ -5470,7 +5544,7 @@ end
 impl ProxyRequest
     /// Sends the outgoing request to `target`: its scheme and host, its
     /// path joined before the request's, its query before the request's.
-    /// The `Host` sent is the target's. Go's `SetURL`.
+    /// The `Host` sent is the target's.
     pub fn set_url(proxy: ProxyRequest, target: Url) -> ProxyRequest
         out = proxy.outgoing
         incoming_url = out.url
@@ -5496,7 +5570,7 @@ impl ProxyRequest
 
     /// Sets `X-Forwarded-For` to the client's address (added to what an
     /// earlier proxy set), `X-Forwarded-Host` to the host it asked for and
-    /// `X-Forwarded-Proto` to `http` or `https`. Go's `SetXForwarded`.
+    /// `X-Forwarded-Proto` to `http` or `https`.
     pub fn set_x_forwarded(proxy: ProxyRequest) -> ProxyRequest
         incoming = proxy.incoming
 
@@ -5536,7 +5610,7 @@ fn join_paths(a: String, b: String) -> String
     end
 end
 
-/// How a reverse proxy forwards: Go's `ReverseProxy`. `rewrite` turns each
+/// How a reverse proxy forwards. `rewrite` turns each
 /// request it receives into the one it sends.
 pub struct ReverseProxy
     rewrite: (ProxyRequest) -> ProxyRequest
@@ -5550,17 +5624,17 @@ pub struct ReverseProxy
     /// How often the response is flushed to the client while it streams:
     /// `None` flushes it as it arrives only for a response of unknown
     /// length or an event stream, and otherwise at its end; zero flushes
-    /// after each write. Go's `FlushInterval`.
+    /// after each write.
     flush_interval: Option<Duration> = None
     /// Told each error the proxy meets: a request that failed, a copy that
-    /// broke. `None` writes them to standard error. Go's `ErrorLog`.
+    /// broke. `None` writes them to standard error.
     on_error_log: Option<(String) -> Unit> = None
 end
 
 impl ReverseProxy
     /// A proxy to one host: each request goes to `target`, its path joined
-    /// after the target's, with `X-Forwarded-*` set. Go's
-    /// `NewSingleHostReverseProxy`.
+    /// after the target's and its query joined to the target's, with
+    /// `X-Forwarded-*` set.
     pub fn to(target: Url) -> ReverseProxy
         ReverseProxy{
             rewrite: fn p -> ProxyRequest.set_url(p, target) |> ProxyRequest.set_x_forwarded(),
@@ -5592,15 +5666,27 @@ fn without_hop_headers(headers: Headers) -> Headers
     [..hop_headers, ..named] |> Iter.reduce(headers, fn h, name -> Headers.remove(h, name))
 end
 
+// The headers a proxy forwards: a request that came with no `User-Agent`
+// goes on with none, not the client's own.
+fn forwarded_headers(headers: Headers) -> Headers
+    kept = without_hop_headers(headers)
+
+    if Headers.has(kept, "User-Agent") then
+        kept
+    else
+        Headers.set(kept, "User-Agent", "")
+    end
+end
+
 /// A handler that forwards each request as `options` says and responds
-/// with the response, its connection headers removed: Go's
-/// `ReverseProxy.ServeHTTP`. The response streams to the client as it
-/// arrives, flushed as `flush_interval` says.
+/// with the response, its connection headers removed. A request with no
+/// `User-Agent` is forwarded with none. The response streams to the
+/// client as it arrives, flushed as `flush_interval` says.
 pub fn reverse_proxy(options: ReverseProxy) -> (Request) -> Response
     fn request ->
         outgoing = {
             ..request,
-            headers:     without_hop_headers(..),
+            headers:     forwarded_headers(..),
             request_uri: "",
         }
 
@@ -5706,9 +5792,9 @@ fn pump(r: Reader, w: Writer, every: Option<Duration>, flushed: Instant) -> Resu
     end
 end
 
-/// Records what Go's client reports while it sends the requests that name
-/// it in `Request.trace`: Go's `httptrace.ClientTrace`, as data rather than
-/// callbacks.
+/// Records what a client does while it sends the requests that name it
+/// in `Request.trace`, as a list of `TraceEvent`s to read after, rather
+/// than callbacks.
 pub struct Tracer
     handle: http_host.Handle
 end
@@ -5728,8 +5814,8 @@ impl Tracer
     end
 end
 
-/// One thing a client did while it sent a request: Go's `ClientTrace`
-/// hooks, each with its info's fields.
+/// One thing a client did while it sent a request, with what it knew
+/// then.
 pub enum TraceEvent
     /// It looked for a connection to `address` (`host:port`).
     GetConnection {address: String}
@@ -5906,8 +5992,8 @@ pub fn chunked_writer(w: Writer) -> Writer
     http_host.chunked_writer(w)
 end
 
-/// One part of a multipart body, read as it arrives: Go's
-/// `multipart.Part`. Reading the next part ends this one.
+/// One part of a multipart body, read as it arrives. Reading the next
+/// part ends this one.
 pub struct Part
     headers: Headers
     body:    Reader
@@ -5933,8 +6019,9 @@ impl Part
 end
 
 /// The parts of the multipart body `r` holds, separated by `boundary`, each
-/// read as the iteration reaches it: Go's `multipart.NewReader` and its
-/// `NextPart`, which decodes quoted-printable parts. An `Err` ends it.
+/// read as the iteration reaches it. A part sent as `quoted-printable`
+/// (`Content-Transfer-Encoding`) is decoded, that header removed. An `Err` ends
+/// it.
 //! import std::http
 //! import std::http.Part
 //! import std::io.Reader
@@ -5952,8 +6039,8 @@ pub fn multipart_parts(r: Reader, boundary: String) -> Iter<Result<Part, Error>>
     parts_of(http_host.multipart_reader(r, boundary, False))
 end
 
-/// `multipart_parts` with each part as it was sent, not decoded: Go's
-/// `NextRawPart`.
+/// `multipart_parts` with each part as it was sent: a quoted-printable
+/// part is not decoded.
 pub fn multipart_raw_parts(r: Reader, boundary: String) -> Iter<Result<Part, Error>>
     parts_of(http_host.multipart_reader(r, boundary, True))
 end
@@ -5982,7 +6069,7 @@ fn parts_of(reader: http_host.Handle) -> Iter<Result<Part, Error>>
     end)
 end
 
-/// The multipart form `r` holds, read whole: Go's `Reader.ReadForm`. A
+/// The multipart form `r` holds, read whole. A
 /// form larger than `max` bytes is `Error.BodyTooLarge`; no more than one
 /// byte past `max` is read.
 pub fn read_multipart_form(
@@ -6000,7 +6087,7 @@ pub fn read_multipart_form(
 end
 
 /// Writes `parts` to `w` as a multipart body separated by `boundary`, each
-/// as it comes, then the closing boundary: Go's `multipart.Writer`. The
+/// as it comes, then the closing boundary. The
 /// body's `Content-Type` is `multipart/form-data; boundary=` and the
 /// boundary.
 pub fn write_multipart(w: Writer, boundary: String, parts: List<FormPart>) -> Result<Unit, Error>

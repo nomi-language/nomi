@@ -299,10 +299,9 @@ func TestImplCollision_CrossModuleRejected(t *testing.T) {
 
 // TestImplCollision_SameFileRejected confirms the check catches a
 // duplicate (Iface, Type) pair declared twice within ONE file, not just
-// across modules — both impl blocks land in the same module's slice
-// of IfaceMethodImpls and detectImplCollisions groups them by receiver.
-// The collision check is BuildProject-scoped (BuildFileWithStdlib never
-// assembles IfaceMethodImpls), so this drives the entry file through the
+// across modules: detectImplCollisions groups the program's blocks by
+// interface and receiver wherever they are. The collision check is
+// BuildProject-scoped, so this drives the entry file through the
 // real BuildProject pipeline — the path that does assemble the index.
 func TestImplCollision_SameFileRejected(t *testing.T) {
 	entry := "impl Display for Int\n" +

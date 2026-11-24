@@ -337,6 +337,13 @@ func (idx *ProjectImplIndex) shownInterfaceFor(recv Type, it *InterfaceType, wit
 	if withArgs {
 		text = it.String()
 	}
+	return idx.shownInterfaceAs(recv, it, text)
+}
+
+// shownInterfaceAs is shownInterfaceFor with it written as text, its name
+// with the type arguments as the diagnostic renders them
+// (distinctTypeTexts).
+func (idx *ProjectImplIndex) shownInterfaceAs(recv Type, it *InterfaceType, text string) string {
 	t, name := nominalReceiver(resolveTypeVar(recv))
 	origin, ok := nominalOrigin(t)
 	if idx == nil || t == nil || !ok {

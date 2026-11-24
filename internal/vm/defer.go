@@ -105,14 +105,16 @@ func (m *Machine) unwindDefers(fr *frame, v any, err error) (any, error) {
 }
 
 // invokeDeferred runs a registration under the runtime frame it was
-// registered in, and restores the activation's own afterwards. While the
-// task or deadline that frame answers to is stopping, the call runs on it
-// with no safe point (rt.Unstoppable), so a cleanup the stop unwinds through
-// runs to its end instead of stopping at its own first call.
+// registered in, and restores the activation's own afterwards. Once the
+// task or deadline that frame answers to has ended (rt.Frame.Ended), the
+// call runs on it with no safe point (rt.Unstoppable), so a cleanup the stop
+// unwinds through runs to its end instead of stopping at its own first call.
+// The context is read rather than the stop flag, which a task woken from a
+// wait by its cancel can reach its cleanup before.
 func (m *Machine) invokeDeferred(fr *frame, d pendingDefer) (any, error) {
 	current := fr.runtime
 	fr.runtime = d.runtime
-	if fr.runtime.Stopping() {
+	if fr.runtime.Ended() {
 		fr.runtime = rt.Unstoppable(fr.runtime)
 	}
 	defer func() { fr.runtime = current }()

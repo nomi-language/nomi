@@ -2,13 +2,17 @@
 
 The Postgres driver for Nomi's `std/sql`, written in Nomi: it speaks
 Postgres's frontend/backend protocol (version 3) over `std::net` and
-`std::tls`, so a program that uses it needs no Go toolchain, no C
-compiler and no `libpq`. `postgres.pool(url)` returns a `Conn`, std/sql's
+`std::tls`, so a program that uses it needs no C compiler and no
+`libpq`. `postgres.pool(url)` returns a `Conn`, std/sql's
 interface, so code written against `Conn` runs on it unchanged.
 
 ```sh
 nomi add github.com/nomi-language/nomi/lib/sql/postgres
 ```
+
+A release `nomi` adds it with that command; before the first release, or with a
+`nomi` built from source, add it by its directory in a checkout of the
+repository: `nomi add ../nomi/lib/sql/postgres`.
 
 ```nomi
 import
@@ -66,7 +70,16 @@ them into a project's `[effects]` tables.
   `sslkey`, `connect_timeout` (seconds) and the pool's three; any other key
   is a setting each connection starts with (`application_name`,
   `search_path`, `client_encoding`).
+- A `host` that starts with `/` is a directory, and the driver connects
+  over the Unix socket in it, `<host>/.s.PGSQL.<port>`, as libpq does:
+  `postgres:///notes?host=/var/run/postgresql`. Such a connection uses no
+  TLS, whatever `sslmode` says.
 - A password is sent as the server asks: SCRAM-SHA-256, MD5, or in clear.
+  The parsed `Config` holds it as a `std/secret` `Secret`, so `dbg`, a log
+  line and a failed test's report show `Secret(<hidden>)` in its place. The
+  connection string itself is a `String` and shows it. Over TLS, SCRAM is
+  bound to the connection (SCRAM-SHA-256-PLUS over `tls-server-end-point`)
+  when the server offers it, as libpq does.
 - `Conn.begin_transaction` is `BEGIN` on a connection the transaction
   holds until it commits or rolls back; on a transaction it is a
   savepoint, which `commit` releases and `rollback` rolls back to. A
@@ -170,7 +183,7 @@ list of ids, and an array column reads as a `List<T>`
 | `postgres.nomi` | The public API: `pool`, `connect`, `scratch`, `listen`, `Listener`, and `Conn` for `PgConn`. |
 | `config.nomi` | Connection strings, read into a `Config`. |
 | `messages.nomi` | Each protocol message as bytes, and `decode` of the server's. |
-| `auth.nomi` | SCRAM-SHA-256 and MD5, as functions from the server's message to the client's. |
+| `auth.nomi` | SCRAM-SHA-256, with or without channel binding, and MD5, as functions from the server's message to the client's. |
 | `types.nomi` | Each type's binary and text form, by OID. |
 | `failures.nomi` | The `sql.Error` of each SQLSTATE. |
 | `cell.nomi` | State several tasks share one at a time, which a stopped task never leaves taken. |
@@ -193,22 +206,17 @@ examples.
   `0A000`.
 - Arrays of more than one dimension, and composite values, which are
   refused with a message.
-- SCRAM-SHA-256-PLUS: std::tls gives no channel-binding data.
-  `sslmode=verify-ca` checks the server's host name too, as `verify-full`
+- `sslmode=verify-ca` checks the server's host name too, as `verify-full`
   does.
-- Unix-domain sockets, a URL naming several hosts, the `PG*` environment
-  variables and `.pgpass`.
+- A URL naming several hosts, the `PG*` environment variables and
+  `.pgpass`.
 - `postgres.scratch()` on Windows.
 
 ## Tests
 
-```sh
-nomi test lib/sql/postgres
-```
-
-The tests run on `postgres.scratch()`'s throwaway server, so they need
-`initdb` and `postgres` on `PATH`. Without them the tests fail, since a
-Nomi test cannot skip itself; `TestLibModules` (`cmd/nomi`) skips this
-module instead. `wire_test.nomi` answers a client's password with a server
-written in the test, for each method, and `messages_test.nomi` and
+`nomi test` in this directory runs the tests on `postgres.scratch()`'s
+throwaway server, so they need `initdb` and `postgres` on `PATH`. Without
+them the tests fail, since a Nomi test cannot skip itself.
+`wire_test.nomi` answers a client's password with a server written in the
+test, for each method, and `messages_test.nomi` and
 `types_test.nomi` read recorded bytes.

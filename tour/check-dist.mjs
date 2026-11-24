@@ -5,7 +5,7 @@
 //
 // Pages rejects any single file over 25 MiB, and it does so only at the end of
 // `wrangler pages deploy`, after the whole build has run. The Nomi wasm is
-// about 27 MiB uncompressed, so scripts/build-tour-wasm.sh stages it as
+// about 77 MiB uncompressed, so scripts/build-tour-wasm.sh stages it as
 // nomi.wasm.gz and run-worker.js decompresses it in the browser. This check
 // fails on:
 //   1. any file in dist/ over 25 MiB, naming each one and its size;

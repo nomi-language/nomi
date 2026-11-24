@@ -256,14 +256,15 @@ func TestTemplateDeclNamesTheDeclarationAnInstanceIsMadeFrom(t *testing.T) {
 }
 
 // TestLowerFileMissesARenderingOfAnotherFilesImplementers lowers on its
-// own each file of a program whose named.nomi derives Debug for a struct
+// own each file of a program whose named.nomi writes Debug for a struct
 // holding Display values, which main.nomi implements and boxes into. The
-// Render named.nomi's derived Debug body builds names main.nomi's impl,
-// which named.nomi's check never reads, and main.nomi's implementers are
-// what named.nomi's kept object names: each file must miss (debugMiss),
-// rather than lower a Render that names none or link a stale one. Without
-// the derive, Holder renders by its shape at main.nomi's call, and that
-// Render names only main.nomi's own implementers, so no file misses.
+// Render named.nomi's Debug body builds names main.nomi's impl, which
+// named.nomi's check never reads, and main.nomi's implementers are what
+// named.nomi's kept object names: each file must miss (debugMiss), rather
+// than lower a Render that names none or link a stale one. A derived Debug
+// writes no body, so Holder renders by its shape at main.nomi's call, and
+// that Render names only main.nomi's own implementers, so no file misses:
+// the impl here is written, to keep the renderer in the other file.
 func TestLowerFileMissesARenderingOfAnotherFilesImplementers(t *testing.T) {
 	dir := t.TempDir()
 	files := map[string]string{
@@ -271,7 +272,11 @@ func TestLowerFileMissesARenderingOfAnotherFilesImplementers(t *testing.T) {
     held: List<Display>
 end
 
-derive Debug for Holder
+impl Debug for Holder
+    fn inspect(value: Holder) -> String
+        "Holder(${Debug.inspect(value.held)})"
+    end
+end
 `,
 		"main.nomi": `import
     std::io

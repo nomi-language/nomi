@@ -59,6 +59,7 @@ var rtHeld = map[string]string{
 	"wasm/host.Live":         typeIdentity(reflect.TypeFor[rt.WasmInstance]()),
 	"wasm/host.Memory":       typeIdentity(reflect.TypeFor[rt.WasmMemory]()),
 	"bytes.Builder":          typeIdentity(reflect.TypeFor[rt.BytesBuilder]()),
+	"hash.Hasher":            typeIdentity(reflect.TypeFor[rt.Hasher]()),
 }
 
 // rtGenericBase is the generic type an rt instantiation instantiates, or "".

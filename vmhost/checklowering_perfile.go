@@ -3,8 +3,6 @@ package vmhost
 import (
 	"bytes"
 	"slices"
-	"sort"
-	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -24,9 +22,10 @@ import (
 // interface, by the document's path. The next lowering of the document,
 // when the program holds the same files and at most maxAnalyzedRelowered
 // of them changed text, lowers those files on their own from the analysis,
-// with the files their interface or impl changes reach (importersToo), and
+// with the files their interface or impl changes reach (readersToo), and
 // links them with the kept objects of the others (irbuild.LowerFileAmong),
-// as `nomi check` relinks a kept program after an edit (filerecord.go). The analysis already checked the
+// as `nomi check` relinks a kept program after an edit (filerecord.go).
+// The analysis already checked the
 // whole program, so the program's reductions over bodies are in its
 // diagnostics, and a program with any diagnostic is not lowered from its
 // analysis at all.
@@ -120,9 +119,9 @@ type keptAnalyzed struct {
 	hasTests bool
 	// texts holds each file's text, and names its module name, by path.
 	texts, names map[string]string
-	// headers holds the project files each of a file's interface impls
-	// names in its header, by path (analysis.ImplHeaderFiles).
-	headers map[string][][]string
+	// headers holds each of a file's interface impls' headers, by path
+	// (analysis.FileImplHeaders).
+	headers map[string][]analysis.ImplHeader
 }
 
 // analyzedTexts answers each file's text of the program a analyzes, the
@@ -159,34 +158,20 @@ func keepAnalyzed(abs, src string, a *analyzedlowering.Analyzed, prog *irbuild.P
 		texts: analyzedTexts(abs, src, a), names: names, headers: implHeadersOf(prog)})
 }
 
-// implHeadersOf answers the project files each interface impl of each of
-// prog's files names in its header, by path.
-func implHeadersOf(prog *irbuild.Program) map[string][][]string {
+// implHeadersOf answers the headers of each of prog's files' interface
+// impls, by path.
+func implHeadersOf(prog *irbuild.Program) map[string][]analysis.ImplHeader {
 	keyOf := map[string]string{}
 	for _, m := range prog.Modules {
 		keyOf[m.Path] = m.Name
 	}
-	out := map[string][][]string{}
+	out := map[string][]analysis.ImplHeader{}
 	for _, m := range prog.Modules {
 		if m.FA != nil {
-			out[m.Path] = analysis.ImplHeaderFiles(m.FA, m.Nodes, func(path string) string { return keyOf[path] })
+			out[m.Path] = analysis.FileImplHeaders(m.FA, m.Nodes, func(path string) string { return keyOf[path] })
 		}
 	}
 	return out
-}
-
-// sameHeaderLists reports whether two files' impl header lists name the
-// same files, impl by impl, whatever their order.
-func sameHeaderLists(a, b [][]string) bool {
-	key := func(hs [][]string) []string {
-		out := make([]string, len(hs))
-		for i, h := range hs {
-			out[i] = strings.Join(h, "\x00")
-		}
-		sort.Strings(out)
-		return out
-	}
-	return slices.Equal(key(a), key(b))
 }
 
 // relowerAnalyzed lowers the files of prog, the document's program from
@@ -233,8 +218,8 @@ func relowerAnalyzed(cfg config, abs, src string, a *analyzedlowering.Analyzed, 
 	// were lowered against, and the headers of the impls that came, went or
 	// changed, whose files see them without importing their file.
 	signature := map[string]bool{}
-	var movedImpls [][]string
-	var nowHeaders map[string][][]string
+	var movedImpls []analysis.ImplHeader
+	var nowHeaders map[string][]analysis.ImplHeader
 	for path := range changed {
 		name := st.names[path]
 		was, wasHash, wasNodes, ok1 := parsedInterface(name, path, st.texts[path])
@@ -253,7 +238,7 @@ func relowerAnalyzed(cfg config, abs, src string, a *analyzedlowering.Analyzed, 
 				if !known {
 					return nil, false
 				}
-				if !sameHeaderLists(was, nowHeaders[path]) {
+				if !analysis.SameImplHeaders(was, nowHeaders[path]) {
 					movedImpls = append(append(movedImpls, was...), nowHeaders[path]...)
 				}
 			}
@@ -262,7 +247,12 @@ func relowerAnalyzed(cfg config, abs, src string, a *analyzedlowering.Analyzed, 
 		moved[path] = !bytes.Equal(was, now)
 		oldDecls[path] = irbuild.DeclFingerprints(wasNodes)
 	}
-	paths, ok := importersToo(prog, changed, signature, seersOf(prog, movedImpls))
+	paths, ok := readersToo(prog, changed, signature, movedImpls, func() map[string][]analysis.ImplHeader {
+		if nowHeaders == nil {
+			nowHeaders = implHeadersOf(prog)
+		}
+		return nowHeaders
+	})
 	if !ok {
 		return nil, false
 	}

@@ -101,7 +101,7 @@ func (c *checker) checkShapeElem(t shapeTarget, item ast.Node, elem Type, what s
 		return
 	}
 	line, col := nodeLineCol(item)
-	if !c.argMatchesParam(ty, elem, c.recPos(line, col), RecordingKindCallSite) {
+	if !c.argMatchesParam(ty, elem, c.site(line, col, RecordingKindCallSite)) {
 		c.addMismatch(line, col, elem, ty, c.typef("%s: expected %s, got %s", what, elem, ty))
 	}
 }

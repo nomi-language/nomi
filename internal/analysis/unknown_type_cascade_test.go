@@ -370,7 +370,7 @@ func TestUnknownType_AHealthyTypeBesideItStillReports(t *testing.T) {
 		"line 31, col 9: Point does not implement Comparable (required by `where T: Comparable`)",
 		"line 32, col 9: Point does not implement Display (required by `where T: Display`)",
 		"line 33, col 15: argument 1: expected Display, got Point",
-		"line 34, col 12: no impl of `Display` for `Point` (required via call site)",
+		"line 34, col 12: no impl of `Display` for `Point` (required to interpolate it)",
 	}
 	var got []string
 	for _, e := range errs {

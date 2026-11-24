@@ -2,6 +2,7 @@ package stdhttp_test
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"fmt"
 	"io"
@@ -175,6 +176,87 @@ fn main()
 end
 `, "BASE", s.URL), "CLOSED", closed))
 	want := "200 OK hello moved Some(/hello)\n302 Found Some(/hello)\ntoo many 4\ntimeout True\ntoo large 10\nconnect\nstreamed Ok(100)\n"
+	if got != want {
+		t.Fatalf("got:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+// gzipped is n zero bytes, gzipped.
+func gzipped(t *testing.T, n int) []byte {
+	t.Helper()
+	var packed bytes.Buffer
+	w, _ := gzip.NewWriterLevel(&packed, gzip.BestCompression)
+	if _, err := w.Write(make([]byte, n)); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return packed.Bytes()
+}
+
+// A client's max_body limits a fetched body by its size once decoded: a
+// gzip response of a few kilobytes that expands to a megabyte, and one of
+// about 65 KiB that expands past the 64 MiB default, are BodyTooLarge, as
+// a plain body past the limit is. A larger limit on the client, or on one
+// fetch by the client with its options updated, reads it, and a streamed
+// body is read to its end whatever the limit.
+func TestClient_MaxBodyLimitsTheDecodedBody(t *testing.T) {
+	mega := gzipped(t, 1<<20)
+	past := gzipped(t, 64<<20+1)
+	serve := func(packed []byte) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			if r.Header.Get("Accept-Encoding") != "gzip" {
+				http.Error(w, "the client did not ask for gzip", http.StatusBadRequest)
+				return
+			}
+			w.Header().Set("Content-Encoding", "gzip")
+			w.Write(packed)
+		}
+	}
+	mux := http.NewServeMux()
+	mux.HandleFunc("/mega", serve(mega))
+	mux.HandleFunc("/past", serve(past))
+	mux.HandleFunc("/plain", func(w http.ResponseWriter, r *http.Request) {
+		w.Write(make([]byte, 2000))
+	})
+	s := httptest.NewServer(mux)
+	t.Cleanup(s.Close)
+	got := run(t, strings.ReplaceAll(`import std::http
+import std::http.{Client, ClientOptions, Error, Request, Response, StreamedResponse}
+import std::io
+import std::url.Url
+
+fn size(r: Result<Response, Error>) -> String
+    case r
+        Ok(response) -> "${response.status} ${Response.bytes(response) |> Result.map(Bytes.length)}"
+        Err(e) -> "${e}"
+    end
+end
+
+fn main()
+    base = Url.parse("BASE")!
+    small = Client.new(ClientOptions{max_body: Some(1000)})
+    io.print(size(Client.get(small, Url.join_path(base, ["mega"]))))
+    io.print(size(Client.get(small, Url.join_path(base, ["plain"]))))
+    io.print(size(http.get(Url.join_path(base, ["past"]))))
+    io.print(size(http.get(Url.join_path(base, ["mega"]))))
+    raised = {..small, options: {.., max_body: Some(1_048_576)}}
+    io.print(size(Client.get(raised, Url.join_path(base, ["mega"]))))
+    unlimited = Client.new(ClientOptions{max_body: None})
+    io.print(size(Client.get(unlimited, Url.join_path(base, ["past"]))))
+    streamed = Client.stream(small, Request{url: Url.join_path(base, ["mega"])})!
+    defer StreamedResponse.close(streamed)
+    io.print("streamed ${io.Reader.read_all(streamed.body) |> Result.map(Bytes.length)}")
+end
+`, "BASE", s.URL))
+	want := "the body is larger than 1000 bytes\n" +
+		"the body is larger than 1000 bytes\n" +
+		"the body is larger than 67108864 bytes\n" +
+		"200 OK Ok(1048576)\n" +
+		"200 OK Ok(1048576)\n" +
+		"200 OK Ok(67108865)\n" +
+		"streamed Ok(1048576)\n"
 	if got != want {
 		t.Fatalf("got:\n%s\nwant:\n%s", got, want)
 	}

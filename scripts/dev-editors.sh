@@ -2,7 +2,7 @@
 # dev-editors.sh: make this machine's editors follow this checkout.
 #
 #   scripts/dev-editors.sh            everything below
-#   scripts/dev-editors.sh cli        go install nomi and nomi-lsp from this checkout
+#   scripts/dev-editors.sh cli        go install nomi from this checkout
 #   scripts/dev-editors.sh nvim       regenerate the Neovim queries and compile
 #                                     editors/nvim/parser/nomi.so, which a plugin
 #                                     loaded from this checkout (lazy.nvim `dir =`) uses
@@ -14,8 +14,9 @@
 #                                     with `code` (make install-vscode)
 #
 # Several targets may be named at once. An editor that is not installed is
-# skipped. This is the setup for working on Nomi; `make install-nvim` and
-# `make install-helix` instead copy a snapshot for people who only use it.
+# skipped. This is the setup for working on Nomi; `nomi editor install`
+# (`make install-nvim`, `make install-helix` and the others from a checkout)
+# instead copies a snapshot for people who only use it.
 # scripts/git-hooks/post-merge runs this after a merge into main, or into a
 # branch listed in git config nomi.editorBranches.
 
@@ -39,15 +40,15 @@ run() { # label command...
 
 # On a Mac with Xcode's command line tools, link with the system linker,
 # which writes chained fixups: nomi reaches main about 1 ms sooner. The
-# Makefile's build-cli and build-lsp make the same choice and say why.
+# Makefile's build-cli makes the same choice and says why.
 do_cli() {
   local env=() flags=()
   if [[ "$(uname -s)" == Darwin ]] && xcode-select -p >/dev/null 2>&1; then
     env=(CGO_ENABLED=1)
     flags=(-ldflags=-linkmode=external)
   fi
-  run "go install" env ${env[@]+"${env[@]}"} go install -C "$ROOT" ${flags[@]+"${flags[@]}"} ./cmd/nomi ./cmd/nomi-lsp &&
-    echo "dev-editors: installed nomi and nomi-lsp from $ROOT"
+  run "go install" env ${env[@]+"${env[@]}"} go install -C "$ROOT" ${flags[@]+"${flags[@]}"} ./cmd/nomi &&
+    echo "dev-editors: installed nomi from $ROOT"
 }
 
 do_nvim() {
@@ -59,8 +60,8 @@ do_nvim() {
   run "Neovim queries" "$ROOT/scripts/sync-nvim-runtime.sh"
   local snapshot="${XDG_DATA_HOME:-$HOME/.local/share}/nvim/site/pack/nomi"
   if [[ -e "$snapshot" ]]; then
-    echo "dev-editors: $snapshot holds a snapshot install (make install-nvim)." >&2
-    echo "  Neovim loads its parser beside this checkout's and it goes stale; remove it." >&2
+    echo "dev-editors: $snapshot holds a snapshot install (nomi editor install nvim)." >&2
+    echo "  Neovim loads its parser beside this checkout's and it goes stale; run \`nomi editor uninstall nvim\`." >&2
   fi
 }
 
@@ -96,6 +97,15 @@ do_vscode() {
     echo "dev-editors: installed the VS Code extension; reload any open VS Code window"
 }
 
+# zed_extension_stale reports whether the dev extension's WebAssembly is
+# missing or older than the Rust it is built from, which Zed compiles only
+# on "install dev extension": a stale one keeps running the old code.
+zed_extension_stale() {
+  local zed="$ROOT/editors/zed"
+  [[ ! -f "$zed/extension.wasm" ]] ||
+    [[ -n "$(find "$zed/src" "$zed/Cargo.toml" "$zed/Cargo.lock" -newer "$zed/extension.wasm" -print -quit)" ]]
+}
+
 do_zed() {
   local link
   link="$(zed_installed_link)"
@@ -123,6 +133,9 @@ do_zed() {
     rm -f "$ROOT/editors/zed/grammars/nomi.wasm"
     echo "dev-editors: the grammar changed. In Zed, run \"zed: install dev extension\""
     echo "  and select $ROOT/editors/zed again to rebuild it."
+  elif zed_extension_stale; then
+    echo "dev-editors: the extension's Rust changed since editors/zed/extension.wasm was built."
+    echo "  In Zed, run \"zed: install dev extension\" and select $ROOT/editors/zed again to rebuild it."
   else
     echo "dev-editors: Zed's dev extension follows this checkout"
   fi

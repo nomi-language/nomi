@@ -12,7 +12,7 @@
 // and it prints one JSON array of { stdout, stderr, exitCode, fatal,
 // events, fetches, files }, files decoded as UTF-8 text.
 import { pathToFileURL } from "node:url";
-import { fetches, setContentType } from "./browser.mjs";
+import { exitWhenDone, fetches, setContentType } from "./browser.mjs";
 
 const spec = JSON.parse(process.argv[2]);
 const results = [];
@@ -71,6 +71,4 @@ for (const r of spec.runs) {
   });
 }
 process.stdout.write(JSON.stringify(results));
-// A main-thread run that timed out keeps its timers; nothing else should
-// keep Node alive.
-process.exit(0);
+exitWhenDone();

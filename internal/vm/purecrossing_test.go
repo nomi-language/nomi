@@ -2,6 +2,7 @@ package vm
 
 import (
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/nomi-language/nomi/hostadapt"
@@ -97,12 +98,76 @@ func TestUnboundedCrossing_ReadsTheDeclarations(t *testing.T) {
 			}
 		}
 	}
-	for _, name := range []string{"strings.String.repeat", "decimal.Decimal.divide", "decimal.Decimal.pow", "hash.pbkdf2_sha256", "http/host.gunzip"} {
+	for _, name := range []string{"strings.String.repeat", "decimal.Decimal.divide", "decimal.Decimal.pow", "hash.pbkdf2_sha256", "compress/host.decode"} {
 		if !m.unboundedCrossing(name) {
 			t.Errorf("%s does not count as unbounded", name)
 		}
 	}
 	if unbounded == 0 {
 		t.Fatal("no stdlib adapter is marked Unbounded")
+	}
+}
+
+// TestSeededCrossing_ReadsTheDeclarations holds seededCrossing to the
+// declarations it reads: an intrinsic is seeded exactly when its table
+// entry says so, a stdlib adapter exactly when its row is marked Seeded,
+// and each seeded crossing is pure.
+func TestSeededCrossing_ReadsTheDeclarations(t *testing.T) {
+	m := New(ir.NewModule("seeded"), io.Discard)
+	for name, in := range m.hosts {
+		if m.seededCrossing(name) != in.seeded {
+			t.Errorf("intrinsic %s: seededCrossing says %v, its table entry %v", name, !in.seeded, in.seeded)
+		}
+		if in.seeded && !in.pure {
+			t.Errorf("intrinsic %s is seeded and not pure", name)
+		}
+	}
+	funcs, err := stdlibadapters.Bind(&hostadapt.Env{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name := range funcs {
+		if m.seededCrossing(name) != stdlibadapters.Seeded(name) {
+			t.Errorf("adapter %s: seededCrossing disagrees with its row", name)
+		}
+		if stdlibadapters.Seeded(name) && !m.pureCrossing(name) {
+			t.Errorf("adapter %s is seeded and not pure", name)
+		}
+	}
+	for _, name := range []string{hashValueName, "strings.String.hash", "bytes.Bytes.hash", "decimal.Decimal.hash", "dynamic.Dynamic.hash"} {
+		if !m.seededCrossing(name) {
+			t.Errorf("%s does not count as seeded", name)
+		}
+	}
+	for _, name := range []string{"Map.put", "Set.insert", "List.contains", "strings.String.repeat", "hash.digest_by", "hash.Hasher.update", "checksum.crc32_update"} {
+		if m.seededCrossing(name) {
+			t.Errorf("%s counts as seeded", name)
+		}
+	}
+}
+
+// TestCrossingName_NamesWhatTheProgramWrites holds the names a refusal
+// gives the intrinsics it can name, each one an effect or seeded
+// (crossingEffect), to what a program writes: no `vm.` key, which is the
+// machine's own name, reaches a message. `vm.hash_value` is named
+// `Hashable.hash`.
+func TestCrossingName_NamesWhatTheProgramWrites(t *testing.T) {
+	m := New(ir.NewModule("names"), io.Discard)
+	named := 0
+	for key := range m.hosts {
+		call, kind := m.crossingEffect(key, "f")
+		if kind == refuseNothing {
+			continue
+		}
+		named++
+		if strings.HasPrefix(strings.TrimPrefix(call, "f calls "), "vm.") {
+			t.Errorf("a refusal names the intrinsic %s %q, the machine's own name", key, call)
+		}
+	}
+	if named == 0 {
+		t.Fatal("a refusal names no intrinsic")
+	}
+	if call, kind := m.crossingEffect(hashValueName, "f"); kind != refuseSeeded || call != "f calls Hashable.hash" {
+		t.Errorf("a refusal names %s %q (%v), want %q, refused as seeded", hashValueName, call, kind, "f calls Hashable.hash")
 	}
 }

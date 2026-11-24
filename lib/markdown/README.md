@@ -7,6 +7,10 @@ Markdown for Nomi's `std/html`, written in Nomi: `markdown.render(text)` is
 nomi add github.com/nomi-language/nomi/lib/markdown
 ```
 
+A release `nomi` adds it with that command; before the first release, or with a
+`nomi` built from source, add it by its directory in a checkout of the
+repository: `nomi add ../nomi/lib/markdown`.
+
 ```nomi
 import
     std::html.Html
@@ -23,8 +27,7 @@ fn post(title: String, body: String) -> Html
 end
 ```
 
-The module is Nomi alone, so a program that uses it needs no Go toolchain,
-and every function it exports is pure.
+The module is Nomi alone, and every function it exports is pure.
 
 ## What it renders
 

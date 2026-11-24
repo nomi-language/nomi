@@ -18,10 +18,12 @@ import (
 //
 //   - the files of F's import closure, the prelude's closure being the
 //     shared stdlib's;
-//   - of every other file, the impls F can see: an impl whose interface,
-//     receiver and type arguments are all declared in F's closure, the
-//     stdlib or F (the relevant impl set). Such a
-//     file is given as its imports and those impl blocks alone.
+//   - of every other file, the impls F sees: an impl whose receiver is
+//     declared in F's closure, the stdlib or F (the relevant impl set),
+//     since an impl applies in every file of the program. Such a file is
+//     given as its imports and those impl blocks alone, and a file such an
+//     impl's header names that F does not import (its interface, declared
+//     in a file F never imports) is read whole, with its own closure.
 //
 // No other file of the program's module is read. A file of another module
 // (a dependency) is read from its source, as the program's check reads it.
@@ -310,10 +312,6 @@ func (pi *ProgramInterfaces) decodeForCheck(key string) []ast.Node {
 // once (implHeaders).
 func (pi *ProgramInterfaces) ImplHeadersOf(key string) []ImplHeader { return pi.implHeaders(key) }
 
-// Closure answers the module keys of the project files a check of the file
-// with key reads whole: the files it imports, and theirs.
-func (pi *ProgramInterfaces) Closure(key string) map[string]bool { return pi.closure(key) }
-
 // Keys answers the module keys of the files with an interface, sorted.
 func (pi *ProgramInterfaces) Keys() []string {
 	keys := make([]string, 0, len(pi.encoded))
@@ -357,48 +355,59 @@ func (pi *ProgramInterfaces) source(key string) []ast.Node {
 	return nodes
 }
 
-// closure answers the module keys of the files F's check reads whole: the
-// project files F imports, and theirs, F excluded.
+// closure answers the module keys of F's import closure: the project
+// files F's source imports, and theirs, F excluded.
 func (pi *ProgramInterfaces) closure(key string) map[string]bool {
-	seen := map[string]bool{}
-	queue := pi.projectKeys(key, importsOf(pi.source(key)))
-	for len(queue) > 0 {
-		k := queue[0]
-		queue = queue[1:]
-		if seen[k] || k == key {
-			continue
-		}
-		seen[k] = true
-		queue = append(queue, pi.imports[k]...)
-	}
-	return seen
+	closure := pi.withInterfaces(pi.programReads(key).ImportClosure(key), "")
+	delete(closure, key)
+	return closure
 }
 
 // ImplHeader is one impl of a file, as the files a check reads decide
 // whether it is relevant: the ordinal of the interface's top-level node
 // that brings it (an impl block, or the declaration a derive synthesizes
-// it from), and the module keys of the project files that declare its
-// interface, receiver and type arguments. A name declared outside the
-// project (the stdlib) or declared nowhere names no file.
+// it from), the module key of the project file that declares the type at
+// the head of its receiver, and the module keys of the project files that
+// declare its interface, receiver and type arguments. A name declared
+// outside the project (the stdlib), declared nowhere or a type parameter
+// names no file, and Receiver is "" then.
 type ImplHeader struct {
-	Node  int
-	Files []string
+	Node     int
+	Receiver string
+	Files    []string
 }
 
-// relevantTo reports whether h's impl is one a check that reads the files
-// in visible can see: each file its header names is among them.
-func (h ImplHeader) relevantTo(visible map[string]bool) bool {
-	for _, k := range h.Files {
-		if !visible[k] {
-			return false
-		}
+// RelevantTo reports whether h's impl is one a check that reads the files
+// in visible sees: its receiver is declared among them or outside the
+// project. An impl applies in every file of its program, so a file sees
+// every impl for a type it can name, whatever file declares the impl's
+// interface: an impl of an interface the file never imports still gives
+// `Type.method` a meaning, and a second meaning beside the file's own
+// (spec §12 *Function Name Collisions*, *Item kinds*).
+func (h ImplHeader) RelevantTo(visible map[string]bool) bool {
+	return h.Receiver == "" || visible[h.Receiver]
+}
+
+// SameImplHeaders reports whether two lists of a file's impl headers name
+// the same receivers and files, impl by impl, whatever their ordinals.
+func SameImplHeaders(a, b []ImplHeader) bool {
+	return slices.Equal(implHeaderKeys(a), implHeaderKeys(b))
+}
+
+// implHeaderKeys answers headers as text, impl by impl, sorted, whatever
+// their ordinals.
+func implHeaderKeys(headers []ImplHeader) []string {
+	out := make([]string, len(headers))
+	for i, h := range headers {
+		out[i] = h.Receiver + "\x01" + strings.Join(h.Files, "\x00")
 	}
-	return true
+	sort.Strings(out)
+	return out
 }
 
 // relevantImpls answers, for each project file outside visible, the
 // ordinals of its interface's nodes whose impls are relevant to a check
-// that reads visible (ImplHeader.relevantTo).
+// that reads visible (ImplHeader.RelevantTo).
 func (pi *ProgramInterfaces) relevantImpls(visible map[string]bool) map[string]map[int]bool {
 	out := map[string]map[int]bool{}
 	for _, key := range pi.Keys() {
@@ -406,7 +415,7 @@ func (pi *ProgramInterfaces) relevantImpls(visible map[string]bool) map[string]m
 			continue
 		}
 		for _, h := range pi.implHeaders(key) {
-			if !h.relevantTo(visible) {
+			if !h.RelevantTo(visible) {
 				continue
 			}
 			if out[key] == nil {
@@ -416,6 +425,19 @@ func (pi *ProgramInterfaces) relevantImpls(visible map[string]bool) map[string]m
 		}
 	}
 	return out
+}
+
+// reads answers what a check of the file with key reads of the program's
+// other files: closure, the files it reads whole (ProgramReads.Closure, the
+// file excluded), and relevant, the impls it sees of each file outside its
+// import closure, at their ordinals (relevantImpls). A file read whole
+// because an impl it sees names it keeps its entry in relevant, which
+// makes it a root of the build.
+func (pi *ProgramInterfaces) reads(key string) (closure map[string]bool, relevant map[string]map[int]bool) {
+	r := pi.programReads(key)
+	closure = pi.withInterfaces(r.Closure(key), "")
+	delete(closure, key)
+	return closure, pi.relevantImpls(r.ImportClosure(key))
 }
 
 // implHeaders answers the impl headers of the file with key, worked out
@@ -459,9 +481,10 @@ func ResolveImplHeaders(fa *FileAnalysis, nodes, iface []ast.Node, keyOf func(pa
 		ordinal[topLevelPos(n)] = i
 	}
 	var out []ImplHeader
-	add := func(pos Pos, files []string) {
+	add := func(pos Pos, h ImplHeader) {
 		if i, ok := ordinal[pos]; ok {
-			out = append(out, ImplHeader{Node: i, Files: files})
+			h.Node = i
+			out = append(out, h)
 		}
 	}
 	for _, n := range nodes {
@@ -469,25 +492,28 @@ func ResolveImplHeaders(fa *FileAnalysis, nodes, iface []ast.Node, keyOf func(pa
 		if !ok || block.Interface == nil {
 			continue
 		}
-		files := implHeaderFiles(fa, block, keyOf)
-		add(Pos{Line: block.Line, Col: block.Col}, files)
+		h := implHeaderOf(fa, block, keyOf)
+		add(Pos{Line: block.Line, Col: block.Col}, h)
 		if block.SynthOriginLine != 0 {
-			add(Pos{Line: block.SynthOriginLine, Col: block.SynthOriginCol}, files)
+			add(Pos{Line: block.SynthOriginLine, Col: block.SynthOriginCol}, h)
 		}
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].Node < out[j].Node })
 	return out
 }
 
-// implHeaderFiles answers the module keys of the project files that
-// declare what the header of block, an interface impl of the file fa
-// analyzes, names: its interface, receiver and type arguments, sorted.
-func implHeaderFiles(fa *FileAnalysis, block *ast.ImplBlock, keyOf func(path string) string) []string {
+// implHeaderOf answers the header of block, an interface impl of the file
+// fa analyzes, with no ordinal: the module key of the project file that
+// declares its receiver's head, and those of the project files that
+// declare what it names (its interface, receiver and type arguments),
+// sorted.
+func implHeaderOf(fa *FileAnalysis, block *ast.ImplBlock, keyOf func(path string) string) ImplHeader {
 	params := map[string]bool{}
 	for _, tp := range block.Generics {
 		params[tp.Name] = true
 	}
 	named := map[string]bool{}
+	receiver := ""
 	for _, te := range []ast.TypeExpr{block.Interface, block.Receiver} {
 		ast.Inspect(te, func(m ast.Node) bool {
 			var name string
@@ -515,6 +541,9 @@ func implHeaderFiles(fa *FileAnalysis, block *ast.ImplBlock, keyOf func(path str
 			}
 			if k := keyOf(sym.SourceFile); k != "" {
 				named[k] = true
+				if m == ast.Node(block.Receiver) {
+					receiver = k
+				}
 			}
 			return true
 		})
@@ -524,7 +553,7 @@ func implHeaderFiles(fa *FileAnalysis, block *ast.ImplBlock, keyOf func(path str
 		files = append(files, k)
 	}
 	sort.Strings(files)
-	return files
+	return ImplHeader{Receiver: receiver, Files: files}
 }
 
 // implicitTypeParam reports whether sym is a type parameter a generic
@@ -675,12 +704,8 @@ type FileCheck struct {
 // Check checks the file with key, which has an interface, against the
 // program's interfaces.
 func (pi *ProgramInterfaces) Check(key string) *FileCheck {
-	closure := pi.closure(key)
-	visible := map[string]bool{key: true}
-	for k := range closure {
-		visible[k] = true
-	}
-	return pi.check(key, closure, pi.relevantImpls(visible), nil)
+	closure, relevant := pi.reads(key)
+	return pi.check(key, closure, relevant, nil)
 }
 
 // CheckAfter is Check of the file with key after an edit of the files
@@ -691,20 +716,16 @@ func (pi *ProgramInterfaces) Check(key string) *FileCheck {
 // A file the edit can reach is an edited one, one that imports a file
 // built again, directly or through others, one whose analysis holds
 // something of a file built again, one the check now reads otherwise (whole
-// where it read its impls alone, or other impls of it), and one that can
-// see an impl of headers, the impls the edit added, removed or changed. The
+// where it read its impls alone, or other impls of it), and one whose
+// check reads an edited file or sees an impl of headers, the impls the edit
+// added, removed or changed (ProgramReads.Reads). The
 // entry of the program checks every file through its closure, so after a
 // leaf's signature edit it builds the leaf and its importers again rather
 // than every file. It answers Check when prev has nothing to give. A
 // caller with readers of prev's analyses holds the view lock: the build
 // hands the kept analyses its own program.
 func (pi *ProgramInterfaces) CheckAfter(key string, prev *FileCheck, edited []string, headers []ImplHeader) *FileCheck {
-	closure := pi.closure(key)
-	visible := map[string]bool{key: true}
-	for k := range closure {
-		visible[k] = true
-	}
-	relevant := pi.relevantImpls(visible)
+	closure, relevant := pi.reads(key)
 	if prev == nil || prev.closure == nil || len(prev.Bodies) > 0 || len(pi.bodies) > 0 || prev.FA == nil || prev.FA.Program() == nil {
 		return pi.check(key, closure, relevant, nil)
 	}
@@ -712,6 +733,8 @@ func (pi *ProgramInterfaces) CheckAfter(key string, prev *FileCheck, edited []st
 	for _, k := range edited {
 		fresh[k] = true
 	}
+	editedKeys := maps.Clone(fresh)
+	reads := pi.programReads("")
 	for k := range prev.Files {
 		switch {
 		case closure[k] != prev.closure[k]:
@@ -720,16 +743,8 @@ func (pi *ProgramInterfaces) CheckAfter(key string, prev *FileCheck, edited []st
 			fresh[k] = true
 		case !closure[k] && !maps.Equal(relevant[k], prev.relevant[k]):
 			fresh[k] = true
-		}
-		if fresh[k] || len(headers) == 0 {
-			continue
-		}
-		seen := pi.ImportClosure(k)
-		for _, h := range headers {
-			if h.relevantTo(seen) {
-				fresh[k] = true
-				break
-			}
+		case reads.Reads(k, editedKeys, headers):
+			fresh[k] = true
 		}
 	}
 	for grew := true; grew; {

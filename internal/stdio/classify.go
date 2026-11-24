@@ -2,6 +2,7 @@ package stdio
 
 import (
 	"errors"
+	"io"
 	"io/fs"
 	"os"
 	"runtime"
@@ -58,6 +59,7 @@ func classify(op, path string, err error) *rt.IOError {
 	if errors.As(err, &le) && le.Err != nil && le.Err.Error() == pathEscapes {
 		return escapes(path)
 	}
+	var timeout interface{ Timeout() bool }
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
 		return tag(rt.TagIONotFound)
@@ -65,11 +67,17 @@ func classify(op, path string, err error) *rt.IOError {
 		return tag(rt.TagIOAlreadyExists)
 	case errors.Is(err, fs.ErrPermission):
 		return tag(rt.TagIOPermissionDenied)
-	case errors.Is(err, fs.ErrClosed):
+	case errors.Is(err, fs.ErrClosed), errors.Is(err, io.ErrClosedPipe):
 		return &rt.IOError{Tag: rt.TagIOClosed}
-	case errors.Is(err, os.ErrDeadlineExceeded):
-		// A read or write past a deadline the stream set: a connection's
-		// `set_read_deadline`, a pipe's.
+	case errors.Is(err, io.ErrUnexpectedEOF):
+		// A stream that ended inside what its framing promised, as a
+		// request body shorter than its Content-Length.
+		return tag(rt.TagIOTruncated)
+	case errors.Is(err, os.ErrDeadlineExceeded), errno == 0 && errors.As(err, &timeout) && timeout.Timeout():
+		// A read or write past a deadline: one the stream set (a
+		// connection's `set_read_deadline`, a pipe's), a server's read
+		// or write timeout, or a context's. An errno that Go calls a
+		// timeout (EAGAIN) is the errno's, below.
 		return &rt.IOError{Tag: rt.TagIOTimedOut}
 	}
 	if pe != nil && pe.Op != "" {
@@ -133,6 +141,7 @@ var windowsErrnos = map[syscall.Errno]syscall.Errno{
 	267:   syscall.ENOTDIR,      // ERROR_DIRECTORY: a file opened as a directory
 	1921:  syscall.ELOOP,        // ERROR_CANT_RESOLVE_FILENAME: a symlink loop
 	4390:  syscall.EINVAL,       // ERROR_NOT_A_REPARSE_POINT: readlink of what is not a link
+	10040: syscall.EMSGSIZE,     // WSAEMSGSIZE: a datagram longer than the receive's buffer
 	10048: syscall.EADDRINUSE,   // WSAEADDRINUSE
 	10051: syscall.ENETUNREACH,  // WSAENETUNREACH
 	10053: syscall.ECONNABORTED, // WSAECONNABORTED: this host ended an established connection

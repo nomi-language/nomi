@@ -1,0 +1,2 @@
+go test fuzz v1
+string("fn check(n: Int) -> Result<Int, String>\n    if n > 1 then Ok(n) else Err(\"small\")\nend\n\nfn main()\n    Iter.each([1, 2, 3], fn i -> _ = check(i))\n    Iter.each([1, 2], fn i ->\n        _ = check(i)\n    end)\n    loud = True\n    f = if loud then fn i: Int -> _ = check(i) else fn i: Int -> _ = check(i + 1)\n    dbg f(1)\n    dbg 5 |> then fn v -> _ = check(v) |> then fn u -> u\n    g = fn i: Int -> _ = check(i) |> Result.is_ok()\n    dbg g(3)\nend\n")

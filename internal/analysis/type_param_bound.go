@@ -39,7 +39,10 @@ func (c *checker) checkTypeParamDemand(tp *TypeParam_, ifaceName string, rec Rec
 	}
 	pos := rec.Pos
 	subject, verb := "this value", "is"
-	if arg, ok := c.demandSubject(func(t Type) bool { return resolveTypeVar(t) == Type(tp) }); ok {
+	if rec.Derive != nil {
+		// A derive's part (checkDerivedParts), whose type holds tp.
+		subject, verb = rec.Derive.partSubject(), "holds"
+	} else if arg, ok := c.demandSubject(func(t Type) bool { return resolveTypeVar(t) == Type(tp) }); ok {
 		pos.Line, pos.Col = exprStartLineCol(arg)
 		if text, ok := exprPathText(arg); ok {
 			subject = "`" + text + "`"
@@ -79,9 +82,15 @@ func (c *checker) demandSubject(match func(Type) bool) (ast.Node, bool) {
 }
 
 // typeParamBoundOwner names the declaration that would bound tp, and the
-// hint showing the bound added there.
+// hint showing the bound added there. A derive's parts are checked at the
+// derive (checkDerivedParts), whose where clause bounds its parameters
+// (spec §12 *Implementations*).
 func (c *checker) typeParamBoundOwner(tp *TypeParam_, ifaceName string) (string, string) {
 	fn := c.currentFnDecl
+	if blk := c.implBlock; fn == nil && blk != nil && derivedInterface(blk) != nil {
+		head := "derive " + typeExprHoverString(blk.Interface) + " for " + typeExprHoverString(blk.Receiver)
+		return "the derive", fmt.Sprintf("require it on the derive: `%s where %s`", head, boundsText(tp, ifaceName))
+	}
 	if c.currentInterface != "" && c.defaultSelfFn != "" {
 		iface, _ := c.reg.Lookup(c.currentInterface).(*InterfaceType)
 		sig := (*MethodSig)(nil)

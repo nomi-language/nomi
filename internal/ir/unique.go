@@ -22,12 +22,14 @@ package ir
 // values its fields hold are held by nothing else either (fields.go).
 //
 //   - Fresh: every write of every member is a struct, record, tuple,
-//     Vector, Map or Set literal, an update, `Iter.to_vector`, `to_map` or
-//     `to_set` (each builds a new collection), a Copy or Bind from a
-//     member, a parameter (which adds its bit to the need), a direct call
-//     whose callee's result is fresh, a crossing Callees.Writes names (a
-//     collection operation, below, whose answer may be an Option of the
-//     collection, as `Vector.set`'s is), a field read fields.go grants (a
+//     Vector, Map or Set literal (an empty one too: a MakeVector, MakeSet
+//     or MakeMap of no elements, never a constant), an update,
+//     `Iter.to_vector`, `to_map` or `to_set` (each builds a new
+//     collection), a Copy or Bind from a member, a parameter (which adds
+//     its bit to the need), a direct call whose callee's result is fresh,
+//     a crossing Callees.Writes names (a collection operation, below,
+//     whose answer may be an Option of the collection, as `Vector.set`'s
+//     is), a field read fields.go grants (a
 //     Some's payload included), or a fold that hands its accumulator on
 //     (below). No enum literal is fresh, so an enum value is owned only as
 //     such a crossing answered it, or as a parameter. A direct call's result is
@@ -72,23 +74,36 @@ package ir
 //   - Takes: per crossing Callees.Writes names, when its receiver operand
 //     is a move of an owned class, the need. The crossing may write the
 //     receiver's storage (internal/vm package doc, "Updates written in
-//     place"); its result is owned under the same need, and owned deep:
-//     an Option it answers holds only the collection it wrote, so
-//     `Vector.set(v, i, x)!` hands the next set an owned vector.
-//   - Folds: per `Iter.reduce` or `Iter.map_reduce` whose callback is a
-//     lambda the function builds and whose seed is a move of an owned
-//     class, the seed's needs and the callback's ResultOwnership (asked of
-//     Callees.Lambda). At run time the fold hands the callback its
-//     accumulator as its parameter 0 when the activation's mask meets the
-//     seed's need (deep when it meets the deep need), and hands each
-//     answer on again when the callback's result is fresh under what it
-//     was given (Fold.NextReduce, NextMapReduce: a map_reduce's state is
-//     its answer's first slot, so the answer must be owned deep). The
+//     place"). Its result is owned, and owned deep: an Option it answers
+//     holds only the collection it wrote, so `Vector.set(v, i, x)!` hands
+//     the next set an owned vector. A crossing Callees.Builds names
+//     answers the receiver it wrote when it writes in place and a
+//     collection it built when it copies, so its result is owned whatever
+//     the receiver was: a borrowed Vector, Map or Set is copied by its
+//     first update, as a struct is, and the copy is the function's own. Any
+//     other (a remove, which answers its receiver as it was when the key
+//     is missing) answers a result owned under the receiver's need, or
+//     never when the receiver is not handed over.
+//   - Folds: per `Iter.reduce` or `Iter.map_reduce` whose callback the
+//     function makes once, as a lambda it builds or as a function it names
+//     (a RefFunc, resolved by Callees.Named), the seed's needs and the
+//     callback's ResultOwnership (asked of Callees.Step). At run time the
+//     fold hands the callback its accumulator as its parameter 0 when the
+//     activation's mask meets the seed's need (deep when it meets the deep
+//     need), and hands each answer on again when the callback's result is
+//     fresh under what it was given (Fold.NextReduce, NextMapReduce: a
+//     map_reduce's state is its answer's first slot, so the answer must be
+//     owned deep). A seed that is not a move of an owned class reaches the
+//     first step borrowed (need Never), and a fold whose callback answers
+//     a fresh value still hands every later step its accumulator. The
 //     fold keeps no other reference to the accumulator, the item and the
 //     captures are never handed over, and the fold's result is owned under
-//     the seed's need when every step's answer is. `Iter.scan` yields each
-//     state to its consumer, so it hands none on, and neither does a fold
-//     whose callback signals (`break`, `continue`).
+//     the seed's need when every step's answer is. A callback that arrives
+//     as a parameter or out of a value is not known here, so its fold hands
+//     nothing on. `Iter.scan` yields each state to its consumer, so it
+//     hands none on, and neither does a fold whose callback signals
+//     (`break`, `continue`): a `continue` keeps the accumulator the step
+//     was handed, which an owned step may have written.
 //   - Result: whether every value the function returns is owned, and the
 //     union of their needs, and whether each is owned deep, with the union
 //     of those needs; a caller's direct call reads it.
@@ -192,13 +207,20 @@ func (fd Fold) NextMapReduce(m uint64) uint64 {
 type Callees struct {
 	Result func(*Call) ResultOwnership
 	Writes func(*Call) int
+	// Builds reports whether a crossing Writes names answers a value it
+	// built when it copies its receiver, never the receiver itself (nil:
+	// none does), so its answer is owned however the receiver was held.
+	Builds func(*Call) bool
 	// Borrows reports whether a crossing reads its operands and keeps
 	// none of them (a lookup, a size), so a read by it is no escape
 	// (nil: none).
 	Borrows func(*Call) bool
-	// Lambda answers a fold's callback's ResultOwnership (nil: no fold
+	// Step answers a fold's callback's ResultOwnership (nil: no fold
 	// hands its accumulator on).
-	Lambda func(*Func) ResultOwnership
+	Step func(*Func) ResultOwnership
+	// Named answers the function a RefFunc names, or nil when it cannot
+	// (nil: a fold's callback is known only when the function builds it).
+	Named func(*Ref) *Func
 }
 
 // Ownership is what Owns answers for one function.
@@ -427,7 +449,7 @@ func Owns(f *Func, callees Callees) *Ownership {
 	// shows: the bound value's class is never owned. (A RefLocal naming a
 	// parameter is a Copy of it, and a use of it, below.)
 	bound := map[*Symbol][]Temp{}
-	funcs := map[Temp]*FuncValue{}
+	funcs := map[Temp]Instr{} // the FuncValues and RefFuncs: a fold's known steps
 	writes := make([]int, n)
 	for _, b := range f.Blocks() {
 		for _, in := range b.Instrs() {
@@ -437,8 +459,13 @@ func Owns(f *Func, callees Callees) *Ownership {
 			if d := in.Dst(); inRange(d) {
 				writes[d]++
 			}
-			if fv, isFunc := in.(*FuncValue); isFunc {
+			switch fv := in.(type) {
+			case *FuncValue:
 				funcs[fv.dst] = fv
+			case *Ref:
+				if fv.kind == RefFunc {
+					funcs[fv.dst] = fv
+				}
 			}
 		}
 	}
@@ -463,6 +490,22 @@ func Owns(f *Func, callees Callees) *Ownership {
 		body *Func
 	}
 	var folds []foldSite
+	// stepOf is the body a fold's callback operand t runs, when the
+	// function makes it once, as a lambda or as a function it names.
+	stepOf := func(t Temp) *Func {
+		if !inRange(t) || writes[t] != 1 {
+			return nil
+		}
+		switch fv := funcs[t].(type) {
+		case *FuncValue:
+			return fv.body
+		case *Ref:
+			if callees.Named != nil {
+				return callees.Named(fv)
+			}
+		}
+		return nil
+	}
 	writesTo := func(c *Call) int {
 		if callees.Writes == nil || !c.Crosses() {
 			return -1
@@ -496,12 +539,16 @@ func Owns(f *Func, callees Callees) *Ownership {
 				case IterToVector, IterToMap, IterToSet:
 					// A collection built from the sequence's elements.
 				case IterReduce, IterMapReduce:
-					fv := funcs[x.args[len(x.args)-1]]
-					if x.sig || callees.Lambda == nil || fv == nil || writes[fv.dst] != 1 || len(x.args) != 3 {
+					if x.sig || callees.Step == nil || len(x.args) != 3 {
 						refuse(x.dst)
 						continue
 					}
-					folds = append(folds, foldSite{x, fv.body})
+					body := stepOf(x.args[2])
+					if body == nil {
+						refuse(x.dst)
+						continue
+					}
+					folds = append(folds, foldSite{x, body})
 				default:
 					refuse(x.dst)
 				}
@@ -656,7 +703,7 @@ func Owns(f *Func, callees Callees) *Ownership {
 	asked := make([]bool, len(calls))
 	foldResults := make([]ResultOwnership, len(folds))
 	for i, fd := range folds {
-		foldResults[i] = callees.Lambda(fd.body)
+		foldResults[i] = callees.Step(fd.body)
 	}
 	for changed := true; changed; {
 		changed = false
@@ -730,6 +777,12 @@ func Owns(f *Func, callees Callees) *Ownership {
 		}
 		for _, c := range takes {
 			if _, ok := classOf(c.dst); !ok {
+				continue
+			}
+			if callees.Builds != nil && callees.Builds(c) {
+				// Written in place, the answer is the receiver this class
+				// owned; copied, a collection the crossing built: the
+				// class's own either way, and nothing else holds it.
 				continue
 			}
 			r, ok := handed(c, writesTo(c))
@@ -833,14 +886,19 @@ func Owns(f *Func, callees Callees) *Ownership {
 		}
 	}
 	for i, fd := range folds {
-		seed, ok := handedAt(fd.it, fd.it.args[1])
-		if !ok {
+		// A seed the activation does not hand over reaches the first step
+		// borrowed; a step whose answer is fresh still hands the next step
+		// an accumulator of its own.
+		at := Fold{Need: never, DeepNeed: never, Result: foldResults[i], Body: fd.body}
+		if seed, ok := handedAt(fd.it, fd.it.args[1]); ok {
+			at.Need, at.DeepNeed = need[seed], deepOf(seed)
+		} else if !foldResults[i].Fresh {
 			continue
 		}
 		if out.Folds == nil {
 			out.Folds = map[*Iter]Fold{}
 		}
-		out.Folds[fd.it] = Fold{Need: need[seed], DeepNeed: deepOf(seed), Result: foldResults[i], Body: fd.body}
+		out.Folds[fd.it] = at
 	}
 	for _, p := range projs {
 		if r, ok := classOf(p.dst); ok && granted[p] {

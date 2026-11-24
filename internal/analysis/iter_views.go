@@ -121,7 +121,7 @@ func (c *checker) iterViewOf(it *InterfaceType, t Type) *IterView {
 	cands := c.implCandidates(rt, it.Name, it.Origin)
 	var chosen *implCandidate
 	for i, cand := range cands {
-		if len(it.TypeArgs) == 1 && len(cand.args) == 1 && typesAllEqual(cand.args, it.TypeArgs) {
+		if len(it.TypeArgs) == 1 && len(cand.args) == 1 && sameTypeArgs(cand.args, it.TypeArgs) {
 			chosen = &cands[i]
 			break
 		}

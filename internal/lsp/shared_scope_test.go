@@ -14,7 +14,7 @@ import (
 // under the stdlib prelude, which the server keeps for its whole life.
 // NewScope used to append each such scope to the prelude's Children, so
 // every analysis the server ever built stayed reachable: a Neovim session
-// grew nomi-lsp by about 2 MB per keystroke, to several GB in minutes. The
+// grew the language server by about 2 MB per keystroke, to several GB in minutes. The
 // stdlib's scopes are shared, and an edit must leave them as they were.
 func TestEdits_LeaveTheSharedStdlibScopesAlone(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "main.nomi")

@@ -207,6 +207,11 @@ var materialized = sync.OnceValue(func() *stdcache.Dir {
 	return stdcache.New(stdcache.DefaultRoot(), stdlibFS)
 })
 
+// CacheVersion is the name of this std's version directories
+// (internal/stdcache): a hash of the .nomi files this binary embeds, so a
+// directory of that name holds this std, byte for byte, as it was written.
+func CacheVersion() string { return materialized().Version() }
+
 // navigator chooses, per file, between the bundled source tree and the
 // materialized directory (stdcache.Navigator).
 var navigator = sync.OnceValue(func() *stdcache.Navigator {

@@ -236,9 +236,9 @@ end
 
 // A DELIBERATELY FAILING CASE, and it is not padding.
 //
-// A Decimal reaching an assertion's operand recorder is a THIRD renderer,
-// independent of both `Display` and `Debug`: the report's `values:` rows are
-// built by the assertion machinery, not by either impl. Nothing above this can
+// A Decimal reaching an assertion's operand recorder reads as its `Debug`
+// does, `1.50d`, but the report's `values:` rows are built by the assertion
+// machinery (rt.RowText), not by a call of the impl. Nothing above this can
 // see a mistake in it, because every case above passes and a passing assertion
 // renders nothing. So the fault text below is part of the contract, and the
 // recorded golden pins it.

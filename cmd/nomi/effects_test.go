@@ -108,7 +108,7 @@ func TestEffects_NoTableEnforcesNothing(t *testing.T) {
 	}
 }
 
-// The project's own path, by its [module].name when it has no go.mod, is
+// The project's own path, its [module].name, is
 // no key under [effects.deps.modules]: check refuses it at its line,
 // saying the project's own code is [effects.self]'s.
 func TestEffects_TheProjectsPathIsNoEntry(t *testing.T) {

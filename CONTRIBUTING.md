@@ -27,8 +27,7 @@ version.
 
 ```sh
 go build -o nomi ./cmd/nomi   # the CLI, at ./nomi (gitignored)
-go install ./cmd/nomi         # `nomi` on your PATH
-go install ./cmd/nomi-lsp     # the language server
+go install ./cmd/nomi         # `nomi` on your PATH, with the language server as `nomi lsp`
 ```
 
 ## Test
@@ -44,6 +43,32 @@ The VM's output is checked against golden files in
 `testdata/expectations/`. If your change moves one, regenerate it
 (the command is in AGENTS.md) and say why each record moved in the commit
 message.
+
+## Environment variables for work on the compiler
+
+These variables change what `nomi` does, for work on the compiler and the
+VM. The ones a user of `nomi` sets are in the tooling reference's
+"Environment variables" ([`docs/tooling.md`](docs/tooling.md)).
+
+| Variable | What it does |
+|---|---|
+| `NOMI_DEBUG_VERSION` | Any value but `0` adds the version of the Go toolchain that built `nomi` to the line `nomi --version` and the REPL print: `nomi 0123456789ab (go1.27.0 darwin/arm64)`. |
+| `NOMI_RELEASE_BASE_URL` | For tests. Where a release `nomi build` downloads the runners it lacks from, in place of the project's GitHub releases. |
+| `NOMI_DEBUG_STD_BUNDLE` | `1` reports on stderr why a cached standard library lowering or its cached interfaces were not used. |
+| `NOMI_STD_WHOLE` | `1` builds every standard library module when a command starts, as the language server does, rather than only the modules the program imports. |
+| `NOMI_STD_STATE` | `off` builds the standard library's base modules instead of reading them back from the state a previous run kept, and keeps none. |
+| `NOMI_STD_PATH` | The directory of standard library sources `nomi` reads, in place of the one it finds beside itself or in the checkout it was built from. |
+| `NOMI_CHECK_FROM_INTERFACES` | `1` checks every project file again against the interfaces of the files it imports, and fails the program where the two checks differ. |
+| `NOMI_SUBST_VERIFY` | Any value holds each type a generic instance's frame carries to the kind the compiler lowers it at, as every test binary does. |
+| `NOMI_CALLEE_LOG` | A file that each difference between the function a call lowers to and the one the checker recorded is written to. |
+| `NOMI_LINK_OBJECTS` | `1` links every program through objects encoded a module at a time; `perfile` lowers each file on its own and compares it with the whole lowering. |
+| `NOMI_PERFILE_REPORT` | With `NOMI_LINK_OBJECTS=perfile`, `1` reports each file's comparison on standard error. |
+| `NOMI_NO_INLINE` | Any value stops the VM compiling a small function's code into its callers. |
+| `NOMI_NO_INPLACE` | Any value makes every update copy its value rather than change it in place. |
+| `NOMI_NO_LOOP_JUMP` | Any value compiles each self tail call as a call rather than a jump. |
+| `NOMI_NO_FAST_READS` | Any value sends each read the VM answers on a fast path, such as `Vector.get`, through its plain crossing. |
+| `NOMI_NO_FUSED_DEFAULT` | Any value makes each `Option.with_default` and `Result.with_default` call its intrinsic rather than the fused form. |
+| `NOMI_CPUPROFILE` | A file that `nomi run`, and a `nomi build` executable, write a Go CPU profile of the run to, for `go tool pprof <nomi or the executable> <file>`. The frames are the VM's Go functions, not the program's Nomi functions. |
 
 ## Format
 
@@ -78,10 +103,13 @@ script can be run by hand too:
 ./scripts/release.sh v0.1.0
 ```
 
-It writes `dist/nomi_<version>_<os>_<arch>.{tar.gz,zip}`, beside each a
-`_compiler` archive of std::compiler's runners, and
+It writes `dist/nomi_<version>_<os>_<arch>.{tar.gz,zip}`, which holds
+`nomi` alone, carrying the platform's runners; beside each a `_runners`
+archive of those runners, for `nomi build --target` on another platform,
+and a `_compiler` archive of std::compiler's runners; and
 `dist/nomi_<version>_checksums.txt` (`NOMI_RELEASE_DIST=<dir>` writes them
-elsewhere, for a dry run). The version must be the release's tag: it is
+elsewhere, and `NOMI_RELEASE_TARGETS="darwin/arm64"` builds only the
+targets it lists, for a dry run). The version must be the release's tag: it is
 stamped into `nomi` (`-X github.com/nomi-language/nomi/internal/runners.ReleaseVersion=<version>`), and
 `nomi build` downloads a runner it does not have from that tag. The script
 reads each binary's platform, build tags and commit back from its build

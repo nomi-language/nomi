@@ -16,6 +16,7 @@ import
     bool.Bool.{self, False, True}
     bytes.Bytes
     channels.{Channel, Receiver, Sender}
+    compress
     http
     http.{
         Body,
@@ -35,7 +36,7 @@ import
     }
     http::host
     io
-    io.Writer
+    io.{Reader, Writer}
     iter.Iter
     lists.List
     net.Connection
@@ -136,8 +137,8 @@ end
 
 /// What a `Body.Produce` response sends, one element per flush: the
 /// writes between two `Writer.flush` calls, then what is left at the end.
-/// A test of a streamed response checks it flushes where it means to (Go's
-/// `ResponseRecorder.Flushed`). Any other body is one chunk.
+/// A test of a streamed response checks with it that the response flushes
+/// where it means to. Any other body is one chunk.
 //! import std::http.{Body, Response}
 //! import std::http::testing
 //! import std::io.Writer
@@ -201,7 +202,9 @@ pub fn decompressed(response: Response) -> Result<Bytes, Error>
         end
 
     if Headers.get(response.headers, "Content-Encoding") == Some("gzip") then
-        host.gunzip(data) |> Result.map_err(fn reason -> Error.Protocol{reason:})
+        compress.reader(.Gzip, Reader.from_bytes(data))
+        |> Reader.read_all()
+        |> Result.map_err(fn e -> Error.Protocol{reason: "${e}"})
     else
         Ok(data)
     end
@@ -228,17 +231,17 @@ end
 
 impl TestServer
     /// Closes every connection the server holds, idle or busy, so the next
-    /// request opens a new one. Go's `Server.CloseClientConnections`.
+    /// request opens a new one.
     pub fn close_client_connections(server: TestServer) -> Unit
         Listener.close_connections(server.listener)
     end
 end
 
 /// Runs `body` while a real server listens on 127.0.0.1 with `handler`,
-/// then shuts it down: Go's `httptest.NewServer`. With `tls`, it serves
-/// HTTPS with a certificate made for it, which `TestServer.client` trusts
-/// (`NewTLSServer`). `server` configures it (`NewUnstartedServer`); its
-/// address is replaced.
+/// then shuts it down. With `tls`, it serves HTTPS with a certificate
+/// made for it, which `TestServer.client` trusts. With `http2`, it and
+/// its client speak HTTP/2. `server` configures it, except for its
+/// address and TLS, which are replaced.
 //! import std::http.{Body, Client, Response}
 //! import std::http::testing
 //!

@@ -27,7 +27,9 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `===` | `==`, which compares values structurally |
 | `for (const x of xs) { .. }`, `while` | `Iter.each(xs, fn x -> ..)`, a fold, recursion, or `Iter.loop` |
 | `interface Named { name: string }`, which any value of that shape satisfies | An `interface` holds functions, and a type implements one by saying so: `impl Named for User` |
-| `async` / `await`, `Promise.all` | `Task.spawn` and `Task.await` inside `concurrent` ... `end` |
+| `async` / `await`, `Promise.all` | `Task.spawn` and `Task.await` inside `concurrent` ... `end`; `Task.await_all` waits for a list of tasks. No function is marked `async`. |
+| `Promise.race`, or a timeout raced with `setTimeout` | `Task.race([..])`, the first body to finish, and `Task.within(wait, fn -> ..)`, `Err(TimedOut)` when the wait runs out. Both cancel what is still running and wait for it to stop. |
+| `setInterval(f, ms)` | `timer.every(Duration.milliseconds(ms), f)`. The wait starts when a run ends, so runs never overlap. It repeats until the program shuts down or its task is cancelled. |
 | `try { .. } finally { f.close() }`, `using` | `defer Reader.close_quietly(r)` on the line after opening; it runs when its block ends, and the checker requires it for a resource |
 | A module-level singleton, `export const db = ..`, or a DI container | `fn boot() -> Result<App, String>` builds an `App` struct before `main` runs, and any function reads a field as `App.db`. A test replaces one with `with App.db = ..`. See [App Fields](/app-fields/). |
 

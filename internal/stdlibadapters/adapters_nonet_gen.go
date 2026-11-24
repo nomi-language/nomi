@@ -24,235 +24,119 @@ var errNoNet = errors.New("this nomi-vm was built without the network; build the
 // their adapters.
 const hasNet = false
 
-func (b *bound) fn281Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn343Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
-func (b *bound) fn282Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn344Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
-func (b *bound) fn283Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn345Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
-func (b *bound) fn285Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn346Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
-func (b *bound) fn286Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn347Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
-func (b *bound) fn287Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn348Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
-func (b *bound) fn288Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn349Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
-func (b *bound) fn289Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn350Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
-func (b *bound) fn290Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn351Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
-func (b *bound) fn291Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn352Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
-func (b *bound) fn292Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn353Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
-func (b *bound) fn293Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn354Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
-func (b *bound) fn294Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn355Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
-func (b *bound) fn295Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn356Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
-func (b *bound) fn296Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn357Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
-func (b *bound) fn297Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn358Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
-func (b *bound) fn298Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn359Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
-func (b *bound) fn299Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn360Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
-func (b *bound) fn748(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+func (b *bound) fn361Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn362Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn363Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn365Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn828(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNet
-}
-
-func (b *bound) fn753Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn755Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn758(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNet
-}
-
-func (b *bound) fn766Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn768Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn771Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn773Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn775Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn776Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn778Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn780Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn781Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn783Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn784Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn785Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn786Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn787Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn788Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn789Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn791Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn793Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn794Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn795(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNet
-}
-
-func (b *bound) fn802(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNet
-}
-
-func (b *bound) fn804Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn806Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn808Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn814Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn816Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn819(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNet
-}
-
-func (b *bound) fn829Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn831Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
 }
 
 func (b *bound) fn833Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
-func (b *bound) fn834(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+func (b *bound) fn835Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn838(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNet
 }
 
-func (b *bound) fn839Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn846Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
-func (b *bound) fn844Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn848Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
-func (b *bound) fn847Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn849Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn850Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn851Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
@@ -264,11 +148,11 @@ func (b *bound) fn855Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) 
 	return false, errNoNet
 }
 
-func (b *bound) fn857Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn856Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
-func (b *bound) fn859Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn858Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
@@ -276,7 +160,11 @@ func (b *bound) fn860Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) 
 	return false, errNoNet
 }
 
-func (b *bound) fn862Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn861Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn863Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
@@ -284,7 +172,15 @@ func (b *bound) fn864Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) 
 	return false, errNoNet
 }
 
+func (b *bound) fn865Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
 func (b *bound) fn866Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn867Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
@@ -292,11 +188,15 @@ func (b *bound) fn868Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) 
 	return false, errNoNet
 }
 
-func (b *bound) fn870Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn869Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
-func (b *bound) fn872Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn871Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn873Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
@@ -304,95 +204,55 @@ func (b *bound) fn874Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) 
 	return false, errNoNet
 }
 
-func (b *bound) fn875Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn876Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn878Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn882Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn884Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn885Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn889Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn891Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn893Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn897Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn899Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn901Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn903Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn906Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn910Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn912Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn914Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn915(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+func (b *bound) fn875(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNet
+}
+
+func (b *bound) fn884(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	return nil, errNoNet
+}
+
+func (b *bound) fn886Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn888Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn890Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn896Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn898Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn901(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	return nil, errNoNet
+}
+
+func (b *bound) fn911Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn913Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn915Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
 func (b *bound) fn916(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNet
 }
 
-func (b *bound) fn917Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn919Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
 func (b *bound) fn921Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn922Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
@@ -400,11 +260,11 @@ func (b *bound) fn923Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) 
 	return false, errNoNet
 }
 
-func (b *bound) fn925Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn926Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
-func (b *bound) fn927Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn928Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
@@ -412,23 +272,23 @@ func (b *bound) fn929Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) 
 	return false, errNoNet
 }
 
-func (b *bound) fn935Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn932Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
-func (b *bound) fn937Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn934Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn936Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn938Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
 func (b *bound) fn939Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn940Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn941Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
@@ -440,10 +300,6 @@ func (b *bound) fn947Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) 
 	return false, errNoNet
 }
 
-func (b *bound) fn948Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
 func (b *bound) fn949Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
@@ -452,35 +308,31 @@ func (b *bound) fn951Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) 
 	return false, errNoNet
 }
 
-func (b *bound) fn956Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn953Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
-func (b *bound) fn957Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn955Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
-func (b *bound) fn958Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn962Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
-func (b *bound) fn963Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn967Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
-func (b *bound) fn968Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn969Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
-func (b *bound) fn970Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn971Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
-func (b *bound) fn972Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn974Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn973Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
@@ -488,15 +340,19 @@ func (b *bound) fn975Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) 
 	return false, errNoNet
 }
 
-func (b *bound) fn980Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn977Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
-func (b *bound) fn982Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn979Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
-func (b *bound) fn984Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn981Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn983Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
@@ -508,11 +364,15 @@ func (b *bound) fn987Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) 
 	return false, errNoNet
 }
 
+func (b *bound) fn988Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
 func (b *bound) fn989Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
-func (b *bound) fn990Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn991Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
@@ -528,27 +388,15 @@ func (b *bound) fn998Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) 
 	return false, errNoNet
 }
 
-func (b *bound) fn999Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
 func (b *bound) fn1000Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
-func (b *bound) fn1001Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn1002Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
-func (b *bound) fn1003Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn1005Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn1007Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn1004Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
@@ -560,55 +408,51 @@ func (b *bound) fn1010Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error)
 	return false, errNoNet
 }
 
-func (b *bound) fn1011Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn1012Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
-func (b *bound) fn1013Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn1014Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
-func (b *bound) fn1018Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn1017Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
-func (b *bound) fn1020Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn1021Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
-func (b *bound) fn1021(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+func (b *bound) fn1023Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1025Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1026(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNet
 }
 
-func (b *bound) fn1022Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn1024Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn1026Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn1027Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
+func (b *bound) fn1027(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	return nil, errNoNet
 }
 
 func (b *bound) fn1028Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
+func (b *bound) fn1030Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1032Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
 func (b *bound) fn1034Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn1035Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	return false, errNoNet
-}
-
-func (b *bound) fn1038Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
@@ -620,7 +464,7 @@ func (b *bound) fn1042Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error)
 	return false, errNoNet
 }
 
-func (b *bound) fn1043Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn1044Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
@@ -628,11 +472,11 @@ func (b *bound) fn1045Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error)
 	return false, errNoNet
 }
 
-func (b *bound) fn1047Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn1046Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
-func (b *bound) fn1051Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn1049Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
@@ -644,11 +488,19 @@ func (b *bound) fn1053Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error)
 	return false, errNoNet
 }
 
-func (b *bound) fn1057Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn1054Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
-func (b *bound) fn1059Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn1055Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1057(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	return nil, errNoNet
+}
+
+func (b *bound) fn1061Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
@@ -656,10 +508,214 @@ func (b *bound) fn1062Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error)
 	return false, errNoNet
 }
 
-func (b *bound) fn1065Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn1063Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }
 
 func (b *bound) fn1068Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1070Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1072Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1074Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1076Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1077Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1078Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1079(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	return nil, errNoNet
+}
+
+func (b *bound) fn1083Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1085Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1087Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1088Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1090Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1092Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1093Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1098Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1100Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1101Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1102Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1103Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1104Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1106Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1108Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1110Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1111Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1113Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1114Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1116Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1121Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1123Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1124(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	return nil, errNoNet
+}
+
+func (b *bound) fn1125Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1127Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1129Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1130Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1131Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1137Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1138Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1141Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1143Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1145Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1146Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1148Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1150Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1154Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1155Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1156Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1160Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1162Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1165Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1168Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1171Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoNet
 }

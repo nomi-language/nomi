@@ -22,8 +22,14 @@ func TestMapStructuralOperationsDoNotMaterializeOrder(t *testing.T) {
 	if n := testing.AllocsPerRun(100, func() { hash = MapHash(a, HashInt, HashInt) }); n != 0 {
 		t.Fatalf("hash allocated %g times", n)
 	}
-	// Sum of i*(FNV prime + 2) over [0,128), excluding the removed 64.
-	if hash != uint64(8064)*(0x100000001b3+2) {
+	// The sum of each entry's mixed hash over [0,128), excluding the removed 64.
+	var model uint64
+	for i := int64(0); i < 128; i++ {
+		if i != 64 {
+			model += HashMix(HashInt(i), HashInt(i*2))
+		}
+	}
+	if hash != model {
 		t.Fatal("hash fold differs from the arithmetic model")
 	}
 	var equal bool

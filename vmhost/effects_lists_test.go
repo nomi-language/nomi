@@ -90,10 +90,10 @@ entry_points = ["main"]
 "prices" = []
 
 [dependencies]
-prices = { dir = "../pricing" }
+prices = { repo = "example.com/pricing", version = "v1.0.0", dir = "../pricing" }
 `,
 		"app/main.nomi":      "import std::io\n\nfn main()\n    io.print(\"hi\")\nend\n",
-		"pricing/nomi.toml":  "[module]\nname = \"rules\"\npath = \"example.com/pricing\"\n",
+		"pricing/nomi.toml":  "[module]\nname = \"rules\"\n",
 		"pricing/rules.nomi": "pub fn add(a: Int, b: Int) -> Int\n    a + b\nend\n",
 	})
 	p, err := Load(filepath.Join(dir, "app", "main.nomi"))

@@ -36,6 +36,7 @@ func TestEmbed_AcceptedPatterns(t *testing.T) {
 		"embed site `\n    static\n    page.html\n    `",
 		"pub embed site `static static/index.html`",
 		"embed site `*.html`",
+		"embed site `static/[a-j]nd[^_]x.html static/[c[]ss`",
 	} {
 		if ds := checkShop(t, embedFiles(decl)); len(ds) > 0 {
 			t.Errorf("%s is refused:\n%s", decl, strings.Join(ds, "\n"))
@@ -56,7 +57,14 @@ func TestEmbed_EachPatternErrorRefuses(t *testing.T) {
 		{"embed site `static//a`", "main.nomi:3:13: the `embed` pattern `static//a` has an empty name between two `/`"},
 		{"embed site `static/**`", "main.nomi:3:13: the `embed` pattern `static/**` holds `**`\n  help: a directory's name embeds every file under it: write the directory"},
 		{`embed site ` + "`static\\a`", "main.nomi:3:13: the `embed` pattern `static\\a` holds `\\`"},
-		{"embed site `static/[a`", "main.nomi:3:13: the `embed` pattern `static/[a` is not a valid pattern"},
+		{"embed site `static/[a`", "main.nomi:3:13: the `embed` pattern `static/[a` is not a valid pattern: a `[` has no `]` to close its class"},
+		{"embed site `static/[a-`", "main.nomi:3:13: the `embed` pattern `static/[a-` is not a valid pattern: a `[` has no `]` to close its class"},
+		{"embed site `static/[]`", "main.nomi:3:13: the `embed` pattern `static/[]` is not a valid pattern: the class `[]` is empty"},
+		{"embed site `static/[]a]`", "main.nomi:3:13: the `embed` pattern `static/[]a]` is not a valid pattern: the class `[]` is empty"},
+		{"embed site `static/[^]`", "main.nomi:3:13: the `embed` pattern `static/[^]` is not a valid pattern: the class `[^]` is empty"},
+		{"embed site `static/[a-]`", "main.nomi:3:13: the `embed` pattern `static/[a-]` is not a valid pattern: a `-` in a class does not join two characters into a range"},
+		{"embed site `static/[-a]`", "main.nomi:3:13: the `embed` pattern `static/[-a]` is not a valid pattern: a `-` in a class does not join two characters into a range"},
+		{"embed site `static/[a-c]/[b-d-e]`", "main.nomi:3:13: the `embed` pattern `static/[a-c]/[b-d-e]` is not a valid pattern: a `-` in a class does not join two characters into a range"},
 		{"embed site `empty`", "main.nomi:3:13: cannot embed `empty`: it holds no file to embed\n  help: files whose names start with `.` or `_` are left out of a directory; write `all:empty` to embed them too"},
 		{"embed site `tools`", "main.nomi:3:13: cannot embed `tools`: it is another module, with its own nomi.toml"},
 		{"embed site `tools/gen.nomi`", "main.nomi:3:13: cannot embed files under `tools`: it is another module, with its own nomi.toml"},

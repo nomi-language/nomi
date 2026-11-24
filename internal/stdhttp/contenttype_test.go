@@ -2,7 +2,9 @@ package stdhttp
 
 import (
 	"mime"
+	"os"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/nomi-language/nomi/rt"
@@ -39,5 +41,42 @@ func TestAnswerContent_TheTypeIsTheSameOnEveryMachine(t *testing.T) {
 	got := strs(AnswerContent("GET", "/f", nil, "app.js", rt.SmallInt(-1), set, rt.Bytes("go()")))
 	if at := slices.Index(got, "Content-Type"); at < 0 || got[at+1] != "application/x-mine" {
 		t.Errorf("a type the headers set: answered %q, want it kept", got)
+	}
+}
+
+// Response.content's doc lists the extensions extensionTypes types, since a
+// reader has no other way to see which names get a type from the table.
+func TestAnswerContent_TheDocListsTheTable(t *testing.T) {
+	src, err := os.ReadFile("../../std/http.nomi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(string(src), "\n")
+	at := slices.IndexFunc(lines, func(l string) bool { return strings.HasPrefix(l, "    pub fn content(") })
+	if at < 0 {
+		t.Fatal("std/http.nomi declares no Response.content")
+	}
+	start := at
+	for start > 0 && strings.HasPrefix(strings.TrimSpace(lines[start-1]), "//") {
+		start--
+	}
+	var listed []string
+	for _, l := range lines[start:at] {
+		if !strings.HasPrefix(strings.TrimSpace(l), "///") {
+			continue
+		}
+		for _, w := range strings.Fields(l) {
+			if w = strings.TrimSuffix(w, ","); len(w) > 1 && w[0] == '.' {
+				listed = append(listed, w)
+			}
+		}
+	}
+	var table []string
+	for ext := range extensionTypes {
+		table = append(table, ext)
+	}
+	slices.Sort(table)
+	if !slices.Equal(listed, table) {
+		t.Errorf("Response.content's doc lists\n%s\nbut the table types\n%s", strings.Join(listed, " "), strings.Join(table, " "))
 	}
 }

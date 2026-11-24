@@ -1,3 +1,2 @@
 [module]
 name = "postgres"
-path = "github.com/nomi-language/nomi/lib/sql/postgres"

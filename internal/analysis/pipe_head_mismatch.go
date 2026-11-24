@@ -84,7 +84,7 @@ func (c *checker) checkThenCaptureTakes(pipe *ast.Binary, capture *ast.Capture, 
 	if call == nil || piped == nil || want == nil {
 		return
 	}
-	if c.argMatchesParam(piped, want, c.recPos(pipe.Line, pipe.Col), RecordingKindInterfaceTypedParam) {
+	if c.argMatchesParam(piped, want, c.site(pipe.Line, pipe.Col, RecordingKindInterfaceTypedParam)) {
 		return
 	}
 	p := &pipeHead{pipe: pipe, call: call}

@@ -32,12 +32,14 @@ import (
 // main), and one with at least one `export fn` is a WASI reactor
 // (nomi-vm-reactor: `_initialize`, nomi_alloc, nomi_call, nomi_free and
 // nomi_main), whose image carries the exported functions as `--web`'s does,
-// with nomi-wasi.js and nomi-wasi.d.ts written beside it.
+// with nomi-wasi.js and nomi-wasi.d.ts written beside it. A js/wasm module
+// gets wasm_exec.js and nomi-node.mjs beside it, which run it under Node
+// (writeNodeLoader).
 //
 // A program the front end rejects, or one the VM would block, is refused with
 // the text `nomi run` prints, and nothing is written.
 
-const buildUsage = "usage: nomi build <file|dir> [-o <out>] [--target <goos>/<goarch> | --web [--static <dir>] | --no-vm] [--allow-unsupported <class>]"
+const buildUsage = "usage: nomi build <file|dir> [-o <out>] [--target <os>/<arch> | --web [--static <dir>] | --no-vm] [--allow-unsupported <class>]"
 
 // errBuildRefused is a build that already reported why on stderr.
 var errBuildRefused = errors.New("build refused")
@@ -67,7 +69,7 @@ var effectClasses = []string{vmhost.ClassFiles, vmhost.ClassProcesses, vmhost.Cl
 
 func parseBuildArgs(args []string) (buildArgs, error) {
 	var b buildArgs
-	var goos, goarch string
+	var target runners.Target
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		value := func() (string, error) {
@@ -91,9 +93,8 @@ func parseBuildArgs(args []string) (buildArgs, error) {
 			if err != nil {
 				return b, err
 			}
-			var ok bool
-			if goos, goarch, ok = strings.Cut(v, "/"); !ok || goos == "" || goarch == "" {
-				return b, fmt.Errorf("nomi build: --target takes <goos>/<goarch>, such as linux/amd64; got %q", v)
+			if target, err = parseTarget("nomi build", v); err != nil {
+				return b, err
 			}
 		case arg == "--web":
 			b.web = true
@@ -139,7 +140,7 @@ func parseBuildArgs(args []string) (buildArgs, error) {
 		switch {
 		case b.web || b.static != "":
 			return b, fmt.Errorf("nomi build: --no-vm and --web are different outputs; pick one\n%s", buildUsage)
-		case goos != "":
+		case target != (runners.Target{}):
 			return b, fmt.Errorf("nomi build --no-vm: a compiled program runs on every target's nomi-vm, so it takes no --target\n%s", buildUsage)
 		}
 		if b.out == "" {
@@ -151,16 +152,16 @@ func parseBuildArgs(args []string) (buildArgs, error) {
 		return b, fmt.Errorf("nomi build: --static needs --web\n%s", buildUsage)
 	}
 	if b.web {
-		if goos != "" && (goos != "js" || goarch != "wasm") {
-			return b, fmt.Errorf("nomi build: --web builds for js/wasm, so it cannot take --target %s/%s", goos, goarch)
+		if target != (runners.Target{}) && target != jsWasm {
+			return b, fmt.Errorf("nomi build: --web builds for js/wasm, so it cannot take --target %s", target)
 		}
-		b.target = runners.Target{GOOS: "js", GOARCH: "wasm"}
+		b.target = jsWasm
 		if b.out == "" {
 			b.out = programName(b.entry) + "-web"
 		}
 		return b, nil
 	}
-	b.target = runners.ResolveTarget(goos, goarch)
+	b.target = targetOrHost(target)
 	if b.out == "" {
 		// go build's default: the program's name, in the working
 		// directory.
@@ -254,12 +255,14 @@ func build(b buildArgs, stderr io.Writer) error {
 		return writeImageFile(b.out, image, sources, kept.UsesCompiler)
 	}
 	// A program that reaches no optional family's crossing is appended to
-	// the lean runner, a third smaller (runners.Variant); one that reaches a
+	// the lean runner, a third smaller (runners.Variant), unless it imports
+	// std/compiler, whose runner has no lean variant; one that reaches a
 	// family its target's runners never have has no runner.
 	if err := runners.FamiliesOnTarget(kept.Families, b.target); err != nil {
 		return fmt.Errorf("nomi build: %w", err)
 	}
-	variant := runners.Variant{Compiler: kept.UsesCompiler, Reactor: reactor, NoNetwork: len(kept.Families) == 0}
+	variant := runners.Variant{Compiler: kept.UsesCompiler, Reactor: reactor,
+		NoNetwork: !kept.UsesCompiler && len(kept.Families) == 0}
 	runner, err := runners.Runner(b.target, variant, stderr)
 	if err != nil {
 		return fmt.Errorf("nomi build: %w", err)
@@ -275,16 +278,39 @@ func build(b buildArgs, stderr io.Writer) error {
 			return fmt.Errorf("nomi build: %w", err)
 		}
 	}
+	if b.target == jsWasm {
+		if err := writeNodeLoader(filepath.Dir(b.out), runner); err != nil {
+			return fmt.Errorf("nomi build: %w", err)
+		}
+	}
 	return nil
 }
 
+// parseTarget reads --target's value, <os>/<arch>, for the command cmd.
+func parseTarget(cmd, v string) (runners.Target, error) {
+	goos, goarch, ok := strings.Cut(v, "/")
+	if !ok || goos == "" || goarch == "" {
+		return runners.Target{}, fmt.Errorf("%s: --target takes <os>/<arch>, such as linux/amd64; got %q", cmd, v)
+	}
+	return runners.Target{GOOS: goos, GOARCH: goarch}, nil
+}
+
+// targetOrHost is the target --target named, or with none named the
+// platform nomi runs on.
+func targetOrHost(target runners.Target) runners.Target {
+	if target == (runners.Target{}) {
+		return runners.HostTarget()
+	}
+	return target
+}
+
 // buildCommand is the build as a report names it: `nomi build --web`, or
-// `nomi build --target goos/goarch`.
+// `nomi build --target <os>/<arch>`.
 func buildCommand(b buildArgs) string {
 	if b.web {
 		return "nomi build --web"
 	}
-	return "nomi build --target " + b.target.GOOS + "/" + b.target.GOARCH
+	return "nomi build --target " + b.target.String()
 }
 
 // writeExecutable writes runner's bytes, then image (its code, then its
@@ -383,6 +409,9 @@ func writeAtomic(out string, perm os.FileMode, write func(io.Writer) error) erro
 // wasip1 is the target whose module is a WASI reactor when the program has
 // an `export fn`.
 var wasip1 = runners.Target{GOOS: "wasip1", GOARCH: "wasm"}
+
+// jsWasm is the target a browser build is for.
+var jsWasm = runners.Target{GOOS: "js", GOARCH: "wasm"}
 
 // writeImageFile writes the .nomic file `nomi build --no-vm` makes: image,
 // its code and then its files region streamed from sources, behind a

@@ -331,7 +331,7 @@ pub fn echo(b: self) -> self
   copy
 end`
 	_, errs := buildTypesFromSource(src)
-	if !containsErr(errs, "self is only valid in interface definitions") {
+	if !containsErr(errs, "`self` is a type only in an interface's signatures") {
 		t.Fatalf("expected concrete body `self` to be rejected, got:\n  %s", joinErrs(errs))
 	}
 }
@@ -443,7 +443,7 @@ end`
 	all := append([]TypeError{}, fa.TypeErrors...)
 	all = append(all, BuildTypes(fa, nodes)...)
 	all = append(all, CheckTypes(fa, nodes)...)
-	if !containsErr(all, "self is only valid in interface definitions") {
+	if !containsErr(all, "`self` is a type only in an interface's signatures") {
 		t.Errorf("expected `self`-as-a-type in a concrete body to be rejected; got:\n  %s", joinErrs(all))
 	}
 }
@@ -465,8 +465,32 @@ end`
 	all := append([]TypeError{}, fa.TypeErrors...)
 	all = append(all, BuildTypes(fa, nodes)...)
 	all = append(all, CheckTypes(fa, nodes)...)
-	if !containsErr(all, "self is only valid in interface definitions") {
+	if !containsErr(all, "`self` is a type only in an interface's signatures") {
 		t.Errorf("expected `self`-as-a-type in a free function to be rejected; got:\n  %s", joinErrs(all))
+	}
+}
+
+// `self` as a type in an interface default's body errors too: it is a type
+// in the interface's signatures only (spec §12), and the message says so
+// rather than that the body is outside an interface.
+func TestImplBlock_SelfAsType_InterfaceDefaultBodyRejected(t *testing.T) {
+	src := `interface Sized
+    fn size(v: self) -> Int
+
+    fn twice(v: self) -> Int
+        w: self = v
+        Sized.size(w) * 2
+    end
+end`
+	tokens := lexer.Lex(src)
+	nodes, _ := parser.ParseWithRecovery(tokens)
+	nodes, _ = LowerDerives(nodes)
+	fa := BuildFile(nodes)
+	all := append([]TypeError{}, fa.TypeErrors...)
+	all = append(all, BuildTypes(fa, nodes)...)
+	all = append(all, CheckTypes(fa, nodes)...)
+	if !containsErr(all, "`self` is a type only in an interface's signatures") {
+		t.Errorf("expected `self`-as-a-type in an interface default's body to be rejected; got:\n  %s", joinErrs(all))
 	}
 }
 

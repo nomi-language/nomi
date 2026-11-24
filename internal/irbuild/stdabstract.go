@@ -13,11 +13,14 @@ import (
 // the instance a program's call would build (stdInstances), at the
 // function's own type parameters and its impl block's, each left open and
 // held as its bounds. A monomorphic function with a body the shared
-// lowering builds none of (stdUnsharedMonoBody: a derived `equal` of a
-// namespaced type nothing compares) has one too, its instance with no
-// arguments, so every function of the module with a body is answered
-// whether or not its tests reach it. Each is in a module of its own, marked abstract, as
-// a program's abstract bodies are, and so are the instances they reach.
+// lowering builds none of has one too, its instance with no arguments: one
+// whose signature no gen shares (stdOutsideSubsetWhy, a function over a
+// namespaced type), and one a program builds for itself
+// (stdUnretainedMonoBody, std/signatures' `PrivateKey.from_der`, which
+// reaches a generic template). So every function of the module with a body
+// is answered whether or not its tests reach it. Each is in a module of its
+// own, marked abstract, as a program's abstract bodies are, and so are the
+// instances they reach.
 // Nothing runs one, and no program links them, so the gen that asks for
 // them builds a def of each std interface a type parameter is held as, as a
 // program's gen does (stdProgBuilds): `T: Hashable` in std/lists is held
@@ -48,13 +51,6 @@ func StdAbstractBodies(module string) []*ir.Module {
 	if v == nil {
 		return nil
 	}
-	var templates []*stdFunc
-	for _, f := range lib.byID {
-		if f.module == module && (stdGenericTemplateUsable(f) || stdUnsharedMonoBody(f)) {
-			templates = append(templates, f)
-		}
-	}
-	sort.Slice(templates, func(i, j int) bool { return templates[i].key < templates[j].key })
 	// One table, so two templates that reach one instance share it. Each
 	// template's closure commits whole or not at all, and its declines reach
 	// no census (attemptClosure). The module's own gen asks for every
@@ -63,7 +59,17 @@ func StdAbstractBodies(module string) []*ir.Module {
 	dc := newDeclineCensus(DeclineHooks{})
 	dc.abstract, dc.open = true, map[*analysis.TypeParam_]kind{}
 	insts := newStdInstances(lib, dc)
-	caller := newStdGen(v.module, v.path, v.pkg, v.nodes, v.fa, v.cands, v.settled, v.onces, lib)
+	var templates []*stdFunc
+	for _, f := range lib.byID {
+		// In an abstract lowering a monomorphic body the shared lowering
+		// builds none of is an unretained one (stdUnretainedMonoBody), its
+		// signature shared or not.
+		if f.module == module && (stdGenericTemplateUsable(f) || insts.stdUnretainedMonoBody(f)) {
+			templates = append(templates, f)
+		}
+	}
+	sort.Slice(templates, func(i, j int) bool { return templates[i].key < templates[j].key })
+	caller := v.gen(lib)
 	caller.stdInsts, caller.dc = insts, dc
 	for _, f := range templates {
 		tps, ib := insts.stdTemplateParams(f)
@@ -103,15 +109,4 @@ func StdAbstractBodies(module string) []*ir.Module {
 		}
 	}
 	return insts.modules()
-}
-
-// stdUnsharedMonoBody reports a monomorphic std function with a body the
-// shared lowering builds none of, since its signature has no kind the gens
-// share (stdOutsideSubsetWhy: a derived `equal` of `ToJson.Options`, a
-// namespaced type) or has one only in a program (stdProgSigWhy:
-// `Iter.from`). Its abstract body is its instance with no arguments: what
-// it does, whether or not any program calls it.
-func stdUnsharedMonoBody(f *stdFunc) bool {
-	return f != nil && (f.why == stdOutsideSubsetWhy || f.why == stdProgSigWhy) && f.decl != nil &&
-		f.decl.Body != nil && len(f.decl.TypeParams) == 0 && len(f.decl.Decorators) == 0 && f.irBody == nil
 }

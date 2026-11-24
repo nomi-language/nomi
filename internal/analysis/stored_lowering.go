@@ -160,15 +160,10 @@ func signatureOf(si StoredInterface) [32]byte {
 	return [32]byte(h.Sum(nil))
 }
 
-// implsOf fingerprints the files impl headers name, impl by impl, whatever
-// their ordinals (sameImplHeaderFiles).
+// implsOf fingerprints the receivers and files impl headers name, impl by
+// impl, whatever their ordinals (SameImplHeaders).
 func implsOf(headers []ImplHeader) [32]byte {
-	out := make([]string, len(headers))
-	for i, h := range headers {
-		out[i] = strings.Join(h.Files, "\x00")
-	}
-	sort.Strings(out)
-	return sha256.Sum256([]byte(strings.Join(out, "\x01")))
+	return sha256.Sum256([]byte(strings.Join(implHeaderKeys(headers), "\x02")))
 }
 
 // importOrderOf orders keys so that a file comes after the files among

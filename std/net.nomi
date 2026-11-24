@@ -1,7 +1,7 @@
-//# TCP connections. `net.dial` opens a connection,
-//# and `net.listen` with `net.serve` handles the connections that arrive,
-//# each as a task of a supervisor, as `http.serve` handles requests. A
-//# connection is read and written through std::io's streams:
+//# Stream connections: TCP, and Unix-domain sockets. `net.dial` opens a
+//# connection, and `net.listen` with `net.serve` handles the connections
+//# that arrive, each as a task of a supervisor, as `http.serve` handles
+//# requests. A connection is read and written through std::io's streams:
 //#
 //# ```nomi
 //# conn = net.dial("example.com:7")?
@@ -13,9 +13,14 @@
 //# Connection.close(conn)
 //# ```
 //#
-//# Dialing runs under the context in force, and a connection's reads and
-//# writes stop when the task that opened it is cancelled. std::tls runs TLS
-//# over the same `Connection`.
+//# `net.dial_unix` and `net.listen_unix` do the same over a Unix socket's
+//# path, which a local server such as Postgres or Docker listens on, and
+//# give the same `Connection` and `Listener`, and `net.inherited_listeners`
+//# gives the listeners a service manager such as systemd started the
+//# program with. Dialing runs under the context in force, and a
+//# connection's reads and writes stop when the task that opened it is
+//# cancelled. std::tls runs TLS over the same `Connection`. Datagrams, UDP
+//# and Unix, are std::udp's.
 
 import
     bool.Bool.{self, False, True}
@@ -36,7 +41,7 @@ import
     unit.Unit
 end
 
-/// An open network connection: TCP, or TLS over TCP.
+/// An open stream connection: TCP or a Unix socket, or TLS over either.
 pub struct Connection
     handle: http_host.Conn
 end
@@ -63,12 +68,14 @@ impl Connection
         http_host.conn_close_write(conn.handle)
     end
 
-    /// This side's address, `host:port`.
+    /// This side's address, `host:port`, or a Unix socket's path: the
+    /// listener's for an accepted connection, "" for a dialed one.
     pub fn local_address(conn: Connection) -> String
         http_host.conn_local(conn.handle)
     end
 
-    /// The peer's address, `host:port`.
+    /// The peer's address, `host:port`, or a Unix socket's path: the one
+    /// dialed, or "" for an accepted connection, whose peer has none.
     pub fn remote_address(conn: Connection) -> String
         http_host.conn_remote(conn.handle)
     end
@@ -86,12 +93,37 @@ impl Connection
         http_host.conn_deadline(conn.handle, 2, unix(at))
     end
 
-    /// Closes the receiving direction of a TCP connection.
+    /// Closes the receiving direction.
     pub fn close_read(conn: Connection) -> Unit
         http_host.conn_close_read(conn.handle)
     end
 
-    /// Whether small writes go out at once (`True`, Go's default) or wait
+    /// Asks the system to hold up to `bytes` of what arrives before it is
+    /// read (`SO_RCVBUF`); the system may round or cap it.
+    pub fn set_read_buffer(conn: Connection, bytes: Int) -> Result<Unit, Error>
+        http_host.socket_set(conn.handle, "read_buffer", bytes) |> Result.map_err(Error.from_parts)
+    end
+
+    /// Asks the system to hold up to `bytes` of what is written before it
+    /// is sent (`SO_SNDBUF`); the system may round or cap it.
+    pub fn set_write_buffer(conn: Connection, bytes: Int) -> Result<Unit, Error>
+        http_host.socket_set(conn.handle, "write_buffer", bytes) |> Result.map_err(Error.from_parts)
+    end
+
+    /// How many bytes the system holds of what arrives before it is read
+    /// (`SO_RCVBUF`). It may differ from what `set_read_buffer` asked:
+    /// Linux doubles it.
+    pub fn read_buffer(conn: Connection) -> Result<Int, Error>
+        http_host.socket_get(conn.handle, "read_buffer") |> Result.map_err(Error.from_parts)
+    end
+
+    /// How many bytes the system holds of what is written before it is
+    /// sent (`SO_SNDBUF`), as `read_buffer` reads.
+    pub fn write_buffer(conn: Connection) -> Result<Int, Error>
+        http_host.socket_get(conn.handle, "write_buffer") |> Result.map_err(Error.from_parts)
+    end
+
+    /// Whether small writes go out at once (`True`, the default) or wait
     /// to be combined (Nagle's algorithm).
     pub fn set_no_delay(conn: Connection, on: Bool) -> Unit
         http_host.conn_no_delay(conn.handle, on)
@@ -143,17 +175,18 @@ end
 pub struct KeepAlive
     enabled: Bool = True
     /// How long a connection is idle before the first probe; `None` is
-    /// Go's 15 seconds.
+    /// 15 seconds.
     idle: Option<Duration> = None
-    /// How long between probes; `None` is Go's 15 seconds.
+    /// How long between probes; `None` is 15 seconds.
     interval: Option<Duration> = None
     /// How many probes go unanswered before the connection is dropped;
-    /// `None` is Go's 9.
+    /// `None` is 9.
     count: Option<Int> = None
 end
 
-/// How `dial` connects. A timeout past about 292 years, the longest wait the
-/// clock counts, never fires.
+/// How `dial` and `dial_unix` connect. A timeout past about 292 years, the
+/// longest wait the clock counts, never fires. A Unix dial reads only the
+/// timeout, the local address (a path) and the reuse options.
 pub struct DialOptions
     /// The longest connecting may take; the context's deadline applies too.
     timeout:    Option<Duration> = None
@@ -161,17 +194,31 @@ pub struct DialOptions
     /// The local address to connect from, `host:port`.
     local_address: Option<String> = None
     /// How long to wait for IPv6 before trying IPv4 too ("Happy
-    /// Eyeballs"); `None` is Go's 300 milliseconds.
+    /// Eyeballs"); `None` is 300 milliseconds.
     fallback_delay: Option<Duration> = None
     /// Asks for Multipath TCP where the system has it.
     multipath: Bool = False
+    /// Sets `SO_REUSEADDR` before binding `local_address`.
+    reuse_address: Bool = False
+    /// Sets `SO_REUSEPORT` before binding `local_address`. Windows has
+    /// none: asking there fails with `Error.Unsupported`.
+    reuse_port: Bool = False
 end
 
-/// How `listen` binds.
+/// How `listen` and `listen_unix` bind. A Unix listener reads only the
+/// reuse options.
 pub struct ListenOptions
     /// Keep-alive for the connections it accepts.
     keep_alive: KeepAlive = KeepAlive{}
     multipath:  Bool = False
+    /// Sets `SO_REUSEADDR`, so the address binds while connections an
+    /// earlier listener on it closed are waiting out their end. Every TCP
+    /// listener outside Windows has it set already.
+    reuse_address: Bool = False
+    /// Sets `SO_REUSEPORT`, so several listeners can bind the same address
+    /// and the system spreads the connections among them. Windows has
+    /// none: asking there fails with `Error.Unsupported`.
+    reuse_port: Bool = False
 end
 
 /// Why a connection could not be made or used.
@@ -191,7 +238,14 @@ pub enum Error
     InvalidAddress {address: String, reason: String}
     /// A name the resolver could not resolve.
     Dns {host: String, reason: String, server: Option<String>, not_found: Bool}
-    /// Any other failure of `op` (`dial`, `listen`, `lookup`) on `address`.
+    /// A datagram longer than the `max` a receive asked for, from
+    /// `address`, or "" where the system does not say (Windows). Its bytes
+    /// are dropped.
+    Truncated {address: String, max: Int}
+    /// This system, or this kind of socket, lacks what `op` asked for.
+    Unsupported {op: String, reason: String}
+    /// Any other failure of `op` (`dial`, `listen`, `lookup`, `bind`,
+    /// `send`, `receive`) on `address`.
     Other {op: String, address: String, reason: String}
     Tls {error: tls.Error}
 end
@@ -236,6 +290,12 @@ impl Error
                     }
                 end
 
+            ["Truncated", address, max] ->
+                Error.Truncated{address:, max: int(max)}
+
+            ["Unsupported", op, reason] ->
+                Error.Unsupported{op:, reason:}
+
             ["Other", op, address, reason] ->
                 Error.Other{op:, address:, reason:}
 
@@ -249,7 +309,7 @@ impl Error
         Error.Tls{error:}
     end
 
-    /// Whether the error is a timeout, as Go's `Timeout()` returns.
+    /// Whether the error is a timeout: `Error.Timeout`.
     pub fn is_timeout(error: Error) -> Bool
         case error
             .Timeout{address: _} -> True
@@ -271,6 +331,9 @@ impl Display for Error
             .Closed -> "the connection is closed"
             .InvalidAddress{address:, reason:} -> "invalid address ${address}: ${reason}"
             .Dns{host:, reason:, server: _, not_found: _} -> "looking up ${host}: ${reason}"
+            .Truncated{address: "", max:} -> "a datagram is longer than ${max} bytes"
+            .Truncated{address:, max:} -> "a datagram from ${address} is longer than ${max} bytes"
+            .Unsupported{op:, reason:} -> "${op}: ${reason}"
             .Other{op:, address:, reason:} -> "${op} ${address}: ${reason}"
             .Tls{error:} -> "${error}"
         end
@@ -279,10 +342,21 @@ end
 
 /// A TCP connection to `address`, `host:port`.
 pub fn dial(address: String, options: DialOptions = DialOptions{}) -> Result<Connection, Error>
+    dial_on("tcp", address, options)
+end
+
+/// A connection to the Unix socket at `path`. On Linux a path that starts
+/// with `@` names an abstract socket, which has no file.
+pub fn dial_unix(path: String, options: DialOptions = DialOptions{}) -> Result<Connection, Error>
+    dial_on("unix", path, options)
+end
+
+fn dial_on(network: String, address: String, options: DialOptions) -> Result<Connection, Error>
     k = options.keep_alive
 
     handle =
         http_host.dial_with(
+            network,
             address,
             nanos(options.timeout),
             Option.with_default(options.local_address, ""),
@@ -292,6 +366,8 @@ pub fn dial(address: String, options: DialOptions = DialOptions{}) -> Result<Con
             nanos(k.interval),
             Option.with_default(k.count, 0),
             options.multipath,
+            options.reuse_address,
+            options.reuse_port,
         )
         |> Result.map_err(Error.from_parts)?
 
@@ -310,8 +386,8 @@ pub fn nanos(d: Option<Duration>) -> Int
 end
 
 /// Two connections joined in memory, each end's writes the other's
-/// reads, with no buffer: Go's `net.Pipe`. For tests of code that talks
-/// over a connection.
+/// reads, with no buffer, so a write waits for the other end to read it.
+/// For tests of code that talks over a connection.
 //! (a, b) = net.pipe()
 //! _ = Connection.close(a)
 //! assert Connection.remote_address(b) == "pipe"
@@ -323,8 +399,8 @@ pub fn pipe() -> (Connection, Connection)
     end
 end
 
-/// Splits `host:port` (or `[host]:port`) into its host and port: Go's
-/// `SplitHostPort`.
+/// Splits `host:port` (or `[host]:port`) into its host and port,
+/// unbracketed.
 //! assert net.split_host_port("[::1]:80") == Ok(("::1", "80"))
 //
 pub fn split_host_port(address: String) -> Result<(String, String), Error>
@@ -334,8 +410,8 @@ pub fn split_host_port(address: String) -> Result<(String, String), Error>
     end
 end
 
-/// Joins a host and port into an address, bracketing an IPv6 host: Go's
-/// `JoinHostPort`.
+/// Joins a host and port into an address, bracketing an IPv6 host
+/// (one that holds a `:`).
 //! assert net.join_host_port("::1", "80") == "[::1]:80"
 //
 pub fn join_host_port(host: String, port: String) -> String
@@ -457,7 +533,8 @@ pub struct Listener
 end
 
 impl Listener
-    /// The address it is bound to, with the port it picked for port 0.
+    /// The address it is bound to, with the port it picked for port 0, or
+    /// a Unix listener's path.
     pub fn address(listener: Listener) -> String
         http_host.net_listener_address(listener.handle)
     end
@@ -493,20 +570,85 @@ end
 
 /// Binds `address`, `host:port`; port 0 picks a free one.
 pub fn listen(address: String, options: ListenOptions = ListenOptions{}) -> Result<Listener, Error>
+    listen_on("tcp", address, options)
+end
+
+/// Binds a Unix socket at `path`, which must not exist yet. Closing the
+/// listener removes the socket file; a program that ends without closing
+/// it, as a crash does, leaves the file, and binding the path again fails
+/// with `Error.AddressInUse` until it is removed. On Linux a path that
+/// starts with `@` names an abstract socket, which has no file.
+//! import std::fs
+//! import std::io.{Reader, Writer}
+//! import std::path
+//!
+//! dir = fs.make_temp_dir()!
+//! socket = path.join(dir, "echo.sock")
+//! listener = net.listen_unix(socket)!
+//! client = net.dial_unix(socket)!
+//! server = Listener.accept(listener)!
+//! _ = Writer.write_text(Connection.writer(client), "ping\n")
+//! assert Reader.read_line(Connection.reader(server)) == Ok(Some("ping"))
+//! assert Connection.remote_address(client) == socket
+//! assert Err(Error.AddressInUse{address: socket}) = net.listen_unix(socket)
+//!
+//! Connection.close(client)
+//! Connection.close(server)
+//! Listener.close(listener)
+//! assert fs.exists(socket) == Ok(False)
+//! fs.remove_all_quietly(dir)
+//
+pub fn listen_unix(
+    path:    String,
+    options: ListenOptions = ListenOptions{},
+) -> Result<Listener, Error>
+    listen_on("unix", path, options)
+end
+
+fn listen_on(network: String, address: String, options: ListenOptions) -> Result<Listener, Error>
     k = options.keep_alive
 
     handle =
         http_host.net_listen_with(
+            network,
             address,
             k.enabled,
             nanos(k.idle),
             nanos(k.interval),
             Option.with_default(k.count, 0),
             options.multipath,
+            options.reuse_address,
+            options.reuse_port,
         )
         |> Result.map_err(Error.from_parts)?
 
     Ok(Listener{handle:})
+end
+
+/// The listening sockets a service manager started the program with, in
+/// the order it passed them. The protocol is systemd's socket activation,
+/// which a parent that restarts the program without closing its sockets
+/// can follow too: `LISTEN_PID` is this process's id, `LISTEN_FDS` counts
+/// the sockets from descriptor 3 on, and `LISTEN_FDNAMES` names them. With
+/// `name`, only those named so (systemd's `FileDescriptorName`, by default
+/// the socket unit's name; `"unknown"` when nothing names them). The
+/// variables are read from the process's environment, not from
+/// `Startup.env`, since the sockets belong to the process.
+///
+/// An empty list when none were passed, or when `LISTEN_PID` names another
+/// process, and always on Windows, which has no such protocol. A datagram
+/// socket among them is `udp.inherited_sockets`'. Each socket is taken
+/// once for the process: every call returns the same listeners, so no
+/// socket is opened twice, and one closed stays closed. A Unix socket's
+/// file stays when it closes, since the service manager made it. Pass one
+/// to `http.Server`'s `listener` to serve HTTP on it.
+//! assert net.inherited_listeners() |> Result.map(List.length) == Ok(0)
+//! assert net.inherited_listeners(name: Some("web")) |> Result.map(List.length) == Ok(0)
+//
+pub fn inherited_listeners(name: Option<String> = None) -> Result<List<Listener>, Error>
+    http_host.inherited_listeners(name)
+    |> Result.map(fn handles -> handles |> Iter.map(Listener.of_handle) |> Iter.to_list())
+    |> Result.map_err(Error.from_parts)
 end
 
 /// Handles each connection `listener` accepts with `handler`, each as a

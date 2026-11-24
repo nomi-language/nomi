@@ -259,8 +259,48 @@ func TestRtFuncs_FilesAndWithin(t *testing.T) {
 	if err := os.Symlink("f.bin", filepath.Join(dir, "link")); err != nil {
 		t.Fatal(err)
 	}
-	if got := text(ok(disk, "fs/host.link_metadata", dir+"/link")); !strings.HasPrefix(got, "[Int(2), Int(5), ") {
+	some := func(n string) string { return "option.Option/4.Some{0=Int(" + n + ")}" }
+	if got := text(ok(disk, "fs/host.link_metadata", dir+"/link")); !strings.HasPrefix(got, "["+some("2")+", "+some("5")+", ") {
 		t.Errorf("link_metadata of a link answered %s, want kind 2 (Symlink) and size 5", got)
+	}
+	// The metadata of a file whose times and mode were set: the kind, size,
+	// modification time and mode exactly, then the access time set, and the
+	// fields past it each there or None as the system keeps them
+	// (stdio's TestMetadata_AgreesWithGoStat holds their values).
+	dated := dir + "/dated.txt"
+	if err := os.WriteFile(dated, []byte("1234567"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(dated, 0o640); err != nil {
+		t.Fatal(err)
+	}
+	ok(disk, "fs/host.set_times", dated, rb.Variant("option.Option", "Some", int64(1700000000000000000)), rb.Variant("option.Option", "Some", int64(1600000000000000000)))
+	fields := ok(disk, "fs/host.metadata", dated).(*rt.List[rt.Value])
+	var got []string
+	for l := fields; l != nil; l = l.Tail {
+		got = append(got, text(l.Head))
+	}
+	if len(got) != 12 || strings.Join(got[:5], ", ") != strings.Join([]string{some("0"), some("7"), some("1700000000000000000"), some("416"), some("1600000000000000000")}, ", ") {
+		t.Errorf("metadata of dated.txt answered %v", got)
+	}
+	// A hard link, the disk's usage, the owner set to the one the file has,
+	// touch and the owner's name, each through the crossing.
+	ok(disk, "fs/host.create_link", dir+"/dated2.txt", dated)
+	if got := text(ok(disk, "fs/host.metadata", dir+"/dated2.txt")); !strings.Contains(got, some("2")) {
+		t.Errorf("metadata of a second name answered %s, want 2 links", got)
+	}
+	if got := text(ok(disk, "fs/host.disk_usage", dir)); !strings.HasPrefix(got, "[Int(") {
+		t.Errorf("disk_usage answered %s", got)
+	}
+	if got := text(call(disk, "fs/host.set_owner", dated, int64(-1), int64(0), true)); got != `results.Result/4.Err{0=io.Error/4.Other{code=String("EINVAL"), operation=String("chown"), path=String("`+dated+`")}}` {
+		t.Errorf("set_owner of -1 answered %s", got)
+	}
+	ok(disk, "fs/host.touch", dir+"/touched")
+	if _, err := os.Stat(filepath.Join(dir, "touched")); err != nil {
+		t.Errorf("touch made no file: %v", err)
+	}
+	if got := text(call(disk, "fs/host.owner_name", int64(-1), false)); got != "option.Option/4.None{}" {
+		t.Errorf("owner_name of -1 answered %s", got)
 	}
 
 	if err := os.WriteFile(filepath.Join(dir, "secret.txt"), []byte("s"), 0o644); err != nil {

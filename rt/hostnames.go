@@ -43,6 +43,7 @@ var hostTypeNames = map[reflect.Type]StdHostType{
 	reflect.TypeFor[WasmInstance]():   {"std/wasm/host", "Live"},
 	reflect.TypeFor[WasmMemory]():     {"std/wasm/host", "Memory"},
 	reflect.TypeFor[BytesBuilder]():   {"std/bytes", "Builder"},
+	reflect.TypeFor[Hasher]():         {"std/hash", "Hasher"},
 	reflect.TypeFor[Regex]():          {"std/regex", "Regex"},
 	reflect.TypeFor[BoolTrue]():       {"std/bool", "True"},
 	reflect.TypeFor[BoolFalse]():      {"std/bool", "False"},

@@ -60,7 +60,7 @@ func (bl *irScalarBuilder) siblingQualSite(fa *ast.FieldAccess) (fileSite, bool)
 		return fileSite{}, false
 	}
 	to, isSibling := g.lookupQualifier(owner)
-	if !isSibling || to == g.fileUnit {
+	if !isSibling {
 		return fileSite{}, false
 	}
 	f := g.siblingFuncAt(to, fa.Field)

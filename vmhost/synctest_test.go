@@ -205,8 +205,8 @@ fn main() -> Unit
     fast = Task.spawn(fn -> fast_fail())
     slow1 = Task.spawn(fn -> slow_task())
     slow2 = Task.spawn(fn -> slow_task())
-    _slow1_ref = slow1
-    _slow2_ref = slow2
+    _slow1_ref = fn -> Task.outcome(slow1) // never called: the task stays unawaited
+    _slow2_ref = fn -> Task.outcome(slow2) // never called: the task stays unawaited
     Ok(Task.await(fast)?)
   end
   case outcome

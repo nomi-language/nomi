@@ -23,8 +23,9 @@ $ cd notes
 $ nomi add github.com/nomi-language/nomi/lib/sql/sqlite
 ```
 
-The examples run in this page on a real SQLite. Edit them and they run
-again.
+Nomi has no release yet, so for now add a first-party library from a clone
+of the Nomi repository: `nomi add ../nomi/lib/sql/sqlite`. The examples run
+in this page on a real SQLite. Edit them and they run again.
 
 For Postgres, add `github.com/nomi-language/nomi/lib/sql/postgres` instead
 and open a pool of connections with `postgres.pool(url)`, a driver written

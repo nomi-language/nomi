@@ -73,17 +73,18 @@ type defaultHome struct {
 // stands for. The builder lowers copies of a
 // written call (a pipe stage with its subject spliced in, a call
 // requalified through its module's alias), which keep the written call's
-// position, so a copy finds the record by it.
+// position, so a copy finds the record by it. The record names its
+// declarations as this gen's module declares them (ownDefaults).
 func (g *gen) callDefaultsOf(t *ast.Call) *analysis.DefaultedCall {
 	fa := g.srcFA()
 	if fa == nil || t == nil {
 		return nil
 	}
 	if rec := g.synthDefaults[t]; rec != nil {
-		return rec
+		return g.ownDefaults(rec)
 	}
 	if rec := fa.CallDefaults[t]; rec != nil {
-		return rec
+		return g.ownDefaults(rec)
 	}
 	if len(fa.CallDefaults) == 0 {
 		return nil
@@ -95,7 +96,43 @@ func (g *gen) callDefaultsOf(t *ast.Call) *analysis.DefaultedCall {
 			g.callDefaultsAt[analysis.Pos{Line: c.Line, Col: c.Col}] = rec
 		}
 	}
-	return g.callDefaultsAt[analysis.Pos{Line: t.Line, Col: t.Col}]
+	return g.ownDefaults(g.callDefaultsAt[analysis.Pos{Line: t.Line, Col: t.Col}])
+}
+
+// ownDefaults is rec with each declaration it names read as this gen's
+// module declares it (ownDecl): in a std module checked from edited
+// source, a call through the module's std name (a `//!` prompt's
+// `compress.encode(...)`) is recorded against the shared analysis's copy,
+// whose defaults are nodes this module's analysis holds nothing about, and
+// the edited twin's are the ones lowered. rec itself, unchanged, when it
+// names no twin.
+func (g *gen) ownDefaults(rec *analysis.DefaultedCall) *analysis.DefaultedCall {
+	if rec == nil || len(g.twins) == 0 {
+		return rec
+	}
+	if own, done := g.ownDefaultsOf[rec]; done {
+		return own
+	}
+	own := *rec
+	own.Decl = g.ownDecl(rec.Decl)
+	own.From = make([]ast.Node, len(rec.From))
+	twinned := own.Decl != rec.Decl
+	for i, from := range rec.From {
+		own.From[i] = g.ownDecl(from)
+		twinned = twinned || own.From[i] != from
+	}
+	if params, ok := declParams(own.Decl); ok && own.Decl != rec.Decl {
+		own.Params = params
+	}
+	out := rec
+	if twinned {
+		out = &own
+	}
+	if g.ownDefaultsOf == nil {
+		g.ownDefaultsOf = map[*analysis.DefaultedCall]*analysis.DefaultedCall{}
+	}
+	g.ownDefaultsOf[rec] = out
+	return out
 }
 
 // fillCallDefaults fills each slot of a call t's operand vector that the

@@ -58,6 +58,10 @@ func manifestTables() map[string]manifestTable {
 				// free, and an entry's are checked at `<path>.*`.
 				out[path] = manifestTable{about: f.Tag.Get("keys")}
 				path, ft = path+".*", ft.Elem()
+			} else if ft.Kind() == reflect.Map {
+				// A table of values under free keys ([indirect]).
+				out[path] = manifestTable{about: f.Tag.Get("keys")}
+				continue
 			}
 			if ft.Kind() != reflect.Struct {
 				continue

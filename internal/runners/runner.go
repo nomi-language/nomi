@@ -35,7 +35,8 @@ type Variant struct {
 	// WebAssembly modules (stdlibadapters.Families) answer an error instead
 	// of linking net/http, crypto/tls, net's sockets and wazero, so it is a
 	// third smaller. `nomi build` picks it for a program that reaches none
-	// of them.
+	// of them. std/compiler's runner has no lean variant (Runner refuses
+	// one): the front end it links is most of its size.
 	NoNetwork bool
 }
 
@@ -56,8 +57,8 @@ func (v Variant) Name() string {
 
 // BinaryName is the runner's file name before any executable suffix, in a
 // cache directory, beside `nomi` and in a release archive: nomi-vm,
-// nomi-vm-reactor, then -compiler for std/compiler's variant, then -nonet
-// for the lean one (nomi-vm-compiler-nonet).
+// nomi-vm-reactor, then -compiler for std/compiler's variant or -nonet for
+// the lean one (nomi-vm-reactor-nonet).
 func (v Variant) BinaryName() string {
 	name := runnerBinaryBaseName
 	if v.Reactor {
@@ -119,24 +120,11 @@ type Target struct {
 	GOOS, GOARCH string
 }
 
-// ResolveTarget fills an empty half of a target from GOOS/GOARCH in the
-// environment and then from this process's own platform, which is what
-// `go build` would build for.
-func ResolveTarget(goos, goarch string) Target {
-	if goos == "" {
-		goos = os.Getenv("GOOS")
-	}
-	if goos == "" {
-		goos = runtime.GOOS
-	}
-	if goarch == "" {
-		goarch = os.Getenv("GOARCH")
-	}
-	if goarch == "" {
-		goarch = runtime.GOARCH
-	}
-	return Target{GOOS: goos, GOARCH: goarch}
-}
+// HostTarget is the platform this process runs on, which a build is for
+// when its command names no --target. No environment variable changes it:
+// GOOS and GOARCH are set only in the environment of the `go build` that
+// cross-builds a runner from source (sourceRunner).
+func HostTarget() Target { return Target{GOOS: runtime.GOOS, GOARCH: runtime.GOARCH} }
 
 func (t Target) String() string { return t.GOOS + "/" + t.GOARCH }
 
@@ -148,18 +136,27 @@ type Record struct {
 	Variant  string `json:"variant"`
 }
 
-// Runner answers the path of a runner of variant v for target: one installed
-// beside this `nomi`, one built from the compiler's source and cached, or one
-// from the release this `nomi` was cut as, cached or downloaded, in that
-// order (prebuilt.go). A download is announced on progress.
+// Runner answers the path of a runner of variant v for target: the one this
+// `nomi` carries, unpacked into the cache; one installed beside this `nomi`;
+// one built from the compiler's source and cached; or one from the release
+// this `nomi` was cut as, cached or downloaded, in that order (prebuilt.go).
+// A download is announced on progress.
 //
 // A release `nomi` (ReleaseVersion set) builds no runner and never runs
-// `go`: its release ships every variant prebuilt. Any other `nomi` builds one
-// from the compiler's source: its checkout, or for a versioned build (`go
-// install ...@version`) that version of the module, which Go fetches.
+// `go`: it carries its own platform's two runners, and its release ships
+// every other prebuilt. Any other `nomi` builds one from the compiler's
+// source: its checkout, or for a versioned build (`go install ...@version`)
+// that version of the module, which Go fetches.
 func Runner(target Target, v Variant, progress io.Writer) (string, error) {
 	if v.Reactor && (target.GOOS != "wasip1" || target.GOARCH != "wasm") {
 		return "", fmt.Errorf("only wasip1/wasm has a reactor nomi-vm, not %s", target)
+	}
+	if v.Compiler && v.NoNetwork {
+		return "", fmt.Errorf("std/compiler's runner has no lean variant: a program that imports std/compiler "+
+			"is appended to %s", Variant{Compiler: true, Reactor: v.Reactor}.BinaryName())
+	}
+	if embeddedRunner(target, v) != nil {
+		return releaseRunner(target, v, progress)
 	}
 	nomiRoot, versioned := "", false
 	if ReleaseVersion == "" {
@@ -245,8 +242,8 @@ func (t Target) NeedsWasmExec() bool { return t.GOOS == "js" && t.GOARCH == "was
 func WasmExec(runner string) (string, error) {
 	path := filepath.Join(filepath.Dir(runner), WasmExecName)
 	if !fileExists(path) {
-		return "", fmt.Errorf("the js/wasm nomi-vm at %s has no %s beside it, and it must come from the Go "+
-			"toolchain that built it. Delete that nomi-vm so `nomi build` fetches or builds it again",
+		return "", fmt.Errorf("the js/wasm nomi-vm at %s has no %s beside it. "+
+			"Delete that nomi-vm so `nomi build` fetches or builds it again",
 			runner, WasmExecName)
 	}
 	return path, nil

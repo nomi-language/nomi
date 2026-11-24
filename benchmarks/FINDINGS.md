@@ -311,8 +311,8 @@ three are fixed on `next`, and the ports no longer work around them.
   open-ended ranges have been removed", which does not say that `0..n` is
   the exclusive range. `typealias X = T` reports "expected type name, got
   `=`" without suggesting `typealias X T`. A one-line lambda whose body
-  discards a value, `fn _ -> _ = f(x)`, does not parse; the form with
-  `end` does.
+  discarded a value, `fn _ -> _ = f(x)`, did not parse; the form with
+  `end` did (fixed).
 
 ## A profiler for Nomi users
 

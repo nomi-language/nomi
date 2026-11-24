@@ -30,17 +30,26 @@
 // An edit that leaves each edited file's interface fingerprint unchanged
 // rebuilds only those files' bodies, in place. A `once`'s value counts as a
 // body; an unannotated one is inferred again and must keep its type (early
-// cutoff). Any other edit checks the edited files and their transitive
-// importers afresh and keeps every other file's analysis.
+// cutoff). Any other edit checks afresh the edited files and the files
+// whose checks read one of them, and keeps every other file's analysis. A
+// file's check reads its transitive imports, and, for each impl it sees
+// that another file declares, the files the impl's header names (its
+// interface, which the file need not import), each with its transitive
+// imports ([ProgramReads]). So a default added to an interface reaches a
+// file that sees an impl of it through a third file. One rule
+// ([ProgramReads.Readers]) answers which files an edit reaches, for a
+// recheck, an edit of a program opened from its record, a check from an
+// installed check, and vmhost's lowerings per file and relinks.
 //
 // An edit that changes a file's impls is checked the same way when only
 // those files can see each impl it added, removed or changed. A file sees
-// an impl when every project file its header names is the file or one it
-// imports transitively (the relevant impl set, as a check against
-// interfaces reads it), so an impl of a leaf's own type is seen only by its
-// importers. The whole program is checked afresh when another file can see
-// a changed impl, when a kept file holds something of a rechecked one, or
-// when the rechecked files are every file.
+// an impl when its receiver is declared outside the project, in the file or
+// in one it imports transitively (the relevant impl set, as a check against
+// interfaces reads it, [ImplHeader.RelevantTo]), whatever file declares its
+// interface, so an impl of a leaf's own type is seen only by its importers,
+// and one for `List<Int>` by every file. The whole program is checked
+// afresh when another file can see a changed impl, when a kept file holds
+// something of a rechecked one, or when the rechecked files are every file.
 //
 // The program-wide reductions over bodies (coherence, whole-file imports,
 // a rootless file's application-field roots, the boot-only check's and the
@@ -109,7 +118,11 @@
 // whose nomi.toml has a problem reports it once, on the entry, and checks
 // the program as one with no manifest: the walk of its imports still
 // runs (discoverProjectStd), so std's modules come from the shared
-// stdlib and report nothing.
+// stdlib and report nothing. The one exception is a module, the project
+// or one it depends on, whose [module].nomi names a later release than the
+// running nomi (modcache.NomiVersionError): its files are written for that
+// release, so the build reads and checks nothing and the entry answers
+// that one error (NomiVersionCode).
 //
 // One writer edits the [effects.self], [effects.self.modules],
 // [effects.deps] and [effects.deps.modules] tables of a
@@ -123,10 +136,11 @@
 // comments and layout inside them, by the same rules. Which keys a table
 // holds is manifestFile's, nested tables included, and an unknown key is
 // an error that says what the table's keys hold (unknownManifestKey).
-// WriteDependencies (manifest_deps_write.go) writes the [dependencies]
-// table for `nomi add`, `remove` and `update` by the same layout rules,
-// over ManifestTableLayout, keeping every line outside it, and checks only
-// that table, so an error elsewhere in the file never blocks the edit. A
+// WriteRequirements (manifest_deps_write.go) writes the [dependencies]
+// and [indirect] tables for `nomi add`, `remove` and `update` by the same
+// layout rules, over ManifestTableLayout, one writer for both tables of
+// entries (writeEntries), keeping every line outside them, and checks only
+// those tables, so an error elsewhere in the file never blocks the edit. A
 // top-level table named by the text's own [module].name or a key of its
 // own [dependencies] is a tool's (toolTables), read from the text and not
 // from a module graph, so the edit that adds a dependency is the one that
@@ -268,8 +282,8 @@
 // # Generic calls and the expected type
 //
 // A generic call's type arguments come from its arguments first (spec §5
-// *Type arguments from the arguments*). checkGenericCall and checkPipe
-// still solve what the call's expected type would give, but hold that
+// *Type arguments from the arguments*). checkGenericCall still solves what
+// the call's expected type would give, but holds that
 // seed back and hand each argument, before checking it, only the seed's
 // solutions for the type parameters its slot names that it cannot type
 // itself (a dot-leading variant, an empty literal, an unannotated lambda's
@@ -282,7 +296,63 @@
 // Coercion record at the call where it enters an interface, an IterViews
 // record where an Iter is relabelled, a Conversions record where it
 // converts below its top. The rules and their reasons are in
-// expected_seed.go.
+// expected_seed.go. An interface's function called through the interface
+// is a generic call in `self` even where its signature names no `self`
+// (unnamedSelfOf, callIsGeneric), so `Unit.symbol<Meters>()` solves `self`
+// from its type argument and records the impl it reaches, as a call whose
+// argument is a `self` does.
+//
+// A pipe stage is the call it means: `x |> f(a)` is `f(x, a)`. Each step
+// checkCallExpr takes before a direct call reaches the shared path, a
+// stage takes through the same function: the callee's type (callCallee,
+// which makes an open inference variable a function of the arguments, the
+// piped value counted), std/testing's `check` under any name it is
+// imported as (checkTestingCheckCall), an opaque
+// enum's variant (checkOpaqueEnumVariantCall), the function a
+// function-wrapping distinct value calls (calledFunction), a callee that
+// is no function or a variant with no payload (checkCallOfNoFunction), a
+// positional variant's named payload (rejectNamedVariantArgs), a bare
+// interface function's name (rejectBareNameDispatch), an interface
+// method's specialisation (specializeInterfaceMethod, from the piped
+// value's type) and impl selection (selectCallImpl). A constructor's call
+// form, a type name and an operator interface's function have a piped
+// sibling of the direct call's check (checkPipedVariantCtor,
+// checkPipedDistinctCtor, checkPipedTypeNameCall,
+// checkPipedOperatorInterfaceCall), where the piped value is the one
+// argument or the left operand. checkPipe counts the arity with the piped
+// value and places the stage's arguments after it, and then hands the
+// stage to the direct call's code (checkCallOf, checkGenericCall,
+// checkPlainCall) with the piped value as a checked first argument
+// (pipedHead), which differs from a written one only in where its errors
+// and demands point (callSite), in their wording (spec §8 *Pipes*), and in
+// that a pipe stage's `&1` is no partial application.
+// TestPipeStage_RecordsWhatTheDirectCallRecords holds each step to the
+// direct call's records and diagnostics.
+//
+// Explicit type arguments are bound by one function, bindTypeArgs, for
+// every form of call: checkGenericCall, the non-generic path
+// (checkCallOf), the operator-interface routes
+// (operatorImplementor, whose implementor the left operand must be), and
+// every construction (constructorInstance). The type parameters they bind
+// are callTypeParams': for a construction its type's own, a variant's
+// being its enum's, in declared order, with those that declare a default
+// allowed to be left out; through an interface the implementor first,
+// then the function's own, with the implementor alone allowed; for any
+// other declared function its own; for a function value none, since a
+// value is never generic. A wrong count or a name that is no type is
+// reported there once, and the call then has no type. A construction's
+// argument is checked against the instance its type arguments name.
+//
+// A function of an interface impl block may name every type parameter of
+// the block in its body, whatever its signature names, since a call
+// through the interface names the implementor; a function of an inherent
+// block names only those its signature does (ownerTypeParams,
+// owner_type_params.go). A call through the implementor's name
+// (`Wrap.symbol()`) writes no instance, so when the signature names
+// neither `self` nor the implementor and the impl is for a generic
+// instance, nothing determines that instance, and the call is an error
+// whose help writes the call through the interface
+// (unnamedImplementorInstance).
 //
 // # Elaboration
 //
@@ -337,9 +407,28 @@
 // written or derived Debug, declared at module level or in a body, has no
 // block of it: a use of Debug's function at it, `Debug.inspect(x)` or
 // `T.inspect(x)`, is answered by its shape (noImplUse), which rt renders as
-// the literal that builds it. `T.inspect` names Debug's own function there,
-// since Debug is among the interfaces that give every declared type a
-// member of the name (universalDebugFor), and a value of any type enters a
+// the literal that builds it. A derived Equatable, Hashable, Debug or
+// Display is a block that writes no function (derivedShapeBlock), answered
+// structurally (derivesByShape): a derived Equatable, its parameters
+// bounded by Equatable, compares as `==` compares a type with no impl, a
+// derived Hashable, its parameters bounded by Hashable, hashes as the
+// machine hashes a Map key of the type. With no function there, no bound
+// of one checks a type-qualified call (`Option.hash(x)`), and std's
+// `impl Equatable for List<T>` names no bound on T, so every
+// type-qualified call of an interface's function is checked as its
+// interface-qualified spelling is (reportSelfUnmet). A derived Debug
+// renders by its shape, an opaque type's included: the block is there for coherence, so a
+// written `impl Debug` beside it conflicts, for the derive's identity
+// check, and to rank over an opaque type's name-only Debug. A derived
+// Display is the same block of Display, its parameters bounded by
+// Display as a derive implies: it is what gives the type Display and
+// meets a `T: Display` bound, and a use of Display's function at the type
+// is answered structurally and a hole of it renders by its shape, as rt
+// renders a derived Debug with Display's leaves. `T.to_string` names
+// Display's own function there, as `Display.to_string(x)` does. `T.inspect`
+// names Debug's own function there, since Debug is among the interfaces
+// that give every declared type a member of the name (universalDebugFor),
+// and a value of any type enters a
 // `Debug` interface value (unifyInterfaceAgainstConcrete), as it meets a
 // `where T: Debug` bound. An opaque type and a host type render other
 // than by their shape, by the name-only block the front end writes for
@@ -361,6 +450,107 @@
 // type's names its block: it is no block of the impl index, and
 // implBlockFor reads it from the declaring file's BlockDebug
 // (blockImplOf).
+//
+// Whether a use of a type's impl of Debug, Display, Equatable, Hashable or
+// Comparable asks that interface of the type's parts has one answer,
+// ImplAsksParts over the impl block. It does for a type with no block, a
+// derive's block that writes no function, and a block whose functions are
+// all `host fn`s, which the machine answers by the type's shape: std's
+// Equatable and Hashable of List, Map, Set and Vector are written so.
+// It does not for a block that writes a function with a body: that body
+// was checked under the block's where bounds alone, so they are all a use
+// asks of the type arguments.
+//
+// A type has Equatable and Hashable only where it has equality: a type
+// that is or holds a function, an Iter or a handle meets neither, whatever
+// impl its name has (structuralEqualityConformance, over
+// noEqualityPartWith, the one definition of what `==` accepts). A declared
+// type's own Equatable answers for what it holds (ownEquality): one with a
+// body for its type arguments and fields alike, so `impl Equatable for
+// Measure<P> where P: Unit2` compares a Measure<Op> whose Op holds a
+// function, and one that answers by shape for its fields, its type
+// arguments still searched. A bound decided at an impl's receiver
+// (typeSatisfiesInterfaceForImplMatch) and one decided at a call
+// (typeImplementsInterface) both ask it, so `[inc] in [[inc]]` meets
+// List's `T: Equatable` at no List<(Int) -> Int>. A demand of Equatable
+// or Hashable that such a type cannot meet is reported where it is
+// recorded (demandWithoutEquality), since the manifest judges a demand by
+// the type's name; a declared type with no impl that holds one is left to
+// the manifest, which names it. A value held as an interface or as a
+// conjunction of interfaces meets either bound by the value it holds
+// (existentialMeets).
+//
+// Every site that demands an interface of a type records it through one
+// function, recordConformanceRecording: `==` and `!=`, an ordering, `in`,
+// a Set element or Map key, an interpolation, `dbg`, a qualified call, a
+// generic call's bound, an argument for an interface-typed parameter, and
+// a derive's demand of its interface at each part of the type it is for.
+// It records the demand at the type itself, a tuple's and an anonymous
+// struct's at its parts, with the where bounds of the impl the type
+// reaches at the arguments they bind (recordImplReceiverBoundConformances).
+// A demand of Debug, Display, Equatable, Hashable or Comparable is then
+// recorded at the type's arguments where its impl asks it of its parts
+// (ImplAsksParts, recordPartDemands). So `impl Display for Measure<P>
+// where P: Unit2` renders a Measure<Feet> with no Display of Feet, and
+// `[m] == [m]`, `{m => 1}` and `dbg [m]` over a Measure<Bare> each report
+// Bare's missing Unit2. std's containers state what their bodies ask of
+// their elements, as `impl Debug for List<T> where T: Debug` does.
+//
+// Which error a type that misses an interface draws, where it has an impl
+// of it whose where bounds are unmet, is one answer (boundsMissOf). A
+// call's where bound records the demand for any such miss, so `List<Foo>`
+// at `where T: Display` names Foo, as an interpolation of it does. A
+// position that takes a value of an interface type (a parameter or field,
+// an `Html` template's slot, a typed literal's slot) records the demand
+// only where every miss ends at a bound of another interface, as a
+// Measure<Bare>, alone or in a List, misses Display by `P: Unit2`. Where a
+// part lacks the interface the position takes (an `Option<Bool>` where
+// ToHtml is taken), the error is the position's own, naming the whole
+// value and what the position takes, and no demand is recorded beside it.
+//
+// A demand's Recording says what the program wrote that made it, which a
+// missing-impl report renders (requiredClause): an argument's parameter
+// and the function as the call writes it (argSite), an `Html` template's
+// or a typed literal's slot by its tag (slotSite), an interpolation. The
+// slot of a template's expansion is the template's, not the parameter of
+// the std/html function it calls (htmlSlotTags). The bound an impl's
+// where clause asks of a part of another interface than the demand's
+// rides on the demand it records (Recording.Bound), so a Measure<Bare>
+// passed to `fn shown(x: Display)` is `no impl of `Unit2` for `Bare`
+// (required by parameter `x` of `shown`)`, with the note that
+// `Measure<P>`'s `Display` impl requires `P: Unit2`.
+//
+// A derive's parts are demanded when the checker meets the derive's impl
+// block (checkDerivedParts), after types and impl templates are built: at
+// each part's type (eachDeclPart, partType) over the block's own type
+// parameters, which carry the bound the derive implies and its where
+// clause. Each demand names the derive and the part (DeriveCtx), and the
+// shared route's diagnostics say so where they are made at the demand, so
+// `derive Equatable for Holder` over `m: Measure<Bare>` is `no impl of
+// `Unit2` for `Bare` (required via `derive Equatable for Holder`, field
+// `m`)`, and a generic derive whose part asks its parameter a bound the
+// derive does not state is the error at the part that says to write it on
+// the derive. A body a derive writes (Comparable's, ToJson's, FromJson's)
+// calls the interface at the same parts, and those calls record no demand
+// of their own (derivedBodyCall), so each cause is one error.
+// CheckDeriveBounds keeps only the JSON gates the recorder does not ask: a
+// tuple and a Map not keyed by String, which std's JSON impls do not cover
+// though the impls' names match, and FromJson's field typed only by its
+// default.
+//
+// A program's missing-impl check reads only the demands made outside std
+// (programDemands.wants). A std file's demands, of every kind (a derive's
+// part, an operator, a qualified call, an argument), are std's own check's:
+// the checker runs the same check over them at the end of the file
+// (stdMissingImpls), so std reports a gap once, where std is checked, and
+// the builder never meets a std body whose impl is missing.
+//
+// `==` asks no impl of the type it compares, and neither does a key, which
+// the machine finds by `==` and its hash (RecordingKindEqualityOperator): a
+// type with no impl compares by its shape. A by-shape impl's bound of the
+// interface itself, the bound a derive implies, is asked so too. The where
+// bounds of an impl with a body that either reaches, and a derive's own
+// where clause, are an ordinary demand all the same.
 //
 // An impl block whose header writes no type arguments for a generic
 // interface (`impl Gets for Box`) has a record of the ones it implements
@@ -643,14 +833,16 @@
 //
 // Each interpolation hole has a record of how its value renders by
 // Display (hole_display.go, HoleDisplays), made once the file's variables
-// are closed: a String is its own text; an Int, Float, Bool or Decimal and
-// a value with no part that has an impl (a tuple, anonymous struct, List,
-// Map or Vector of those scalars and Strings, or an empty collection) are
-// the machine's rendering; a tuple or anonymous struct with another part
-// renders each part by its own record; a declared type or a std container
-// renders through its `impl Display`, which the record names with its
-// file; an interface value renders through the impl of the value it
-// holds. A hole of a type parameter, or of the `self` of an interface
+// are closed: a String is its own text; an Int, Float, Bool or Decimal is
+// the machine's rendering; a value with no part that has an impl (a tuple,
+// anonymous struct, List, Map or Vector of those scalars and Strings, or
+// an empty collection) and a declared type whose Display is derived
+// (derivesByShape) render by their shape, each part of a declared type by
+// the record a hole of the part's type has (DisplayOf); a tuple or
+// anonymous struct with another part renders each part by its own record;
+// any other declared type or a std container renders through its `impl
+// Display`, which the record names with its file; an interface value
+// renders through the impl of the value it holds. A hole of a type parameter, or of the `self` of an interface
 // default (an InterfaceType marked DefaultSelf, which is the implementor
 // and not an interface value), records only that: at an instance whose
 // types are known, DisplayAt answers the record a value of the
@@ -749,6 +941,29 @@
 //	NOMI_ELAB_DIR=<project> go test ./vmhost -run TestElaborationCensus -count=1 -v
 //
 // NOMI_ELAB_OUT=<file> writes every violation, one per line.
+//
+// # Impl coherence
+//
+// A type implements an interface once at each set of type arguments
+// (spec §12 *Implementations*), counted in impl blocks, whatever functions
+// each writes: written, derived, or the universal Debug the front end
+// writes for an opaque or host type. detectImplCollisions groups every
+// block of the program (programImplBlocks, each file's ImplBlocks) by its
+// record: the interface's identity and the receiver's declaration
+// (implBlockGroupKey), then by the interface's type arguments compared as
+// types (instantiationsOf), never by their names. So two empty `impl
+// Marked for P` blocks are a duplicate. `impl From<A> for T` and `impl
+// From<B> for T` are not, `impl From<a.Error> for T` and `impl
+// From<b.Error> for T` for two files' `Error` are not, and impls of two
+// interfaces of one name are not. The error names a type argument by its
+// module (`From<a.Error>`) where another instantiation prints the same.
+// The universal Debug yields to an explicit one in its group
+// (ImplPrecedence). A derive beside a hand-written impl in one module is
+// the derive conflict. A build over the stdlib's base groups its own
+// blocks with the base's blocks of the same keys
+// (StdBase.implBlockGroups), since the stdlib's blocks alone collide
+// nowhere (StdBase.fits). A function written twice in one block is no
+// second impl but a name declared twice (CheckRepeatedFields).
 //
 // # References from a record
 //

@@ -32,10 +32,17 @@ import (
 // owned around a loop. A bit at ir.DeepBit and up says the parameter was
 // handed over deep, so a field read of it may own the value it reads.
 //
-// A fold whose seed the activation hands over (ir.Ownership.Folds) hands
-// its lambda the accumulator the same way, through activateOwned: bit 0,
-// and the deep bit when the seed is owned deep, and again for each step
-// whose answer the lambda's ResultOwnership says is fresh (ownedFold).
+// A fold whose step is a lambda the function builds or a function it
+// names (ir.Ownership.Folds) hands the step the accumulator the same way,
+// through activateOwned: bit 0, and the deep bit, when the activation
+// handed over the seed (owned deep), and again for each step whose answer
+// the step's ResultOwnership says is fresh (ownedFold). Its steps run on
+// one register stack the fold holds (iterCaller.holding).
+//
+// A collection operation in inPlaceOps writes its receiver in place when
+// the activation owns it, and copies it otherwise. Either way, except for
+// a remove of a missing key, it answers a value nothing else holds, so a
+// borrowed collection is copied by its first update only.
 //
 // A debug machine copies, on both sides of every call: it compiles no
 // opUpdateIn and no opCallO, so no activation's mask is ever set. A stopped
@@ -237,8 +244,16 @@ func (t *codeTable) callees(m *Machine, f *ir.Func) ir.Callees {
 			return t.resultOf(m, callee)
 		},
 		Writes:  m.writesInPlace,
+		Builds:  m.builds,
 		Borrows: m.borrows,
-		Lambda:  func(body *ir.Func) ir.ResultOwnership { return t.resultOf(m, body) },
+		Step:    func(body *ir.Func) ir.ResultOwnership { return t.resultOf(m, body) },
+		Named: func(r *ir.Ref) *ir.Func {
+			callee, err := m.resolveFunc(r.Sym(), f.Name())
+			if err != nil {
+				return nil
+			}
+			return callee
+		},
 	}
 }
 
@@ -336,35 +351,52 @@ func (o *ownTable) lowOf(f *ir.Func) int {
 }
 
 // ownedFold answers the mask a fold n hands its callback f's first
-// accumulator under, when the activation owns the seed it handed n
-// (ir.Ownership.Folds) and f is the callback the analysis read.
+// accumulator under (zero when the activation does not own the seed), when
+// the analysis found the fold may hand its accumulator on
+// (ir.Ownership.Folds) and f is the callback it read.
 func ownedFold(fr *frame, n *ir.Iter, f *functionValue) (uint64, ir.Fold, bool) {
 	fd, ok := fr.c.folds[n]
 	if !ok || f.host != nil || f.body != fd.Body {
 		return 0, fd, false
 	}
-	mask := fd.FoldMask(fr.owned)
-	return mask, fd, mask != 0
+	return fd.FoldMask(fr.owned), fd, true
+}
+
+// inPlaceOp is a collection operation that may write an owned receiver
+// (operand 0) in place: of names the collection whose host family runs it,
+// and builds says its copying form always answers a collection it built,
+// never its receiver as it was. A remove of a key the receiver lacks
+// answers the receiver itself, so its answer is owned only as the
+// receiver is; any other answer of the six is a new value the caller owns
+// even when the receiver was borrowed (ir.Callees.Builds).
+type inPlaceOp struct {
+	of     string
+	builds bool
+}
+
+// inPlaceOps are the collection operations that may write an owned
+// receiver in place.
+var inPlaceOps = map[string]inPlaceOp{
+	"Vector.set":  {"Vector", true},
+	"Vector.push": {"Vector", true},
+	"Map.put":     {"Map", true},
+	"Map.remove":  {"Map", false},
+	"Set.insert":  {"Set", true},
+	"Set.remove":  {"Set", false},
 }
 
 // inPlaceHost is the in-place form of a collection operation that may
 // write an owned receiver (operand 0), or nil for any other crossing.
 func inPlaceHost(name string) hostFn {
-	switch name {
-	case "Vector.set", "Vector.push":
+	switch inPlaceOps[name].of {
+	case "Vector":
 		return vectorHostWith(name, true)
-	case "Map.put", "Map.remove":
+	case "Map":
 		return mapHostWith(name, true)
-	case "Set.insert", "Set.remove":
+	case "Set":
 		return setHostWith(name, true)
 	}
 	return nil
-}
-
-// writesInPlaceHosts names inPlaceHost's operations.
-var writesInPlaceHosts = map[string]bool{
-	"Vector.set": true, "Vector.push": true, "Map.put": true, "Map.remove": true,
-	"Set.insert": true, "Set.remove": true,
 }
 
 // borrowingHosts are the collection operations that read their operands
@@ -381,10 +413,16 @@ var borrowingHosts = map[string]bool{
 // own intrinsic answers.
 func (m *Machine) writesInPlace(c *ir.Call) int {
 	name := c.Callee().Name()
-	if !writesInPlaceHosts[name] || m.hosts[name].fn == nil {
+	if _, ok := inPlaceOps[name]; !ok || m.hosts[name].fn == nil {
 		return -1
 	}
 	return 0
+}
+
+// builds reports whether a crossing writesInPlace names answers a value it
+// built when it copies its receiver.
+func (m *Machine) builds(c *ir.Call) bool {
+	return inPlaceOps[c.Callee().Name()].builds
 }
 
 // borrows reports whether a crossing keeps none of its operands.

@@ -106,12 +106,89 @@ func (m *Machine) addOnceCells(mod *ir.Module) {
 	}
 }
 
+// shapeOp is how the machine answers an interface function by its
+// arguments' shape: the instruction over the function's arity arguments.
+type shapeOp struct {
+	arity int
+	instr func(f *ir.Func, pos ir.Pos, args []ir.Temp) ir.Instr
+}
+
+// shapeOps are the interface functions the machine answers by a value's
+// shape, by interface and function name: Equatable's equal is the
+// comparison a derived Equatable's `==` is (ir.Compare at ValIface,
+// rt.Equal through the key table), Hashable's hash the hash a derived
+// Hashable's is (the hashValueHost intrinsic, rt.Hash through the key
+// table), Debug's inspect the rendering a type with no written inspect
+// gets (ir.Render at RenderDebug, rt.DebugText), and Display's to_string
+// a derived Display's (ir.Render at RenderDisplay, rt.DisplayShapeText).
+var shapeOps = map[[2]string]shapeOp{
+	{"Equatable", "equal"}: {2, func(f *ir.Func, pos ir.Pos, args []ir.Temp) ir.Instr {
+		return ir.NewCompare(pos, f.NewTemp(), ir.OpEq, ir.ValIface, args[0], args[1])
+	}},
+	{"Hashable", "hash"}: {1, func(f *ir.Func, pos ir.Pos, args []ir.Temp) ir.Instr {
+		return ir.NewHostCall(pos, f.NewTemp(), ir.OrdinaryCall, ir.NewSymbol(hashValueName), args[0])
+	}},
+	{"Debug", "inspect"}: {1, func(f *ir.Func, pos ir.Pos, args []ir.Temp) ir.Instr {
+		return ir.NewRenderDebug(pos, f.NewTemp(), args[0])
+	}},
+	{"Display", "to_string"}: {1, func(f *ir.Func, pos ir.Pos, args []ir.Temp) ir.Instr {
+		return ir.NewRenderDisplay(pos, f.NewTemp(), args[0])
+	}},
+}
+
+// ByShape is the machine's own function for the interface function old
+// implements, answering it by its arguments' shape, or nil when the
+// machine has none for it: the target Redirect gives an impl function
+// whose type's later impl writes no function for it, as a derived
+// Equatable writes no equal, a derived Hashable no hash, a derived Debug
+// no inspect and a derived Display no to_string
+// (vmhost.Session.Supersede). One function serves
+// every type, and a comparison or a rendering inside it reaches a part
+// through the impl the machine holds for the part's type (keysFor,
+// debugImplHook, displayShape).
+func (m *Machine) ByShape(old *ir.Func) *ir.Func {
+	if old == nil {
+		return nil
+	}
+	impl, ok := old.Sym().Impl()
+	op, known := shapeOps[[2]string{impl.Interface, impl.Func}]
+	if !ok || !known || len(old.Params()) != op.arity {
+		return nil
+	}
+	key := impl.Interface + "." + impl.Func
+	if f := m.shapeFuncs[key]; f != nil {
+		return f
+	}
+	pos := old.Pos()
+	f := ir.NewFunc(pos, key+" by shape")
+	args := make([]ir.Temp, op.arity)
+	for i := range args {
+		args[i] = f.AddParam(ir.NewSymbol("value"), ir.ValUnknown)
+	}
+	b := f.NewBlock(pos, "entry")
+	in := op.instr(f, pos, args)
+	b.Append(in)
+	b.SetTerm(ir.NewReturn(pos, in.Dst()))
+	if m.shapeFuncs == nil {
+		m.shapeFuncs, m.shapes = map[string]*ir.Func{}, map[*ir.Func]bool{}
+	}
+	m.shapeFuncs[key] = f
+	m.shapes[f] = true
+	return f
+}
+
 // Redirect makes every call to old, another lowering's function this
 // machine links, run replacement instead: a call compiled before it, one
 // compiled after it, and old as a value. The REPL redirects an earlier
 // input's impl function to the function of the impl a later input
 // redefined it with, so code an earlier input compiled calls the newest
 // impl, as code a later input compiles does.
+//
+// The replacement may be the machine's own function for an interface
+// function by the value's shape (ByShape): the later impl writes no
+// function for it, as a derived Debug writes none. Then no per-type table
+// names old any more (rowDebugs, displays, equates, hashes), so a value of
+// the type renders and compares by its shape there too.
 //
 // Call it only while nothing runs on the machine.
 func (m *Machine) Redirect(old, replacement *ir.Func) {
@@ -120,6 +197,15 @@ func (m *Machine) Redirect(old, replacement *ir.Func) {
 	}
 	if sym := old.Sym(); sym != nil && m.link != nil {
 		m.link[sym] = replacement
+	}
+	if sym := old.Sym(); sym != nil && m.shapes[replacement] {
+		for _, table := range []map[string]*ir.Symbol{m.rowDebugs, m.displays, m.equates, m.hashes} {
+			for name, named := range table {
+				if named == sym {
+					delete(table, name)
+				}
+			}
+		}
 	}
 	s := m.slotFor(old)
 	s.f = replacement

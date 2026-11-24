@@ -272,9 +272,13 @@ func (bl *irScalarBuilder) stdOnceValue(t *ast.FieldAccess) (ir.Temp, kind, bool
 	return n.Dst(), o.k, false, true
 }
 
-// stdOnceOf is the std `once` ob declares: this std gen's own, or one the
-// std index holds; nil for none.
+// stdOnceOf is the std `once` ob declares, read as this gen's module
+// declares it (ownDecl): this std gen's own, or one the std index holds;
+// nil for none.
 func (g *gen) stdOnceOf(ob *ast.OnceBinding) *stdOnce {
+	if twin, ok := g.ownDecl(ob).(*ast.OnceBinding); ok {
+		ob = twin
+	}
 	for _, c := range g.stdOnces {
 		if c.decl == ob {
 			return c

@@ -469,6 +469,8 @@ var mxFeatures = []mxFeature{
 	{name: "sum of an empty list", typ: "Int", expr: "Iter.sum([])", want: "0", tags: tagUntyped, reject: mxUnsolved},
 	{name: "sum of empty lists", typ: "List<Int>", expr: "Iter.sum([[]])", want: "[]", tags: tagUntyped | tagBareOK, reject: mxUnsolved},
 	{name: "sum turbofish", typ: "Int", expr: "Iter.sum<Int>([])", want: "0", tags: tagCall},
+	// A pipe stage binds its type arguments as the call does.
+	{name: "sum turbofish stage", typ: "Int", expr: "[] |> Iter.sum<Int>()", want: "0", tags: tagCall},
 
 	// Expressions.
 	{name: "case", typ: "String", expr: "case 2\n    1 -> \"one\"\n    _ -> \"many\"\nend", want: `"many"`, tags: tagNested},

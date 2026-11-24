@@ -29,11 +29,15 @@ import (
 // `a::Point`". Only the colliding names are qualified, so `List<Point>`
 // qualifies `Point` and leaves `List` alone. Arguments whose renders already
 // differ are left as they are, so every other message is byte-identical to
-// fmt.Sprintf's.
+// fmt.Sprintf's. A message read beside types it does not print
+// (typefBeside: the `From` impls a `?` could not use) qualifies an argument
+// that prints as one of them the same way. distinctTypeTexts is the one
+// rendering; a message that builds its text without typef, such as a list
+// of impl candidates or a bound's hint, renders its types through it too.
 
 // typeErrorf is fmt.Errorf with same-name nominal types disambiguated.
 func typeErrorf(format string, args ...any) error {
-	return errors.New(sprintTypes("", format, args))
+	return errors.New(sprintTypes("", format, args, nil))
 }
 
 // typef is fmt.Sprintf with same-name nominal types disambiguated and the
@@ -42,6 +46,13 @@ func typeErrorf(format string, args ...any) error {
 // (`expected Show, got User`) is named as the missing-impl message names
 // it (shownInterfaceFor): `b.Show` where User implements another Show.
 func (c *checker) typef(format string, args ...any) string {
+	return c.typefBeside(nil, format, args...)
+}
+
+// typefBeside is typef for a message read beside types it does not name
+// (distinctTypeTexts): a `?` that cannot convert a `b.Error` names it so
+// where the boundary's type has an `impl From<a.Error>`.
+func (c *checker) typefBeside(beside []Type, format string, args ...any) string {
 	var recv Type
 	for _, a := range args {
 		if t, ok := a.(Type); ok && !isNilType(t) {
@@ -63,7 +74,7 @@ func (c *checker) typef(format string, args ...any) string {
 			}
 		}
 	}
-	return sprintTypes(c.entryName(), format, args)
+	return sprintTypes(c.entryName(), format, args, beside)
 }
 
 // entryName is the name the project entry file's types are qualified with:
@@ -76,52 +87,76 @@ func (c *checker) entryName() string {
 	return strings.TrimSuffix(filepath.Base(c.fa.FilePath), ".nomi")
 }
 
-func sprintTypes(entry, format string, args []any) string {
+// sprintTypes is fmt.Sprintf with each Type argument rendered as
+// distinctTypeTexts renders the message's types. Every verb these messages
+// use (%s, %v, %q) formats a Stringer exactly as it formats its String(),
+// so the rendered text stands in for the Type.
+func sprintTypes(entry, format string, args []any, beside []Type) string {
 	var idx []int
+	var ts []Type
 	for i, a := range args {
 		if t, ok := a.(Type); ok && !isNilType(t) {
 			idx = append(idx, i)
+			ts = append(ts, t)
 		}
 	}
-	// Render each Type once. Every verb these messages use (%s, %v, %q)
-	// formats a Stringer exactly as it formats its String(), so the rendered
-	// text stands in for the Type in the ordinary case. A type variable no
-	// solution reached is `_` (renderType).
-	out := make([]any, len(args))
-	copy(out, args)
-	rendered := map[int]string{}
-	for _, i := range idx {
-		rendered[i] = renderType(args[i].(Type), entry)
-		out[i] = rendered[i]
+	out := slices.Clone(args)
+	for k, text := range distinctTypeTexts(entry, ts, beside) {
+		out[idx[k]] = text
 	}
-	if len(idx) < 2 {
-		return fmt.Sprintf(format, out...)
+	return fmt.Sprintf(format, out...)
+}
+
+// distinctTypeTexts is ts as one diagnostic names them: each as renderType
+// renders it, except that where two of ts print the same text and hold a
+// nominal name two declarations share, both are rendered with that name
+// qualified by its declaring file (`a.Error`, `From<b.Error>`). beside are
+// types the diagnostic is read against without naming them, such as the
+// impls a type has beside the one a message says it lacks: one of ts that
+// prints as one of them, with such a name, is qualified too. Every message
+// that names types which may print alike renders them here: typef's, a
+// collision's instantiations (instantiationLabel), the impls a call or a
+// bound chooses among (candidateList, boundArgsError).
+func distinctTypeTexts(entry string, ts, beside []Type) []string {
+	texts := make([]string, len(ts))
+	for i, t := range ts {
+		texts[i] = renderType(t, entry)
+	}
+	besideTexts := make([]string, len(beside))
+	for k, b := range beside {
+		if b != nil && !isNilType(b) {
+			besideTexts[k] = renderType(b, entry)
+		}
 	}
 	amb := map[string]bool{}
 	collide := map[int]bool{}
-	for x := 0; x < len(idx); x++ {
-		for y := x + 1; y < len(idx); y++ {
-			if rendered[idx[x]] != rendered[idx[y]] {
-				continue
+	// differ records the names a and b, which print alike, take from two
+	// declarations, and reports whether there are any.
+	differ := func(a, b Type) bool {
+		names := ambiguousNominalNames(a, b)
+		for n := range names {
+			amb[n] = true
+		}
+		return len(names) > 0
+	}
+	for x := range ts {
+		for y := x + 1; y < len(ts); y++ {
+			if texts[x] == texts[y] && differ(ts[x], ts[y]) {
+				collide[x], collide[y] = true, true
 			}
-			a, b := args[idx[x]].(Type), args[idx[y]].(Type)
-			names := ambiguousNominalNames(a, b)
-			if len(names) == 0 {
-				continue
+		}
+		for k, b := range beside {
+			if besideTexts[k] != "" && texts[x] == besideTexts[k] && differ(ts[x], b) {
+				collide[x] = true
 			}
-			for n := range names {
-				amb[n] = true
-			}
-			collide[idx[x]] = true
-			collide[idx[y]] = true
 		}
 	}
 	for i := range collide {
 		var sb strings.Builder
-		writeQualifiedType(&sb, args[i].(Type), func(name, _ string) bool { return amb[name] }, entry)
-		out[i] = sb.String()
+		writeQualifiedType(&sb, ts[i], func(name, _ string) bool { return amb[name] }, entry)
+		texts[i] = sb.String()
 	}
-	return fmt.Sprintf(format, out...)
+	return texts
 }
 
 // renderType is t as a diagnostic shows it: its String, except that a type

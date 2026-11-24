@@ -1666,7 +1666,7 @@ func TestTestCommand_StdlibFileIsTestedAsItIsOnDisk(t *testing.T) {
 		if err == nil {
 			t.Fatalf("a prompt calling an edited body passed, so the embedded body ran:\n%s", out)
 		}
-		if !strings.Contains(out, "= Time{hour: 8, minute: 31, nanosecond: 0, second: 0}") ||
+		if !strings.Contains(out, "= 08:31:00") ||
 			!strings.Contains(out, "0 passed, 1 failed") {
 			t.Fatalf("the prompt did not fail on the edited body's answer:\n%s", out)
 		}

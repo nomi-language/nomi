@@ -2,57 +2,58 @@
 
 This directory provides:
 
-- `languages.toml` for `.nomi` file detection (and an extensionless script whose `#!` line names `nomi`), `nomi-lsp`, `nomi fmt`, the debugger (`nomi dap`), and the external tree-sitter grammar
-- a `nomi-catalog` language for a module's `nomi.toml` and its phrase catalogs, `locales/**/*.toml`: Helix's TOML grammar and queries (`runtime/queries/nomi-catalog/` inherits them), with `nomi-lsp` for their diagnostics, completion, hover and quick fixes: in `nomi.toml`, the errors `nomi check` reports there and completion of std module names and module paths in the `[effects]` lists. Helix chooses a language by path, so a module whose `[i18n].catalogs` names another directory adds its own `{ glob = "<dir>/**/*.toml" }` to `file-types`. This block was checked as TOML but not yet run in Helix.
+- `languages.toml` for `.nomi` file detection (and an extensionless script whose `#!` line names `nomi`), the language server (`nomi lsp`), `nomi fmt`, the debugger (`nomi dap`), and the external tree-sitter grammar
+- a `nomi-catalog` language for a module's `nomi.toml` and its phrase catalogs, `locales/**/*.toml`: Helix's TOML grammar and queries (`runtime/queries/nomi-catalog/` inherits them), with `nomi lsp` for their diagnostics, completion, hover and quick fixes: in `nomi.toml`, the errors `nomi check` reports there and completion of std module names and module paths in the `[effects]` lists. Helix chooses a language by path, so a module whose `[i18n].catalogs` names another directory adds its own `{ glob = "<dir>/**/*.toml" }` to `file-types`. This block was checked as TOML but not yet run in Helix.
 - tree-sitter highlighting and typed-literal injection queries mirrored from `tree-sitter-nomi/queries/`
 - Helix-specific indentation, textobject, locals, and fold queries
 
 ## Install
 
-You need `hx`, `make`, `python3` and a C compiler (on macOS, the Xcode Command
-Line Tools). Helix does not install language servers: it starts the commands
-named in `languages.toml`, so `nomi` and `nomi-lsp` must be on `PATH`. From a
-clone of the repository:
+You need `hx` and a C compiler (on macOS, the Xcode Command Line Tools),
+and `nomi` on `PATH` ([install](../../docs/install.md)). Helix does not
+install language servers: it starts the commands named in
+`languages.toml`. Then:
 
 ```sh
-git clone https://github.com/nomi-language/nomi.git
-cd nomi
-go install ./cmd/nomi ./cmd/nomi-lsp
-make install-helix
+nomi editor install helix
 ```
 
-`make install-helix` does three things:
+It does three things, in Helix's configuration directory
+(`~/.config/helix`, `$XDG_CONFIG_HOME/helix` when that is set, or
+`%AppData%\helix` on Windows):
 
-- copies the queries into `~/.config/helix/runtime/queries/nomi/` and
-  `runtime/queries/nomi-catalog/` (or under `$XDG_CONFIG_HOME` when it is
-  set);
+- writes the queries into `runtime/queries/nomi/` and
+  `runtime/queries/nomi-catalog/`, and the grammar's C into
+  `runtime/grammars/sources/nomi/`;
 - writes the contents of [`languages.toml`](languages.toml) into your
   `languages.toml` between `# BEGIN NOMI HELIX SUPPORT` and
-  `# END NOMI HELIX SUPPORT`, with the grammar source set to this checkout's
-  `tree-sitter-nomi/` directory, and replaces that block on later runs;
+  `# END NOMI HELIX SUPPORT`, with the grammar's source set to that copy,
+  and replaces only that block on later runs;
 - builds only Nomi's grammar into `runtime/grammars/nomi.so` and runs
-  `hx --health nomi`, which should show the parser, the queries, `nomi-lsp`
-  and the formatter all found.
+  `hx --health nomi`, which should show the parser, the queries, the
+  language server and the formatter all found.
 
-Keep the checkout where it is, since the grammar is built from it. Run
-`make install-helix` again after `git pull` so the grammar and the queries
-stay in step.
+The files are the ones `nomi` carries, so they match its version. Run it
+again after updating `nomi`. `nomi editor uninstall helix` removes them and
+the block, and leaves the rest of your `languages.toml` as it was.
+`--dry-run` prints what either would do.
 
 ### Working on Nomi
 
-`make dev-helix` does the same as `make install-helix`, except that
-`runtime/queries/nomi/` and `runtime/queries/nomi-catalog/` become links to
-this checkout's `editors/helix/runtime/queries/`, so query changes reach Helix without a
-reinstall. Run it again after a grammar change, or enable the repository's
-post-merge hook (`make enable-hooks`). Running
-`make install-helix` later replaces the link with a copy.
+`make install-helix` regenerates the queries and runs `nomi editor install
+helix` from the checkout. `make dev-helix` does the same, then makes
+`runtime/queries/nomi/` and `runtime/queries/nomi-catalog/` links to this
+checkout's `editors/helix/runtime/queries/`, so query changes reach Helix
+without a reinstall. Run it again after a grammar change, or enable the
+repository's post-merge hook (`make enable-hooks`). Running
+`nomi editor install helix` later replaces the links with copies.
 
 ### Manual install
 
 The alternative builds the grammar from the published mirror,
 [nomi-language/tree-sitter-nomi](https://github.com/nomi-language/tree-sitter-nomi),
 at the rev pinned in `languages.toml`. From the repository root, with `nomi`
-and `nomi-lsp` installed as above:
+installed as above:
 
 ```sh
 mkdir -p ~/.config/helix/runtime/queries/nomi ~/.config/helix/runtime/queries/nomi-catalog
@@ -65,7 +66,7 @@ hx --health nomi
 ```
 
 If your `languages.toml` already has a Nomi block (from an earlier install or
-`make install-helix`), remove it before appending.
+`nomi editor install helix`), remove it before appending.
 
 `hx --grammar fetch` and `hx --grammar build` process every grammar Helix
 knows (about 250), which takes a minute or so. A failure that names another
@@ -125,7 +126,9 @@ make build-helix
 ```
 
 `make build-helix` runs `./scripts/sync-helix-runtime.sh`, which refreshes the
-checked-in Helix query mirrors. `make install-helix` runs the same sync before
+checked-in Helix query mirrors; `--check` fails when they are not current,
+which `TestHelixAndNeovimQueriesAreGenerated` runs, since `nomi` carries
+them as committed. `make install-helix` runs the same sync before
 installing, so it always installs queries that match this checkout.
 
 The Helix-specific `indents.scm`, `textobjects.scm`, `locals.scm` and

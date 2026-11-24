@@ -10,7 +10,6 @@ package hoverdoc
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/analysis"
@@ -525,27 +524,15 @@ func renderImplementedInterfaces(sym *analysis.Symbol, fa *analysis.FileAnalysis
 	return "*impl* " + strings.Join(parts, ", ")
 }
 
+// implementedInterfaceNames is the interfaces sym's type implements by its
+// own declaration (FileAnalysis.ImplementedInterfaces), sorted. Debug is
+// among them only where an impl or a derive writes it: the Debug every type
+// is given is no impl in the tables that answer.
 func implementedInterfaceNames(sym *analysis.Symbol, fa *analysis.FileAnalysis) []string {
 	if sym == nil || fa == nil || !symbolCanImplementInterfaces(sym) {
 		return nil
 	}
-	typeName := sym.Name
-	seen := make(map[string]bool)
-	for _, iface := range fa.ImplementedInterfaces(typeName) {
-		seen[iface] = true
-	}
-	if seen["Debug"] && !hasExplicitDebugImpl(typeName, fa) {
-		delete(seen, "Debug")
-	}
-	if len(seen) == 0 {
-		return nil
-	}
-	names := make([]string, 0, len(seen))
-	for name := range seen {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return names
+	return fa.ImplementedInterfaces(sym.Type)
 }
 
 func symbolCanImplementInterfaces(sym *analysis.Symbol) bool {
@@ -555,55 +542,6 @@ func symbolCanImplementInterfaces(sym *analysis.Symbol) bool {
 	default:
 		return false
 	}
-}
-
-func hasExplicitDebugImpl(typeName string, fa *analysis.FileAnalysis) bool {
-	if fa == nil {
-		return false
-	}
-	if idx := fa.Program().ImplIndex; idx != nil {
-		for _, fns := range idx.IfaceMethodImpls["Debug"] {
-			for _, fn := range fns {
-				if idx.ReceiverOf(fn) == typeName && !fn.AutoSynth {
-					return true
-				}
-			}
-		}
-		for _, exts := range idx.IfaceMethodImplExterns["Debug"] {
-			for _, ext := range exts {
-				if idx.ImplBlockReceiverExtern[ext] == typeName {
-					return true
-				}
-			}
-		}
-	}
-	for _, fns := range fa.Program().IfaceMethodImpls["Debug"] {
-		for _, fn := range fns {
-			if localImplReceiverOf(fa, fn) == typeName && !fn.AutoSynth {
-				return true
-			}
-		}
-	}
-	for _, exts := range fa.Program().IfaceMethodImplExterns["Debug"] {
-		for _, ext := range exts {
-			if fa.ImplBlockReceiverExtern[ext] == typeName {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func localImplReceiverOf(fa *analysis.FileAnalysis, fn *ast.FuncDef) string {
-	if fa != nil && fa.Program().ImplBlockReceiver != nil {
-		if receiver := fa.Program().ImplBlockReceiver[fn]; receiver != "" {
-			return receiver
-		}
-	}
-	if fn == nil || len(fn.Params) == 0 {
-		return ""
-	}
-	return analysis.TypeExprBaseName(fn.Params[0].TypeAnnotation)
 }
 
 // displayBindingType renders a binding's type, surfacing the original

@@ -94,12 +94,14 @@ fi
 git -C "$SUBREPO" symbolic-ref HEAD refs/heads/dev
 
 # Replace its files with the local grammar: every file under tree-sitter-nomi/
-# that git tracks or would track, so the tree matches what a publish splits out.
+# that git tracks or would track, so the tree matches what a publish writes,
+# which leaves out embed.go (scripts/publish-grammar.sh).
 find "$SUBREPO" -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
 git -C "$REPO_ROOT" ls-files -co --exclude-standard -z -- tree-sitter-nomi \
   | while IFS= read -r -d '' path; do
       [[ -f "$REPO_ROOT/$path" ]] || continue # tracked but deleted
       rel="${path#tree-sitter-nomi/}"
+      [[ "$rel" == embed.go ]] && continue
       mkdir -p "$SUBREPO/$(dirname "$rel")"
       cp -p "$REPO_ROOT/$path" "$SUBREPO/$rel"
     done

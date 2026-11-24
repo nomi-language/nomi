@@ -42,11 +42,10 @@ end
 		t.Fatalf("expected exactly 1 diagnostic, got %d:\n  %s",
 			len(fa.TypeErrors), errMsgs(fa.TypeErrors))
 	}
-	// The surviving one must be the BOUND's, which names the where clause
-	// that is the actual constraint, not DetectMissingImpls' call-site
-	// restatement of the same fix.
-	if got := fa.TypeErrors[0].Message; !strings.Contains(got, "does not implement Display") ||
-		!strings.Contains(got, "where T: Display") {
-		t.Errorf("surviving diagnostic is not the bound's: %q", got)
+	// A derived Display writes no function, so no bound of one reports
+	// it: the one diagnostic is the missing impl at the call, as
+	// `Display.to_string(x)` reports it.
+	if got := fa.TypeErrors[0].Message; !strings.Contains(got, "no impl of `Display` for `Plain`") {
+		t.Errorf("the diagnostic is not the call's missing impl: %q", got)
 	}
 }

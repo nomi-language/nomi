@@ -1,3 +1,7 @@
+// The machine picks a part's body by the static type of its position
+// (vm's renderHook), so a value of an `embeds` enum, which is the embedded
+// value at run time, renders through the enum's body where the position is
+// the enum's and through the embedded type's own where it is that type's.
 package irbuild
 
 import (
@@ -141,10 +145,17 @@ func (bl *irScalarBuilder) renderDisplay(at ast.Node, src ir.Temp, k kind, rec *
 		}
 		return render(ir.NewRenderDisplay(bl.g.irNodePos(at), bl.f.NewTemp(), src))
 	case analysis.DisplayStructural:
-		if !irStructuralDisplayKind(k) {
+		if irStructuralDisplayKind(k) {
+			return render(ir.NewRenderDisplay(bl.g.irNodePos(at), bl.f.NewTemp(), src))
+		}
+		if byKind(rec) {
+			panic("irbuild: a rendering made from the kind " + k.nomi() + " is structural, which kindDisplay makes only of a structural kind")
+		}
+		impls, ok := bl.nestedDisplayImpls(k, bl.g.checkerTypeArg(rec.Type))
+		if !ok {
 			return ir.NoTemp, false
 		}
-		return render(ir.NewRenderDisplay(bl.g.irNodePos(at), bl.f.NewTemp(), src))
+		return render(ir.NewRenderDisplayWith(bl.g.irNodePos(at), bl.f.NewTemp(), src, impls))
 	case analysis.DisplayInterface:
 		if irConjKind(k) {
 			// A conjunction renders through its Display member, which
@@ -154,7 +165,7 @@ func (bl *irScalarBuilder) renderDisplay(at ast.Node, src ir.Temp, k kind, rec *
 					return bl.renderDisplay(at, bl.relabel(at, src, m), m, rec, nil)
 				}
 			}
-			return ir.NoTemp, false
+			panic("irbuild: a conjunction rendered by Display with no Display member; the checker records DisplayInterface for a conjunction only when Display is one, and rejects any other hole of it (`... does not require Display of its implementors`)")
 		}
 		if !irExistentialKind(k) {
 			// `(7 as Display)`: a value std's Display holds unboxed lowers
@@ -294,11 +305,170 @@ func (bl *irScalarBuilder) displayParts(at ast.Node, src ir.Temp, k kind, parts 
 	return r.Dst(), true
 }
 
+// nestedDisplayImpls names the Display bodies a rendering by shape of a
+// value of kind k and checker type kt calls (analysis.DisplayStructural,
+// rt.DisplayShapeText): for each part, at any depth, the rendering a hole
+// of the part's type records (displayOf) says how it renders. A String, a
+// scalar, a Byte and an interface value name nothing: the machine renders
+// the first three as std's impls do, and the value an interface value
+// holds through the body the machine holds for its type. A tuple's and an
+// anonymous record's parts, and a declared type's whose Display is derived,
+// its fields, payloads, embedded values and inner value, render by their
+// own records, a recursive type's once. A part of Infallible holds no
+// value and names nothing. A List, a Map, a Set and a Vector
+// whose record names std's impl render by the machine as that impl writes
+// them, each element by its own record. Any other part names the body its
+// record names (recordedRenderBody). A part with no checker type renders as
+// its kind does (kindDisplay), which names no body; a part whose rendering
+// names no body the renderer can call declines the whole.
+//
+// The machine picks a part's body by the static type of its position
+// (vm's renderHook), so a value of an `embeds` enum, which is the embedded
+// value at run time, renders through the enum's body where the position is
+// the enum's and through the embedded type's own where it is that type's.
+func (bl *irScalarBuilder) nestedDisplayImpls(k kind, kt analysis.Type) ([]ir.PartImpl, bool) {
+	var impls []ir.PartImpl
+	type implKey struct{ name, inst string }
+	seen := map[implKey]bool{}
+	shaped := map[kind]bool{}
+	var walk func(k kind, kt analysis.Type) bool
+	parts := func(k kind, kt analysis.Type) bool {
+		if shaped[k] {
+			return true
+		}
+		shaped[k] = true
+		d := k.def
+		if d.isDistinct {
+			// kindInvalid: marker — a zero-sized marker renders as its name.
+			if d.inner == kindInvalid {
+				return true
+			}
+			var inner analysis.Type
+			if dt, ok := analysis.ResolveTypeVar(kt).(*analysis.DistinctType); ok {
+				inner = analysis.DistinctInner(dt)
+			}
+			return walk(d.inner, inner)
+		}
+		for _, f := range d.fields {
+			if !walk(f.k, declaredPartType(kt, "", f.nomi)) {
+				return false
+			}
+		}
+		for _, v := range d.variants {
+			if v.embeds != nil {
+				if !walk(named(v.embeds), embeddedVariantType(kt, v.nomi)) {
+					return false
+				}
+				continue
+			}
+			for _, p := range v.payloads {
+				pt := variantPayloadType(kt, v.nomi)
+				if p.nomi != "" {
+					pt = declaredPartType(kt, v.nomi, p.nomi)
+				}
+				if !walk(p.k, pt) {
+					return false
+				}
+			}
+		}
+		return true
+	}
+	// comps are the parts of k, a tuple, an anonymous record or a std
+	// container, whose rendering the record says is by its parts.
+	comps := func(k kind) []kind {
+		if k.comp == nil {
+			panic("irbuild: a part rendered by its parts lowers to " + k.nomi() + ", a kind with no parts; the checker records parts only for a tuple, an anonymous record or a container")
+		}
+		return k.comp.parts
+	}
+	walk = func(k kind, kt analysis.Type) bool {
+		if k == kindNever {
+			// A part of Infallible holds no value to render.
+			return true
+		}
+		// A part with no checker type renders as its kind does
+		// (kindDisplay), which names no body.
+		rec := bl.g.displayOf(kt, k)
+		switch rec.Form {
+		case analysis.DisplayText, analysis.DisplayScalar, analysis.DisplayInterface:
+			return true
+		case analysis.DisplayParts:
+			for i, part := range comps(k) {
+				if !walk(part, partCheckerType(kt, k, i)) {
+					return false
+				}
+			}
+			return true
+		case analysis.DisplayStructural:
+			if k.tag != tagNamed || k.def == nil || irStructuralDisplayKind(k) {
+				return true
+			}
+			if _, isSet := setElem(k); isSet {
+				// An empty Set (analysis's emptyCollection).
+				return true
+			}
+			if _, vector := vectorElem(k); vector {
+				return true
+			}
+			return parts(k, kt)
+		case analysis.DisplayImpl:
+			if k == irByteKind() || isDecimalKind(k) || irScalarLeafKind(k) {
+				return true
+			}
+			if std := bl.g.instanceFA().StdFuncOf(rec.Method); machineDisplays[std] {
+				if member, isSet := setElem(k); isSet {
+					return walk(member, partCheckerType(kt, k, 0))
+				}
+				if elem, vector := vectorElem(k); vector {
+					return walk(elem, partCheckerType(kt, k, 0))
+				}
+				for i, part := range comps(k) {
+					if !walk(part, partCheckerType(kt, k, i)) {
+						return false
+					}
+				}
+				return true
+			}
+			if k.tag != tagNamed || k.def == nil {
+				panic("irbuild: a part whose Display is an impl lowers to " + k.nomi() + ", which is no declared type; the checker records an impl only for a declared type or a std container")
+			}
+			b := bl.recordedRenderBody(stdDisplay, "to_string", k, kt)
+			if b.sym == nil {
+				return false
+			}
+			key := implKey{bl.g.irTypeSym(k.def).Name(), bl.g.irValType(k).InstanceKey()}
+			if !seen[key] {
+				seen[key] = true
+				impls = append(impls, ir.PartImpl{Type: key.name, Inst: key.inst, Fn: b.sym})
+			}
+			return true
+		}
+		// displayAt answers a type parameter's rendering at the instance,
+		// or by the kind.
+		panic("irbuild: a part's Display rendering of an unresolved form")
+	}
+	if !walk(k, kt) {
+		return nil, false
+	}
+	return impls, true
+}
+
+// machineDisplays are std's Display impls of the containers the machine
+// renders as the impl writes them inside a rendering by shape
+// (nestedDisplayImpls, rt.DisplayShapeText): `[a, b]`, `{k => v}`,
+// `Set[a]`, `Vector[a]`, each element by its own Display.
+var machineDisplays = map[analysis.StdFunc]bool{
+	{Module: "std/lists", Owner: "List", Impl: "Display", Name: "to_string"}:     true,
+	{Module: "std/maps", Owner: "Map", Impl: "Display", Name: "to_string"}:       true,
+	{Module: "std/sets", Owner: "Set", Impl: "Display", Name: "to_string"}:       true,
+	{Module: "std/vectors", Owner: "Vector", Impl: "Display", Name: "to_string"}: true,
+}
+
 // irStructuralDisplayKind reports a kind whose Display text is structural all
 // the way down: the four unnamed scalars, and records, tuples, lists and maps
 // composed only of them. No
 // nominal type is reachable inside one, so no impl can answer for any part
-// and rt.DisplayText is the text for the whole.
+// and rt.DisplayShapeText is the text for the whole.
 func irStructuralDisplayKind(k kind) bool {
 	switch {
 	case k == kindInt || k == kindFloat || k == kindString || k == kindBool:

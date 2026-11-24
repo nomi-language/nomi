@@ -1,11 +1,17 @@
 // Package buildversion names the commit a binary was built from, read from the
 // build-info section Go stamps into it. `nomi --version` prints it, `nomi
 // build --no-vm` writes it into a .nomic file's header, and nomi-vm
-// names it when it refuses a .nomic file another version wrote. It imports only
-// the standard library, so a runner may link it.
+// names it when it refuses a .nomic file another version wrote. Release
+// names the released version a binary was built as, which std/http's
+// client sends in its `User-Agent`. It imports only the standard library,
+// so a runner may link it.
 package buildversion
 
-import "runtime/debug"
+import (
+	"regexp"
+	"runtime/debug"
+	"sync"
+)
 
 // RevisionAbbrev is how many hex digits of the revision the version token
 // carries. scripts/release.sh names its archives from `git describe --tags
@@ -20,6 +26,35 @@ const RevisionAbbrev = 12
 func Current() string {
 	info, _ := debug.ReadBuildInfo()
 	return Token(info)
+}
+
+// Release is ReleaseOf for this binary's own build info.
+var Release = sync.OnceValue(func() string {
+	info, _ := debug.ReadBuildInfo()
+	return ReleaseOf(info)
+})
+
+var (
+	tagVersion    = regexp.MustCompile(`^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$`)
+	pseudoVersion = regexp.MustCompile(`[0-9]{14}-[0-9a-f]{12}$`)
+)
+
+// ReleaseOf is the released version a binary was built as, "" for any
+// other build. Go stamps the main module's version from the tag at the
+// commit a checkout builds, and from the version `go install` fetched; a
+// release (scripts/release.sh, which builds `nomi` and every runner at the
+// release's tag) is one such version. A modified checkout's version
+// carries `+dirty`, and an untagged commit's is a pseudo-version, which
+// names the nearest tag rather than a release; neither is one.
+func ReleaseOf(info *debug.BuildInfo) string {
+	if info == nil {
+		return ""
+	}
+	v := info.Main.Version
+	if !tagVersion.MatchString(v) || pseudoVersion.MatchString(v) {
+		return ""
+	}
+	return v
 }
 
 // Token is the version itself: the revision this binary was built from, with

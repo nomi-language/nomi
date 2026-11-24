@@ -225,8 +225,9 @@ function M.run()
   exec({ 'nomi', 'run', vim.api.nvim_buf_get_name(buf) }, buf)
 end
 
--- The commands of nomi-lsp's code lenses (internal/lsp/code_lens.go), which
--- name a file by URI: run the test whose first line is `line`, or the file.
+-- The commands of the language server's code lenses
+-- (internal/lsp/code_lens.go), which name a file by URI: run the test whose
+-- first line is `line`, or the file.
 function M.test_uri_line(uri, line)
   local file = vim.uri_to_fname(uri)
   exec(test_cmd(file, line), vim.uri_to_bufnr(uri), test_at(file, tonumber(line)))

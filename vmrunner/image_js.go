@@ -27,9 +27,10 @@ import (
 // (jsRegion), so the region is in memory once, the page's copy.
 //
 // Without it the runner reads the file argv[0] names through the `fs` the
-// host provides, which is what Go's wasm_exec_node.js sets up: `node
-// wasm_exec_node.js hello.wasm` passes hello.wasm as argv[0] and defines
-// globalThis.fs as Node's fs. A module that cannot open that file answers a
+// host provides, which is what nomi-node.mjs, the loader `nomi build
+// --target js/wasm` writes beside the module, sets up: `node nomi-node.mjs
+// hello.wasm` passes hello.wasm as argv[0] and defines globalThis.fs as
+// Node's fs. A module that cannot open that file answers a
 // noOwnImage, so it runs as a bare runner (RunBare).
 func ownImage() (*Image, error) {
 	if v := js.Global().Get("nomiImage"); v.Truthy() {

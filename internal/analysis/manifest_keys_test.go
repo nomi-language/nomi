@@ -17,13 +17,13 @@ func TestManifest_UnknownKeysAreErrors(t *testing.T) {
 		{"a misspelled table", "[module]\nname = \"app\"\n\n[i18m]\nlocales = [\"en\"]\n",
 			"m.toml:4: nomi.toml has no [i18m] table; did you mean [i18n]?"},
 		{"a table far from every other", "[module]\nname = \"app\"\n[bogus]\nx = 1\n",
-			"m.toml:3: nomi.toml has no [bogus] table; its tables are [dependencies], [effects], [i18n], [module], [money]"},
+			"m.toml:3: nomi.toml has no [bogus] table; its tables are [dependencies], [effects], [i18n], [indirect], [module], [money]"},
 		{"a key outside every table", "top = 1\n[module]\nname = \"app\"\n",
-			"m.toml:1: nomi.toml has no top-level key `top`; every key is in a table ([dependencies], [effects], [i18n], [module], [money])"},
+			"m.toml:1: nomi.toml has no top-level key `top`; every key is in a table ([dependencies], [effects], [i18n], [indirect], [module], [money])"},
 		{"a key far from every other", "[module]\nname = \"app\"\nwhatever = true\n",
-			"m.toml:3: [module] has no key `whatever`; its keys are `name`, `path`, `entry_points`"},
+			"m.toml:3: [module] has no key `whatever`; its keys are `name`, `nomi`, `entry_points`"},
 		{"a dotted key", "[module]\nname = \"app\"\ni18n.localez = [\"en\"]\n",
-			"m.toml:3: [module] has no key `i18n`; its keys are `name`, `path`, `entry_points`"},
+			"m.toml:3: [module] has no key `i18n`; its keys are `name`, `nomi`, `entry_points`"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -240,9 +240,9 @@ func TestManifest_ARequiredModulesTableIsItsTools(t *testing.T) {
 	}
 	for _, c := range []struct{ manifest, want string }{
 		{"[module]\nname = \"app\"\n\n[dependencies]\ntools = { dir = \"../kit\" }\n\n[kit.database.main]\ndialect = \"sqlite\"\n",
-			":7: nomi.toml has no [kit] table; its tables are [dependencies], [effects], [i18n], [module], [money]"},
+			":7: nomi.toml has no [kit] table; its tables are [dependencies], [effects], [i18n], [indirect], [module], [money]"},
 		{"[module]\nname = \"app\"\n\n[kitt.database.main]\ndialect = \"sqlite\"\n",
-			":4: nomi.toml has no [kitt] table; its tables are [dependencies], [effects], [i18n], [module], [money]"},
+			":4: nomi.toml has no [kitt] table; its tables are [dependencies], [effects], [i18n], [indirect], [module], [money]"},
 	} {
 		writeManifestFile(t, app, "nomi.toml", c.manifest)
 		_, err := LoadManifest(app)

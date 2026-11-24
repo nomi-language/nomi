@@ -246,7 +246,7 @@ func textReport(write func(w io.Writer)) string {
 // diagnostics) rather than by stdout.
 type colourAsStdout struct{ io.Writer }
 
-func (colourAsStdout) colourTarget() io.Writer { return os.Stdout }
+func (colourAsStdout) Destination() io.Writer { return os.Stdout }
 
 // TestErrorLine is the source line a test failure points at, or 0.
 func TestErrorLine(err error) int {

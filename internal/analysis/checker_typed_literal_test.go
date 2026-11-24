@@ -323,7 +323,7 @@ end
 pub fn touch() end
 `
 	errs := buildSiblingProject(t, entry, map[string]string{"db/sql": module, "other": other})
-	want := "duplicate impl: `Display` is implemented for `sql.Sql` by modules db/sql, other (function `to_string`)"
+	want := "duplicate impl: `Display` is implemented for `sql.Sql` by modules db/sql, other; a type implements"
 	for _, e := range errs {
 		if strings.Contains(e.Message, want) {
 			return

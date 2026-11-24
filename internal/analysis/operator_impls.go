@@ -64,7 +64,9 @@ func (c *checker) recordComparisonImpl(n *ast.Binary, operand Type, iface, metho
 // implMethodFor is the function method of the impl of the interface iface
 // that t has: of the block a call of the interface's function on a value
 // of t reaches (implBlockFor), a hand-written `fn`, a derived one or a
-// `host fn`. A type over the enclosing declaration's type parameters
+// `host fn`; a derived Equatable, Hashable, Debug or Display writes none
+// (derivesByShape). A
+// type over the enclosing declaration's type parameters
 // (`Box<T>` in a generic body) has its one block, which is its block at
 // every instance; a call there names the interface's function and each
 // instance resolves it (CalleeAt), but an operator and a rendering are
@@ -74,6 +76,12 @@ func (c *checker) recordComparisonImpl(n *ast.Binary, operand Type, iface, metho
 // an operator's interface or Display, names the prelude reserves, which no
 // program declares twice, so the blocks of the name are the interface's.
 func (fa *FileAnalysis) implMethodFor(t Type, iface, method string) ast.ImplMethodDecl {
+	return implBlockMethod(fa.implBlockOf(t, iface), method)
+}
+
+// implBlockOf is t's impl block of iface that implMethodFor reads: the one
+// implBlockFor selects, else t's one block of it. Nil for a nil fa.
+func (fa *FileAnalysis) implBlockOf(t Type, iface string) *ast.ImplBlock {
 	if fa == nil {
 		return nil
 	}
@@ -83,7 +91,7 @@ func (fa *FileAnalysis) implMethodFor(t Type, iface, method string) ast.ImplMeth
 			b = blocks[0].Block
 		}
 	}
-	return implBlockMethod(b, method)
+	return b
 }
 
 // implMethodPos is the position of an impl function's name.

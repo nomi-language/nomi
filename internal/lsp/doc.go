@@ -1,4 +1,4 @@
-// Package lsp is Nomi's language server, the server `nomi-lsp` runs. It
+// Package lsp is Nomi's language server, the server `nomi lsp` runs. It
 // answers the Language Server Protocol over JSON-RPC from the analyses an
 // analysis.DocumentManager keeps: each open document is checked as part of
 // a whole program, rechecked incrementally on each edit, and opened from a

@@ -1,0 +1,539 @@
+//# Compression: gzip, zlib and raw deflate, for files, archives, image
+//# formats and protocols that carry compressed bytes. `encode` and `decode`
+//# work on whole `Bytes`:
+//#
+//# ```nomi
+//# packed = compress.encode(.Gzip, data)
+//#
+//# assert compress.decode(.Gzip, packed, max_length: 10_000_000) == Ok(data)
+//# ```
+//#
+//# `decode` takes a limit on what the data decompresses to, with no
+//# default, since a few kilobytes of compressed data can expand to
+//# gigabytes. Data that decompresses past it is `TooLarge`, found once the
+//# limit is passed, before the rest is made. `decode_prefix` decodes the
+//# stream data starts with and says how many bytes it took, for data that
+//# goes on after the stream, as a zip entry's does.
+//#
+//# `reader`, `writer` and `encoding_reader` work on streams too large to
+//# hold: `reader` decompresses a `Reader` as it is read, `writer`
+//# compresses what is written into a `Writer`, and `encoding_reader`
+//# compresses a `Reader` as it is read, as a request or response body is
+//# sent. A stream that is not valid fails its read with std::io's
+//# `Error.Corrupt`, or `Error.Truncated` when it ends early, and a failure
+//# of the stream it wraps is the read's or write's error as it is.
+//# Closing one leaves the stream it wraps open: close a `writer` first,
+//# which writes the format's end, and then its sink.
+//#
+//# Three formats share one compression, deflate (RFC 1951):
+//#
+//# - `Gzip` (RFC 1952): a header with an optional name, comment and
+//#   modification time, and a CRC-32 of the data. `.gz` files and HTTP's
+//#   `Content-Encoding: gzip`.
+//# - `Zlib` (RFC 1950): a two-byte header and an Adler-32 of the data, with
+//#   an optional preset dictionary. PNG's image data, PDF streams, and
+//#   HTTP's `Content-Encoding: deflate`.
+//# - `Deflate`: the compressed data alone, as zip archives hold it.
+//#
+//# A gzip file may hold several members one after another, as `cat a.gz
+//# b.gz` makes; `decode` and `reader` read it as their data joined, and
+//# `gzip_members` reads each with its header.
+
+import
+    bytes.Bytes
+    compress::host
+    display.Display
+    equatable.Equatable
+    instant.Instant
+    int.{Int, Int64, NonNegativeInt}
+    io.{Reader, Writer}
+    lists.List
+    option.Option.{self, None, Some}
+    results.Result.{self, Err, Ok}
+    strings.String
+end
+
+/// A compressed format.
+pub enum Format
+    /// gzip (RFC 1952): a header, deflate data and a CRC-32.
+    Gzip
+    /// zlib (RFC 1950): a two-byte header, deflate data and an Adler-32.
+    Zlib
+    /// Raw deflate (RFC 1951): the compressed data with no header or
+    /// checksum.
+    Deflate
+end
+
+derive Equatable for Format
+
+impl Display for Format
+    //! import std::compress.Format
+    //!
+    //! assert "${Format.Deflate}" == "raw deflate"
+    //
+    fn to_string(format: Format) -> String
+        case format
+            .Gzip    -> "gzip"
+            .Zlib    -> "zlib"
+            .Deflate -> "raw deflate"
+        end
+    end
+end
+
+/// A compression level from 1, the fastest, to 9, the smallest.
+pub refine LevelNumber Int64 when fn n -> n >= 1 and n <= 9
+
+/// How hard `encode` and `writer` work to make the data small. Every level
+/// writes data every decoder reads.
+pub enum Level
+    /// Level 1: the fastest, and the largest output.
+    Fastest
+    /// Level 6, the balance gzip and zlib use by default.
+    Default
+    /// Level 9: the smallest output, and the slowest.
+    Best
+    /// No compression: the data is stored as it is, in the format's
+    /// framing, a little larger than it was.
+    Stored
+    /// A level from 1 to 9, as gzip's `-1` to `-9` name them.
+    Custom LevelNumber
+end
+
+derive Equatable for Level
+
+/// The header of a gzip member. `name` and `comment` are written in ISO
+/// 8859-1, as RFC 1952 says, so a character outside it, or a NUL, is
+/// written as `?`. `modified` is whole seconds; a time before 1970 or after
+/// 2106 is written as none. `os` is the system the member was made on, as
+/// RFC 1952 numbers it (3 for Unix); a number past 255 is written as 255,
+/// unknown.
+pub struct GzipHeader
+    /// The original file's name, or "".
+    name: String = ""
+    /// A comment for a person, or "".
+    comment: String = ""
+    /// When the original file was last changed, if the writer said.
+    modified: Option<Instant> = None
+    /// The operating system the member was written on: 0 FAT, 3 Unix, 7
+    /// Macintosh, 11 NTFS, 255 unknown.
+    os: Int = 255
+end
+
+derive Equatable for GzipHeader
+
+/// What `encode`, `writer` and `encoding_reader` write besides the data.
+pub struct Options
+    /// The header a gzip stream starts with. Zlib and raw deflate have
+    /// none.
+    header: GzipHeader = GzipHeader{}
+    /// A preset dictionary for zlib and raw deflate: bytes the data is
+    /// likely to repeat, which the decoder must be given too. Some
+    /// protocols name one. gzip has none, so it is not used for gzip.
+    dictionary: Option<Bytes> = None
+end
+
+/// One member of a gzip file: its header and its data.
+pub struct GzipMember
+    header: GzipHeader
+    data:   Bytes
+end
+
+derive Equatable for GzipMember
+
+/// What `decode_prefix` read: the stream's data, and how many bytes of the
+/// input the stream took.
+pub struct Decoded
+    data:     Bytes
+    consumed: Int
+end
+
+derive Equatable for Decoded
+
+/// Why compressed data could not be decoded.
+pub enum Error
+    /// The data is not valid: a bad header, block or checksum, or a zlib
+    /// stream that needs a preset dictionary it was not given.
+    Corrupt {reason: String}
+    /// The data ends before the stream is complete.
+    Truncated
+    /// The data decompresses to more than `max_length` bytes.
+    TooLarge {max_length: Int}
+    /// The data's header shows it is in another format.
+    WrongFormat {expected: Format, found: Format}
+end
+
+derive Equatable for Error
+
+impl Display for Error
+    //! import std::compress.{Error, Format}
+    //!
+    //! assert "${Error.TooLarge{max_length: 1000}}" == "the data decompresses to more than 1000 bytes"
+    //! assert "${Error.WrongFormat{expected: .Gzip, found: .Zlib}}" == "the data is zlib, not gzip"
+    //
+    fn to_string(error: Error) -> String
+        case error
+            .Corrupt{reason:} -> "corrupt compressed data: ${reason}"
+            .Truncated -> "the compressed data ends early"
+            .TooLarge{max_length:} -> "the data decompresses to more than ${max_length} bytes"
+            .WrongFormat{expected:, found:} -> "the data is ${found}, not ${expected}"
+        end
+    end
+end
+
+/// `data` compressed in `format` at `level`, with `options`' gzip header
+/// or preset dictionary.
+//! import std::compress.{self, Format, GzipHeader, Level}
+//!
+//! data = String.to_bytes(String.repeat("all work and no play ", 100))
+//! packed = compress.encode(Format.Gzip, data)
+//! assert Bytes.length(packed) < 100
+//! assert compress.decode(Format.Gzip, packed, max_length: 1_000_000) == Ok(data)
+//!
+//! smallest = compress.encode(Format.Zlib, data, level: Level.Best)
+//! stored = compress.encode(Format.Zlib, data, level: Level.Stored)
+//! assert Bytes.length(stored) > Bytes.length(data)
+//! assert compress.decode(Format.Zlib, stored, max_length: 1_000_000) == Ok(data)
+//! assert compress.decode(Format.Zlib, smallest, max_length: 1_000_000) == Ok(data)
+//!
+//! named = compress.encode(Format.Gzip, data, options: {header: GzipHeader{name: "notes.txt"}})
+//! assert compress.gzip_header(named) == Ok(GzipHeader{name: "notes.txt"})
+//
+pub fn encode(
+    format:  Format,
+    data:    Bytes,
+    level:   Level = .Default,
+    options: Options = Options{},
+) -> Bytes
+    header = options.header
+
+    host.encode(
+        format_number(format),
+        data,
+        level_number(level),
+        header.name,
+        header.comment,
+        seconds(header.modified),
+        header.os,
+        options.dictionary,
+    )
+end
+
+/// What `data`, compressed in `format`, decompresses to, or `TooLarge` when
+/// that is more than `max_length` bytes, found once the limit is passed. A
+/// zlib or raw deflate stream written with a preset dictionary needs it as
+/// `dictionary`. A gzip file of several members decodes to their data
+/// joined.
+//! import std::compress.{self, Error, Format}
+//!
+//! // About 2 KB that expand to a megabyte stop at the limit.
+//! bomb = compress.encode(Format.Gzip, String.to_bytes(String.repeat("0", 1_000_000)))
+//! assert Bytes.length(bomb) < 3000
+//!
+//! assert compress.decode(Format.Gzip, bomb, max_length: 64_000)
+//!     == Err(Error.TooLarge{max_length: 64_000})
+//!
+//! hello = compress.encode(Format.Gzip, String.to_bytes("hello"))
+//! cut = Bytes.slice(hello, 0, Bytes.length(hello) - 4)
+//! assert compress.decode(Format.Gzip, cut, max_length: 100) == Err(Error.Truncated)
+//!
+//! assert compress.decode(Format.Zlib, hello, max_length: 100)
+//!     == Err(Error.WrongFormat{expected: .Zlib, found: .Gzip})
+//!
+//! joined = Bytes.concat(hello, compress.encode(Format.Gzip, String.to_bytes(", world")))
+//! assert compress.decode(Format.Gzip, joined, max_length: 100) == Ok(String.to_bytes("hello, world"))
+//
+//! import std::compress.{self, Error, Format}
+//!
+//! // A zlib stream written with a preset dictionary.
+//! dictionary = String.to_bytes("SELECT FROM WHERE ORDER BY")
+//! query = String.to_bytes("SELECT name FROM users WHERE id = 7 ORDER BY name")
+//! packed = compress.encode(Format.Zlib, query, options: {dictionary: Some(dictionary)})
+//!
+//! assert compress.decode(Format.Zlib, packed, max_length: 1000, dictionary: Some(dictionary))
+//!     == Ok(query)
+//!
+//! assert compress.decode(Format.Zlib, packed, max_length: 1000) is Err(Error.Corrupt{reason: _})
+//
+pub fn decode(
+    format:     Format,
+    data:       Bytes,
+    max_length: NonNegativeInt,
+    dictionary: Option<Bytes> = None,
+) -> Result<Bytes, Error>
+    (out, kind, found, reason) = host.decode(format_number(format), data, max_length, dictionary)
+
+    if kind == 0 then
+        Ok(out)
+    else
+        Err(failure(format, kind, found, reason, max_length))
+    end
+end
+
+/// What the stream `data` starts with, compressed in `format`,
+/// decompresses to, and how many bytes of `data` the stream takes, for data
+/// that goes on after it: a zip entry whose size is written after its
+/// data, or a protocol message followed by the next. A gzip stream is its
+/// first member. Otherwise as `decode`: `TooLarge` past `max_length`, and
+/// `dictionary` for a stream written with a preset one.
+//! import std::compress.{self, Decoded, Error, Format}
+//!
+//! text = String.to_bytes("the entry's data")
+//! after = String.to_bytes("and what follows the stream")
+//!
+//! raw = compress.encode(Format.Deflate, text)
+//!
+//! assert compress.decode_prefix(Format.Deflate, Bytes.concat(raw, after), max_length: 100)
+//!     == Ok(Decoded{data: text, consumed: Bytes.length(raw)})
+//!
+//! zlib = compress.encode(Format.Zlib, text)
+//!
+//! assert compress.decode_prefix(Format.Zlib, Bytes.concat(zlib, after), max_length: 100)
+//!     == Ok(Decoded{data: text, consumed: Bytes.length(zlib)})
+//!
+//! gz = compress.encode(Format.Gzip, text)
+//!
+//! assert compress.decode_prefix(Format.Gzip, Bytes.concat(gz, after), max_length: 100)
+//!     == Ok(Decoded{data: text, consumed: Bytes.length(gz)})
+//!
+//! assert compress.decode_prefix(Format.Deflate, raw, max_length: 4)
+//!     == Err(Error.TooLarge{max_length: 4})
+//
+pub fn decode_prefix(
+    format:     Format,
+    data:       Bytes,
+    max_length: NonNegativeInt,
+    dictionary: Option<Bytes> = None,
+) -> Result<Decoded, Error>
+    (out, next, kind, found, reason) = host.decode_at(
+        format_number(format),
+        data,
+        0,
+        max_length,
+        dictionary,
+    )
+
+    if kind != 0 then return Err(failure(format, kind, found, reason, max_length))
+    Ok(Decoded{data: out, consumed: next})
+end
+
+/// The header of the gzip member `data` starts with, read without
+/// decompressing its data.
+//! import std::compress.{self, Error, Format, GzipHeader}
+//!
+//! header = GzipHeader{
+//!     name:     "report.csv",
+//!     comment:  "nightly",
+//!     modified: Some(Instant.from_seconds(1_767_225_600)),
+//!     os:       3,
+//! }
+//!
+//! packed = compress.encode(Format.Gzip, String.to_bytes("a,b\n"), options: {header:})
+//! assert compress.gzip_header(packed) == Ok(header)
+//!
+//! assert compress.gzip_header(String.to_bytes("plain text")) is Err(Error.Corrupt{reason: _})
+//
+pub fn gzip_header(data: Bytes) -> Result<GzipHeader, Error>
+    header_at(data, 0)
+end
+
+fn header_at(data: Bytes, offset: Int) -> Result<GzipHeader, Error>
+    (name, comment, modified, os, kind, found, reason) = host.gzip_header(data, offset)
+    if kind != 0 then return Err(failure(.Gzip, kind, found, reason, 0))
+    at = if modified > 0 then Some(Instant.from_seconds(modified)) else None
+    Ok(GzipHeader{name:, comment:, modified: at, os:})
+end
+
+/// Each member of the gzip file `data`, in order, with its header and its
+/// data, or `TooLarge` when their data together is more than `max_length`
+/// bytes.
+//! import std::compress.{self, Format}
+//! import std::iter.Iter
+//!
+//! first = compress.encode(Format.Gzip, String.to_bytes("one"), options: {header: {name: "a.txt"}})
+//! second = compress.encode(Format.Gzip, String.to_bytes("two"), options: {header: {name: "b.txt"}})
+//! assert Ok(members) = compress.gzip_members(Bytes.concat(first, second), max_length: 100)
+//!
+//! assert members |> Iter.map(&(&1.header.name)) |> Iter.to_list() == ["a.txt", "b.txt"]
+//!
+//! assert members |> Iter.map(&(&1.data)) |> Iter.to_list() == [
+//!     String.to_bytes("one"),
+//!     String.to_bytes("two"),
+//! ]
+//
+pub fn gzip_members(data: Bytes, max_length: NonNegativeInt) -> Result<List<GzipMember>, Error>
+    members(data, 0, max_length, max_length, [])
+end
+
+fn members(
+    data:       Bytes,
+    offset:     Int,
+    left:       Int,
+    max_length: Int,
+    taken:      List<GzipMember>,
+) -> Result<List<GzipMember>, Error>
+    if offset >= Bytes.length(data) and taken != [] then return Ok(taken)
+    header = header_at(data, offset)?
+    (out, next, kind, found, reason) = host.decode_at(0, data, offset, left, None)
+    if kind != 0 then return Err(failure(.Gzip, kind, found, reason, max_length))
+
+    members(
+        data,
+        next,
+        left - Bytes.length(out),
+        max_length,
+        [..taken, GzipMember{header:, data: out}],
+    )
+end
+
+/// A reader of what `source`, compressed in `format`, decompresses to, read
+/// as it is read. A read of a stream that is not valid fails with
+/// `io.Error.Corrupt`, or `io.Error.Truncated` when it ends early, and a
+/// failed read of `source` with its error. Closing it leaves `source` open.
+//! import std::compress.{self, Format}
+//! import std::io.Error
+//! import std::iter.Iter
+//!
+//! packed = compress.encode(Format.Zlib, String.to_bytes("line one\nline two\n"))
+//!
+//! lines =
+//!     compress.reader(Format.Zlib, Reader.from_bytes(packed))
+//!     |> Reader.lines()
+//!     |> Iter.to_list()
+//!
+//! assert lines == [Ok("line one"), Ok("line two")]
+//!
+//! cut = Reader.from_bytes(Bytes.slice(packed, 0, 10))
+//! assert Reader.read_all(compress.reader(Format.Zlib, cut)) == Err(Error.Truncated{path: "<zlib>"})
+//!
+//! other = Reader.from_bytes(compress.encode(Format.Gzip, String.to_bytes("hi")))
+//!
+//! assert Reader.read_all(compress.reader(Format.Zlib, other))
+//!     == Err(Error.Corrupt{path: "<zlib>", reason: "the stream is gzip data, not zlib"})
+//
+pub fn reader(format: Format, source: Reader, dictionary: Option<Bytes> = None) -> Reader
+    host.reader(format_number(format), source, dictionary)
+end
+
+/// A writer that compresses what is written to it in `format` at `level`
+/// into `sink`. `Writer.flush` passes what was written so far on to
+/// `sink` and flushes it, so a reader of `sink` can decode it, at a small
+/// cost in size. `Writer.close` writes the format's end into `sink` and
+/// leaves `sink` open: close `sink` after it. A failed write to `sink` is
+/// the error of the write, flush or close that sent it.
+//! import std::compress.{self, Format}
+//!
+//! (_, packed) = Writer.collect(fn sink ->
+//!     w = compress.writer(Format.Gzip, sink)
+//!     _ = Writer.write_text(w, "hello, ")
+//!     _ = Writer.write_text(w, "world")
+//!     Writer.close(w)
+//! end)
+//!
+//! assert compress.decode(Format.Gzip, packed, max_length: 100) == Ok(String.to_bytes("hello, world"))
+//
+//! import std::compress.{self, Format}
+//! import std::bool.Bool.True
+//! import std::io.Error
+//!
+//! // A sink that fails: the close that sends the data says so.
+//! full = Writer.from_fn(unbuffered: True, fn _ -> Err(Error.NoSpace{path: "disk"}))
+//! w = compress.writer(Format.Gzip, full)
+//! assert Writer.write_text(w, "data") is Ok(_)
+//! assert Writer.close(w) == Err(Error.NoSpace{path: "disk"})
+//
+pub fn writer(
+    format:  Format,
+    sink:    Writer,
+    level:   Level = .Default,
+    options: Options = Options{},
+) -> Writer
+    header = options.header
+
+    host.writer(
+        format_number(format),
+        sink,
+        level_number(level),
+        header.name,
+        header.comment,
+        seconds(header.modified),
+        header.os,
+        options.dictionary,
+    )
+end
+
+/// A reader of `source`'s bytes compressed in `format` at `level`, made as
+/// it is read: the form for sending a stream compressed, as an HTTP body.
+/// Each read of `source` is passed on, so a source that arrives slowly is
+/// sent as it arrives. Closing it leaves `source` open.
+//! import std::compress.{self, Format}
+//!
+//! text = String.repeat("streamed ", 1000)
+//! packed = Reader.read_all(compress.encoding_reader(Format.Deflate, Reader.from_text(text)))!
+//! assert Bytes.length(packed) < 200
+//! assert compress.decode(Format.Deflate, packed, max_length: 100_000) == Ok(String.to_bytes(text))
+//
+pub fn encoding_reader(
+    format:  Format,
+    source:  Reader,
+    level:   Level = .Default,
+    options: Options = Options{},
+) -> Reader
+    header = options.header
+
+    host.encoding_reader(
+        format_number(format),
+        source,
+        level_number(level),
+        header.name,
+        header.comment,
+        seconds(header.modified),
+        header.os,
+        options.dictionary,
+    )
+end
+
+fn format_number(format: Format) -> Int64
+    case format
+        .Gzip    -> 0
+        .Zlib    -> 1
+        .Deflate -> 2
+    end
+end
+
+fn level_number(level: Level) -> Int64
+    case level
+        .Fastest   -> 1
+        .Default   -> -1
+        .Best      -> 9
+        .Stored    -> 0
+        .Custom(n) -> n
+    end
+end
+
+fn seconds(modified: Option<Instant>) -> Int
+    case modified
+        Some(at) -> Instant.to_seconds(at)
+        None     -> 0
+    end
+end
+
+/// The Error a crossing's failure `kind` names.
+fn failure(expected: Format, kind: Int, found: Int, reason: String, max_length: Int) -> Error
+    case kind
+        1 ->
+            .Corrupt{reason:}
+
+        2 ->
+            .Truncated
+
+        3 ->
+            .TooLarge{max_length:}
+
+        _ ->
+            case found
+                0 -> .WrongFormat{expected:, found: .Gzip}
+                1 -> .WrongFormat{expected:, found: .Zlib}
+                _ -> .WrongFormat{expected:, found: .Deflate}
+            end
+    end
+end

@@ -14,8 +14,10 @@
 //     `String.join_list` (internal/stdformat), which read the program's CLDR
 //     data. The VM calls them through generated adapters
 //     (internal/stdlibadapters).
-//   - RtFuncs: the rt functions the VM reaches for std's scalar, text, byte,
-//     JSON, Decimal and concurrency primitives. The VM calls every row
+//   - RtFuncs: the functions over rt values the VM reaches for std's scalar,
+//     text, byte, checksum, JSON, Decimal and concurrency primitives, most
+//     of them rt's own, and std/hash's digests (internal/stdhash, outside rt
+//     because BLAKE2 is golang.org/x/crypto's). The VM calls every row
 //     through a generated adapter, and internal/irbuild's IR builder retains
 //     a std `host fn` call only when its key has a row here.
 //
@@ -42,14 +44,20 @@
 //     returning is not an effect, and cost is not either: a Pure function
 //     whose one call costs more as an operand's value grows, rather than
 //     its size, also gets Unbounded, and those evaluations refuse a call
-//     to it as unbounded, since nothing interrupts a call into Go. A
+//     to it as unbounded, since nothing interrupts a call into Go. A Pure
+//     function whose answer is a hash keyed by the run's seed
+//     (`String.hash`) also gets Seeded: a call to it is no effect, but a
+//     refinement rule, a typed literal's handler and a `check` refuse it,
+//     since the compiler runs them once and their answer must hold in
+//     every run. A
 //     function that acts only through a value its operand already holds
 //     gets Held, and an effects list names no call to it. A row that is
 //     not Pure says whether it acts outside the machine, World: Inside or
 //     Outside ("Effects and World" below); TestEveryRowDecidesItsWorld
 //     fails for one that says neither, or is both Pure and Held, or Held
-//     and not Inside, and TestEveryUnboundedRowIsPure for an Unbounded row
-//     that is not Pure.
+//     and not Inside, TestEveryUnboundedRowIsPure for an Unbounded row
+//     that is not Pure, and TestEverySeededRowIsPure for a Seeded row that
+//     is not Pure or is also Unbounded.
 //  3. Run `go generate ./internal/stdlibadapters`.
 //  4. Add recorded cases for the new row
 //     (internal/stdlibadapters/testdata/*.golden).
@@ -102,7 +110,9 @@
 //     `supervisors.Supervisor.new_exact`, `wasm/host.instantiate`), what
 //     reads state the program
 //     installed (`locale.locale_loaded_raw`, `phrase/format.noun_raw`), and
-//     a nonce drawn for a result (`signatures/host.sign`, `http/host.seal`).
+//     a nonce drawn for a result (`signatures/host.sign`). std/cipher draws
+//     a seal's nonce in Nomi with `random.secure_bytes`, so its crossings
+//     are Pure and the effect is that row's.
 //
 // The VM's intrinsics say the same in their own table (internal/vm's
 // vm.go: `pure` and `held`, held by TestEveryIntrinsicDecidesItsWorld:
@@ -142,7 +152,7 @@
 //     files, `http/host.pipe`, a fake process), which a row cannot tell
 //     apart.
 //   - Reading the clock is Outside when the program gets the reading or
-//     waits on it: `instant.Instant.now`, `timer.sleep`,
+//     waits on it: `instant.Instant.now`, `Monotonic.now`, `timer.sleep`,
 //     `Context.with_timeout` and `deadline_remaining` (both read now),
 //     `Supervisor.flush_bounded` (a bound in real time). A deadline the
 //     program gives as an Instant is Inside (`Context.with_deadline`).
@@ -152,15 +162,18 @@
 //   - Reading the system's entropy is Outside when it is the value the
 //     program gets: `random.os_state` and `secure_bytes`, and generating a
 //     key or a certificate (`signatures/host.generate_*`,
-//     `http/host.test_certificate`). A seeded generator is Inside. A
-//     cryptographic operation that draws a nonce or salt and answers a
-//     result whose meaning does not depend on it is Inside (`sign`,
-//     `http/host.seal`).
+//     `key_exchange/host.generate`, `http/host.test_certificate`). A
+//     seeded generator is Inside. A cryptographic operation that draws a
+//     nonce or salt and answers a result whose meaning does not depend on it
+//     is Inside (`sign`, `passwords/host.bcrypt_hash`).
 //   - A read of files a row does on its own is Outside without a class
 //     where the target check has none for it: `http/host.tls_config` reads
 //     the PEM files its roots name. `http/host.ws_connect` dials.
 //   - `io.read_line` reads standard input: Outside. Output is the VM's
-//     intrinsics (`io.print` and its kin, `dbg`): Outside.
+//     intrinsics (`io.print` and its kin, `dbg`): Outside. Asking whether a
+//     standard stream is a terminal, its size or its colour, and changing
+//     its mode (`io.stream_is_terminal`, `terminal/host`) are Outside with
+//     no class: a target with no terminal answers that there is none.
 //   - Embedded files (`embed/host`) are part of the program: Inside.
 //   - `locale.locale_load_raw` fetches a locale's file over the network in
 //     a browser: Outside. It has no Class: a native or wasip1 runner loads
@@ -187,7 +200,9 @@
 //   - `Pure` on each of its rows whose result depends only on its
 //     operands, since a refinement rule or a typed literal's handler may
 //     only reach those, `Unbounded` beside it where one call's cost grows
-//     with an operand's value, and World on each of the others (step 2);
+//     with an operand's value, `Seeded` beside it where its answer is a
+//     hash keyed by the run's seed, and World on each of the others
+//     (step 2);
 //   - a row in `stdlibInventory` (internal/irbuild/inventory_test.go);
 //   - when its Go code is large and few programs reach it, a family in
 //     internal/stdlibbindings/families, whose tag leaves the package out of

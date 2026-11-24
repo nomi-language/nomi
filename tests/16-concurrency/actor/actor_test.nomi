@@ -1,8 +1,9 @@
 // std/actors: a counter folded in one task, cast and call, a call that
-// times out, and a stopped actor.
+// times out, a handler that traps, and a stopped actor.
 import
     std::actors.{Actor, CallError}
     std::duration.Duration
+    std::instant.Monotonic
     std::testing.Clock
     counter_actor.{self, App, get}
 end
@@ -21,6 +22,16 @@ group "a counter actor"
     test "a call nobody answers times out"
         got = Actor.call(App.counter, Duration.seconds(2), fn reply -> .Stall{reply:})
         assert got == Err(CallError.TimedOut)
+        assert get() == Ok(0)
+    end
+
+    test "a call whose handler traps answers Crashed at once"
+        _ = Actor.cast(App.counter, .Add(3))
+        start = Monotonic.now()
+        got = Actor.call(App.counter, Duration.seconds(2), fn reply -> .Crash{reply:})
+        assert got == Err(CallError.Crashed)
+        assert Monotonic.elapsed(start) == Duration.seconds(0)
+        // The supervisor restarts the actor from its initial state.
         assert get() == Ok(0)
     end
 

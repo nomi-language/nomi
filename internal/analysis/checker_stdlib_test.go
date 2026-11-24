@@ -318,8 +318,8 @@ func checkSourceAsWrittenWithStdlib(src string) (*analysis.FileAnalysis, []ast.N
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	// Lower type-body items and `for` blocks into
-	// top-level impl blocks so the BuildTypes / CheckTypes / CheckDeriveBounds
-	// passes below see the impls. BuildFileWithStdlib lowers on its own internal
+	// top-level impl blocks so the BuildTypes and CheckTypes passes below
+	// see the impls. BuildFileWithStdlib lowers on its own internal
 	// copy; the passes receive this same slice, so it must be lowered too.
 	nodes, _ = analysis.LowerDerives(nodes)
 	lib := loadStd()
@@ -332,12 +332,6 @@ func checkSourceAsWrittenWithStdlib(src string) (*analysis.FileAnalysis, []ast.N
 	// would miss "Int impl Display" etc. and surface spurious
 	// interface-bound errors on routine io.inspect calls.
 	analysis.AttachStdlibProjectImpls(fa, lib.Files)
-	// Run CheckDeriveBounds now that the index is attached; the single-
-	// file build does not run it. It lands the @derive
-	// payload conformance recordings (e.g. (Float, Comparable) from
-	// `@derive Comparable enum Shape { Circle Float }`) on
-	// fa.ImplManifest so downstream consumers see them.
-	_ = analysis.CheckDeriveBounds(fa, nodes, fa.Program().ImplIndex, nil)
 	// Collect builder-phase errors first, then the per-pass returns.
 	// Omitting fa.TypeErrors here previously made this helper blind to
 	// redeclaration and other builder-phase diagnostics.
@@ -978,7 +972,7 @@ end
 	if len(errs) == 0 {
 		t.Fatalf("expected Range<String> to fail Iter materialization")
 	}
-	const want = "no impl of `Discrete` for `String` (required via interface-typed param/field)"
+	const want = "no impl of `Discrete` for `String` (required by parameter `source` of `Iter.to_list`)"
 	if len(errs) != 1 || errs[0].Message != want {
 		t.Fatalf("want the one error %q, got: %v", want, errs)
 	}

@@ -267,7 +267,7 @@ func TestOpaqueStdlibIndexResolvesTheOpaqueSurface(t *testing.T) {
 		"Duration.as_nanos", "Duration.as_micros", "Duration.as_millis",
 		"Duration.as_seconds", "Duration.as_minutes", "Duration.as_hours",
 		"Duration.to_string", "Duration.add", "Duration.subtract",
-		"Duration.multiply", "Duration.divide", "Duration.equal",
+		"Duration.multiply", "Duration.divide",
 		"Instant.now", "Instant.from_seconds", "Instant.to_seconds", "Instant.is_before",
 	}
 	for _, name := range lowerable {

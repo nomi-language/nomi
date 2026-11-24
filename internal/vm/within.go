@@ -36,7 +36,7 @@ func (m *Machine) within(ctx context.Context, cancel func()) (view *Machine, rel
 	}
 	f := &fuel{watch: true, outer: m.fuel, onStop: cancel}
 	if d, ok := ctx.Deadline(); ok {
-		f.bound.Store(d.UnixNano())
+		f.bound.Store(&d)
 	}
 	v := *m
 	v.fuel, v.tasks = f, &taskLimit{}
@@ -48,7 +48,7 @@ func (m *Machine) within(ctx context.Context, cancel func()) (view *Machine, rel
 		// ctx's end, once it has begun the stop, ends the activation even
 		// when it got to finish: what the stop cancelled is gone.
 		fired := !stop()
-		f.bound.Store(0)
+		f.bound.Store(nil)
 		if fired || err != nil && f.stopped.Load() {
 			return stoppedBy(ctx)
 		}

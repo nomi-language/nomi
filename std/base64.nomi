@@ -52,6 +52,16 @@ host fn standard(data: Bytes, padded: Bool) -> String
 //
 pub host fn decode(text: String) -> Result<Bytes, String>
 
+/// The bytes `data` holds in base64's standard alphabet, as `decode` reads
+/// them from text: for base64 read straight from a file or a wire, with no
+/// check that it is UTF-8 first.
+//! import std::base64
+//!
+//! assert base64.decode_bytes(String.to_bytes("Zm9vYmE=")) == Ok(String.to_bytes("fooba"))
+//! assert base64.decode_bytes(Bytes.from_list([0x5a, 0xff])) == Err("invalid base64 at byte 1")
+//
+pub host fn decode_bytes(data: Bytes) -> Result<Bytes, String>
+
 /// `data` in base64's URL and file name safe alphabet, `-` and `_` in place
 /// of `+` and `/`, padded with `=`, or with no padding when `padded` is
 /// `False`, the form JWTs and many other tokens use.
@@ -78,3 +88,11 @@ host fn url_safe(data: Bytes, padded: Bool) -> String
 //! assert base64.decode_url("+/+/") == Err("invalid base64 at byte 0")
 //
 pub host fn decode_url(text: String) -> Result<Bytes, String>
+
+/// The bytes `data` holds in base64's URL-safe alphabet, as `decode_url`
+/// reads them from text.
+//! import std::base64
+//!
+//! assert base64.decode_url_bytes(String.to_bytes("-_-_")) == Ok(Bytes.from_list([251, 255, 191]))
+//
+pub host fn decode_url_bytes(data: Bytes) -> Result<Bytes, String>

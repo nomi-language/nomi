@@ -63,7 +63,7 @@ func OpenCacheFor(path, kind string) *Cache {
 	if err != nil {
 		return nil
 	}
-	if _, _, ok := frontend.StdlibFile(abs); ok {
+	if _, _, ok, refused := frontend.StdlibFile(abs); ok || refused != nil {
 		return nil
 	}
 	e := progcache.Open(kind, abs, []progcache.Tree{sourceTree(analysis.ProjectRoot(abs, ""))})
@@ -77,7 +77,7 @@ func OpenCacheFor(path, kind string) *Cache {
 // root, dir: every `.nomi` file by whether it is there, the text of the
 // program's own files, which the record names on their own (inputs), and
 // the text of every other file a build can read there (manifests,
-// catalogs, go.mod). A source the program does not load changes it only
+// catalogs, nomi.lock). A source the program does not load changes it only
 // by coming or going, which can change what an import names: a file
 // import where a directory import was (spec §14 *Directory imports*).
 func sourceTree(dir string) progcache.Tree {

@@ -27,7 +27,7 @@ func mkPerson() (*StructType, *StructType) {
 func anon(fields ...FieldDef) *AnonStructType { return &AnonStructType{Fields: fields} }
 
 // pc builds a bare checker for the deep-partial unit tests. `fa` is nil, so
-// `implsContext` returns no impl tables and `recordConformanceIfConcrete`
+// `implsContext` returns no impl tables and `recordBoundConformance`
 // returns early — the walk then behaves exactly as the old free function did.
 // Tests that need real interface-impl admission go through `checkSource`
 // instead, since that requires a populated impl registry.

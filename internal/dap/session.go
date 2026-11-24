@@ -17,7 +17,6 @@ import (
 	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/ir"
 	"github.com/nomi-language/nomi/internal/vm"
-	"github.com/nomi-language/nomi/internal/vmcmd"
 	"github.com/nomi-language/nomi/std"
 	"github.com/nomi-language/nomi/vmhost"
 )
@@ -211,7 +210,8 @@ func (s *Server) prepare(args launchArgs) (*session, error) {
 		localsRefs: map[int]int{}, frames: map[int]frameKind{}, bps: map[string][]breakpoint{},
 		exceptions: map[int]vm.Stop{}, locIndex: map[ir.Pos]int{}}
 	sess.io.console(s)
-	stdlib := sess.test && vmcmd.IsStdlibPath(path)
+	_, _, inStd, _ := frontend.StdlibFile(path)
+	stdlib := sess.test && inStd
 	if _, err := vmhost.ParseTestFormat(args.Format); args.Format != "" && err != nil {
 		return nil, err
 	}

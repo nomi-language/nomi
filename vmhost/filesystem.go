@@ -123,6 +123,47 @@ const (
 	LockExclusive LockMode = LockMode(rt.LockExclusive)
 )
 
+// TimesFileSystem is a FileSystem that serves `fs.set_times` and
+// `fs.touch`: SetTimes sets the modification and access times of what path
+// names, following symlinks, and leaves a zero time as it is. One that does
+// not answers both Unsupported.
+type TimesFileSystem interface {
+	FileSystem
+	SetTimes(path string, modified, accessed time.Time) error
+}
+
+// LinkFileSystem is a FileSystem that serves `fs.create_link`: Link makes
+// path a second name of the file at target, following no symlink at
+// target. One that does not answers it Unsupported.
+type LinkFileSystem interface {
+	FileSystem
+	Link(path, target string) error
+}
+
+// OwnerFileSystem is a FileSystem that serves `fs.set_owner` and
+// `fs.set_link_owner`, by Chown, which follows a symlink at path when
+// follow is set, and `fs.user_name` and `fs.group_name`, by OwnerName,
+// which names the user, or the group when group is set, numbered id. One
+// that does not answers the first two Unsupported and the names None.
+type OwnerFileSystem interface {
+	FileSystem
+	Chown(path string, user, group uint64, follow bool) error
+	OwnerName(id uint64, group bool) (string, bool)
+}
+
+// DiskUsageFileSystem is a FileSystem that serves `fs.disk_usage`:
+// DiskUsage is the size, free bytes and bytes available of the file system
+// path is on. One that does not answers it Unsupported.
+type DiskUsageFileSystem interface {
+	FileSystem
+	DiskUsage(path string) (DiskUsage, error)
+}
+
+// DiskUsage is what DiskUsageFileSystem.DiskUsage answers, in bytes: the
+// file system's size, what is free on it, and what of that the program's
+// user may use.
+type DiskUsage struct{ Total, Free, Available uint64 }
+
 // SyncDirFileSystem is a FileSystem that serves `fs.sync_dir`: SyncDir
 // makes the entries of the directory dir durable, and fails for something
 // that is not a directory. One that does not answers `fs.sync_dir`
@@ -177,15 +218,34 @@ type DirEntry struct {
 }
 
 // FileInfo is what FileSystem.Stat and Lstat answer. Mode holds the
-// permission bits. A zero Modified, a file system that records no time as
-// an fs.FS from embed does, reads as the Unix epoch, as std/embed's files
-// do; any other Modified reaches `fs.metadata` exactly, whatever its year.
+// permission bits and the setuid, setgid and sticky bits. A zero Modified,
+// a file system that records no time as an fs.FS from embed does, reads as
+// the Unix epoch, as std/embed's files do; any other Modified reaches
+// `fs.metadata` exactly, whatever its year. The fields after Mode are what
+// a file system may not keep: each left zero (the zero time, 0, nil) is
+// None in `fs.Metadata`.
 type FileInfo struct {
 	Kind     FileKind
 	Size     int64
 	Modified time.Time
 	Mode     fs.FileMode
+	// Accessed is the last read, Changed the last change to the contents
+	// or the metadata, Created the birth.
+	Accessed, Changed, Created time.Time
+	// Links is how many names the file has.
+	Links uint64
+	// ID is the device and the file's number there, which every name of
+	// one file shares.
+	ID *FileID
+	// Owner is the numeric user and group that own the file.
+	Owner *FileOwner
 }
+
+// FileID is a file's identity: its device and its number there.
+type FileID struct{ Device, Inode uint64 }
+
+// FileOwner is the numeric user and group that own a file.
+type FileOwner struct{ User, Group uint64 }
 
 // DiskFiles is the file system a program reaches when its host gives it
 // none: the operating system's natively and on wasip1, the process's
@@ -360,7 +420,61 @@ func (e embedded) ReadLink(p string) (string, *rt.IOError) {
 }
 
 func (e embedded) Chmod(p string, mode int64) *rt.IOError {
-	return fsFailed("chmod", p, e.fs.Chmod(p, fs.FileMode(mode)&fs.ModePerm))
+	return fsFailed("chmod", p, e.fs.Chmod(p, stdio.FileMode(mode)))
+}
+
+func (e embedded) Chtimes(p string, modified, accessed *time.Time) *rt.IOError {
+	t, ok := e.fs.(TimesFileSystem)
+	if !ok {
+		return &rt.IOError{Tag: rt.TagIOUnsupported, Operation: "fs.set_times", Target: "this program's file system"}
+	}
+	var mtime, atime time.Time
+	if modified != nil {
+		mtime = *modified
+	}
+	if accessed != nil {
+		atime = *accessed
+	}
+	return fsFailed("chtimes", p, t.SetTimes(p, mtime, atime))
+}
+
+func (e embedded) Link(p, target string) *rt.IOError {
+	l, ok := e.fs.(LinkFileSystem)
+	if !ok {
+		return &rt.IOError{Tag: rt.TagIOUnsupported, Operation: "fs.create_link", Target: "this program's file system"}
+	}
+	return fsFailed("link", p, l.Link(p, target))
+}
+
+func (e embedded) Chown(p string, user, group uint64, follow bool) *rt.IOError {
+	o, ok := e.fs.(OwnerFileSystem)
+	if !ok {
+		operation := "fs.set_owner"
+		if !follow {
+			operation = "fs.set_link_owner"
+		}
+		return &rt.IOError{Tag: rt.TagIOUnsupported, Operation: operation, Target: "this program's file system"}
+	}
+	return fsFailed("chown", p, o.Chown(p, user, group, follow))
+}
+
+func (e embedded) OwnerName(id uint64, group bool) (string, bool) {
+	if o, ok := e.fs.(OwnerFileSystem); ok {
+		return o.OwnerName(id, group)
+	}
+	return "", false
+}
+
+func (e embedded) DiskUsage(p string) (stdio.DiskUsage, *rt.IOError) {
+	d, ok := e.fs.(DiskUsageFileSystem)
+	if !ok {
+		return stdio.DiskUsage{}, &rt.IOError{Tag: rt.TagIOUnsupported, Operation: "fs.disk_usage", Target: "this program's file system"}
+	}
+	u, err := d.DiskUsage(p)
+	if err != nil {
+		return stdio.DiskUsage{}, fsError("statfs", p, err)
+	}
+	return stdio.DiskUsage(u), nil
 }
 
 func (e embedded) Within(dir string) (stdio.Backend, func(), *rt.IOError) {
@@ -408,7 +522,9 @@ func fsInfo(i FileInfo) stdio.Info {
 	if modified.IsZero() {
 		modified = time.Unix(0, 0)
 	}
-	return stdio.Info{Kind: stdio.Kind(i.Kind), Size: i.Size, Modified: modified, Mode: int64(i.Mode.Perm())}
+	return stdio.Info{Kind: stdio.Kind(i.Kind), Size: i.Size, Modified: modified, Mode: stdio.ModeBits(i.Mode),
+		Accessed: i.Accessed, Changed: i.Changed, Created: i.Created, Links: i.Links,
+		ID: (*stdio.FileID)(i.ID), Owner: (*stdio.Owner)(i.Owner)}
 }
 
 // --- internal/stdio's backend as a FileSystem ------------------------------
@@ -470,7 +586,32 @@ func (f backendFiles) RemoveAll(p string) error       { return fsFail(f.b.Remove
 func (f backendFiles) Rename(from, to string) error   { return fsFail(f.b.Rename(from, to)) }
 func (f backendFiles) Symlink(p, target string) error { return fsFail(f.b.Symlink(p, target)) }
 func (f backendFiles) Chmod(p string, mode fs.FileMode) error {
-	return fsFail(f.b.Chmod(p, int64(mode.Perm())))
+	return fsFail(f.b.Chmod(p, stdio.ModeBits(mode)))
+}
+
+func (f backendFiles) SetTimes(p string, modified, accessed time.Time) error {
+	at := func(t time.Time) *time.Time {
+		if t.IsZero() {
+			return nil
+		}
+		return &t
+	}
+	return fsFail(f.b.Chtimes(p, at(modified), at(accessed)))
+}
+
+func (f backendFiles) Link(p, target string) error { return fsFail(f.b.Link(p, target)) }
+
+func (f backendFiles) Chown(p string, user, group uint64, follow bool) error {
+	return fsFail(f.b.Chown(p, user, group, follow))
+}
+
+func (f backendFiles) OwnerName(id uint64, group bool) (string, bool) {
+	return f.b.OwnerName(id, group)
+}
+
+func (f backendFiles) DiskUsage(p string) (DiskUsage, error) {
+	u, e := f.b.DiskUsage(p)
+	return DiskUsage(u), fsFail(e)
 }
 
 func (f backendFiles) Stat(p string) (FileInfo, error) {
@@ -509,7 +650,9 @@ func (f backendFiles) CurrentDir() (string, error) {
 }
 
 func publicInfo(i stdio.Info) FileInfo {
-	return FileInfo{Kind: FileKind(i.Kind), Size: i.Size, Modified: i.Modified, Mode: fs.FileMode(i.Mode).Perm()}
+	return FileInfo{Kind: FileKind(i.Kind), Size: i.Size, Modified: i.Modified, Mode: stdio.FileMode(i.Mode),
+		Accessed: i.Accessed, Changed: i.Changed, Created: i.Created, Links: i.Links,
+		ID: (*FileID)(i.ID), Owner: (*FileOwner)(i.Owner)}
 }
 
 type fsReader struct{ src rt.ReadSource }

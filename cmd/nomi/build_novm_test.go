@@ -243,7 +243,8 @@ func TestBuildNoVM_Refusals(t *testing.T) {
 		{[]string{"build-vm", "--reactor", "--web"}, "nomi build-vm: unknown flag \"--web\""},
 		{[]string{"build-vm", "--reactor", "--target", "js/wasm"}, "nomi build-vm --reactor: the reactor is a WASI module, so it builds for wasip1/wasm, not js/wasm"},
 		{[]string{"build-vm", "--reactor", "--target", "linux/amd64"}, "so it builds for wasip1/wasm, not linux/amd64"},
-		{[]string{"build-vm", "--target", "linux"}, "nomi build-vm: --target takes <goos>/<goarch>"},
+		{[]string{"build-vm", "--target", "linux"}, "nomi build-vm: --target takes <os>/<arch>, such as linux/amd64; got \"linux\""},
+		{[]string{"build", "--target", "linux/", "echo.nomi"}, "nomi build: --target takes <os>/<arch>, such as linux/amd64; got \"linux/\""},
 		{[]string{"build-vm", "-o"}, "nomi build-vm: -o needs a value\n" + buildVMUsage},
 	} {
 		got := runProcess(t, env, dir, "", nomiBin, c.args...)

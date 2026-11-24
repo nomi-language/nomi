@@ -2,6 +2,7 @@ import
     add.Add
     bitwise.{BitwiseAnd, BitwiseNot, BitwiseOr, BitwiseXor}
     bool.Bool
+    code_points.Codepoint
     comparable.Comparable
     comparable.Ordering.{self, Equal, Greater, Less}
     contains.Contains
@@ -76,6 +77,24 @@ impl Byte
     //! assert Byte.to_int(b) == 255
     //
     pub host fn to_int(b: Byte) -> NonNegativeInt
+
+    /// `b`'s bits moved `n` places toward the top, within its 8 bits: the
+    /// bits moved past the eighth are dropped, so a shift of 8 or more is
+    /// 0. A Byte has no `<<<`, which never drops a bit; this is the shift
+    /// that does, as a parser of packed fields wants.
+    //! b: Byte = 0b1000_0011
+    //! assert Byte.wrapping_shift_left(b, 1) == 0b0000_0110
+    //! assert Byte.wrapping_shift_left(b, 8) == 0
+    //
+    pub host fn wrapping_shift_left(b: Byte, n: NonNegativeInt) -> Byte
+
+    /// `b`'s bits moved `n` places toward the bottom, zeros moving in at the
+    /// top, so a shift of 8 or more is 0.
+    //! b: Byte = 0b1000_0011
+    //! assert Byte.wrapping_shift_right(b, 1) == 0b0100_0001
+    //! assert Byte.wrapping_shift_right(b, 7) == 1
+    //
+    pub host fn wrapping_shift_right(b: Byte, n: NonNegativeInt) -> Byte
 end
 
 impl Display for Byte
@@ -111,8 +130,9 @@ impl Hashable for Byte
 end
 
 // A Byte has `&&&`, `|||`, `^^^` and `~~~`, whose results stay within its 8
-// bits, and no shift: a left shift would carry bits past them, and Nomi
-// traps rather than wrap. Shift the Int, `Byte.to_int(b) <<< 1`.
+// bits, and no `<<<` or `>>>`: a left shift would carry bits past them, and
+// an operator traps rather than wrap. `Byte.wrapping_shift_left` and
+// `Byte.wrapping_shift_right` say by their names that they drop bits.
 impl BitwiseAnd<Byte, Byte> for Byte
     /// Bitwise and, `a &&& b`.
     //! a: Byte = 0b1100
@@ -192,7 +212,9 @@ impl Bytes
     //
     pub host fn slice(data: Bytes, start: Int, stop: Int) -> Bytes
 
-    /// Concatenates two byte buffers.
+    /// Concatenates two byte buffers. It copies both, so appending a piece at
+    /// a time this way is quadratic: build with a `Builder`, or join the
+    /// pieces once with `Bytes.concat_all`.
     //! a: Byte = 97
     //! b: Byte = 98
     //! c: Byte = 99
@@ -258,45 +280,88 @@ impl Bytes
     //
     pub host fn concat_all(parts: List<Bytes>) -> Bytes
 
-    /// The first index at or after `from` where `needle` starts, or None.
-    /// `from` is clamped to the buffer, as `Bytes.slice`'s bounds are, and
-    /// an empty needle is found at `from`.
+    /// The first index at or after `from` where `needle` starts and ends by
+    /// `stop`, or None. `from` and `stop` are clamped to the buffer, as
+    /// `Bytes.slice`'s bounds are, a `stop` before `from` leaves nothing to
+    /// search, and an empty needle is found at `from`. The search reads only
+    /// the bytes between the two, so a parser that knows where a field ends
+    /// searches it without slicing it first.
     //! data = String.to_bytes("ab\r\ncd\r\n")
     //! crlf = String.to_bytes("\r\n")
     //! assert Bytes.index_of(data, crlf) == Some(2)
     //! assert Bytes.index_of(data, crlf, from: 3) == Some(6)
     //! assert Bytes.index_of(data, crlf, from: 7) == None
+    //! assert Bytes.index_of(data, crlf, stop: 3) == None
+    //! assert Bytes.index_of(data, crlf, stop: 4) == Some(2)
     //
-    pub fn index_of(data: Bytes, needle: Bytes, from: Int = 0) -> Option<NonNegativeInt>
-        index_of_from(data, needle, from)
+    pub fn index_of(
+        data:   Bytes,
+        needle: Bytes,
+        from:   Int = 0,
+        stop:   Int = length(data),
+    ) -> Option<NonNegativeInt>
+        index_of_from(data, needle, from, stop)
     end
 
-    /// The first index at or after `from` that holds `b`, or None. `from`
-    /// is clamped as `Bytes.index_of`'s is.
+    /// The first index at or after `from` and before `stop` that holds `b`,
+    /// or None. `from` and `stop` are clamped as `Bytes.index_of`'s are.
     //! data = Bytes.from_list([1, 0, 2, 0])
     //! assert Bytes.index_of_byte(data, 0) == Some(1)
     //! assert Bytes.index_of_byte(data, 0, from: 2) == Some(3)
+    //! assert Bytes.index_of_byte(data, 0, from: 2, stop: 3) == None
     //! assert Bytes.index_of_byte(data, 9) == None
     //
-    pub fn index_of_byte(data: Bytes, b: Byte, from: Int = 0) -> Option<NonNegativeInt>
-        index_of_byte_from(data, b, from)
+    pub fn index_of_byte(
+        data: Bytes,
+        b:    Byte,
+        from: Int = 0,
+        stop: Int = length(data),
+    ) -> Option<NonNegativeInt>
+        index_of_byte_from(data, b, from, stop)
     end
 
-    /// The first index at or after `from` that holds any byte of `set`, or
-    /// None. Each byte of `set` is one candidate, whatever text it may
-    /// encode, and an empty `set` holds none. `from` is clamped as
-    /// `Bytes.index_of`'s is. A scan that stops at a few kinds of byte (a
-    /// tokenizer passing plain text, an escaper looking for what it must
-    /// escape) jumps between them with one search each, in time linear in
-    /// the bytes passed plus the length of `set`.
+    /// The first index at or after `from` and before `stop` that holds any
+    /// byte of `set`, or None. Each byte of `set` is one candidate, whatever
+    /// text it may encode, and an empty `set` holds none. `from` and `stop`
+    /// are clamped as `Bytes.index_of`'s are. A scan that stops at a few
+    /// kinds of byte (a tokenizer passing plain text, an escaper looking for
+    /// what it must escape) jumps between them with one search each, in time
+    /// linear in the bytes passed plus the length of `set`.
     //! data = String.to_bytes("a<b&c")
     //! special = String.to_bytes("&<>")
     //! assert Bytes.index_of_any(data, special) == Some(1)
     //! assert Bytes.index_of_any(data, special, from: 2) == Some(3)
+    //! assert Bytes.index_of_any(data, special, from: 2, stop: 3) == None
     //! assert Bytes.index_of_any(data, String.to_bytes("xyz")) == None
     //
-    pub fn index_of_any(data: Bytes, set: Bytes, from: Int = 0) -> Option<NonNegativeInt>
-        index_of_any_from(data, set, from)
+    pub fn index_of_any(
+        data: Bytes,
+        set:  Bytes,
+        from: Int = 0,
+        stop: Int = length(data),
+    ) -> Option<NonNegativeInt>
+        index_of_any_from(data, set, from, stop)
+    end
+
+    /// The first index at or after `from` and before `stop` that holds a
+    /// byte not in `set`, or None: a skip past a run of the set's bytes,
+    /// such as the spaces and tabs before a token. An empty `set` holds
+    /// none, so the answer is `from`'s index when there is one. `from` and
+    /// `stop` are clamped as `Bytes.index_of`'s are.
+    //! data = String.to_bytes("  \tkey = 1")
+    //! blank = String.to_bytes(" \t")
+    //! assert Bytes.index_of_none(data, blank) == Some(3)
+    //! assert Bytes.index_of_none(data, blank, from: 6) == Some(7)
+    //! assert Bytes.index_of_none(data, blank, stop: 3) == None
+    //! assert Bytes.index_of_none(data, Bytes.from_list([])) == Some(0)
+    //
+    pub fn index_of_none(
+        data: Bytes,
+        set:  Bytes,
+        from: Int = 0,
+        stop: Int = length(data),
+    ) -> Option<NonNegativeInt>
+        index_of_none_from(data, set, from, stop)
     end
 
     /// The last index where `needle` starts, or None. An empty needle is
@@ -322,6 +387,16 @@ impl Bytes
     //! assert Bytes.last_index_of_any(data, Bytes.from_list([])) == None
     //
     pub host fn last_index_of_any(data: Bytes, set: Bytes) -> Option<NonNegativeInt>
+
+    /// The last index that holds a byte not in `set`, or None: the end of
+    /// what remains when a run of the set's bytes is trimmed from the end.
+    /// To search only before an index, search a slice, as for
+    /// `Bytes.last_index_of`.
+    //! data = String.to_bytes("value \r\n")
+    //! assert Bytes.last_index_of_none(data, String.to_bytes(" \r\n")) == Some(4)
+    //! assert Bytes.last_index_of_none(String.to_bytes("  "), String.to_bytes(" ")) == None
+    //
+    pub host fn last_index_of_none(data: Bytes, set: Bytes) -> Option<NonNegativeInt>
 
     /// Whether `needle` occurs in `data`. `Bytes.contains`, the `Contains`
     /// impl that `in` uses, looks for one byte.
@@ -478,7 +553,7 @@ impl Bytes
     /// its last byte, or None when the buffer ends before the varint does.
     /// A varint is seven bits a byte, least significant group first, each
     /// byte but the last with its high bit set: protobuf's `uint64`
-    /// fields, WebAssembly's integers and Go's `binary.Uvarint`. The value
+    /// fields and WebAssembly's unsigned integers (LEB128). The value
     /// has any size. A protobuf `int64` field writes a negative value as
     /// its 64-bit two's complement, which `Int.wrap_signed(n, 64)` turns
     /// back.
@@ -491,21 +566,76 @@ impl Bytes
 
     /// The zigzag varint starting at `index`, and the index after it: an
     /// unsigned varint (`Bytes.uvarint_at`) whose 0, 1, 2, 3 stand for 0,
-    /// -1, 1, -2. It is protobuf's `sint64` and Go's `binary.Varint`.
+    /// -1, 1, -2. It is protobuf's `sint64`.
     //! assert Bytes.varint_at(Bytes.from_list([0x03]), 0) == Some((-2, 1))
     //! assert Bytes.varint_at(Bytes.from_list([0x04]), 0) == Some((2, 1))
     //
     pub host fn varint_at(data: Bytes, index: Int) -> Option<(Int, NonNegativeInt)>
+
+    /// The code point whose UTF-8 encoding starts at `offset` and the
+    /// count of its bytes, 1 to 4, or None when `offset` is outside the
+    /// buffer or the bytes there are not well-formed UTF-8: a stray
+    /// continuation byte, an overlong form, a surrogate, a value past
+    /// U+10FFFF, or a sequence the buffer ends inside. A tokenizer reads
+    /// text a code point at a time with it, without decoding the rest.
+    //! data = String.to_bytes("aé€")
+    //! assert Bytes.code_point_at(data, 0) == Some(('a', 1))
+    //! assert Bytes.code_point_at(data, 1) == Some((Int.to_codepoint(0xE9)!, 2))
+    //! assert Bytes.code_point_at(data, 3) == Some((Int.to_codepoint(0x20AC)!, 3))
+    //! assert Bytes.code_point_at(data, 2) == None
+    //! assert Bytes.code_point_at(data, 6) == None
+    //! assert Bytes.code_point_at(Bytes.from_list([0xE2, 0x82]), 0) == None
+    //
+    pub host fn code_point_at(data: Bytes, offset: Int) -> Option<(Codepoint, NonNegativeInt)>
+
+    /// Each byte of `a` XOR the byte of `b` at the same index, or None
+    /// when their lengths differ.
+    //! a = Bytes.from_list([0x0F, 0xF0, 0xAA])
+    //! b = Bytes.from_list([0xFF, 0xFF, 0x0A])
+    //! assert Bytes.xor(a, b) == Some(Bytes.from_list([0xF0, 0x0F, 0xA0]))
+    //! assert Bytes.xor(a, Bytes.slice(b, 0, 2)) == None
+    //
+    pub host fn xor(a: Bytes, b: Bytes) -> Option<Bytes>
+
+    /// `data` with each byte XORed with the bytes of `key` repeated from
+    /// its first: how a WebSocket client masks a frame's payload with its
+    /// 4-byte key, and how a repeating-key cipher works. Applying it twice
+    /// with one key gives `data` back. An empty `key` leaves `data` as it
+    /// is.
+    //! key = Bytes.from_list([0x37, 0xFA, 0x21, 0x3D])
+    //! data = String.to_bytes("Hello")
+    //! masked = Bytes.xor_repeating(data, key)
+    //!
+    //! // RFC 6455, section 5.7: "Hello" masked with this key.
+    //! assert masked == Bytes.from_list([0x7F, 0x9F, 0x4D, 0x51, 0x58])
+    //! assert Bytes.xor_repeating(masked, key) == data
+    //
+    pub host fn xor_repeating(data: Bytes, key: Bytes) -> Bytes
+
+    /// A buffer of `length` bytes, each `b`. Its cost grows with `length`.
+    //! assert Bytes.fill(3, 0x2A) == Bytes.from_list([0x2A, 0x2A, 0x2A])
+    //! assert Bytes.fill(0, 0x2A) == Bytes.from_list([])
+    //
+    pub host fn fill(length: NonNegativeInt, b: Byte) -> Bytes
+
+    /// The bytes of `data` in the opposite order, as a big-endian number
+    /// reads as a little-endian one.
+    //! assert Bytes.reverse(Bytes.from_list([1, 2, 3])) == Bytes.from_list([3, 2, 1])
+    //
+    pub host fn reverse(data: Bytes) -> Bytes
 end
 
-/// `Bytes.index_of` from a clamped index.
-host fn index_of_from(data: Bytes, needle: Bytes, from: Int) -> Option<NonNegativeInt>
+/// `Bytes.index_of` between clamped indexes.
+host fn index_of_from(data: Bytes, needle: Bytes, from: Int, stop: Int) -> Option<NonNegativeInt>
 
-/// `Bytes.index_of_byte` from a clamped index.
-host fn index_of_byte_from(data: Bytes, b: Byte, from: Int) -> Option<NonNegativeInt>
+/// `Bytes.index_of_byte` between clamped indexes.
+host fn index_of_byte_from(data: Bytes, b: Byte, from: Int, stop: Int) -> Option<NonNegativeInt>
 
-/// `Bytes.index_of_any` from a clamped index.
-host fn index_of_any_from(data: Bytes, set: Bytes, from: Int) -> Option<NonNegativeInt>
+/// `Bytes.index_of_any` between clamped indexes.
+host fn index_of_any_from(data: Bytes, set: Bytes, from: Int, stop: Int) -> Option<NonNegativeInt>
+
+/// `Bytes.index_of_none` between clamped indexes.
+host fn index_of_none_from(data: Bytes, set: Bytes, from: Int, stop: Int) -> Option<NonNegativeInt>
 
 impl Iter for Bytes
     /// Pushes each byte to `yield`, stopping when it returns False.
@@ -627,8 +757,8 @@ end
 host fn bytes_compare(a: Bytes, b: Bytes) -> Int
 
 impl Hashable for Bytes
-    /// FNV-1a 64-bit hash of the octets, reinterpreted as an Int, as
-    /// `String`'s is. Stable within one runtime process.
+    /// SipHash-1-3 of the octets under the run's key, as an Int, as
+    /// `String`'s is. Equal Bytes hash alike within a run.
     //! a: Byte = 97
     //! assert Hashable.hash(Bytes.from_list([a])) == Hashable.hash(Bytes.from_list([a]))
     //
@@ -639,9 +769,9 @@ end
 /// Builder and leaves the one it was given as it was, and `to_bytes` ends
 /// the building with the Bytes.
 ///
-/// Appending is amortized constant time per byte, as Go's `append` and
-/// Rust's `Vec::push` are, so building a buffer a byte at a time costs
-/// time linear in its length. A Builder shares its buffer with the one it
+/// Appending is amortized constant time per byte, as Rust's `Vec::push`
+/// is, so building a buffer a byte at a time costs time linear in its
+/// length. A Builder shares its buffer with the one it
 /// came from and writes the new bytes into the spare room after them;
 /// nothing an earlier Builder holds is ever written again, so no value
 /// changes. Appending to a Builder whose buffer something else has
@@ -801,7 +931,7 @@ impl Builder
     /// `b` with `n` after its bytes as a zigzag varint, which
     /// `Bytes.varint_at` reads: 0, -1, 1, -2 as the unsigned varints 0, 1,
     /// 2, 3, so a small negative number is short. It is protobuf's
-    /// `sint64` and Go's `binary.AppendVarint`.
+    /// `sint64`.
     //! assert Builder.new() |> Builder.push_varint(-2) |> Builder.to_bytes() == Bytes.from_list([3])
     //!
     //! assert Builder.new() |> Builder.push_varint(-65) |> Builder.to_bytes() == Bytes.from_list(

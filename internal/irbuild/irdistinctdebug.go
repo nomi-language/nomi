@@ -1,6 +1,9 @@
 package irbuild
 
-import "github.com/nomi-language/nomi/internal/ast"
+import (
+	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/ast"
+)
 
 // distinctDebugPlan is the Debug impl of a distinct or a marker: a written
 // or derived one, or an opaque type's name-only one, called by its
@@ -67,7 +70,7 @@ func (bl *irScalarBuilder) structDebugPlan(k kind) *irQualPlan {
 // stdDebugPlan calls std's own retained `Debug.inspect` for a std named type
 // with no local impl, such as calendar's Date.
 func (bl *irScalarBuilder) stdDebugPlan(k kind) *irQualPlan {
-	return bl.stdDebugPlanOf(bl.stdDebugAt(k), k)
+	return bl.stdRenderPlanOf(bl.stdDebugAt(k), stdDebug, "inspect", k)
 }
 
 // stdDebugAt is std's own `Debug.inspect` at k, a std named type with no
@@ -79,12 +82,17 @@ func (bl *irScalarBuilder) stdDebugAt(k kind) *stdFunc {
 	return stdPick(bl.g.std.stdIfaceImpls(stdDebug.Func("inspect"), k), []kind{k})
 }
 
-// stdDebugPlanOf calls f, std's own `Debug.inspect` at k, or nil when f
-// is nil or has no body the builder can call.
-func (bl *irScalarBuilder) stdDebugPlanOf(f *stdFunc, k kind) *irQualPlan {
+// stdRenderPlanOf calls f, std's own rendering function method of iface
+// (`Debug.inspect`, `Display.to_string`) at k, or nil when f is nil or has
+// no body the builder can call.
+func (bl *irScalarBuilder) stdRenderPlanOf(f *stdFunc, iface analysis.StdType, method string, k kind) *irQualPlan {
 	// A body whose signature no gen shares (stdOutsideSubsetWhy) only an
 	// abstract lowering builds (stdUnretainedMonoBody).
-	if f == nil || (f.why != "" && f.why != stdOutsideSubsetWhy) {
+	// An impl an inherent method of the same spelling shadows
+	// (`Bytes.to_string`) is named by its interface, which the shadow does
+	// not reach (shadowedIfacePlan).
+	shadowed := f != nil && f.why == shadowedByInherent
+	if f == nil || (f.why != "" && f.why != stdOutsideSubsetWhy && !shadowed) {
 		return nil
 	}
 	if s := bl.g.stdInsts; f.irBody == nil && s != nil && s.stdUnretainedMonoBody(f) {
@@ -104,8 +112,11 @@ func (bl *irScalarBuilder) stdDebugPlanOf(f *stdFunc, k kind) *irQualPlan {
 	if f.irBody == nil || f.rtCall != "" {
 		return nil
 	}
-	ok := bl.g.debugScalarInspects(k)
-	if !ok {
+	if shadowed {
+		if len(f.params) != 1 || f.params[0] != k || f.result != kindString {
+			return nil
+		}
+	} else if !bl.g.stdRenderResolves(iface, method, k) {
 		return nil
 	}
 	return &irQualPlan{token: f, name: f.key, result: kindString, sym: f.irBody.Sym()}

@@ -32,6 +32,9 @@ type variantCtor struct {
 	vd        *VariantDef
 	label     string // `Shape.Rect`, for diagnostics
 	line, col int    // the variant name's position
+	// written: the call's type arguments name et's instance
+	// (`Holder.Rec<Int>({value: 1})`, constructorInstance).
+	written bool
 }
 
 // variantCtorCallee reports whether callee names a struct-shaped or embedded
@@ -130,6 +133,11 @@ func embeddedZeroSized(vd *VariantDef) bool {
 // distinct embed whose inner type mentions a type parameter.
 func (c *checker) checkVariantCtorCall(n *ast.Call, form variantCtor) (Type, bool) {
 	c.recordPositional(n, false)
+	form, failed := c.variantCtorInstance(n, form)
+	if failed {
+		c.checkArgs(n.Args)
+		return nil, true
+	}
 	vd := form.vd
 	if vd.Kind == VariantEmbedded {
 		if embeddedZeroSized(vd) {
@@ -149,6 +157,21 @@ func (c *checker) checkVariantCtorCall(n *ast.Call, form variantCtor) (Type, boo
 		}
 	}
 	return c.checkStructShapedVariantCall(n, form), true
+}
+
+// variantCtorInstance is form at the enum instance the construction n's
+// type arguments name, which are the enum's (constructorInstance), and
+// whether they failed.
+func (c *checker) variantCtorInstance(n *ast.Call, form variantCtor) (variantCtor, bool) {
+	if n.TypeArgs == nil {
+		return form, false
+	}
+	inst, failed := c.constructorInstance(n, form.et)
+	if failed {
+		return form, true
+	}
+	form.et, form.written = inst.(*EnumType), true
+	return form, false
 }
 
 // structShapedVariantCallee reports whether callee names a struct-shaped
@@ -286,6 +309,12 @@ func (c *checker) checkVariantRecordArg(at ast.Node, argTy Type, form variantCto
 		TypeParamDefs: form.et.TypeParamDefs,
 		TypeArgs:      form.et.TypeArgs,
 	}
+	if view := structInstanceView(shape); view != nil && form.written {
+		// The type arguments named the instance: its fields are checked
+		// as written there.
+		c.checkAnonStructTypeAgainstStruct(at, anon, view)
+		return form.et
+	}
 	solved, ok := c.checkAnonStructTypeAgainstStruct(at, anon, shape).(*StructType)
 	if !ok || solved == shape || len(solved.TypeArgs) == 0 {
 		return form.et
@@ -340,6 +369,11 @@ func (c *checker) checkDistinctEmbedArg(at ast.Node, argTy Type, form variantCto
 // construction's one argument.
 func (c *checker) checkPipedVariantCtor(call *ast.Call, piped ast.Node, pipedTy Type, form variantCtor) Type {
 	c.recordPositional(call, true)
+	form, failed := c.variantCtorInstance(call, form)
+	if failed {
+		c.checkArgs(call.Args)
+		return nil
+	}
 	vd := form.vd
 	if vd.Kind == VariantEmbedded && embeddedZeroSized(vd) {
 		c.checkArgs(call.Args)

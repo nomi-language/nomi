@@ -1,6 +1,7 @@
 package vm_test
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -41,6 +42,7 @@ end
 
 struct Plain
     x: Int
+    p: Point
 end
 
 derive Display for Plain
@@ -144,9 +146,11 @@ end
 		{"a generic function rendering its T",
 			"fn main()\n    io.print(label(Point{x: 3}))\nend\n",
 			[]string{"to_string(main.Point)"}, []string{"to_string(main.Loud)"}, nil},
-		{"a struct of another type interpolated",
-			"fn main()\n    io.print(\"${Plain{x: 4}}\")\nend\n",
-			[]string{"to_string(main.Plain)"}, []string{"to_string(main.Loud)", "to_string(main.Point)"}, nil},
+		// A derived Display writes no body: the rendering names its
+		// field's.
+		{"a derived Display's part interpolated",
+			"fn main()\n    io.print(\"${Plain{x: 4, p: Point{x: 5}}}\")\nend\n",
+			[]string{"to_string(main.Point)"}, []string{"to_string(main.Loud)"}, nil},
 		{"a key holding a key with hand-written impls",
 			"fn main()\n    m = {Outer{key: Key{n: 1}} => \"one\"}\n    io.print(Map.get(m, Outer{key: Key{n: 1}}) |> Option.with_default(\"none\"))\nend\n",
 			[]string{"equal(main.Key)", "hash(main.Key)"}, []string{"equal(main.Other)", "hash(main.Other)"}, nil},
@@ -206,6 +210,154 @@ end
 				}
 			}
 		})
+	}
+}
+
+// A test case a `?` ends, or whose group's boot returns `Err`, reports the
+// `Err` under `returned:`, rendered as a `values:` row is (rowText), so the
+// walk from the case reaches the hand-written Debug bodies of the types the
+// `Err`'s payload holds and no others (returnedHeld). Each case runs on its
+// own on a counting machine and is held to the walk from it and its boot as
+// TestReach_EveryEnteredFunctionIsReached holds the corpus (soundness). No
+// value here is rendered any other way: Shown is only ever returned, and
+// Failed's boot failure renders through its Display, so a Debug body each
+// case enters is reached only through its `returned:` block.
+func TestReach_AReturnedBlockReachesItsDebug(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; lowers and runs test cases; -short")
+	}
+	const src = `import std::io
+
+struct Shown
+    n: Int
+end
+
+impl Debug for Shown
+    fn inspect(s: Shown) -> String
+        "shown ${s.n}"
+    end
+end
+
+struct Quiet
+    n: Int
+end
+
+impl Debug for Quiet
+    fn inspect(q: Quiet) -> String
+        io.print("inspected")
+        "quiet ${q.n}"
+    end
+end
+
+struct Failed
+    n: Int
+end
+
+impl Display for Failed
+    fn to_string(f: Failed) -> String
+        "failed ${f.n}"
+    end
+end
+
+impl Debug for Failed
+    fn inspect(f: Failed) -> String
+        "Failed(${f.n})"
+    end
+end
+
+struct Config
+    verbose: Bool
+end
+
+fn boot() -> Result<Config, Failed>
+    Err(Failed{n: 3})
+end
+
+fn fail<E>(e: E) -> Result<Int, E>
+    Err(e)
+end
+
+fn main()
+    io.print("verbose: ${Config.verbose}")
+end
+
+test "a ? on an Err"
+    _ = fail(Shown{n: 1})?
+    assert True
+end
+
+test "a ? on an Err holding an Option"
+    _ = fail(Some(Shown{n: 2}))?
+    assert True
+end
+
+test "a ? on a None"
+    held: Option<Quiet> = None
+    _ = held?
+    assert True
+end
+
+group "a boot that fails"
+    boot boot()
+
+    test "never runs"
+        assert Config.verbose
+    end
+end
+`
+	path := filepath.Join(t.TempDir(), "returned_test.nomi")
+	if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	prog, res, mod, reason := vmLowerTests(path)
+	if reason != "" {
+		t.Fatal(reason)
+	}
+	m := vmTestMachine(prog, path, mod, res.IRModules(), io.Discard).WithEntryCounts()
+	want := map[string]string{
+		"a ? on an Err":                   "inspect(returned_test.Shown)",
+		"a ? on an Err holding an Option": "inspect(returned_test.Shown)",
+		"a ? on a None":                   "",
+		"a boot that fails / never runs":  "inspect(returned_test.Failed)",
+	}
+	s := &soundness{t: t}
+	for _, c := range mod.Tests() {
+		body, listed := want[c.Name()]
+		if !listed {
+			t.Fatalf("an unlisted case %q", c.Name())
+		}
+		roots := []*ir.Func{c.Fn()}
+		var boots []*ir.Symbol
+		if b := c.Group().Boot; b != nil {
+			boots = append(boots, b, c.Group().Startup)
+		}
+		reached, blocked := m.Reached(roots, boots)
+		if len(blocked) > 0 {
+			t.Fatalf("%s: the walk reaches bodies that were not retained: %v", c.Name(), blocked)
+		}
+		before := vm.EntryCounts(m)
+		failures, _, limits, _ := m.RunCases([]ir.TestCase{c})
+		if limits[0] != "" || failures[0] == nil {
+			t.Fatalf("%s: the case did not fail on its own: limit %q, failure %v", c.Name(), limits[0], failures[0])
+		}
+		s.check(c.Name(), m, before, reached, roots, boots)
+		entered := map[string]bool{}
+		for f, n := range vm.EntryCounts(m) {
+			if n > before[f] {
+				entered[bodyName(f)] = true
+			}
+		}
+		if body != "" && !entered[body] {
+			t.Errorf("%s: the run did not enter %s, so this does not exercise the edge; entered: %s", c.Name(), body, sortedNames(entered))
+		}
+		for f := range reached {
+			if bodyName(f) == "inspect(returned_test.Quiet)" {
+				t.Errorf("%s: the walk reaches Quiet's Debug, which no `Err` the case may return holds", c.Name())
+			}
+		}
+	}
+	if len(mod.Tests()) != len(want) {
+		t.Fatalf("%d cases ran, want %d", len(mod.Tests()), len(want))
 	}
 }
 

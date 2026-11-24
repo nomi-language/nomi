@@ -11,11 +11,9 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"path/filepath"
-	"strings"
 	"time"
 
-	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/vmhost"
 )
 
@@ -89,7 +87,10 @@ type Tester struct {
 // run accounted for. A file that fails to load accounts for none.
 func (t *Tester) File(file string, opts vmhost.TestOptions) int {
 	label := func(name string) string { return vmhost.TestName(file, name) }
-	if IsStdlibPath(file) {
+	if _, _, std, err := frontend.StdlibFile(file); err != nil {
+		t.Rep.FailFile(file, err)
+		return 0
+	} else if std {
 		// A stdlib module's cases are built in the module's own scope
 		// against the cached stdlib lowering.
 		p, err := vmhost.LoadStdlib(file)
@@ -158,33 +159,4 @@ func (t *Tester) counted(report func() bool) (int, bool) {
 	}
 	passed2, failed2 := t.Rep.Counts()
 	return passed2 - passed + failed2 - failed + t.Rep.BlockedCount() - blocked, true
-}
-
-// within reports whether path is dir or under it.
-func within(dir, path string) bool {
-	rel, err := filepath.Rel(dir, path)
-	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
-}
-
-// IsStdlibPath reports whether path is inside the stdlib's source directory.
-func IsStdlibPath(path string) bool {
-	stdPath, err := analysis.StdlibPath()
-	if err != nil {
-		return false
-	}
-	absPath, err := filepath.Abs(path)
-	if err != nil {
-		return false
-	}
-	absStd, err := filepath.Abs(stdPath)
-	if err != nil {
-		return false
-	}
-	if realPath, err := filepath.EvalSymlinks(absPath); err == nil {
-		absPath = realPath
-	}
-	if realStd, err := filepath.EvalSymlinks(absStd); err == nil {
-		absStd = realStd
-	}
-	return within(absStd, absPath)
 }

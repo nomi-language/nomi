@@ -63,6 +63,16 @@ func (bl *irScalarBuilder) stdFuncPlan(t *ast.Call, args irQualArgs, f *stdFunc)
 	if f.canon != nil {
 		f = f.canon
 	}
+	// An operand the checker converts to its parameter's type (a List an
+	// `Iter` parameter views, a value a std interface parameter holds) is
+	// converted as an instance's call converts it (stdInstCall).
+	for i, k := range args.kinds {
+		if args.ok && i < len(f.params) && k != f.params[i] && i < len(t.Args) {
+			if v, converted, ok := bl.convertTo(t.Args[i], args.temps[i], k, f.params[i]); ok {
+				args.temps[i], args.kinds[i], args.mobile[i] = v, converted, false
+			}
+		}
+	}
 	if !bl.qualSignature(t, args, f.params, f.result) {
 		return nil
 	}
@@ -132,17 +142,13 @@ func (bl *irScalarBuilder) stdUnretainedPlan(f *stdFunc) *irQualPlan {
 	if len(inst.view.params) != len(f.params) {
 		return nil
 	}
-	if f.why != stdProgSigWhy {
-		// An Iter or a std interface value has no kind in the index
-		// (stdProgSigWhy); every other
-		// signature is the one the index resolved.
-		if inst.view.result != f.result {
+	// The signature is the one the index resolved.
+	if inst.view.result != f.result {
+		return nil
+	}
+	for i, k := range f.params {
+		if inst.view.params[i] != k {
 			return nil
-		}
-		for i, k := range f.params {
-			if inst.view.params[i] != k {
-				return nil
-			}
 		}
 	}
 	return &irQualPlan{token: f, name: f.key, result: inst.view.result, sym: inst.sym}

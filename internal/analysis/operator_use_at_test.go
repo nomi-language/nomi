@@ -9,9 +9,10 @@ import (
 
 // An operator over a type parameter records OperatorPerInstance and its
 // bound. At an instance's type arguments OperatorUseAt answers the record an
-// operator written at that type has: the impl's function (written or
-// derived, or std's for a primitive), a structural comparison for a type
-// that meets Equatable with no impl, and dispatch for an interface value.
+// operator written at that type has: the impl's function (written, or
+// std's for a primitive), a structural comparison for a type that meets
+// Equatable with no impl or a derived one, which writes no function, and
+// dispatch for an interface value.
 func TestOperatorUseAt_AnswersARecordAtAnInstancesTypes(t *testing.T) {
 	fa, errs := checkEntry(t, `interface Named
     fn name(value: self) -> String
@@ -112,8 +113,8 @@ end
 	if m := byImpl("> at Int")(at(biggerLine, 38)); fa.StdFuncOf(m).IsZero() {
 		t.Errorf("> at Int: the impl's function is %v, want std's compare for Int", m)
 	}
-	if fd, ok := byImpl("== at W")(at(sameLine, 42)).(*ast.FuncDef); !ok || !analysis.IsSynthesizedLine(fd.Line) {
-		t.Errorf("== at W: the impl's function is %v, want the derived equal", fd)
+	if use, resolved := at(sameLine, 42); !resolved || use == nil || use.Form != analysis.OperatorStructural {
+		t.Errorf("== at W, whose Equatable is derived: %+v (resolved %v), want OperatorStructural", use, resolved)
 	}
 	if use, resolved := at(sameLine, 46); !resolved || use == nil || use.Form != analysis.OperatorStructural {
 		t.Errorf("== at S: %+v (resolved %v), want OperatorStructural", use, resolved)

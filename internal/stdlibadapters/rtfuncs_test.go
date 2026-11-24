@@ -33,6 +33,7 @@ package stdlibadapters
 
 import (
 	"bytes"
+	"compress/flate"
 	"compress/gzip"
 	"context"
 	"fmt"
@@ -45,6 +46,7 @@ import (
 	"time"
 
 	"github.com/nomi-language/nomi/hostadapt"
+	"github.com/nomi-language/nomi/internal/stdhash"
 	"github.com/nomi-language/nomi/internal/stdlibbindings"
 	"github.com/nomi-language/nomi/rt"
 )
@@ -277,16 +279,21 @@ func hFloat(x float64) any { return x }
 func hStr(s string) any    { return s }
 func hBytes(s string) any  { return rt.Bytes(s) }
 
-// sealedVector is "hi" sealed by AES-256-GCM under "k"*32, nonce
-// "0123456789ab", additional data "label": std::http::host.open_sealed's input.
-const sealedVector = "0123456789abiv\xb3\xffQ\x96lS\tˀ\xf4\x86\x8dG\xb5L\xcb"
-
-// gzipOf is text compressed with gzip: std::http::host.gunzip's input.
+// gzipOf is text compressed with gzip: std::compress::host.decode's input.
 func gzipOf(text string) string {
 	var out bytes.Buffer
 	gz := gzip.NewWriter(&out)
 	_, _ = gz.Write([]byte(text))
 	_ = gz.Close()
+	return out.String()
+}
+
+// rawOf is text compressed as raw deflate.
+func rawOf(text string) string {
+	var out bytes.Buffer
+	fw, _ := flate.NewWriter(&out, flate.DefaultCompression)
+	_, _ = fw.Write([]byte(text))
+	_ = fw.Close()
 	return out.String()
 }
 
@@ -388,6 +395,14 @@ func (p *rtFuncsSuite) scalarCases() map[string][]hostCase {
 	}
 	wordsAndLines := unary(hStr(""), hStr("   "), hStr("  1   2\t3 \n"), hStr("café 🙂ok"), hStr("a\u00a0b\u3000c"),
 		hStr("a\nb\r\nc\n"), hStr("a\n\nb"), hStr("\n"), hStr("a\rb"), hStr("x\r"), hStr("é\n🙂"))
+	segmented := unary(hStr(""), hStr("Hi, you! isn't 3.14"), hStr("One. Two?  Three"), hStr("日本語のテキスト"),
+		hStr("é 👩‍💻 🇯🇵\ta"), hStr("a\n\nb\n"))
+	var wraps []hostCase
+	for _, c := range segmented {
+		for _, w := range []any{hInt(1), hInt(4), hInt(10), hBig("18446744073709551616")} {
+			wraps = append(wraps, hostCase{args: args(c.args[0], w)})
+		}
+	}
 	ints := []any{hInt(0), hInt(1), hInt(-1), hInt(255), hInt(1 << 40), hInt(math.MaxInt64), hInt(math.MinInt64)}
 	floats := []any{hFloat(0), hFloat(math.Copysign(0, -1)), hFloat(1.5), hFloat(-2.5), hFloat(2.5), hFloat(0.5),
 		hFloat(-0.4), hFloat(1e21), hFloat(1e-7), hFloat(0.1 + 0.2), hFloat(math.Inf(1)), hFloat(math.Inf(-1)),
@@ -428,93 +443,82 @@ func (p *rtFuncsSuite) scalarCases() map[string][]hostCase {
 		hCodepoint(0x85), hCodepoint(0x200B)}
 
 	c := map[string][]hostCase{
-		"strings.String.is_contained_in": needlePairs,
-		"strings.String.is_prefix_of":    needlePairs,
-		"strings.String.is_suffix_of":    needlePairs,
-		"strings.String.find_all_in":     needlePairs,
-		"strings.string_compare":         stringPairs,
-		"strings.String.split_in":        needlePairs,
-		"strings.String.words":           wordsAndLines,
-		"strings.String.lines":           wordsAndLines,
-		"strings.String.uppercase":       unary(strs...),
-		"strings.String.lowercase":       unary(strs...),
-		"strings.String.is_upper":        unary(inCase...),
-		"strings.String.is_lower":        unary(inCase...),
-		"strings.String.trim":            unary(strs...),
-		"strings.String.hash":            unary(strs...),
-		"strings.String.to_int":          unary(strs...),
-		"strings.String.to_float":        unary(append(strs, hStr("19.99"), hStr("-2.5e3"), hStr(".5"), hStr("5."), hStr("1e400"), hStr("1e-400"), hStr("1_0.5"), hStr("NaN"), hStr("Inf"), hStr("1,5"))...),
-		"strings.String.length":          unary(strs...),
-		"strings.String.reverse":         unary(strs...),
-		"strings.String.to_codepoints":   unary(strs...),
-		"strings.String.to_bytes":        unary(strs...),
-		"strings.String.slice":           slice,
-		"strings.String.replace_in":      cases(args(hStr("-"), hStr("a-b-c"), hStr("+")), args(hStr(""), hStr("aaa"), hStr("x")), args(hStr(""), hStr(""), hStr("y")), args(hStr("l"), hStr("héllo"), hStr("L"))),
-		"int.Int.to_byte":                unary(hInt(-1), hInt(0), hInt(255), hInt(256), hInt(math.MinInt64), hBig("18446744073709551616")),
-		"bytes.Byte.to_int":              unary(hByte(0), hByte(127), hByte(255)),
-		"iter.as_count":                  unary(hInt(0), hInt(3), hInt(math.MaxInt64), hBig("18446744073709551616")),
-		"bytes.Bytes.length":             unary(blobs...),
-		"bytes.Bytes.to_string":          unary(blobs...),
-		"bytes.Bytes.get":                at,
-		"bytes.Bytes.slice":              bslice,
-		"bytes.Bytes.concat":             pairs(blobs...),
-		"bytes.bytes_compare":            pairs(blobs...),
-		"bytes.Bytes.contains":           holds,
-		"hash.sha256":                    unary(blobs...),
-		"hash.sha512":                    unary(blobs...),
-		"hash.md5":                       unary(blobs...),
-		"hash.sha1":                      unary(blobs...),
-		"hash.hmac_sha256":               pairs(blobs...),
-		"hash.hmac_sha512":               pairs(blobs...),
-		"hash.equal_in_constant_time":    pairs(blobs...),
-		// A sealed value has a random nonce, so a good key is recorded by
-		// shape; the vector below was sealed under "k"*32 with the nonce
-		// "0123456789ab", "hi" as data and "label" as additional data.
-		"http/host.seal": {
-			{args: args(hBytes(strings.Repeat("k", 32)), hBytes("hi"), hBytes("label")), shapeOnly: true},
-			{args: args(hBytes("short"), hBytes("hi"), hBytes("label"))},
-		},
-		"http/host.open_sealed": cases(
-			args(hBytes(strings.Repeat("k", 32)), hBytes(sealedVector), hBytes("label")),
-			args(hBytes(strings.Repeat("k", 32)), hBytes(sealedVector), hBytes("other")),
-			args(hBytes(strings.Repeat("j", 32)), hBytes(sealedVector), hBytes("label")),
-			args(hBytes(strings.Repeat("k", 32)), hBytes(sealedVector[:len(sealedVector)-1]+"\x00"), hBytes("label")),
-			args(hBytes(strings.Repeat("k", 32)), hBytes("short"), hBytes("label")),
-			args(hBytes("short"), hBytes(sealedVector), hBytes("label")),
-		),
-		"base64.standard":                    padded,
-		"base64.url_safe":                    padded,
-		"base64.decode":                      unary(hStr(""), hStr("Zm9vYmE="), hStr("Zm9vYmE"), hStr("+/+/"), hStr("-_-_"), hStr("Zm9v!mE="), hStr("Zg="), hStr("Zm9v\nYmFy")),
-		"base64.decode_url":                  unary(hStr(""), hStr("Zm9vYmE="), hStr("Zm9vYmE"), hStr("+/+/"), hStr("-_-_"), hStr("Zg")),
-		"hex.encode":                         unary(blobs...),
-		"hex.decode":                         unary(hStr(""), hStr("666F6f"), hStr("666f6"), hStr("66g6"), hStr("zz"), hStr("6é")),
-		"html/host.escape":                   unary(append(strs, hStr(`<a href="x">it's & co</a>`))...),
-		"html/host.filter_url":               unary(hStr("https://example.com/a"), hStr("/posts/1"), hStr("mailto:a@b.c"), hStr("javascript:alert(1)"), hStr(" javascript:x"), hStr("a/b:c")),
-		"html/host.escape_url_path":          unary(append(strs, hStr("script:alert(1)"), hStr("a b/c"))...),
-		"html/host.unescape_references":      unary(append(strs, hStr("caf&eacute; &#233; &#xE9; &amp &copy2 &notit; &#0; &#x80; &#x; &nLt; &zzz;"))...),
-		"html/host.named_reference":          unary(hStr("eacute"), hStr("amp"), hStr("fjlig"), hStr("nLt"), hStr("notit"), hStr("AMP;"), hStr(""), hStr("#65"), hStr("zzz")),
-		"url/host.escape_query":              unary(strs...),
-		"url/host.escape_path_segment":       unary(strs...),
-		"url/host.unescape_query":            unary(hStr("tea+%26+cake"), hStr("caf%C3%A9"), hStr("100%"), hStr("%FF"), hStr("%zz"), hStr("a%2Fb")),
-		"url/host.unescape_path_segment":     unary(hStr("tea%20&%20cake"), hStr("a+b"), hStr("100%"), hStr("%FF"), hStr("%zz")),
-		"url/host.parse_parts":               urlParse,
-		"url/host.format_parts":              unary(urlParts...),
-		"url/host.redacted_parts":            unary(urlParts...),
-		"url/host.escaped_path_parts":        unary(urlParts...),
-		"url/host.escaped_fragment_parts":    unary(urlParts...),
-		"url/host.request_uri_parts":         unary(urlParts...),
-		"url/host.hostname_parts":            unary(urlParts...),
-		"url/host.port_parts":                unary(urlParts...),
-		"url/host.resolve_parts":             pairs(urlParts...),
-		"url/host.join_path_parts":           []hostCase{{args: []any{urlParts[0], strList("x", "a/b", "..")}}, {args: []any{urlParts[1], strList()}}},
-		"url/host.escape_fragment":           unary(strs...),
-		"url/host.query_pairs":               unary(queries...),
-		"url/host.query_error":               unary(queries...),
-		"http/host.canonical_key":            unary(hStr("content-type"), hStr("X-REQUEST-ID"), hStr("bad key"), hStr("")),
-		"http/host.check_pattern":            unary(hStr("GET /users/{id}"), hStr("/a/{x}/{x}"), hStr("/f/{rest...}/x"), hStr("GET users"), hStr("")),
-		"http/host.status_text":              unary(hInt(200), hInt(404), hInt(418), hInt(599), hInt(0)),
-		"http/host.ws_accept_key":            unary(hStr("dGhlIHNhbXBsZSBub25jZQ=="), hStr("")),
-		"http/host.ws_valid_key":             unary(hStr("dGhlIHNhbXBsZSBub25jZQ=="), hStr("c2hvcnQ="), hStr("not base64")),
+		"strings.String.is_contained_in":  needlePairs,
+		"strings.String.is_prefix_of":     needlePairs,
+		"strings.String.is_suffix_of":     needlePairs,
+		"strings.String.find_all_in":      needlePairs,
+		"strings.string_compare":          stringPairs,
+		"strings.String.split_in":         needlePairs,
+		"strings.String.words":            wordsAndLines,
+		"strings.String.lines":            wordsAndLines,
+		"strings.String.word_segments":    segmented,
+		"strings.String.sentences":        segmented,
+		"strings.String.display_width":    segmented,
+		"strings.String.wrap":             wraps,
+		"strings.String.uppercase":        unary(strs...),
+		"strings.String.lowercase":        unary(strs...),
+		"strings.String.is_upper":         unary(inCase...),
+		"strings.String.is_lower":         unary(inCase...),
+		"strings.String.trim":             unary(strs...),
+		"strings.String.hash":             unary(strs...),
+		"strings.String.to_int":           unary(strs...),
+		"strings.String.to_float":         unary(append(strs, hStr("19.99"), hStr("-2.5e3"), hStr(".5"), hStr("5."), hStr("1e400"), hStr("1e-400"), hStr("1_0.5"), hStr("NaN"), hStr("Inf"), hStr("1,5"))...),
+		"strings.String.length":           unary(strs...),
+		"strings.String.reverse":          unary(strs...),
+		"strings.String.to_codepoints":    unary(strs...),
+		"strings.String.to_bytes":         unary(strs...),
+		"strings.String.slice":            slice,
+		"strings.String.replace_in":       cases(args(hStr("-"), hStr("a-b-c"), hStr("+")), args(hStr(""), hStr("aaa"), hStr("x")), args(hStr(""), hStr(""), hStr("y")), args(hStr("l"), hStr("héllo"), hStr("L"))),
+		"int.Int.to_byte":                 unary(hInt(-1), hInt(0), hInt(255), hInt(256), hInt(math.MinInt64), hBig("18446744073709551616")),
+		"bytes.Byte.to_int":               unary(hByte(0), hByte(127), hByte(255)),
+		"iter.as_count":                   unary(hInt(0), hInt(3), hInt(math.MaxInt64), hBig("18446744073709551616")),
+		"bytes.Bytes.length":              unary(blobs...),
+		"bytes.Bytes.to_string":           unary(blobs...),
+		"bytes.Bytes.get":                 at,
+		"bytes.Bytes.slice":               bslice,
+		"bytes.Bytes.concat":              pairs(blobs...),
+		"bytes.bytes_compare":             pairs(blobs...),
+		"bytes.Bytes.contains":            holds,
+		"hash.equal_in_constant_time":     pairs(blobs...),
+		"base64.standard":                 padded,
+		"base64.url_safe":                 padded,
+		"base64.decode":                   unary(hStr(""), hStr("Zm9vYmE="), hStr("Zm9vYmE"), hStr("+/+/"), hStr("-_-_"), hStr("Zm9v!mE="), hStr("Zg="), hStr("Zm9v\nYmFy")),
+		"base64.decode_url":               unary(hStr(""), hStr("Zm9vYmE="), hStr("Zm9vYmE"), hStr("+/+/"), hStr("-_-_"), hStr("Zg")),
+		"hex.encode":                      unary(blobs...),
+		"hex.decode":                      unary(hStr(""), hStr("666F6f"), hStr("666f6"), hStr("66g6"), hStr("zz"), hStr("6é")),
+		"hex.decode_bytes":                unary(hBytes(""), hBytes("666F6f"), hBytes("666f6"), hBytes("66g6"), hBytes("6\xff")),
+		"base64.decode_bytes":             unary(hBytes(""), hBytes("Zm9vYmE="), hBytes("Zm9vYmE"), hBytes("-_-_"), hBytes("Z\xff")),
+		"base64.decode_url_bytes":         unary(hBytes(""), hBytes("Zm9vYmE"), hBytes("+/+/"), hBytes("-_-_")),
+		"html/host.escape":                unary(append(strs, hStr(`<a href="x">it's & co</a>`))...),
+		"html/host.filter_url":            unary(hStr("https://example.com/a"), hStr("/posts/1"), hStr("mailto:a@b.c"), hStr("javascript:alert(1)"), hStr(" javascript:x"), hStr("a/b:c")),
+		"html/host.escape_url_path":       unary(append(strs, hStr("script:alert(1)"), hStr("a b/c"))...),
+		"html/host.unescape_references":   unary(append(strs, hStr("caf&eacute; &#233; &#xE9; &amp &copy2 &notit; &#0; &#x80; &#x; &nLt; &zzz;"))...),
+		"html/host.named_reference":       unary(hStr("eacute"), hStr("amp"), hStr("fjlig"), hStr("nLt"), hStr("notit"), hStr("AMP;"), hStr(""), hStr("#65"), hStr("zzz")),
+		"url/host.escape_query":           unary(strs...),
+		"url/host.escape_path_segment":    unary(strs...),
+		"url/host.unescape_query":         unary(hStr("tea+%26+cake"), hStr("caf%C3%A9"), hStr("100%"), hStr("%FF"), hStr("%zz"), hStr("a%2Fb")),
+		"url/host.unescape_path_segment":  unary(hStr("tea%20&%20cake"), hStr("a+b"), hStr("100%"), hStr("%FF"), hStr("%zz")),
+		"url/host.parse_parts":            urlParse,
+		"url/host.format_parts":           unary(urlParts...),
+		"url/host.redacted_parts":         unary(urlParts...),
+		"url/host.escaped_path_parts":     unary(urlParts...),
+		"url/host.escaped_fragment_parts": unary(urlParts...),
+		"url/host.request_uri_parts":      unary(urlParts...),
+		"url/host.hostname_parts":         unary(urlParts...),
+		"url/host.port_parts":             unary(urlParts...),
+		"url/host.resolve_parts":          pairs(urlParts...),
+		"url/host.join_path_parts":        []hostCase{{args: []any{urlParts[0], strList("x", "a/b", "..")}}, {args: []any{urlParts[1], strList()}}},
+		"url/host.escape_fragment":        unary(strs...),
+		"url/host.query_pairs":            unary(queries...),
+		"url/host.query_error":            unary(queries...),
+		"http/host.canonical_key":         unary(hStr("content-type"), hStr("X-REQUEST-ID"), hStr("bad key"), hStr("")),
+		"http/host.check_pattern":         unary(hStr("GET /users/{id}"), hStr("/a/{x}/{x}"), hStr("/f/{rest...}/x"), hStr("GET users"), hStr("")),
+		"http/host.status_text":           unary(hInt(200), hInt(404), hInt(418), hInt(599), hInt(0)),
+		"http/host.ws_accept_key":         unary(hStr("dGhlIHNhbXBsZSBub25jZQ=="), hStr("")),
+		"http/host.ws_valid_key":          unary(hStr("dGhlIHNhbXBsZSBub25jZQ=="), hStr("c2hvcnQ="), hStr("not base64")),
+		"http/host.ws_deflate_response": unary(rtList(), rtList(hStr("permessage-deflate; client_max_window_bits")),
+			rtList(hStr("permessage-deflate; server_max_window_bits=10"), hStr("permessage-deflate")),
+			rtList(hStr("permessage-deflate; mystery"))),
 		"http/host.file_content_disposition": pairs(hStr("doc"), hStr("a \"b\".txt")),
 		"path/host.clean":                    unary(hStr("a/./b/../c"), hStr("a//b/"), hStr("../../a"), hStr("/../a"), hStr("a/.."), hStr(""), hStr("/"), hStr("./")),
 		"path/host.join":                     unary(strList("data", "log.txt"), strList("data/", "/log.txt"), strList("", "a"), strList("/", "etc"), strList("", ""), strList()),
@@ -525,15 +529,7 @@ func (p *rtFuncsSuite) scalarCases() map[string][]hostCase {
 		"http/host.headers_wire":             cases(args(strList("b", "2", "a", "1", "B", "3"), strList()), args(strList("x", " a\r\nb ", "y", "1"), strList("Y")), args(strList(), strList())),
 		"http/host.parse_http_version":       unary(hStr("HTTP/1.1"), hStr("HTTP/2.0"), hStr("HTTP/1.-1"), hStr("HTTP/10.0"), hStr("http/1.1"), hStr("")),
 		"http/host.basic_auth":               unary(hStr("Basic YW5uOnB3"), hStr("basic YW5uOnB3OmV4dHJh"), hStr("Bearer x"), hStr("Basic !!"), hStr("Basic /w=="), hStr("")),
-		// Deflate's output may change with Go's version, so it is recorded by
-		// shape; gunzip records what a gzip stream holds.
-		"http/host.gzip_bytes": {
-			{args: args(hBytes(""), hInt(6)), shapeOnly: true},
-			{args: args(hBytes(strings.Repeat("ab", 100)), hInt(1)), shapeOnly: true},
-			{args: args(hBytes("hi"), hInt(42)), shapeOnly: true},
-		},
-		"http/host.gunzip":     unary(hBytes(gzipOf("hi")), hBytes(gzipOf("")), hBytes("not gzip"), hBytes(gzipOf("hi")[:12]), hBytes("")),
-		"http/host.add_cookie": cases(args(hStr(""), strList("a", "1")), args(hStr("a=1"), strList("b", "x y")), args(hStr(""), strList("c", "q\"uote;"))),
+		"http/host.add_cookie":               cases(args(hStr(""), strList("a", "1")), args(hStr("a=1"), strList("b", "x y")), args(hStr(""), strList("c", "q\"uote;"))),
 		"http/host.cross_origin_check": cases(
 			args(hStr("GET"), hStr("a.example"), strList("Sec-Fetch-Site", "cross-site"), strList()),
 			args(hStr("POST"), hStr("a.example"), strList("Sec-Fetch-Site", "same-origin"), strList()),
@@ -581,6 +577,7 @@ func (p *rtFuncsSuite) scalarCases() map[string][]hostCase {
 		"code_points.Codepoint.is_separator":   unary(classified...),
 		"code_points.Codepoint.is_control":     unary(classified...),
 		"instant.Instant.now":                  {{args: args(), shapeOnly: true}},
+		"instant.Monotonic.now":                {{args: args(), shapeOnly: true}},
 	}
 	return c
 }
@@ -766,14 +763,30 @@ func TestRtFuncs_AdaptersReproduceTheRecordedHosts(t *testing.T) {
 	}
 	// Its TLS and TCP crossings for std/tls and std/net open sockets and run
 	// handshakes; TestTLS_HTTPSAndTCPEndToEnd runs each through a Nomi
-	// program on 127.0.0.1 with a certificate made for the test.
+	// program on 127.0.0.1 with a certificate made for the test, and
+	// TestTLS_ChannelBindingsAgreeOnBothSides the channel bindings.
 	for _, k := range []string{"listen_tls", "with_tls", "certificate_from_pem", "certificate_load", "certificate_info",
 		"tls_config", "tls_with_certificate", "cipher_suites", "cipher_suite_name", "dial_with", "tls_dial", "tls_client",
 		"tls_server", "conn_reader", "conn_writer", "conn_close", "conn_close_write", "conn_local", "conn_remote",
 		"conn_deadline", "tls_state_parts", "tls_verify_hostname",
 		"net_listen_with", "tls_listen", "net_listener_address", "net_accept", "net_listener_close",
 		"net_listener_deadline", "conn_close_read", "conn_no_delay", "conn_linger", "conn_keep_alive",
-		"conn_multipath", "pipe", "split_host_port", "join_host_port", "lookup", "test_certificate"} {
+		"conn_multipath", "pipe", "split_host_port", "join_host_port", "lookup", "test_certificate",
+		"tls_export_keying_material", "tls_server_end_point"} {
+		elsewhere["http/host."+k] = true
+	}
+	// Its datagram crossings for std/udp, and the socket options std/net
+	// and std/udp share, open sockets; TestDatagram_* run each through Nomi
+	// programs on 127.0.0.1 and over Unix sockets.
+	for _, k := range []string{"udp_bind", "udp_dial", "udp_receive", "udp_send", "udp_address",
+		"socket_set", "socket_get", "socket_group", "socket_multicast_interface"} {
+		elsewhere["http/host."+k] = true
+	}
+	// The sockets a process was started with are wrapped once for the
+	// process; TestInheritedSockets_* (cmd/nomi) pass a child `nomi` real
+	// sockets as systemd does, and std/net's and std/udp's attached tests
+	// read the empty lists of a process started with none.
+	for _, k := range []string{"inherited_listeners", "inherited_sockets"} {
 		elsewhere["http/host."+k] = true
 	}
 	// The hooks Go calls into a program, the TLS state a request or
@@ -789,7 +802,7 @@ func TestRtFuncs_AdaptersReproduceTheRecordedHosts(t *testing.T) {
 	// TestWire_RoundTrips and std/http's attached tests run each through
 	// Nomi programs.
 	for _, k := range []string{"wire_read_request", "wire_read_response", "wire_parts", "wire_body", "wire_request",
-		"wire_response", "chunked_reader", "chunked_writer", "gzip_writer", "gzip_reader", "multipart_reader", "next_part", "part_headers",
+		"wire_response", "chunked_reader", "chunked_writer", "multipart_reader", "next_part", "part_headers",
 		"part_reader", "part_form_name", "part_file_name", "multipart_write", "close_connections"} {
 		elsewhere["http/host."+k] = true
 	}
@@ -953,6 +966,9 @@ func canonText(v rt.Value, shapeOnly bool) string {
 		return "Supervisor"
 	case rt.BytesBuilder:
 		return scalar("Builder", fmt.Sprintf("%q", string(rt.BytesBuilderToBytes(x))))
+	case rt.Hasher:
+		// What it would finish as: its state is opaque.
+		return scalar("Hasher", fmt.Sprintf("%x", string(stdhash.HasherFinish(x))))
 	case rt.HostHandle:
 		// The handle's Go type, not its contents: a fresh handle is a new
 		// pointer.

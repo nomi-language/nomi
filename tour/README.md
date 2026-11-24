@@ -38,10 +38,10 @@ Astro/Starlight HTML, the generated stdlib reference, the `/nomi/` runtime
 assets, and the `_headers` file copied from `public/_headers`, plus
 `sitemap-index.xml` / `sitemap-0.xml`.
 
-The Nomi wasm ships gzipped, as `/nomi/nomi.wasm.gz` (about 6.5 MiB), and
+The Nomi wasm ships gzipped, as `/nomi/nomi.wasm.gz` (about 18.5 MiB), and
 `run-worker.js` decompresses it in the browser with `DecompressionStream`.
 Cloudflare Pages refuses any file over 25 MiB, and the uncompressed module is
-about 27 MiB. The site does not depend on the host setting `Content-Encoding`.
+about 77 MiB. The site does not depend on the host setting `Content-Encoding`.
 `npm run build` ends with `check-dist.mjs`, which fails the build if any file
 in `dist/` is over 25 MiB or if an uncompressed `nomi.wasm` is in it.
 

@@ -107,7 +107,7 @@ var notResolutions = map[string]notResolution{
 	// Indexes built from declarations, each under its own name in its own
 	// unit, which the lookups below the line read by a declaration.
 	"types.go declareTypeShells":             {4, "builds the module's index of its own type declarations"},
-	"impl.go declareIfaces":                  {4, "builds the module's index of its own interface declarations"},
+	"impl.go declareIfaces":                  {5, "builds the module's index of its own interface declarations"},
 	"once.go declareOnce":                    {2, "builds the module's index of its own `once` bindings"},
 	"native.go declareFunc":                  {1, "builds the module's index of its own function signatures"},
 	"generictype.go collectGenericTemplates": {2, "builds the module's index of its own generic templates"},
@@ -129,6 +129,7 @@ var notResolutions = map[string]notResolution{
 	// Names the builder makes.
 	"session.go Func":                 {1, "a session's functions by linkage name"},
 	"session.go Commit":               {1, "a session's functions by linkage name"},
+	"session.go FuncsUnder":           {1, "a session's functions by linkage name, the ones under an impl block's prefix"},
 	"perfileharness.go irModuleNamed": {1, "an IR module by its path, in the per-file lowering harness"},
 	"preludefn.go preludeSpecNamed":   {1, "the builder's own prelude spec table, by a spec name the builder writes"},
 	"stdinst.go listedModulesNamed":   {1, "which listed std modules a linkage path the builder made names"},
@@ -142,11 +143,10 @@ var notResolutions = map[string]notResolution{
 	"declindex.go ifaceDefOf": {1, "a check under NOMI_SUBST_VERIFY that the declaring gen's index by name holds the def its index by declaration does"},
 	// A type identity's declaration: the name in the declaring module's
 	// own scope, which a (module, name) identity names.
-	"declindex.go declNode":          {1, "the declaration a type's (Origin, Name) names, in the declaring file's module scope"},
-	"ownerdecl.go qualifierDecl":     {1, "the declaration a std qualifier's identity (Qualifier.Std) names, in that module's scope"},
-	"stdprogiface.go stdProgIfaceAt": {2, "the interface a std (origin, name) identity names, in that module's scope"},
-	"abstract.go stdDebugType":       {1, "std's Debug by its spec row's module and name"},
-	"foreign.go resolvedTypeSymbol":  {1, "resolvedScopeSymbol over a file's module scope, counted at its callers"},
+	"declindex.go declNode":         {1, "the declaration a type's (Origin, Name) names, in the declaring file's module scope"},
+	"ownerdecl.go qualifierDecl":    {1, "the declaration a std qualifier's identity (Qualifier.Std) names, in that module's scope"},
+	"abstract.go stdDebugType":      {1, "std's Debug by its spec row's module and name"},
+	"foreign.go resolvedTypeSymbol": {1, "resolvedScopeSymbol over a file's module scope, counted at its callers"},
 }
 
 // kindImports are the functions that translate a kind from the gen that

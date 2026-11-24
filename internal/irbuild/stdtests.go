@@ -29,7 +29,6 @@ package irbuild
 import (
 	"fmt"
 	"path"
-	"path/filepath"
 	"slices"
 	"strings"
 
@@ -52,35 +51,6 @@ func stdModuleTestCases(nodes []ast.Node) []testCaseDecl {
 		}
 	}
 	return out
-}
-
-// StdlibTestModule is the module name of a stdlib source file, or "" when file
-// is not under the stdlib root: `<std>/calendar.nomi` is `calendar`.
-func StdlibTestModule(file string) string {
-	root, err := analysis.StdlibPath()
-	if err != nil {
-		return ""
-	}
-	abs, err := filepath.Abs(file)
-	if err != nil {
-		return ""
-	}
-	absRoot, err := filepath.Abs(root)
-	if err != nil {
-		return ""
-	}
-	if real, err := filepath.EvalSymlinks(abs); err == nil {
-		abs = real
-	}
-	if real, err := filepath.EvalSymlinks(absRoot); err == nil {
-		absRoot = real
-	}
-	rel, err := filepath.Rel(absRoot, abs)
-	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) ||
-		!strings.HasSuffix(rel, ".nomi") {
-		return ""
-	}
-	return filepath.ToSlash(strings.TrimSuffix(rel, ".nomi"))
 }
 
 // GenerateStdlibTestIR lowers the test cases of stdlib module `module` for
@@ -150,7 +120,7 @@ func GenerateStdlibReferenceIR(module string, test *ast.TestDecl, fa *analysis.F
 func generateStdlibTestIR(std *stdlibIndex, v *stdModuleView, nodes, cases []ast.Node, fa *analysis.FileAnalysis, libMods map[string]*ir.Module, extra []*ir.Module, link bool, dc *declineCensus) (*Program, *Result, error) {
 	module := v.module
 	newCasesGen := func(in *programBuild) *gen {
-		g := newStdGenIn(v.module, v.path, v.pkg, nodes, fa, v.cands, v.settled, v.onces, std, in)
+		g := v.genIn(nodes, fa, std, in)
 		g.stdCases = true
 		return g
 	}
@@ -420,14 +390,15 @@ func importPathString(n *ast.ImportStmt) string {
 // generic or not. The copy's callee stands at the field's position, where the checker
 // recorded the reference and its instantiated signature; a piped call stays
 // the piped call. A function the cached std lowering holds as a sibling
-// (stdSiblingDecls) keeps stdOwnFileQualifier's route.
+// (stdSiblingDecls) keeps stdOwnFileQualifier's route. In a std module
+// checked from edited source, a `//!` prompt's `import std::<module>`
+// binds the shared analysis's copy of the module, which is this file all
+// the same (namesOwnFile), and its function is this gen's (funcDeclAt
+// reads it through ownDecl).
 func (bl *irScalarBuilder) ownModuleCall(t *ast.Call, fa *ast.FieldAccess) (*ast.Call, bool) {
 	g := bl.g
 	obj, isIdent := ast.QualifierIdent(fa.Object)
-	if !isIdent || fa.Field == nil || bl.namesLocal(obj) {
-		return nil, false
-	}
-	if scope := g.qualifierScope(obj); scope == nil || scope != g.srcFA().ModuleScope {
+	if !isIdent || fa.Field == nil || bl.namesLocal(obj) || !g.namesOwnFile(obj) {
 		return nil, false
 	}
 	if decl := g.funcDeclAt(fa.Field.Line, fa.Field.Col); g.sigByDecl[decl] == nil || g.stdSiblingDecls[decl] != nil {

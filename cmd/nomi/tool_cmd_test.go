@@ -94,15 +94,14 @@ func TestToolCommand_AToolReadsAndWritesTheNameTheProjectGivesIt(t *testing.T) {
 	}
 	lib := filepath.Join(repoRoot(t), "lib", "sql")
 	app := t.TempDir()
-	entry := func(key, dir, version string) string {
-		return key + ` = { module = "github.com/nomi-language/nomi/lib/sql/` + dir + `", version = "` + version + `", dir = ` +
-			strconv.Quote(filepath.ToSlash(filepath.Join(lib, dir))) + " }\n"
+	entry := func(key, dir string) string {
+		return key + ` = { dir = ` + strconv.Quote(filepath.ToSlash(filepath.Join(lib, dir))) + " }\n"
 	}
 	manifest := "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[dependencies]\n" +
-		entry("db", "sqlkit", "v0.0.0-20261026231947-3434642c92e9") +
-		entry("migrate", "migrate", "v0.0.0-20261102000000-000000000000") +
-		entry("postgres", "postgres", "v0.0.0-20261102000000-000000000000") +
-		entry("sqlite", "sqlite", "v0.0.0-20261026231947-3434642c92e9") +
+		entry("db", "sqlkit") +
+		entry("migrate", "migrate") +
+		entry("postgres", "postgres") +
+		entry("sqlite", "sqlite") +
 		"\n[db.database.main]\nschema = \"tables\"\n"
 	mustWrite(t, filepath.Join(app, "nomi.toml"), manifest)
 	mustWrite(t, filepath.Join(app, "db", "migrations", "1_notes.sql"), "CREATE TABLE notes (id INTEGER PRIMARY KEY, body TEXT NOT NULL);\n")

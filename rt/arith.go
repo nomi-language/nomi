@@ -160,8 +160,7 @@ func EqDecimal(a, b Decimal) bool { return a.Compare(b) == 0 }
 //
 // The normalized form is hashed, which is what makes `1.50d` and `1.5d` land in
 // one bucket and is therefore the other half of EqDecimal's contract. Built
-// from HashString and HashMix rather than a private FNV so that this package
-// has one hashing family.
+// from HashString and HashMix, so it is keyed by the process as they are.
 func HashDecimal(d Decimal) uint64 {
 	n := d.Normalize()
 	return HashMix(uint64(StringHash(n.MantissaOrZero().String())), uint64(uint32(n.Scale)))

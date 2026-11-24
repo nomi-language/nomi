@@ -100,11 +100,10 @@ func TestImplementation_InterfaceMethod(t *testing.T) {
 	}
 }
 
-// A DERIVED conformance (`derive Hashable for Point`) has no hand-written
-// method block — its impl is synthesized at a fake synth-band position
-// (line ~2^30). Go-to-implementation must NOT emit that un-navigable ghost;
-// it remaps the target to the real `derive Hashable for Point` declaration
-// entry so the editor actually jumps there.
+// A derived conformance (`derive Hashable for Point`) is an impl block that
+// writes no function, which the type's shape answers. Go-to-implementation
+// answers its `derive Hashable for Point` entry, and only the program's own
+// impls, as for a written one: not std's impls of Hashable.
 func TestImplementation_DerivedConformanceRemapsToConformanceEntry(t *testing.T) {
 	input := "struct Point\n" + // 0
 		"  x: Int\n" + // 1
@@ -190,5 +189,41 @@ func TestImplementation_UnrelatedSymbolReturnsNil(t *testing.T) {
 	}
 	if result != nil {
 		t.Fatalf("expected nil result for a non-interface symbol, got %T: %+v", result, result)
+	}
+}
+
+// A call of a derived interface's function (`Hashable.hash(p)` for a Point
+// that derives Hashable) goes to implementation at the derive entry, since
+// the derived block writes no `hash` and answers it by shape.
+func TestImplementation_ADerivedFunctionGoesToItsDerive(t *testing.T) {
+	input := "struct Point\n" + // 0
+		"  x: Int\n" + // 1
+		"end\n" + // 2
+		"\n" + // 3
+		"derive Hashable for Point\n" + // 4
+		"\n" + // 5
+		"fn h(p: Point) -> Int\n" + // 6
+		"  Hashable.hash(p)\n" + // 7  hash at char 11
+		"end\n"
+	uri := "file:///test.nomi"
+	s := NewServer()
+	s.docs.Open(uri, input)
+
+	params := &protocol.ImplementationParams{
+		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+			Position:     protocol.Position{Line: 7, Character: 12}, // on hash
+		},
+	}
+	result, err := s.textDocumentImplementation(nil, params)
+	if err != nil {
+		t.Fatalf("implementation request returned error: %v", err)
+	}
+	locs, ok := result.([]protocol.Location)
+	if !ok || len(locs) != 1 {
+		t.Fatalf("expected 1 location, got %T %+v", result, result)
+	}
+	if locs[0].URI != uri || locs[0].Range.Start.Line != 4 || locs[0].Range.Start.Character != 7 {
+		t.Fatalf("expected the `Hashable` of the derive on line 4, got %+v", locs[0])
 	}
 }

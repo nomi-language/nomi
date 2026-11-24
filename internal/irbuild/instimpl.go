@@ -356,7 +356,7 @@ func (g *gen) projectIfaceInst(ty *analysis.InterfaceType) kind {
 	d, found := g.solvedIface(ty.Origin, ty.Name)
 	if !found {
 		// A std generic interface (stdprogiface.go).
-		d = g.stdProgSolved(ty)
+		d = g.stdDeclaredIface(ty.Origin, ty.Name)
 	}
 	if d == nil {
 		return kindInvalid

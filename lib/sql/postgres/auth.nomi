@@ -1,6 +1,7 @@
 //# Answering the server's password challenge: SCRAM-SHA-256 (RFC 5802
-//# and RFC 7677), which Postgres asks for by default, and the older MD5
-//# hash. Each step is a function from what the server sent to what the
+//# and RFC 7677), which Postgres asks for by default, bound to the TLS
+//# connection under it as SCRAM-SHA-256-PLUS when the server offers that,
+//# and the older MD5 hash. Each step is a function from what the server sent to what the
 //# client sends, so the exchange is checked against the RFC's recorded
 //# messages; the connection sends them.
 //#
@@ -13,11 +14,29 @@ import
     std::hash
 end
 
+/// How the client binds its SCRAM exchange to the connection under it:
+/// the GS2 header of its first message (RFC 5802, section 7), and the data
+/// its final message's `c=` carries.
+pub enum Binding
+    /// The connection is not TLS, so the client binds nothing: `n`.
+    Unsupported
+    /// The connection is TLS and the server offered no -PLUS mechanism:
+    /// `y`, which a server that did offer one takes as a sign that its offer
+    /// was taken out on the way, and refuses.
+    NotOffered
+    /// SCRAM-SHA-256-PLUS: `p=` and the binding's name, with the binding
+    /// data std::tls computed for the connection.
+    Bound {name: String, data: Bytes}
+end
+
 /// What the client keeps between its first SCRAM message and its last:
-/// its first message without the GS2 header, and its nonce.
+/// its first message without the GS2 header, its nonce, the header and
+/// the channel binding data.
 pub struct Scram
     first_bare: String
     nonce:      String
+    header:     String = "n,,"
+    binding:    Bytes = Bytes.from_list([])
 end
 
 /// What the client sends for the server's challenge, and the server
@@ -28,18 +47,41 @@ pub struct ScramProof
 end
 
 impl Scram
-    /// The client's first message, with `nonce`: no channel binding, and no
-    /// user name, since Postgres takes the startup message's.
+    /// The client's first message, with `nonce` and `binding`, and no user
+    /// name, since Postgres takes the startup message's.
     //! s = Scram.start("rOprNGfwEbeRWgbNEkqO")
     //! assert Scram.first_message(s) == "n,,n=,r=rOprNGfwEbeRWgbNEkqO"
+    //! assert Scram.mechanism(s) == "SCRAM-SHA-256"
+    //!
+    //! bound = Scram.start("abc", Binding.Bound{name: "tls-server-end-point", data: Bytes.from_list([1])})
+    //! assert Scram.first_message(bound) == "p=tls-server-end-point,,n=,r=abc"
+    //! assert Scram.mechanism(bound) == "SCRAM-SHA-256-PLUS"
+    //! assert Scram.first_message(Scram.start("abc", Binding.NotOffered)) == "y,,n=,r=abc"
     //
-    pub fn start(nonce: String) -> Scram
-        Scram{first_bare: "n=,r=${nonce}", nonce:}
+    pub fn start(nonce: String, binding: Binding = Binding.Unsupported) -> Scram
+        (header, data) =
+            case binding
+                .Unsupported         -> ("n,,", Bytes.from_list([]))
+                .NotOffered          -> ("y,,", Bytes.from_list([]))
+                .Bound{name:, data:} -> ("p=${name},,", data)
+            end
+
+        Scram{first_bare: "n=,r=${nonce}", nonce:, header:, binding: data}
     end
 
     /// The text of the first message.
     pub fn first_message(scram: Scram) -> String
-        "n,,${scram.first_bare}"
+        "${scram.header}${scram.first_bare}"
+    end
+
+    /// The SASL mechanism the exchange is: SCRAM-SHA-256-PLUS when it binds
+    /// to the connection, SCRAM-SHA-256 otherwise.
+    pub fn mechanism(scram: Scram) -> String
+        if String.starts_with(scram.header, "p=") then
+            "SCRAM-SHA-256-PLUS"
+        else
+            "SCRAM-SHA-256"
+        end
     end
 
     /// The client's final message for the server's first, `server_first`,
@@ -59,6 +101,37 @@ impl Scram
     //!
     //! assert Scram.verify(proof, "e=invalid-proof")
     //!     == Err("the server refused the password: invalid-proof")
+    //
+    /// The same exchange bound to a connection whose `tls-server-end-point`
+    /// data is the bytes 0 to 31, and with `y`, its messages computed apart
+    /// with Python's hashlib and hmac:
+    //! import std::hex
+    //!
+    //! data = hex.decode("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f")!
+    //!
+    //! server = "r=rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0,s=W22ZaJ0SNY7soEsUEjb6gQ==,i=4096"
+    //!
+    //! bound = {
+    //!     ..Scram.start("rOprNGfwEbeRWgbNEkqO", Binding.Bound{name: "tls-server-end-point", data:}),
+    //!     first_bare: "n=user,r=rOprNGfwEbeRWgbNEkqO",
+    //! }
+    //!
+    //! proof = Scram.answer(bound, "pencil", server)!
+    //!
+    //! assert proof.message == "c=cD10bHMtc2VydmVyLWVuZC1wb2ludCwsAAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=,r=rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0,p=nY1Wus9a+gM2DrbQ1msXFgyhW6KM5ktOxWiU+/P/EGY="
+    //!
+    //! assert Scram.verify(proof, "v=RwppMGddhz/J0lFYaRReBjXcQeNUFP5Qc76Lo5Exrig=") == Ok(Unit)
+    //!
+    //! offered = {
+    //!     ..Scram.start("rOprNGfwEbeRWgbNEkqO", Binding.NotOffered),
+    //!     first_bare: "n=user,r=rOprNGfwEbeRWgbNEkqO",
+    //! }
+    //!
+    //! answered = Scram.answer(offered, "pencil", server)!
+    //!
+    //! assert answered.message == "c=eSws,r=rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0,p=FoqiHTtQEDE8lz1CdaEe3tK4mS+iMDTl77SPyDS53DY="
+    //!
+    //! assert Scram.verify(answered, "v=dI4KpiQJwBr1+V+K6U1dA6l6I4I9DUNXWND4pcpRU3U=") == Ok(Unit)
     //
     pub fn answer(
         scram:        Scram,
@@ -86,7 +159,8 @@ impl Scram
         salted = hash.pbkdf2_sha256(String.to_bytes(password), salt, iterations, 32)
         client_key = hash.hmac_sha256(salted, String.to_bytes("Client Key"))
         stored_key = hash.sha256(client_key)
-        without_proof = "c=biws,r=${nonce}"
+        channel = base64.encode(String.to_bytes(scram.header) + scram.binding)
+        without_proof = "c=${channel},r=${nonce}"
         signed = String.to_bytes("${scram.first_bare},${server_first},${without_proof}")
         client_signature = hash.hmac_sha256(stored_key, signed)
         proof = xor(client_key, client_signature)

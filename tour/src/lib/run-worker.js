@@ -83,7 +83,7 @@ let warmed = false;
 const queue = [];
 
 // The wasm is staged gzipped (nomi.wasm.gz): Cloudflare Pages refuses files
-// over 25 MiB and the uncompressed module is about 27 MiB. It is decompressed
+// over 25 MiB and the uncompressed module is about 77 MiB. It is decompressed
 // here, not by the host. The gzip magic is checked first so that a host which
 // does add `Content-Encoding: gzip` (the browser then hands over the already
 // decompressed module) still works.
@@ -144,7 +144,7 @@ function callGo(fn) {
     .map((re) => re.exec(stderrHead)?.[0])
     .filter(Boolean);
   return {
-    failure: "the program stopped the Nomi runtime:\n" + (lines.join("\n") || "the Go runtime exited"),
+    failure: "the program stopped the Nomi runtime:\n" + (lines.join("\n") || "the runtime exited with no message"),
   };
 }
 

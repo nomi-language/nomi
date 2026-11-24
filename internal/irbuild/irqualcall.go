@@ -157,7 +157,7 @@ func (bl *irScalarBuilder) irQualLowerArgs(t *ast.Call) irQualArgs {
 				src, k, mobile = adapted, want, false
 			}
 		}
-		if irQualBoxCandidate(k) && bl.g.stdModule == "" {
+		if bl.g.stdModule == "" {
 			// `P.pair(p, [1, 2])` with a `Show` parameter: a value whose
 			// runtime type does not name its impl enters boxed as the
 			// checker recorded it (irboxed.go), so the callee's selection
@@ -356,15 +356,6 @@ func (bl *irScalarBuilder) qualCheckedFuncWant(t *ast.Call, i int, k kind) (kind
 		return want, true
 	}
 	return kindInvalid, false
-}
-
-// irQualBoxCandidate reports whether an operand of kind k of a qualified
-// call enters its interface parameter boxed before the callee is selected:
-// a std container or an `embeds` enum, whose runtime value names no impl
-// of the interface.
-func irQualBoxCandidate(k kind) bool {
-	_, _, container := stdRecvParts(k)
-	return container || irBoxedEnum(k)
 }
 
 // declaredCallSignature is the callee's declared function type, for a
@@ -576,7 +567,9 @@ func (bl *irScalarBuilder) typeQualRoutes(t *ast.Call, method string) (ir.Temp, 
 	}
 	args := bl.qualCallArgs(t)
 	var plan *irQualPlan
-	if route == routeScalarText || route == routeDisplay {
+	// `P.to_string(p)` for a type whose Display is derived names Display's
+	// own function, as `Display.to_string(p)` does.
+	if route == routeScalarText || route == routeDisplay || bl.g.routeCallee(t).Owner.Std == stdDisplayType {
 		if v, ok, handled := bl.displayCall(t, args); handled {
 			return v, kindString, false, ok
 		}
@@ -1394,12 +1387,12 @@ func irStdDisplayExistential(k kind) bool {
 // displayCall lowers `Display.to_string(x)`, and a scalar's `to_string`
 // (`Int.to_string(n)`), as the form of the call's record says, where that
 // form decides it, and answers handled false where it does not: by an
-// impl machineImpls renders (std's Display of Int, Float, Bool, True,
-// False, String and Decimal), the machine's rendering of the value, as an
-// interpolation hole of its type lowers it (a String is its own text,
-// any other the machine's rendering); by dispatch, the value std's
-// Display holds, rendered through its own impl; by shape (a tuple, an
-// anonymous record), as its interpolation renders. Any other impl is
+// impl machineImpls renders (std's Display of Int, Float, String and
+// Decimal), the machine's rendering of the value, as an interpolation hole
+// of its type lowers it (a String is its own text, any other the machine's
+// rendering); by dispatch, the value std's Display holds, rendered through
+// its own impl; by shape (a tuple, an anonymous record, a type whose
+// Display is derived), as its interpolation renders. Any other impl is
 // called, by the routes after: a std container's instance
 // (ifaceContainerCall) or the function the record names.
 func (bl *irScalarBuilder) displayCall(t *ast.Call, args irQualArgs) (v ir.Temp, ok, handled bool) {
@@ -1414,13 +1407,6 @@ func (bl *irScalarBuilder) displayCall(t *ast.Call, args irQualArgs) (v ir.Temp,
 		if bl.g.machineRouteOf(operatorUseOfCall(stdDisplayType, c, kt)) != routeStructural {
 			return ir.NoTemp, false, false
 		}
-		if k != kindString && !irScalarLeafKind(k) && !isDecimalKind(k) {
-			// True's or False's marker, as Bool's derived body binds a
-			// variant's payload: no Bool the machine holds, so the
-			// routes after call its body, as an equality over it
-			// compares the marker by shape.
-			return ir.NoTemp, false, false
-		}
 		rec := &analysis.DisplayRender{Form: analysis.DisplayScalar}
 		if analysis.ResolveTypeVar(kt) == analysis.TypeString {
 			rec.Form = analysis.DisplayText
@@ -1431,7 +1417,14 @@ func (bl *irScalarBuilder) displayCall(t *ast.Call, args irQualArgs) (v ir.Temp,
 		v, ok := bl.renderDisplay(at, src, k, &analysis.DisplayRender{Form: analysis.DisplayInterface}, nil)
 		return v, ok, true
 	case analysis.OperatorStructural:
-		v, ok := bl.displayValue(at, src, k, bl.g.firstOperandType(t))
+		// The type the call is for, as the record carries it, else the
+		// operand's (a call the builder writes over an operand with no
+		// record of its own: a box's thunk, stdProgThunk).
+		vt := bl.g.checkerTypeArg(c.For)
+		if vt == nil {
+			vt = bl.g.firstOperandType(t)
+		}
+		v, ok := bl.displayValue(at, src, k, vt)
 		return v, ok, true
 	}
 	return ir.NoTemp, false, false

@@ -23,6 +23,7 @@ func TestUsesFamilies_PicksTheRunnerByWhatTheProgramReaches(t *testing.T) {
 		want      []string
 	}{
 		{"hello world", "import std::io\n\nfn main()\n    io.print(\"hi\")\nend\n", false, nil},
+		{"std/compress, whole and streamed", "import std::compress\nimport std::io.{self, Reader}\n\nfn main()\n    packed = compress.encode(.Gzip, String.to_bytes(\"hi\"))\n    io.inspect(compress.decode(.Gzip, packed, max_length: 10))\n    io.inspect(Reader.read_all(compress.reader(.Gzip, Reader.from_bytes(packed))))\nend\n", false, nil},
 		{"std/url alone", "import std::io\nimport std::url.Url\n\nfn main()\n    io.inspect(Url.parse(\"http://a/b\"))\nend\n", false, nil},
 		{"a client request", "import std::io\nimport std::http\nimport std::url.Url\n\nfn main()\n    io.inspect(http.get(Url\"http://a/b\"))\nend\n", false, []string{"net"}},
 		{"std/http imported, never reached", "import std::io\nimport std::http\nimport std::url.Url\n\nfn unused()\n    io.inspect(http.get(Url\"http://a/b\"))\nend\n\nfn main()\n    io.print(\"hi\")\nend\n", false, nil},

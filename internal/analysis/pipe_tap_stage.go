@@ -68,7 +68,7 @@ func (c *checker) checkTapNameTakes(pipe *ast.Binary, n *ast.Tap, left, ty Type)
 			WithHint(c.defaultedFuncValueHint(&FuncType{Params: []Type{left}, Return: TypeUnit}, ft, n.Name)))
 		return false
 	}
-	if !c.argMatchesParam(left, ft.Params[0], c.recPos(pipe.Line, pipe.Col), RecordingKindInterfaceTypedParam) {
+	if !c.argMatchesParam(left, ft.Params[0], c.site(pipe.Line, pipe.Col, RecordingKindInterfaceTypedParam)) {
 		wantS, haveS := c.typePair(ft.Params[0], left)
 		e := errAt(n.Name, fmt.Sprintf("`%s` takes %s, but the pipe passes %s", name, withArticle(wantS), withArticle(haveS)))
 		if r, ok := relatedAt((&pipeHead{pipe: pipe}).source(), c.typef("the piped value is %s", withArticle(c.typef("%s", left)))); ok {

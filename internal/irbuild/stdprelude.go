@@ -235,7 +235,10 @@ func (k kind) packageNeutral() bool {
 			}
 			return true
 		}
-		return k.iface != nil && k.iface.stdShared
+		// An interface std declares in Nomi has one def for the process
+		// once the registry admits it (stdtypes.go): marked, lowerable, and
+		// no generic one's instance, which is a gen's.
+		return k.iface != nil && (k.iface.stdShared || k.iface.stdOrigin != "" && k.iface.instOf == nil && k.iface.lowerable)
 	case tagList, tagMap, tagTuple, tagSeq, tagFunc, tagAnonStruct:
 		// A structural kind is neutral exactly when every component is, the
 		// prelude arm's recursive rule. By internComp's rule such a kind is

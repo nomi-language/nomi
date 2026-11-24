@@ -135,9 +135,8 @@ func (bl *irScalarBuilder) isNeverOperand(n ast.Node) bool {
 
 // isNeverLedCall reports whether call never returns because its first
 // argument is of Infallible and nothing is evaluated before it: in
-// `1 * 31 + Hashable.hash(e)`, the `Err(e)` arm of the derived Hashable of
-// `Result<Int, Infallible>`, the call stops at `e`, so the sum stops there
-// too, whatever type the checker gave the call.
+// `1 + Hashable.hash(e)` with `e` an Infallible, the call stops at `e`, so
+// the sum stops there too, whatever type the checker gave the call.
 func (bl *irScalarBuilder) isNeverLedCall(call *ast.Call) bool {
 	return len(call.Args) > 0 && bl.neverCalleeIsName(call.Func) && bl.isNeverOperand(call.Args[0])
 }

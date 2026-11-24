@@ -1,0 +1,322 @@
+//# Key agreement: two parties each make a private key, send each other
+//# its public key, and each computes the same shared secret from its own
+//# private key and the other's public key, which nobody who saw only the
+//# public keys can compute. Elliptic-curve Diffie-Hellman (ECDH), on four
+//# curves:
+//#
+//# - `X25519` (RFC 7748): 32-byte keys. Use it when nothing else decides.
+//# - `P256`, `P384` and `P521`, the NIST curves (FIPS 186-5), for formats
+//#   that name them.
+//#
+//# ```nomi
+//# ours = PrivateKey.generate(.X25519)
+//#
+//# send(PublicKey.to_bytes(PrivateKey.public_key(ours)))
+//#
+//# theirs = PublicKey.from_bytes(.X25519, received)?
+//#
+//# secret = key_exchange.shared_secret(ours, theirs)?
+//#
+//# key = hash.hkdf_sha256(secret, salt, String.to_bytes("my protocol v1"), 32)?
+//# ```
+//#
+//# Never use the shared secret as a key itself: its bytes are not uniformly
+//# random. Pass it through std::hash's `hkdf_sha256` with a label naming
+//# what the key is for, and derive a separate key for each purpose and
+//# each direction. A std::cipher `Key.from_bytes` takes the result.
+//#
+//# A `PrivateKey` never shows its bytes: its `Debug` is
+//# `PrivateKey(<curve>, <hidden>)`, it has no `Display` and no `ToJson`, and
+//# `PrivateKey.expose` is the only way to read them. A `PublicKey` is
+//# public: its `Debug` shows its bytes in hexadecimal.
+//#
+//# The keys here only agree keys. std::signatures' ECDSA P-256 keys sign,
+//# and neither module turns one kind into the other, since one key should
+//# serve one purpose.
+
+import
+    bool.Bool
+    bytes.Bytes
+    debug.Debug
+    display.Display
+    equatable.Equatable
+    hash.equal_in_constant_time
+    hex
+    int.Int64
+    key_exchange::host
+    option.Option.{None, Some}
+    results.Result.{self, Err, Ok}
+    strings.String
+end
+
+/// An elliptic curve to agree a key on.
+pub enum Curve
+    /// Curve25519's Diffie-Hellman function (RFC 7748): 32-byte keys.
+    X25519
+    /// NIST P-256 (secp256r1): a 32-byte private key, a 65-byte public key.
+    P256
+    /// NIST P-384 (secp384r1): a 48-byte private key, a 97-byte public key.
+    P384
+    /// NIST P-521 (secp521r1): a 66-byte private key, a 133-byte public key.
+    P521
+end
+
+derive Equatable for Curve
+
+impl Display for Curve
+    fn to_string(curve: Curve) -> String
+        case curve
+            .X25519 -> "X25519"
+            .P256   -> "P-256"
+            .P384   -> "P-384"
+            .P521   -> "P-521"
+        end
+    end
+end
+
+/// Why a key could not be read or a secret could not be agreed.
+pub enum Error
+    /// The bytes are not a private key on the curve: the wrong length, or
+    /// for a NIST curve zero or not below the curve's order.
+    InvalidPrivateKey {curve: Curve}
+    /// The bytes are not a public key on the curve: the wrong length, or
+    /// for a NIST curve not an uncompressed point on the curve.
+    InvalidPublicKey {curve: Curve}
+    /// The private and the public key are on different curves.
+    CurveMismatch {private: Curve, public: Curve}
+    /// The X25519 public key is a point of low order, which makes the
+    /// shared secret all zeros: a peer sent it to fix the secret.
+    LowOrderPoint
+end
+
+derive Equatable for Error
+
+impl Display for Error
+    fn to_string(error: Error) -> String
+        case error
+            .InvalidPrivateKey{curve:} ->
+                "the bytes are not a ${curve} private key"
+
+            .InvalidPublicKey{curve:} ->
+                "the bytes are not a ${curve} public key"
+
+            .CurveMismatch{private:, public:} ->
+                "a ${private} private key cannot agree with a ${public} public key"
+
+            .LowOrderPoint ->
+                "the X25519 public key is a point of low order"
+        end
+    end
+end
+
+/// A private key: what agrees a secret with another party's public key.
+/// Its `Debug` names its curve and shows nothing of its bytes.
+pub opaque struct PrivateKey
+    curve: Curve
+    data:  Bytes
+end
+
+/// A public key, in its curve's standard encoding. Two public keys are
+/// equal when they are the same key.
+pub opaque struct PublicKey
+    curve: Curve
+    data:  Bytes
+end
+
+derive Equatable for PublicKey
+
+impl PrivateKey
+    /// A new private key on `curve`, from the operating system's secure
+    /// random source.
+    //! import std::key_exchange.{Curve, PrivateKey}
+    //!
+    //! key = PrivateKey.generate(Curve.P256)
+    //! assert PrivateKey.curve(key) == Curve.P256
+    //! assert Bytes.length(PrivateKey.expose(key)) == 32
+    //
+    pub fn generate(curve: Curve) -> PrivateKey
+        PrivateKey{curve:, data: host.generate(curve_number(curve))}
+    end
+
+    /// The private key on `curve` whose bytes are `data`: 32 bytes for
+    /// X25519, and for a NIST curve the scalar as a big-endian number as
+    /// long as the curve's order (32, 48 or 66 bytes), not zero and below
+    /// the order.
+    //! import std::key_exchange.{Curve, Error, PrivateKey}
+    //!
+    //! assert PrivateKey.from_bytes(Curve.X25519, String.to_bytes(String.repeat("k", 32)))
+    //!     |> Result.is_ok()
+    //!
+    //! assert PrivateKey.from_bytes(Curve.P256, String.to_bytes(String.repeat("\u{0}", 32)))
+    //!     == Err(Error.InvalidPrivateKey{curve: Curve.P256})
+    //
+    pub fn from_bytes(curve: Curve, data: Bytes) -> Result<PrivateKey, Error>
+        if host.private_is_valid(curve_number(curve), data) then
+            Ok(PrivateKey{curve:, data:})
+        else
+            Err(.InvalidPrivateKey{curve:})
+        end
+    end
+
+    /// The public key to send the other party.
+    //! import std::hex
+    //! import std::key_exchange.{Curve, PrivateKey, PublicKey}
+    //!
+    //! // RFC 7748, section 6.1: Alice's keys.
+    //! alice = PrivateKey.from_bytes(
+    //!     Curve.X25519,
+    //!     hex.decode("77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a")!,
+    //! )!
+    //!
+    //! assert hex.encode(PublicKey.to_bytes(PrivateKey.public_key(alice)))
+    //!     == "8520f0098930a754748b7ddcb43ef75a0dbf3a0d26381af4eba4a98eaa9b4e6a"
+    //
+    pub fn public_key(key: PrivateKey) -> PublicKey
+        PublicKey{curve: key.curve, data: host.public_of(curve_number(key.curve), key.data)}
+    end
+
+    /// The bytes of `key`, for the one call that needs them, such as the
+    /// one that stores it.
+    pub fn expose(key: PrivateKey) -> Bytes
+        key.data
+    end
+
+    /// The curve `key` is on.
+    pub fn curve(key: PrivateKey) -> Curve
+        key.curve
+    end
+end
+
+impl Debug for PrivateKey
+    /// `PrivateKey(<curve>, <hidden>)`, alone and inside another value.
+    //! import std::key_exchange.{Curve, PrivateKey}
+    //!
+    //! key = PrivateKey.generate(Curve.X25519)
+    //! assert Debug.inspect(key) == "PrivateKey(X25519, <hidden>)"
+    //!
+    //! assert Debug.inspect((key, [key]))
+    //!     == "(PrivateKey(X25519, <hidden>), [PrivateKey(X25519, <hidden>)])"
+    //
+    fn inspect(key: PrivateKey) -> String
+        "PrivateKey(${key.curve}, <hidden>)"
+    end
+end
+
+impl Equatable for PrivateKey
+    /// Two private keys are equal when they are on one curve and hold the
+    /// same bytes, compared by `hash.equal_in_constant_time`.
+    fn equal(a: PrivateKey, b: PrivateKey) -> Bool
+        a.curve == b.curve and equal_in_constant_time(a.data, b.data)
+    end
+end
+
+impl PublicKey
+    /// The public key on `curve` whose encoding is `data`: 32 bytes for
+    /// X25519, and for a NIST curve an uncompressed SEC 1 point (`04`, then
+    /// x and y). A compressed point, the point at infinity and a point not
+    /// on the curve are `InvalidPublicKey`.
+    //! import std::hex
+    //! import std::key_exchange.{Curve, Error, PrivateKey, PublicKey}
+    //!
+    //! key = PrivateKey.public_key(PrivateKey.generate(Curve.P384))
+    //! assert PublicKey.from_bytes(Curve.P384, PublicKey.to_bytes(key)) == Ok(key)
+    //! assert Bytes.length(PublicKey.to_bytes(key)) == 97
+    //!
+    //! assert PublicKey.from_bytes(Curve.P256, hex.decode("04")!)
+    //!     == Err(Error.InvalidPublicKey{curve: Curve.P256})
+    //
+    pub fn from_bytes(curve: Curve, data: Bytes) -> Result<PublicKey, Error>
+        if host.public_is_valid(curve_number(curve), data) then
+            Ok(PublicKey{curve:, data:})
+        else
+            Err(.InvalidPublicKey{curve:})
+        end
+    end
+
+    /// `key` in its curve's standard encoding, as `from_bytes` reads it.
+    pub fn to_bytes(key: PublicKey) -> Bytes
+        key.data
+    end
+
+    /// The curve `key` is on.
+    pub fn curve(key: PublicKey) -> Curve
+        key.curve
+    end
+end
+
+impl Debug for PublicKey
+    /// `PublicKey(<curve>, <hex>)`.
+    //! import std::hex
+    //! import std::key_exchange.{Curve, PublicKey}
+    //!
+    //! data = hex.decode("de9edb7d7b7dc1b4d35b61c2ece435373f8343c85b78674dadfc7e146f882b4f")!
+    //!
+    //! assert Debug.inspect(PublicKey.from_bytes(Curve.X25519, data)!)
+    //!     == "PublicKey(X25519, de9edb7d7b7dc1b4d35b61c2ece435373f8343c85b78674dadfc7e146f882b4f)"
+    //
+    fn inspect(key: PublicKey) -> String
+        "PublicKey(${key.curve}, ${hex.encode(key.data)})"
+    end
+end
+
+/// The secret `private` and the other party's `public` agree on: the
+/// x-coordinate of the shared point, 32 bytes for X25519 and the curve's
+/// field length for a NIST curve. The other party computes the same bytes
+/// from its private key and `private`'s public key. Pass it through
+/// `hash.hkdf_sha256` before using it as a key. Keys on different curves
+/// are `CurveMismatch`, and an X25519 public key of low order, which would
+/// make the secret all zeros, is `LowOrderPoint`.
+//! import std::hex
+//! import std::key_exchange.{self, Curve, PrivateKey, PublicKey}
+//!
+//! // RFC 7748, section 6.1.
+//! alice = PrivateKey.from_bytes(
+//!     Curve.X25519,
+//!     hex.decode("77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a")!,
+//! )!
+//!
+//! bob = PublicKey.from_bytes(
+//!     Curve.X25519,
+//!     hex.decode("de9edb7d7b7dc1b4d35b61c2ece435373f8343c85b78674dadfc7e146f882b4f")!,
+//! )!
+//!
+//! secret = key_exchange.shared_secret(alice, bob)!
+//! assert hex.encode(secret) == "4a5d9d5ba4ce2de1728e3bf480350f25e07e21c947d19e3376f09b3c1e161742"
+//
+//! import std::key_exchange.{self, Curve, Error, PrivateKey, PublicKey}
+//!
+//! // Two parties agree on one secret.
+//! ours = PrivateKey.generate(Curve.P521)
+//! theirs = PrivateKey.generate(Curve.P521)
+//!
+//! assert key_exchange.shared_secret(ours, PrivateKey.public_key(theirs))
+//!     == key_exchange.shared_secret(theirs, PrivateKey.public_key(ours))
+//!
+//! assert key_exchange.shared_secret(ours, PrivateKey.public_key(PrivateKey.generate(Curve.P256)))
+//!     == Err(Error.CurveMismatch{private: Curve.P521, public: Curve.P256})
+//!
+//! zero = PublicKey.from_bytes(Curve.X25519, String.to_bytes(String.repeat("\u{0}", 32)))!
+//!
+//! assert key_exchange.shared_secret(PrivateKey.generate(Curve.X25519), zero)
+//!     == Err(Error.LowOrderPoint)
+//
+pub fn shared_secret(private: PrivateKey, public: PublicKey) -> Result<Bytes, Error>
+    if private.curve != public.curve then
+        return Err(.CurveMismatch{private: private.curve, public: public.curve})
+    end
+
+    case host.shared_secret(curve_number(private.curve), private.data, public.data)
+        Some(secret) -> Ok(secret)
+        None         -> Err(.LowOrderPoint)
+    end
+end
+
+/// A curve as std/key_exchange/host numbers it.
+fn curve_number(curve: Curve) -> Int64
+    case curve
+        .X25519 -> 0
+        .P256   -> 1
+        .P384   -> 2
+        .P521   -> 3
+    end
+end

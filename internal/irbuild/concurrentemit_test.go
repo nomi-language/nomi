@@ -8,16 +8,14 @@ import (
 )
 
 // TestConcurrentEmit_TheTypeWalksDoNotMutateATypeDef checks that the type
-// walks `zeroSizedOn` and `reachesOn` read the type graph and never write to
-// it.
+// walk `reachesOn` reads the type graph and never writes to it.
 //
 // A *typeDef is interned process-wide for every stdlib and rt-declared type
 // (`opaqueDefs`, `stdEnumDefs`, `stdMarkerDefs`, `hostTypeDefs` are each a
 // `sync.OnceValue`), so every `Generate` in a process walks the same pointers.
 // A walk that stores anything on one (a cycle mark, a memo, a cached answer)
-// makes its own bookkeeping visible to every concurrent lowering. Both walks
-// feed layout decisions (which variant payloads get a slot, which fields are
-// boxed), so a foreign goroutine's mark would make this one lay out the same
+// makes its own bookkeeping visible to every concurrent lowering. The walk
+// feeds layout decisions (which fields and enum slots are boxed), so a foreign goroutine's mark would make this one lay out the same
 // Nomi differently: a wrong answer, not a torn read. The race window is a few
 // instructions wide, so concurrent-lowering tests and `-race` rarely land in
 // it; this check is structural instead.
@@ -30,13 +28,12 @@ import (
 // every `path = append(path, d)`, which is an assignment to a local.
 func TestConcurrentEmit_TheTypeWalksDoNotMutateATypeDef(t *testing.T) {
 	want := map[string]string{
-		"zeroSizedOn": "types.go, native.go",
-		"reachesOn":   "types.go",
+		"reachesOn": "types.go",
 	}
 
 	fset := token.NewFileSet()
 	seen := map[string]int{}
-	for _, name := range []string{"types.go", "native.go"} {
+	for _, name := range []string{"types.go"} {
 		file, err := parser.ParseFile(fset, name, nil, 0)
 		if err != nil {
 			t.Fatalf("parse %s: %v", name, err)

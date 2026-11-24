@@ -41,9 +41,11 @@ import (
 // live together. So the slot count for a kind is the max over variants of how
 // many payloads of that kind the variant carries.
 //
-// **A zero-sized payload gets no slot.** Its slot is -1. The builder
-// materializes such a payload from its type where a pattern binds it
-// (irvariantpattern.go, case.go).
+// **A payload of Unit or of a marker gets no slot.** Its slot is -1
+// (irSlotlessPayload, which the retention walk asks too). The builder makes
+// such a payload from its type where a pattern binds it (irSlotlessValue).
+// Every other payload has a slot, a field-less struct and a tuple of Units
+// among them.
 //
 // # Recursion
 //
@@ -190,8 +192,8 @@ type typeDef struct {
 	// PAYLOAD reaches every arm written for that meaning. Without the flag
 	// `impl Equatable for Bytes`'s `a == b` would answer true for every pair,
 	// because two markers ARE always equal; the hash would be `rt.HashUnit`, the
-	// Debug rendering the bare type name, and `zeroSized()` would answer true for
-	// a value with contents.
+	// Debug rendering the bare type name, and `irRetainedMarker` would answer
+	// true for a value with contents, leaving an enum payload of it no slot.
 	//
 	// Where this flag is read, the answer is to DECLINE rather than to invent
 	// one. Go `==` on rt.Bytes would in fact agree with rt.Equal, but the
@@ -294,8 +296,8 @@ type payload struct {
 	// which is the reason stdenum.go's payloadStructScalar rejects a
 	// defaulted std field outright.
 	stdDeflt *int64
-	// slot indexes typeDef.slots, or -1 for a zero-sized payload, which is
-	// stored nowhere at all.
+	// slot indexes typeDef.slots, or is -1 for a payload of Unit or of a
+	// marker, which is stored nowhere at all (irSlotlessPayload).
 	slot int
 }
 
@@ -336,9 +338,9 @@ func (d *typeDef) field(name string) *fieldDef {
 //     and the *typeDefs are interned process-wide, so that home would be
 //     shared by every concurrent `Generate` in the process.
 //
-//   - ONE FIELD WOULD SERVE TWO DIFFERENT WALKS. `zeroSized` and `reaches`
-//     (here) each need the guard. The
-//     moment one called another, the inner walk's deferred clear would
+//   - ONE FIELD WOULD SERVE SEVERAL WALKS. `reaches` (here) and the handle
+//     walks (irchannels.go) each need the guard. The moment one called
+//     another, the inner walk's deferred clear would
 //     silently unmark a def the outer walk was still inside and the outer
 //     guard would stop working. That hazard is single-threaded and a lock
 //     does not touch it.
@@ -363,49 +365,6 @@ func (p typePath) on(d *typeDef) bool {
 		}
 	}
 	return false
-}
-
-// zeroSizedOn reports whether values of this type occupy no storage, inside a
-// walk already standing on path. `kind.zeroSized` (native.go) is the entry
-// point; a *typeDef is only ever asked this from within a walk.
-//
-// An enum never is: it carries a tag. A struct is when every field is, which
-// bottoms out at Unit and at the empty struct. A boxed field is never
-// zero-sized, which is also what terminates this walk on a recursive type:
-// every cycle contains a boxed edge.
-//
-// A `type Expired` marker has no inner at all: it carries no information, so
-// an enum embedding one gets no slot for it and the `case` arm that binds it
-// has to materialize the value from its type.
-//
-// The DISTINCT arm pushes d before descending, so a cycle closing through a
-// distinct is guarded like any other and answers false at the back edge.
-func (d *typeDef) zeroSizedOn(path typePath) bool {
-	if d.isEnum || path.on(d) {
-		return false
-	}
-	path = append(path, d)
-	if d.isDistinct {
-		// An rt-opaque leaf has a PAYLOAD rt owns (rt.Bytes is a string), so
-		// it is not zero-sized even though it looks like a marker from here.
-		// Asked first, because the marker arm below would otherwise answer for
-		// it. See the rtOpaque field.
-		if d.rtOpaque {
-			return false
-		}
-		// A distinct with an inner is not, even over a zero-sized one
-		// (`type Done Unit`): the VM holds it as a record over its inner
-		// value (ir.Make's MakeDistinct), and an enum payload of it needs
-		// a slot for that record.
-		// kindInvalid: marker — a marker distinct is zero-sized; a layout question, not a refusal.
-		return d.inner == kindInvalid
-	}
-	for _, f := range d.fields {
-		if f.boxed || !f.k.zeroSizedOn(path) {
-			return false
-		}
-	}
-	return true
 }
 
 // reaches reports whether target is stored inside d, at any depth.
@@ -591,10 +550,6 @@ func (g *gen) declaredTypes() []*typeDef {
 }
 
 // boxTypeFields boxes every field that can reach its own container.
-//
-// Boxing before slot assignment: a boxed field is never zero-sized
-// (zeroSizedOn), and zero-sizedness decides whether a payload gets a slot at
-// all.
 func (g *gen) boxTypeFields() {
 	for _, d := range g.declaredTypes() {
 		d.boxFields()
@@ -941,8 +896,8 @@ func (g *gen) resolveDistinct(d *typeDef, t *ast.TypeDef) {
 func (g *gen) resolveDistinctInner(d *typeDef, t *ast.TypeDef, tps map[string]bool) {
 	defer changingTypes()()
 	if t.InnerTypeExpr == nil {
-		// A marker. inner stays kindInvalid, which zeroSized reads as "no
-		// storage at all" — distinct from a refusal, which also leaves it
+		// A marker. inner stays kindInvalid, which irRetainedMarker reads as
+		// "no storage at all", distinct from a refusal, which also leaves it
 		// kindInvalid but records a reason alongside.
 		return
 	}
@@ -1056,14 +1011,13 @@ func (d *typeDef) assignSlots() {
 		used := map[int]bool{}
 		for j := range v.payloads {
 			p := &v.payloads[j]
-			if p.k.zeroSized() {
-				// Contributes nothing, so it is stored nowhere: a zero-sized
-				// value carries no information and reconstructs from its type
-				// alone.
-				p.slot = -1
+			p.slot = -1
+			if irSlotlessPayload(p.k) {
+				// Unit or a marker is stored nowhere: a read makes it from its
+				// type alone (irSlotlessValue). Every other payload, a
+				// field-less struct among them, has a slot.
 				continue
 			}
-			p.slot = -1
 			for s := range d.slots {
 				if d.slots[s].k == p.k && !used[s] {
 					p.slot = s

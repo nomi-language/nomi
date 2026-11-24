@@ -52,12 +52,10 @@ package irbuild
 // Of the HIGHER-ORDER half, `Result.map_err` lowers in irresultmaperr.go, over
 // the driver in rt/preludehof.go.
 //
-// `hash` is not maps.go's key hashing. A Map key is bucketed by the
-// STRUCTURAL, un-overridable hash (rt.Hash), and rt/hash.go's own file
-// comment says nothing observes its number, while `Hashable.hash(m)` is
-// observable. `Option.hash(Some(4))` is 4 and `Result.hash(Err("bad"))` is
-// 31 + StringHash("bad"); routing either to the structural hash would produce
-// a different Int for the same program.
+// `hash` is not implemented here either: std says `derive Hashable for
+// Option<T>`, which writes no function, so `Option.hash(x)` is answered by
+// the value's shape, the hash a Map key of the type takes, and
+// interfaceCall lowers it so (hashValue).
 
 // preludeFn is one lowered method of `impl Option<T>` or `impl Result<T, E>`.
 type preludeFn struct {

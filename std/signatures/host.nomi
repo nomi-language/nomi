@@ -1,15 +1,16 @@
 //# The Go-backed half of std::signatures: keys and signatures over Go's
 //# crypto/ed25519, crypto/ecdsa, crypto/rsa and crypto/x509
 //# (internal/stdhttp/signatures.go). A private key crosses as PKCS #8 DER
-//# and a public key as PKIX DER. A key kind is 0 for Ed25519, 1 for ECDSA
-//# P-256 and 2 for RSA; a scheme is 0 for Ed25519, 1 for ES256 (r and s),
-//# 2 for RS256, 3 for PS256 and 4 for ECDSA P-256 with SHA-256 in ASN.1.
-//# It is internal; a program imports std::signatures.
+//# and a public key as PKIX DER. A key kind is its `KeyKind` variant's
+//# position and a scheme its `Scheme` variant's, the positions of
+//# internal/stdhttp's two tables. It is internal; a program imports
+//# std::signatures.
 
 import
     bool.Bool
     bytes.Bytes
     int.{Int, Int64}
+    option.Option
     results.Result
     strings.String
 end
@@ -17,8 +18,8 @@ end
 /// A new Ed25519 private key.
 pub host fn generate_ed25519() -> Bytes
 
-/// A new ECDSA P-256 private key.
-pub host fn generate_p256() -> Bytes
+/// A new ECDSA private key of an ECDSA kind.
+pub host fn generate_ecdsa(kind: Int64) -> Bytes
 
 /// A new RSA private key of `bits` bits, or why `bits` is out of range.
 pub host fn generate_rsa(bits: Int) -> Result<Bytes, String>
@@ -62,8 +63,27 @@ pub host fn ed25519_public_from_bytes(raw: Bytes) -> Result<Bytes, String>
 /// An Ed25519 public key's 32-byte encoding.
 pub host fn ed25519_public_bytes(der: Bytes) -> Bytes
 
-/// `message` signed under a private key with a scheme its kind has.
+/// `message` signed under a private key with a scheme of its kind.
 pub host fn sign(der: Bytes, scheme: Int64, message: Bytes) -> Bytes
 
 /// Whether `signature` is `message`'s under a public key with a scheme.
 pub host fn is_valid(der: Bytes, scheme: Int64, message: Bytes, signature: Bytes) -> Bool
+
+/// The kind of key a scheme signs with.
+pub host fn scheme_kind(scheme: Int64) -> Int
+
+/// A scheme's variant name.
+pub host fn scheme_name(scheme: Int64) -> String
+
+/// `plaintext` encrypted to an RSA public key with RSA-OAEP and `label`, or
+/// why it is too long for the key.
+pub host fn encrypt(
+    der:        Bytes,
+    encryption: Int64,
+    plaintext:  Bytes,
+    label:      Bytes,
+) -> Result<Bytes, String>
+
+/// The plaintext `ciphertext` holds under an RSA private key with RSA-OAEP
+/// and `label`, or `None` for any failure.
+pub host fn decrypt(der: Bytes, encryption: Int64, ciphertext: Bytes, label: Bytes) -> Option<Bytes>

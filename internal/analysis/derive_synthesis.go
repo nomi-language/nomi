@@ -364,23 +364,6 @@ type synthSite struct {
 	// its own. See ast.ImplBlock.SynthOriginLine.
 	line int
 	col  int
-	// wrapping names the file's wrapping distinct types (`type Id Int`). A
-	// synthesized Display/Debug arm for `embeds Id` rebuilds the `Id` from the
-	// inner value the variant pattern binds, so the enum renders the embedded
-	// value as the embedded type renders itself (`Id(5)`, not `5`).
-	wrapping map[string]bool
-}
-
-// wrappingDistincts is the set of wrapping distinct types among a file's
-// declarations. See synthSite.wrapping.
-func wrappingDistincts(decls map[string]ast.Node) map[string]bool {
-	out := map[string]bool{}
-	for name, n := range decls {
-		if td, ok := n.(*ast.TypeDef); ok && td.InnerTypeExpr != nil && !td.Refinement {
-			out[name] = true
-		}
-	}
-	return out
 }
 
 // base is the first line of this site's slot for kind k.
@@ -458,22 +441,18 @@ func declPos(n ast.Node) (int, int) {
 
 // synthesizeDeriveFor dispatches to the per-protocol synthesizer for a
 // validated (supported) interface name. Each synthesizer emits a full
-// structural body (Equatable / Hashable / Comparable / Debug).
+// structural body, but those of deriveByShape, whose blocks write no
+// function (derivedShapeBlock).
 func synthesizeDeriveFor(ifaceName string, typeNode ast.Node, options ast.Node, site synthSite) []ast.Node {
 	typeNode = withoutRepeatedNames(typeNode)
+	if s, byShape := deriveByShape[ifaceName]; byShape {
+		return derivedShapeBlock(ifaceName, s.kind, s.bounded, typeNode, site)
+	}
 	var fns []ast.Node
 	opts := parseDeriveOptionsForSynthesis(ifaceName, options)
 	switch ifaceName {
-	case "Equatable":
-		fns = synthesizeDeriveEquatable(typeNode, site)
-	case "Hashable":
-		fns = synthesizeDeriveHashable(typeNode, site)
 	case "Comparable":
 		fns = synthesizeDeriveComparable(typeNode, site)
-	case "Debug":
-		fns = synthesizeDeriveDebug(typeNode, site, synthKindDebug)
-	case "Display":
-		fns = synthesizeDeriveDisplay(typeNode, site)
 	case "ToJson":
 		fns = synthesizeDeriveToJson(typeNode, opts, site)
 	case "FromJson":
@@ -488,6 +467,22 @@ func synthesizeDeriveFor(ifaceName string, typeNode ast.Node, options ast.Node, 
 		return nil
 	}
 	return wrapSynthAsImplBlocks(fns, ifaceName, site)
+}
+
+// deriveByShape are the derivable interfaces whose derive writes an impl
+// block with no function (derivedShapeBlock), answered by the type's shape:
+// Equatable compares it, Hashable hashes it, Debug and Display render it.
+// bounded says the derive implies the interface as a bound on the type's
+// parameters (spec §12 *Generic types*), which Debug, always met, does
+// not.
+var deriveByShape = map[string]struct {
+	kind    synthKind
+	bounded bool
+}{
+	"Equatable": {synthKindEquatable, true},
+	"Hashable":  {synthKindHashable, true},
+	"Debug":     {synthKindDebug, false},
+	"Display":   {synthKindDisplay, true},
 }
 
 // wrapSynthAsImplBlocks wraps each synthesized method FuncDef into
@@ -768,7 +763,8 @@ func typesWithExplicitDebug(nodes []ast.Node) map[string]bool {
 //     zero-sized distinct embed.
 //
 // An explicit `derive Debug` on an opaque type is a deliberate structural
-// override (`NonZeroInt(5)`), which synthesizeDeriveDebug writes.
+// override (`NonZeroInt(5)`): its block writes no function, and Debug
+// renders the type by its shape (derivedShapeBlock).
 func synthesizeAutoDebug(typeNode ast.Node, site synthSite) []ast.Node {
 	typeNode = withoutRepeatedNames(typeNode)
 	var out []ast.Node
@@ -868,137 +864,6 @@ func synthesizeExternNameOnlyDebug(et *ast.ExternType, site synthSite) []ast.Nod
 	}
 	uniquifyPositions(fn, line)
 	return []ast.Node{fn}
-}
-
-// ---------------------------------------------------------------------------
-// Equatable synthesizer
-// ---------------------------------------------------------------------------
-
-// synthesizeDeriveEquatable emits a single `impl Equatable for T { fn equal(a: T, b:
-// T) -> Bool { ... } }` block whose body is structurally appropriate for the
-// type's shape:
-//
-//   - Struct: AND-chain of pairwise `Equatable.equal(a.f, b.f)` calls; for a
-//     0-field struct the body is bare `True`.
-//   - Enum: outer `case a` with one branch per variant; each branch is a
-//     nested `case b` that matches the same variant (returning the structural
-//     comparison of payload components) or `_ -> False`. Nested case is used
-//     uniformly because Nomi's tuple patterns don't accept struct-shaped
-//     variant payloads inside `case (a, b) { ... }`, and the nested form
-//     handles every variant kind without special-casing.
-//   - Distinct type: zero-sized → `True`; tuple inner → AND-chain of
-//     pairwise `Equatable.equal(a_unwrapped.<i>, b_unwrapped.<i>)`; primitive
-//     or generic inner → single `Equatable.equal` on the unwrapped values.
-//
-// Position info on every synthesized node points at the type decl's own
-// line/col so diagnostics that follow back to the synthesized fn land on the
-// `@derive` site rather than off-by-N somewhere in space.
-func synthesizeDeriveEquatable(typeNode ast.Node, site synthSite) []ast.Node {
-	typeName, ok := typeDeclName(typeNode)
-	if !ok {
-		// Defensive: only struct/enum/typedef should reach here, but if a
-		// future caller widens the dispatch we want a clear "no-op" rather
-		// than a panic.
-		return nil
-	}
-	// Take this site's Equatable slot. We build the AST with this single
-	// (line, col) on every node, then walk the resulting tree once and
-	// assign a unique (line, col) per node so the analyzer's References /
-	// Definitions maps don't suffer from position aliasing. Real source
-	// positions are 1-based < 2^30, so the slot band is disjoint from real
-	// input.
-	line := site.base(synthKindEquatable)
-	col := 1
-
-	body := equatableBody(typeNode, line, col)
-	if body == nil {
-		return nil
-	}
-
-	srcParams := typeDeclTypeParams(typeNode)
-	fn := &ast.FuncDef{
-		Name:       "equal",
-		TypeParams: boundedTypeParams(srcParams, "Equatable", line, col),
-		Params: []ast.Param{
-			{Name: "a", TypeAnnotation: receiverTypeExpr(typeName, srcParams, line, col), Line: line, Col: col},
-			{Name: "b", TypeAnnotation: receiverTypeExpr(typeName, srcParams, line, col), Line: line, Col: col},
-		},
-		ReturnTypeExpr: &ast.SimpleType{Name: "Bool", Line: line, Col: col},
-		Body:           &ast.Block{Stmts: body, Line: line, Col: col},
-		Line:           line,
-		Col:            col,
-	}
-	uniquifyPositions(fn, line)
-	return []ast.Node{fn}
-}
-
-// equatableBody returns the statement list for the synthesized fn body,
-// dispatched on the type decl's shape. Each value-position expression is
-// wrapped in *ast.ExprStmt to match what the parser produces for top-level
-// block statements — without the wrapper the analyzer's body walker
-// silently skips nodes that aren't recognised statements.
-func equatableBody(typeNode ast.Node, line, col int) []ast.Node {
-	switch t := typeNode.(type) {
-	case *ast.StructDef:
-		return []ast.Node{exprStmt(equatableStructExpr(t.Fields, "a", "b", line, col), line, col)}
-	case *ast.EnumDef:
-		return []ast.Node{exprStmt(equatableEnumExpr(t, line, col), line, col)}
-	case *ast.TypeDef:
-		return equatableDistinctStmts(t, line, col)
-	case *ast.ExternType:
-		// Derive-as-assertion: `@derive` on an host type asserts trivial
-		// structure (a zero-sized singleton — one inhabitant), so any two
-		// values are equal. Same constant body as a zero-sized distinct.
-		return []ast.Node{exprStmt(trueLit(line, col), line, col)}
-	}
-	return nil
-}
-
-// equatableStructExpr builds the AND-chain of `Equatable.equal(<obj1>.f, <obj2>.f)`
-// for each of the named struct's fields. obj1 and obj2 name the two
-// receivers (e.g. "a", "b" for direct field access, or "av", "bv" inside a
-// destructured nested case body — currently only the top-level "a"/"b"
-// shape is used by the synthesizer). For 0-field structs the body is the
-// bare True variant ident (matches the spec's "two empty records are
-// equal" rule).
-func equatableStructExpr(fields []ast.StructField, obj1, obj2 string, line, col int) ast.Node {
-	if len(fields) == 0 {
-		return trueLit(line, col)
-	}
-	parts := make([]ast.Node, len(fields))
-	for i, f := range fields {
-		parts[i] = equatableEqualsCall(
-			fieldAccess(identExpr(obj1, line, col), f.Name, line, col),
-			fieldAccess(identExpr(obj2, line, col), f.Name, line, col),
-			line, col,
-		)
-	}
-	return andChain(parts, line, col)
-}
-
-// equatableEnumExpr builds the outer `case a { ... }` expression. Each
-// variant in the enum gets one branch whose body is a nested
-// `case b { Variant(...) -> <equality> | _ -> False }`. This nested-case
-// shape is uniform across bare / positional / struct / embedded variants —
-// the alternative tuple-pattern form `case (a, b) { (V(x), V(y)) -> ... }`
-// can't carry struct-shaped variant patterns inside the tuple, so we always
-// nest.
-func equatableEnumExpr(e *ast.EnumDef, line, col int) ast.Node {
-	branches := make([]ast.CaseBranch, 0, len(e.Variants))
-	for _, v := range e.Variants {
-		branches = append(branches, ast.CaseBranch{
-			Pattern: enumVariantPatternForA(e.Name, v, line, col),
-			Body:    equatableNestedCaseOnB(e.Name, v, line, col),
-			Line:    line,
-			Col:     col,
-		})
-	}
-	return &ast.Case{
-		Value:    identExpr("a", line, col),
-		Branches: branches,
-		Line:     line,
-		Col:      col,
-	}
 }
 
 // enumVariantPatternForA builds the outer-case pattern that matches the
@@ -1102,120 +967,6 @@ func fieldBindName(field, suffix string) string {
 	return suffix[1:] + "_" + field
 }
 
-// equatableNestedCaseOnB builds the inner `case b { Variant(...) -> <eq> | _ -> False }`
-// for one outer-variant branch. The variant-match body is the structural
-// equality between the matched-on-a payload and the matched-on-b payload;
-// the wildcard branch returns False.
-func equatableNestedCaseOnB(enumName string, v ast.EnumVariant, line, col int) ast.Node {
-	branches := []ast.CaseBranch{
-		{
-			Pattern: enumVariantPatternForB(enumName, v, line, col),
-			Body:    equatableVariantPayloadEq(v, line, col),
-			Line:    line,
-			Col:     col,
-		},
-		{
-			Pattern: &ast.WildcardPattern{Line: line, Col: col},
-			Body:    falseLit(line, col),
-			Line:    line,
-			Col:     col,
-		},
-	}
-	return &ast.Case{
-		Value:    identExpr("b", line, col),
-		Branches: branches,
-		Line:     line,
-		Col:      col,
-	}
-}
-
-// equatableVariantPayloadEq builds the equality body for one variant arm:
-//
-//   - bare:       True (no payload to compare)
-//   - positional arity 1: Equatable.equal(a0, b0)
-//   - positional arity N: AND-chain of Equatable.equal(aI, bI)
-//   - struct:     AND-chain of Equatable.equal(a_<field>, b_<field>)
-//   - embedded:   Equatable.equal(a0, b0) on the bound embedded value
-func equatableVariantPayloadEq(v ast.EnumVariant, line, col int) ast.Node {
-	switch v.Kind {
-	case "bare":
-		return trueLit(line, col)
-	case "positional":
-		arity := 1
-		if ws := writtenParts(v.DataTypeExpr); ws != nil {
-			arity = len(ws)
-		}
-		parts := make([]ast.Node, arity)
-		for i := 0; i < arity; i++ {
-			parts[i] = equatableEqualsCall(
-				identExpr(positionalBindName(i, "_a"), line, col),
-				identExpr(positionalBindName(i, "_b"), line, col),
-				line, col,
-			)
-		}
-		return andChain(parts, line, col)
-	case "struct":
-		if len(v.Fields) == 0 {
-			return trueLit(line, col)
-		}
-		parts := make([]ast.Node, len(v.Fields))
-		for i, f := range v.Fields {
-			parts[i] = equatableEqualsCall(
-				identExpr(fieldBindName(f.Name, "_a"), line, col),
-				identExpr(fieldBindName(f.Name, "_b"), line, col),
-				line, col,
-			)
-		}
-		return andChain(parts, line, col)
-	case "embedded":
-		return equatableEqualsCall(
-			identExpr(positionalBindName(0, "_a"), line, col),
-			identExpr(positionalBindName(0, "_b"), line, col),
-			line, col,
-		)
-	}
-	return trueLit(line, col)
-}
-
-// equatableDistinctStmts handles `type Name InnerType` and the zero-sized
-// `type Name`. For zero-sized: body is True. For tuple inner: unwrap into
-// `Name(av) = a; Name(bv) = b;` and AND-chain
-// `Equatable.equal(av.<i>, bv.<i>)` over all tuple positions. For
-// non-tuple inner (primitive / generic / qualified): unwrap and compare
-// the single inner values via Equatable.equal.
-func equatableDistinctStmts(t *ast.TypeDef, line, col int) []ast.Node {
-	if t.InnerTypeExpr == nil {
-		return []ast.Node{exprStmt(trueLit(line, col), line, col)}
-	}
-	// Unwrap both sides into `av` / `bv`: two statements, `T(av) = a` and
-	// `T(bv) = b`.
-	stmts := []ast.Node{
-		distinctUnwrap(t.Name, "av", identExpr("a", line, col), line, col),
-		distinctUnwrap(t.Name, "bv", identExpr("b", line, col), line, col),
-	}
-	// Tuple inner type → element-wise equality on `.first`, `.second`, ...
-	if ws := writtenParts(t.InnerTypeExpr); ws != nil {
-		parts := make([]ast.Node, len(ws))
-		for i := range ws {
-			parts[i] = equatableEqualsCall(
-				fieldAccess(identExpr("av", line, col), tupleItemName(i), line, col),
-				fieldAccess(identExpr("bv", line, col), tupleItemName(i), line, col),
-				line, col,
-			)
-		}
-		stmts = append(stmts, exprStmt(andChain(parts, line, col), line, col))
-		return stmts
-	}
-	// Single inner value → recurse via Equatable.equal on the unwrapped
-	// values.
-	stmts = append(stmts, exprStmt(equatableEqualsCall(
-		identExpr("av", line, col),
-		identExpr("bv", line, col),
-		line, col,
-	), line, col))
-	return stmts
-}
-
 // ---------------------------------------------------------------------------
 // AST construction helpers
 // ---------------------------------------------------------------------------
@@ -1232,13 +983,13 @@ func equatableDistinctStmts(t *ast.TypeDef, line, col int) []ast.Node {
 //
 // The reserved band starts at `baseLine`; we walk by column within that
 // line and roll to baseLine+1 once a line would exceed 16383 columns.
-// Callers (synthesizeDeriveEquatable) call nextSynthBase() to claim a
+// Callers (synthesizeDeriveComparable) call nextSynthBase() to claim a
 // disjoint band per FuncDef.
 //
-// Contract for new synthesizers (Tasks 10-12 — Hashable, Comparable,
-// Debug — and any future @derive emitters): every synthesizer must
+// Contract for synthesizers (Comparable, the JSON derives, Variants,
+// the name-only Debug, and any future one): every synthesizer must
 // extend the uniquifyState.node walker when it introduces a new
-// ast.Node kind into synthesized output (Block, IntLit, StringLit,
+// ast.Node kind into synthesized output (Block, StringLit,
 // Lambda, If, StructLit, etc.). The walker's default case panics so
 // unhandled types fail loudly during development rather than silently
 // retaining the FuncDef's (line, col) and triggering position-aliasing
@@ -1528,10 +1279,6 @@ func (s *uniquifyState) node(n ast.Node) {
 		s.node(ep)
 		e.Line, e.Col = ep.Line, ep.Col
 		s.node(e.Value)
-	case *ast.IntLit:
-		// Leaf node — Hashable synthesizer emits these for the mix
-		// multiplier (31) and per-variant tag indices.
-		e.Line, e.Col = s.bump()
 	case *ast.StringLit:
 		// Leaf node — Debug synthesizer emits these for static-string
 		// bodies (empty struct, bare enum variant, zero-sized distinct).
@@ -1644,52 +1391,6 @@ func fieldAccess(obj ast.Node, fieldName string, line, col int) *ast.FieldAccess
 	}
 }
 
-// equatableEqualsCall wraps two argument expressions in
-// `Equatable.equal(<a>, <b>)`. The callee is a FieldAccess on the
-// `Equatable` type-ident — same shape the parser produces for any
-// interface-qualified call.
-func equatableEqualsCall(a, b ast.Node, line, col int) ast.Node {
-	callee := &ast.FieldAccess{
-		Object: &ast.TypeIdent{Name: "Equatable", Line: line, Col: col},
-		Field:  &ast.Ident{Name: "equal", Line: line, Col: col},
-		Line:   line,
-		Col:    col,
-	}
-	return &ast.Call{
-		Func: callee,
-		Args: []ast.Node{a, b},
-		Line: line,
-		Col:  col,
-	}
-}
-
-// andChain folds a list of bool expressions into a left-associative AND
-// chain: `[p, q, r]` → `(p and q) and r`. Empty list returns True; single
-// element returns itself unchanged.
-func andChain(parts []ast.Node, line, col int) ast.Node {
-	if len(parts) == 0 {
-		return trueLit(line, col)
-	}
-	out := parts[0]
-	for _, p := range parts[1:] {
-		out = &ast.Binary{Left: out, Op: "and", Right: p, Line: line, Col: col}
-	}
-	return out
-}
-
-// trueLit returns the source-form `True` — Nomi has no dedicated bool
-// literal node; True/False are bare enum-variant idents in expression
-// position. *ast.TypeIdent matches what the parser produces for a
-// PascalCase token used as a value.
-func trueLit(line, col int) ast.Node {
-	return &ast.TypeIdent{Name: "True", Line: line, Col: col}
-}
-
-// falseLit returns the source-form `False` (see trueLit).
-func falseLit(line, col int) ast.Node {
-	return &ast.TypeIdent{Name: "False", Line: line, Col: col}
-}
-
 // qualifiedTypeExpr returns `*ast.QualifiedType{Module: mod, Member:
 // SimpleType{Name: member}}` — the shape the parser produces for
 // `Mod.Member` in type-expression position (variant references in
@@ -1754,118 +1455,41 @@ func receiverTypeExpr(typeName string, typeParams []ast.TypeParam, line, col int
 	return &ast.GenericType{Name: typeName, Params: params, Line: line, Col: col}
 }
 
-// CheckDeriveBounds walks the file's top-level type decls and, for every
-// `@derive Iface` decorator, verifies that each component type the derived
-// impl will recurse into (struct field, enum variant payload, distinct
-// inner type) has an `Iface` impl visible from this file. Without this
-// check the structural-eq / hash / compare / debug body emitted by the
-// synthesizer compiles fine but blows up at runtime with `Iface.method:
-// no implementation for type 'X'` pointing at a synth-band position —
-// useless for diagnosing the user's actual mistake.
-//
-// The check is run AFTER `defineTopLevel` completes so b.file.Impls is
-// fully populated. By that point, the (T, Iface) entries for the
-// @derive'd types themselves are in b.file.Impls (registered by
-// recordInterfaceImpl via the synthesizer's emitted impl block),
-// which means recursive types
-// (`struct List { head: Int, tail: List }`) and mutually-recursive types
-// (`struct A { b: B }` / `struct B { a: A }` both `@derive Iface`) just
-// look themselves up in the impl table and pass.
-//
-// Type-parameter references (`T` in `struct Box<T> { value: T }`) are
-// recognized by name match against the source decl's TypeParams and
-// skipped — the synthesized fn carries an implicit
-// `T: Iface` bound that the call-site's interface-bound enforcement
-// catches.
-//
-// When impls is nil (typical for `buildTypesFromSource` /
-// BuildFileWithStdlib unit tests that skip the project pipeline), the
-// check is a no-op: we can't tell whether Int / String / Bool genuinely
-// lack impls or are simply missing because no project-level index was
-// built. Returning no errors in that case lets stdlib-less tests
-// continue to exercise the @derive validation pass without false
-// positives.
-//
-// BuildProjectWithCache passes the impl index it is assembling, which is
-// complete for impls by Sweep B-bounds, so the project path gets full
-// project-wide impl knowledge here.
-//
-// Errors are appended to fa.TypeErrors at the @derive arg's position so
-// the squiggle lands on the offending interface name rather than on the
-// type decl. The message names the field/variant/payload so the user
-// knows exactly which component type lacks the impl.
-func CheckDeriveBounds(fa *FileAnalysis, nodes []ast.Node, impls *ProjectImplIndex, fileOf declFiles) []TypeError {
-	if fa == nil || impls == nil {
-		// Single-file path (BuildFileWithStdlib / buildTypesFromSource):
-		// no project-level impl index was built. The check would flag
-		// every primitive-typed field as missing; skip rather than
-		// surface false positives. See doc comment above.
+// CheckDeriveBounds reports, for each `derive ToJson` or `derive FromJson`
+// of a type nodes declare, the parts whose shape std's impls of either do
+// not cover (jsonFieldGap) and a field whose type comes from its default
+// under FromJson (untypedFieldDerive), each at the part. That each part has
+// the derived interface is the checker's demand (checkDerivedParts), which
+// these do not ask: std's `impl ToJson for Map<String, V>` meets a demand of
+// ToJson at a `Map<Int, Int>` by the type's name, and a tuple has no name to
+// demand an impl of. fileOf finds the file that declares an alias a part
+// names.
+func CheckDeriveBounds(fa *FileAnalysis, nodes []ast.Node, fileOf declFiles) []TypeError {
+	if fa == nil {
 		return nil
 	}
 	var errs []TypeError
 	for _, n := range nodes {
-		var typeName string
+		typeName, ok := typeDeclName(n)
+		if !ok {
+			continue
+		}
 		var decorators []ast.Decorator
-		var typeParams []ast.TypeParam
 		switch d := n.(type) {
 		case *ast.StructDef:
-			typeName, decorators, typeParams = d.Name, d.Decorators, d.TypeParams
+			decorators = d.Decorators
 		case *ast.EnumDef:
-			typeName, decorators, typeParams = d.Name, d.Decorators, d.TypeParams
+			decorators = d.Decorators
 		case *ast.TypeDef:
-			typeName, decorators, typeParams = d.Name, d.Decorators, d.TypeParams
-		case *ast.ExternType:
-			// `@derive` on an host type is vacuously satisfied: the
-			// declaration has no components (fields / variant payloads /
-			// inner type) for the synthesized body to recurse into — the
-			// trivial constant bodies dispatch on nothing — so there are
-			// no component-impl requirements to check and no payload
-			// manifest demands to record.
-			continue
-		default:
-			continue
+			decorators = d.Decorators
 		}
-		if len(decorators) == 0 {
-			continue
-		}
-		typeParamSet := make(map[string]bool, len(typeParams))
-		for _, tp := range typeParams {
-			typeParamSet[tp.Name] = true
-		}
-		for i := range decorators {
-			dec := &decorators[i]
+		for _, dec := range decorators {
 			if dec.Name != "derive" {
 				continue
 			}
 			for _, arg := range dec.Args {
-				te, ok := arg.(ast.TypeExpr)
-				if !ok || !deriveSupported[TypeExprBaseName(te)] || !derivesStdInterface(fa, te) {
-					// A derive naming an interface derive does not
-					// write is checkDerivedInterface's one error.
-					continue
-				}
-				ifaceName := TypeExprBaseName(te)
-				ifaceLine, ifaceCol := typeExprPos(te, dec.Line, dec.Col)
-				derivePos := Pos{File: fa.FilePath, Line: ifaceLine, Col: ifaceCol}
-				errs = append(errs, checkDeriveComponentTypes(fa, fa, impls, fileOf, n, typeName, ifaceName, derivePos, typeParamSet)...)
-				// Synth bodies for Display/Debug emit StringInterp literals like
-				// "Some(${Iface.to_string(_v0)})". At runtime, evalStringInterp
-				// re-dispatches Display.to_string on the inner String parts
-				// (the to_string return values), so (String, Display) must be
-				// in the manifest regardless of which payload types the
-				// @derive covers. Equatable/Hashable/Comparable synth bodies
-				// don't emit StringInterp, so this only fires for Display and
-				// Debug.
-				if ifaceName == "Display" || ifaceName == "Debug" {
-					fa.RecordManifest("String", "Display", Recording{
-						Pos:  derivePos,
-						Kind: RecordingKindDerivePayload,
-						Derive: &DeriveCtx{
-							Iface:     ifaceName,
-							TypeName:  typeName,
-							DerivePos: derivePos,
-						},
-					})
+				if te, ok := arg.(ast.TypeExpr); ok && derivesStdInterface(fa, te) {
+					errs = append(errs, checkJsonDeriveParts(fa, fileOf, n, typeName, TypeExprBaseName(te))...)
 				}
 			}
 		}
@@ -1873,187 +1497,25 @@ func CheckDeriveBounds(fa *FileAnalysis, nodes []ast.Node, impls *ProjectImplInd
 	return errs
 }
 
-// checkDeriveComponentTypes walks one (typeNode, ifaceName) pair and
-// reports each component type that lacks an Iface impl. Component types
-// are: struct fields (StructDef.Fields), enum variant payloads
-// (EnumDef.Variants — DataTypeExpr for positional, Fields for struct
-// variants, EmbeddedTypeExpr for embedded), or the distinct inner
-// (TypeDef.InnerTypeExpr).
-//
-// Each component report names the field/variant/payload so the diagnostic
-// is actionable. Position of the *error* is the @derive arg's site
-// (`derivePos`), not the field's, because that's where the user adds or
-// removes the derive. Recordings, however, carry richer context via
-// DeriveCtx: the @derive position, the offending field's name, and the
-// field's source position. The component's own position drives the
-// Recording.Pos so the missing-impl diagnostic can render "Holder.w on
-// foo.nomi:7" instead of pointing at the bare `@derive` line.
-//
-// Generic-instantiation recursion: when a component's base type itself
-// has an Iface impl AND carries type arguments (e.g. `w: Wrapper<C>`
-// where Wrapper @derives Display), the synthesized Display body on
-// Wrapper will recursively dispatch Display.to_string on its inner
-// C-typed field at runtime. To pre-register that dispatch entry, each
-// TypeArg gets its own Recording attributed to the *current* field
-// (Holder.w), not Wrapper's synth body. Without this, a (Display, C)
-// demand from Holder's perspective is unrecorded and the runtime
-// fails with "Display.to_string: no implementation for type 'C'" at
-// a synth-band position. The recursion uses the same DeriveCtx as the
-// outer field — the user's actionable fix is on Holder's `w` field,
-// not Wrapper's synthesizer.
-//
-// fa is the analysis of the file that declares typeNode, which names the
-// component types; into is that of the file the derived impl belongs to,
-// whose manifest the demands go in. They differ for a derive written for
-// another file's type (CheckForeignDeriveBounds): the impl, and so what its
-// body demands, is the deriving file's, and a check that rebuilds one file
-// and keeps the other must find each demand once, in the file it rebuilt.
-func checkDeriveComponentTypes(fa, into *FileAnalysis, impls *ProjectImplIndex, fileOf declFiles, typeNode ast.Node, typeName, ifaceName string, derivePos Pos, typeParamSet map[string]bool) []TypeError {
-	var errs []TypeError
-	declFA := fa
-	var report func(fa *FileAnalysis, fieldName string, fieldPos Pos, te ast.TypeExpr)
-	report = func(fa *FileAnalysis, fieldName string, fieldPos Pos, te ast.TypeExpr) {
-		if te == nil {
-			return
-		}
-		if target, targetFA := deriveAliasTarget(fa, fileOf, te, map[*Symbol]bool{}); target != te {
-			// `m: Map<Key, Int>` under `typealias Key String`, or
-			// `m: counts.Counts` under another file's alias: the field's
-			// type is the alias's target, read in the file that declares
-			// it, whose impls the body reaches.
-			report(targetFA, fieldName, fieldPos, target)
-			return
-		}
-		if fn := functionTypeIn(te); fn != nil && noEqualityIface[ifaceName] {
-			// A function value has no equality, so no hash or order: a
-			// derived body would compare it.
-			errs = append(errs, TypeError{
-				Line: fieldPos.Line, Col: fieldPos.Col, File: fieldPos.File,
-				Message: fmt.Sprintf("no impl of `%s` for `%s` (required via `derive %s for %s`, field `%s`)",
-					ifaceName, fn.TypeString(), ifaceName, typeName, fieldName),
-			}.WithHint(fmt.Sprintf("a function value has no equality; write an `impl %s for %s` that leaves the field out", ifaceName, typeName)))
-			return
-		}
-		if ifaceName == "ToJson" || ifaceName == "FromJson" {
-			if bad, help := jsonFieldGap(fa, fileOf, te, map[*Symbol]bool{}); bad != nil {
-				errs = append(errs, TypeError{
-					Line: fieldPos.Line, Col: fieldPos.Col, File: fieldPos.File,
-					Message: fmt.Sprintf("no impl of `%s` for `%s` (required via `derive %s for %s`, field `%s`)",
-						ifaceName, bad.TypeString(), ifaceName, typeName, fieldName),
-				}.WithHint(help))
-				return
-			}
-		}
-		if parts, ok := structuralDeriveParts(te, ifaceName); ok {
-			// A tuple or anonymous struct implements the interface when
-			// each part does (spec §12 *Tuples, anonymous structs and
-			// functions*), so the derived body's demand is each part's.
-			for _, p := range parts {
-				report(fa, fieldName, fieldPos, p)
-			}
-			return
-		}
-		baseName := TypeExprBaseName(te)
-		if baseName == "" {
-			// Function/anonymous types — synthesizer doesn't recurse into
-			// these as `Iface.method` callees today; skipping matches what
-			// the runtime would do and avoids a confusing "function type
-			// has no impl" error.
-			return
-		}
-		if typeParamSet[baseName] {
-			// Type-param reference — the implicit `T: Iface` bound carries the
-			// requirement to the call site.
-			return
-		}
-		if base, baseFA, ok := deriveRefinementBase(fa, fileOf, baseName); ok {
-			// A refinement's value is its base's and has the base's impls
-			// (spec §4 *Refinements*), so the derived body's demand is the
-			// base's: `year: Int64` is Int's Comparable. The one derivable
-			// interface that makes a value, FromJson, reads a refinement at
-			// its base and checks its rules (refinement_reads.go), so its
-			// demand is the base's too.
-			report(baseFA, fieldName, fieldPos, base)
-			return
-		}
-		if isInterfaceTypeName(fa, baseName) {
-			// Interface-typed field/payload (existential): the runtime
-			// value at this slot is of some concrete type that implements
-			// `baseName`, but we don't know which at the @derive site.
-			// Iface dispatch on the value happens at runtime against the
-			// stored type's impl — if that impl isn't there, the runtime
-			// surfaces the failure with the actual type name. The static
-			// check can't verify this case, so skip rather than emit a
-			// blanket "interface 'X' does not implement Y" error that
-			// the user can't act on without writing a manual impl.
-			return
-		}
-		// Build the DeriveCtx once; both the outer-component recording and
-		// any inner type-arg recursions share the same provenance shape:
-		// the user's fix point is the field, not the synthesizer.
-		ctx := &DeriveCtx{
-			Iface:     ifaceName,
-			TypeName:  typeName,
-			DerivePos: derivePos,
-			FieldName: fieldName,
-			FieldPos:  fieldPos,
-		}
-		// Record (component, iface) unconditionally. When the impl
-		// exists, this gives the manifest an entry for the impl that
-		// the synthesized derive body will dispatch through. When the impl is MISSING, DetectMissingImpls
-		// (run later by FinalizeCoherence) consumes the same manifest
-		// entry to surface a "no impl of `Iface` for T" diagnostic with
-		// the field's DeriveCtx provenance. Both consumers want the
-		// recording; the legacy gate that skipped recording for the
-		// missing case forced CheckDeriveBounds to emit its own terser
-		// error and left FinalizeCoherence with nothing to diagnose.
-		//
-		// CheckDeriveBounds no longer emits its own field-impl error
-		// for the missing case. The FinalizeCoherence path
-		// (DetectMissingImpls) renders the richer "no impl of `Iface`
-		// for T" diagnostic with full DeriveCtx provenance. Emitting
-		// both produced two reports for one fix. CheckDeriveBounds's
-		// outer Program().ImplIndex-nil guard already short-circuits the
-		// whole pass for raw-test callers (BuildFile without an
-		// AttachStdlibProjectImpls), so no graceful-degradation branch
-		// is needed here — if we got past that guard, FinalizeCoherence
-		// is the diagnostic owner.
-		if deriveComponentHasEquality(fa, impls, fileOf, baseName, ifaceName) {
-			// A declared type with equality and no impl of its own meets
-			// Equatable and Hashable by it, as a bound does
-			// (structural_bounds.go); its type arguments still must.
-			for _, ta := range typeArgs(te) {
-				errs = append(errs, recordDeriveTypeArg(fa, into, impls, fileOf, ifaceName, ta, ctx, typeParamSet)...)
-			}
-			return
-		}
-		ctx.NoEquality = deriveDemandNoEquality(fa, impls, fileOf, baseName, ifaceName)
-		rec := Recording{
-			Pos:        fieldPos,
-			Kind:       RecordingKindDeriveSynth,
-			Derive:     ctx,
-			TypeOrigin: deriveComponentOrigin(fa, baseName),
-		}
-		into.RecordManifest(baseName, ifaceName, rec)
-		errs = append(errs, stdDeriveGap(fa, impls, baseName, ifaceName, rec)...)
-		if hasInterfaceImpl(fa, impls, baseName, ifaceName) && !phantomTypeArgs(baseName) {
-			// Generic-instantiation recursion: when the base type itself
-			// implements `ifaceName` and is being instantiated with type
-			// arguments, the base type's @derive'd body will dispatch
-			// Iface.method on each TypeArg slot. Attribute those nested
-			// recordings to the *current* field so the diagnostic points
-			// at the user's `w: Wrapper<C>` site, not Wrapper's synth.
-			for _, ta := range typeArgs(te) {
-				errs = append(errs, recordDeriveTypeArg(fa, into, impls, fileOf, ifaceName, ta, ctx, typeParamSet)...)
-			}
-		}
+// checkJsonDeriveParts is CheckDeriveBounds for one derive of ifaceName for
+// typeNode, named typeName, which fa declares.
+func checkJsonDeriveParts(fa *FileAnalysis, fileOf declFiles, typeNode ast.Node, typeName, ifaceName string) []TypeError {
+	if ifaceName != "ToJson" && ifaceName != "FromJson" {
+		return nil
 	}
+	var errs []TypeError
 	eachDeclPart(typeNode, func(p declPart) {
 		if p.te == nil {
 			errs = append(errs, untypedFieldDerive(fa, *p.field, typeName, ifaceName)...)
 			return
 		}
-		report(declFA, p.name, Pos{File: fa.FilePath, Line: p.line, Col: p.col}, p.te)
+		if bad, help := jsonFieldGap(fa, fileOf, p.te, map[*Symbol]bool{}); bad != nil {
+			errs = append(errs, TypeError{
+				Line: p.line, Col: p.col, File: fa.FilePath,
+				Message: fmt.Sprintf("no impl of `%s` for `%s` (required via `derive %s for %s`, field `%s`)",
+					ifaceName, bad.TypeString(), ifaceName, typeName, p.name),
+			}.WithHint(help))
+		}
 	})
 	return errs
 }
@@ -2130,48 +1592,6 @@ func untypedFieldDerive(fa *FileAnalysis, f ast.StructField, typeName, ifaceName
 		Line: f.Line, Col: f.Col, File: fa.FilePath,
 		Message: fmt.Sprintf("`derive FromJson for %s` needs field '%s' to have a written type", typeName, f.Name),
 	}.WithHint(fmt.Sprintf("write its type: `%s: T = %s`", f.Name, format.RenderNode(f.Default)))}
-}
-
-// structuralDeriveParts answers the parts of te when te is a tuple or
-// anonymous struct type that implements std's interface ifaceName when
-// each part implements it, as structuralNeeds decides for the type's
-// checked form (spec §12 *Tuples, anonymous structs and functions*).
-func structuralDeriveParts(te ast.TypeExpr, ifaceName string) ([]ast.TypeExpr, bool) {
-	var parts []ast.TypeExpr
-	anon := false
-	switch t := te.(type) {
-	case *ast.FuncType:
-		if t.Return != nil {
-			return nil, false
-		}
-		parts = t.Params
-	case *ast.AnonStructType:
-		anon = true
-		parts = make([]ast.TypeExpr, len(t.Fields))
-		for i, f := range t.Fields {
-			parts[i] = f.TypeAnnotation
-		}
-	default:
-		return nil, false
-	}
-	iface := stdDerivedIface(ifaceName)
-	needs, meets, decided := structuralNeeds(iface, anon)
-	if !meets || !decided || len(needs) != 1 || needs[0] != iface {
-		return nil, false
-	}
-	return parts, true
-}
-
-// stdDerivedIface is std's interface a `derive` of ifaceName names, as
-// isStdInterfaceNamed and isStdJsonIface identify it.
-func stdDerivedIface(ifaceName string) *InterfaceType {
-	switch ifaceName {
-	case stdToJsonType.Name:
-		return &InterfaceType{Name: ifaceName, Origin: stdToJsonType.Module}
-	case stdFromJsonType.Name:
-		return &InterfaceType{Name: ifaceName, Origin: stdFromJsonType.Module}
-	}
-	return &InterfaceType{Name: ifaceName, Origin: "std/" + strings.ToLower(ifaceName)}
 }
 
 // jsonFieldGap answers the part of te, a field type under a derived ToJson
@@ -2278,391 +1698,6 @@ func isStringTypeExpr(te ast.TypeExpr) bool {
 	return ok && st.Name == "String"
 }
 
-// noEqualityIface is the derivable interfaces whose derived body compares
-// each component, so a component with no equality cannot have one.
-var noEqualityIface = map[string]bool{"Equatable": true, "Hashable": true, "Comparable": true}
-
-// functionTypeIn answers the first function type te is or holds, through
-// tuples, type arguments and a module qualifier, or nil.
-func functionTypeIn(te ast.TypeExpr) *ast.FuncType {
-	switch t := te.(type) {
-	case *ast.FuncType:
-		if t.Return != nil {
-			return t
-		}
-		for _, p := range t.Params {
-			if fn := functionTypeIn(p); fn != nil {
-				return fn
-			}
-		}
-	case *ast.GenericType:
-		for _, p := range t.Params {
-			if fn := functionTypeIn(p); fn != nil {
-				return fn
-			}
-		}
-	case *ast.QualifiedType:
-		return functionTypeIn(t.Member)
-	}
-	return nil
-}
-
-// typeArgs returns the type-argument list of a TypeExpr — non-empty for
-// GenericType, empty otherwise. Used by checkDeriveComponentTypes to
-// recurse into nested generic instantiations the parent type's @derive
-// will dispatch through.
-func typeArgs(te ast.TypeExpr) []ast.TypeExpr {
-	switch t := te.(type) {
-	case *ast.GenericType:
-		return t.Params
-	case *ast.QualifiedType:
-		return typeArgs(t.Member)
-	}
-	return nil
-}
-
-// phantomTypeArgs reports whether a type's arguments are phantom, so no
-// derived body dispatches on them: std/regex's `Regex<C>`, whose C only
-// types what `String.captures` answers (regex_literal.go). The walk here
-// keys types by bare name, as the impl manifest does.
-func phantomTypeArgs(baseName string) bool {
-	return baseName == regexName
-}
-
-// recordDeriveTypeArg records (typeArg's base name, ifaceName) in into's
-// manifest, attributed to the same DeriveCtx as the parent field, with te
-// resolved in fa (checkDeriveComponentTypes). Recurses into the type-arg's
-// own TypeArgs when the base type itself has an impl — same rationale as
-// the outer report closure's generic-instantiation recursion: the impl's
-// synth body will dispatch through each TypeArg slot too.
-func recordDeriveTypeArg(fa, into *FileAnalysis, impls *ProjectImplIndex, fileOf declFiles, ifaceName string, te ast.TypeExpr, ctx *DeriveCtx, typeParamSet map[string]bool) []TypeError {
-	if te == nil {
-		return nil
-	}
-	// A type argument naming an alias (`Map<Key, V>` under `typealias Key
-	// String`) is the alias's target, read in the file that declares it.
-	te, fa = deriveAliasTarget(fa, fileOf, te, map[*Symbol]bool{})
-	baseName := TypeExprBaseName(te)
-	if baseName == "" {
-		return nil
-	}
-	if typeParamSet[baseName] {
-		// Type-param at the inner position — the outer @derive's
-		// implicit bound carries the requirement.
-		return nil
-	}
-	if isInterfaceTypeName(fa, baseName) {
-		// Existential at the inner position — runtime resolves.
-		return nil
-	}
-	if base, baseFA, ok := deriveRefinementBase(fa, fileOf, baseName); ok {
-		// A refinement at the inner position demands its base's impl, as one
-		// of the field itself does (checkDeriveComponentTypes).
-		return recordDeriveTypeArg(baseFA, into, impls, fileOf, ifaceName, base, ctx, typeParamSet)
-	}
-	if deriveComponentHasEquality(fa, impls, fileOf, baseName, ifaceName) {
-		var errs []TypeError
-		for _, ta := range typeArgs(te) {
-			errs = append(errs, recordDeriveTypeArg(fa, into, impls, fileOf, ifaceName, ta, ctx, typeParamSet)...)
-		}
-		return errs
-	}
-	recCtx := ctx
-	if holds := deriveDemandNoEquality(fa, impls, fileOf, baseName, ifaceName); holds != ctx.NoEquality {
-		// The field's context, saying what this type argument holds.
-		argCtx := *ctx
-		argCtx.NoEquality = holds
-		recCtx = &argCtx
-	}
-	rec := Recording{
-		Pos:        ctx.FieldPos,
-		Kind:       RecordingKindDeriveSynth,
-		Derive:     recCtx,
-		TypeOrigin: deriveComponentOrigin(fa, baseName),
-	}
-	into.RecordManifest(baseName, ifaceName, rec)
-	errs := stdDeriveGap(fa, impls, baseName, ifaceName, rec)
-	// Recurse further: an impl on a generic type will dispatch through
-	// each layer of its TypeArgs in turn.
-	if hasInterfaceImpl(fa, impls, baseName, ifaceName) && !phantomTypeArgs(baseName) {
-		for _, inner := range typeArgs(te) {
-			errs = append(errs, recordDeriveTypeArg(fa, into, impls, fileOf, ifaceName, inner, ctx, typeParamSet)...)
-		}
-	}
-	return errs
-}
-
-// deriveComponentHasEquality reports whether baseName, a derive's component
-// type, meets ifaceName (Equatable or Hashable) by its equality, as a bound
-// does (structuralEqualityConformance): a struct, enum or distinct type the
-// file can name, with no impl of the interface, whose components all have
-// equality. Types are not resolved when derives are checked, so this reads
-// the declarations: a component has equality when it is no function type,
-// no Iter and no host type without an `impl Equatable`, at any depth.
-func deriveComponentHasEquality(fa *FileAnalysis, impls *ProjectImplIndex, fileOf declFiles, baseName, ifaceName string) bool {
-	if ifaceName != "Equatable" && ifaceName != "Hashable" || hasInterfaceImpl(fa, impls, baseName, ifaceName) {
-		return false
-	}
-	return deriveDeclHasEquality(fa, impls, fileOf, baseName, map[string]bool{})
-}
-
-// deriveDeclHasEquality reports whether the declaration baseName names has
-// equality: its own `impl Equatable`, or components that all have it.
-func deriveDeclHasEquality(fa *FileAnalysis, impls *ProjectImplIndex, fileOf declFiles, baseName string, seen map[string]bool) bool {
-	_, has := deriveDeclEquality(fa, impls, fileOf, baseName, seen)
-	return has
-}
-
-// deriveNoEquality is what deriveComponentHasEquality found with no
-// equality in baseName, for the help of the derive's missing impl: a part
-// it holds (`(Int) -> Int`, a function value), or "" when baseName is
-// itself the type with none, or the walk could not read its declaration.
-// A derive's demand reaches the missing-impl diagnostic by names alone, so
-// the recording carries it (DeriveCtx.NoEquality).
-func deriveNoEquality(fa *FileAnalysis, impls *ProjectImplIndex, fileOf declFiles, baseName string) string {
-	holds, has := deriveDeclEquality(fa, impls, fileOf, baseName, map[string]bool{})
-	if has || strings.HasPrefix(holds, "`"+baseName+"`,") {
-		return ""
-	}
-	return holds
-}
-
-// deriveDemandNoEquality is deriveNoEquality for a derive's demand of
-// ifaceName on baseName: "" unless the demand is Equatable or Hashable,
-// which baseName has no impl of.
-func deriveDemandNoEquality(fa *FileAnalysis, impls *ProjectImplIndex, fileOf declFiles, baseName, ifaceName string) string {
-	if ifaceName != "Equatable" && ifaceName != "Hashable" || hasInterfaceImpl(fa, impls, baseName, ifaceName) {
-		return ""
-	}
-	return deriveNoEquality(fa, impls, fileOf, baseName)
-}
-
-// deriveDeclEquality is deriveDeclHasEquality, and when the declaration has
-// no equality, the part of it that has none (deriveNoEquality), or "" when
-// it is a host type or a name the walk cannot read.
-func deriveDeclEquality(fa *FileAnalysis, impls *ProjectImplIndex, fileOf declFiles, baseName string, seen map[string]bool) (string, bool) {
-	if hasInterfaceImpl(fa, impls, baseName, "Equatable") || seen[baseName] {
-		return "", true
-	}
-	seen[baseName] = true
-	if fa == nil || fa.ModuleScope == nil {
-		return "", false
-	}
-	sym := fa.ModuleScope.Lookup(baseName)
-	if sym == nil {
-		return "", false
-	}
-	if sym.Resolved != nil {
-		sym = sym.Resolved
-	}
-	if sym.Type != nil && IsRefinement(sym.Type) {
-		// A refinement's values are its base's (spec §4 *Refinements*), so it
-		// has the base's equality. Its parents are named in its declaring
-		// file, which a std refinement's deriving file may not import
-		// (`PositiveDuration` over `NonNegativeDuration`), so the base is
-		// read from the resolved type rather than from the declaration.
-		base := RefinementBase(sym.Type)
-		if name := concreteTypeName(base); name != "" && name != baseName {
-			if hasInterfaceImpl(fa, impls, name, "Equatable") {
-				return "", true
-			}
-			if _, isPrim := base.(*PrimitiveType); isPrim {
-				return "", true
-			}
-		}
-	}
-	if td, isRefinement := sym.Node.(*ast.TypeDef); isRefinement && td.Refinement && sym.Type == nil && sym.SourceFile == "" {
-		// A std refinement read before std's types are resolved, whose
-		// declaring file this pass cannot reach. Every std refinement is over
-		// a type with equality (a number, a Duration, a collection, a
-		// range, a string, Json), and the caller checks its type
-		// arguments.
-		return "", true
-	}
-	// The declaration's parts name types in the file that declares it,
-	// which the deriving file may not import: an `embeds Spot` of another
-	// file's enum is that file's Spot.
-	declFA, known := declaringFile(fa, fileOf, sym)
-	if !known && sym.Type != nil {
-		// A declaration out of reach (a std type seen from another file)
-		// whose type is resolved: its equality is the type's, as `==`
-		// decides it.
-		hasImpl := func(t Type) bool {
-			name := concreteTypeName(t)
-			return name != "" && hasInterfaceImpl(fa, impls, name, "Equatable")
-		}
-		if part, none := noEqualityPartWith(sym.Type, hasImpl, map[Type]bool{}); none {
-			return fmt.Sprintf("`%s`, %s", part, noEqualityWhat(part)), false
-		}
-		return "", true
-	}
-	fa = declFA
-	params := map[string]bool{}
-	var parts []ast.TypeExpr
-	switch d := sym.Node.(type) {
-	case *ast.StructDef:
-		for _, tp := range d.TypeParams {
-			params[tp.Name] = true
-		}
-		for _, f := range d.Fields {
-			parts = append(parts, f.TypeAnnotation)
-		}
-	case *ast.EnumDef:
-		for _, tp := range d.TypeParams {
-			params[tp.Name] = true
-		}
-		for _, v := range d.Variants {
-			parts = append(parts, v.DataTypeExpr, v.EmbeddedTypeExpr)
-			for _, f := range v.Fields {
-				parts = append(parts, f.TypeAnnotation)
-			}
-		}
-	case *ast.TypeDef:
-		for _, tp := range d.TypeParams {
-			params[tp.Name] = true
-		}
-		parts = append(parts, d.InnerTypeExpr)
-	case *ast.ExternType:
-		// A host type, whose equality only its own impl gives.
-		return fmt.Sprintf("`%s`, a host type with no `impl Equatable`", baseName), false
-	default:
-		// A name that is no declared type.
-		return "", false
-	}
-	for _, te := range parts {
-		if holds, has := deriveTypeEquality(fa, impls, fileOf, te, params, seen); !has {
-			return holds, false
-		}
-	}
-	return "", true
-}
-
-// deriveRefinementBase is a parent of the non-generic refinement baseName names
-// in fa, written as a type the returned file resolves, or false when
-// baseName is no such refinement. A refinement's values are its base's, so any
-// parent stands for it (spec §4 *Refinements*). Types may not be resolved when
-// derives are checked, so it reads the declaration when the file that
-// declares it is in reach, and otherwise the resolved type. A generic
-// refinement (`NonEmptyList<String>`) is one too, with no parent written: its
-// parent is at the field's type arguments, which the derived body's call
-// of the interface at the field's type reaches and checks.
-func deriveRefinementBase(fa *FileAnalysis, fileOf declFiles, baseName string) (ast.TypeExpr, *FileAnalysis, bool) {
-	if fa == nil || fa.ModuleScope == nil {
-		return nil, nil, false
-	}
-	sym := fa.ModuleScope.Lookup(baseName)
-	if sym == nil {
-		return nil, nil, false
-	}
-	if sym.Resolved != nil {
-		sym = sym.Resolved
-	}
-	if dt, ok := sym.Type.(*DistinctType); ok && dt.Refinement && dt.Inner != nil && len(dt.TypeParams) != 0 {
-		return nil, nil, true
-	}
-	td, ok := sym.Node.(*ast.TypeDef)
-	if !ok {
-		// A symbol read from a module's interface carries its type and no
-		// declaration.
-		return refinementBaseFromType(fa, sym)
-	}
-	if !td.Refinement || td.InnerTypeExpr == nil {
-		return nil, nil, false
-	}
-	if len(td.TypeParams) != 0 {
-		return nil, nil, true
-	}
-	declFA, known := declaringFile(fa, fileOf, sym)
-	if known && (typeExprSymbol(declFA, td.InnerTypeExpr) != nil || isGenericTypeIn(declFA, td.InnerTypeExpr)) {
-		return td.InnerTypeExpr, declFA, true
-	}
-	if sym.Type != nil || known {
-		// The parent is written in a file out of reach: a std refinement
-		// (`PositiveInt` over `NonNegativeInt`, in std/int) seen from
-		// another file. The declaration's positions mean nothing in fa, and
-		// its parent's name may not resolve there, so the parent is read
-		// from the resolved type.
-		return refinementBaseFromType(fa, sym)
-	}
-	// Std's own types are not resolved yet, and the file declaring sym is
-	// out of reach: the parent is looked up in fa by its name alone, as
-	// `Int64`'s `Int` is everywhere. One fa cannot name leaves the
-	// component checked as the refinement itself (deriveDeclHasEquality).
-	if st, ok := td.InnerTypeExpr.(*ast.SimpleType); ok && fa.ModuleScope.Lookup(st.Name) != nil {
-		return &ast.SimpleType{Name: st.Name}, fa, true
-	}
-	return nil, nil, false
-}
-
-// isGenericTypeIn reports whether te is a generic type fa's scope names
-// (`List<Int>`, the parent of `refine Two List<Int> when ...`).
-func isGenericTypeIn(fa *FileAnalysis, te ast.TypeExpr) bool {
-	gt, ok := te.(*ast.GenericType)
-	return ok && fa != nil && fa.ModuleScope != nil && fa.ModuleScope.Lookup(gt.Name) != nil
-}
-
-// refinementBaseFromType is deriveRefinementBase from sym's resolved type: the
-// nearest ancestor of the non-generic refinement that fa names as the same
-// type. `PositiveInt` seen from a file that names neither `NonNegativeInt`
-// nor `NonZeroInt` is `Int`, the base every parent reaches.
-func refinementBaseFromType(fa *FileAnalysis, sym *Symbol) (ast.TypeExpr, *FileAnalysis, bool) {
-	dt, ok := sym.Type.(*DistinctType)
-	if !ok || !dt.Refinement || dt.Inner == nil || len(dt.TypeParams) != 0 {
-		return nil, nil, false
-	}
-	seen := map[Type]bool{dt: true}
-	queue := RefinementParents(dt)
-	for len(queue) > 0 {
-		p := resolveTypeVar(queue[0])
-		queue = queue[1:]
-		if p == nil || seen[p] {
-			continue
-		}
-		seen[p] = true
-		if te := typeNamedIn(fa, p); te != nil {
-			return te, fa, true
-		}
-		queue = append(queue, RefinementParents(p)...)
-	}
-	return nil, nil, false
-}
-
-// typeNamedIn is a type expression naming t, a non-generic nominal type, by
-// its name when fa's scope resolves that name to t, or nil.
-func typeNamedIn(fa *FileAnalysis, t Type) ast.TypeExpr {
-	var name string
-	switch ty := t.(type) {
-	case *PrimitiveType:
-		name = ty.Name_
-	case *DistinctType:
-		if len(ty.TypeArgs) == 0 && !ty.Intersection {
-			name = ty.Name
-		}
-	case *StructType:
-		if len(ty.TypeArgs) == 0 {
-			name = ty.Name
-		}
-	case *EnumType:
-		if len(ty.TypeArgs) == 0 {
-			name = ty.Name
-		}
-	}
-	if name == "" || fa == nil || fa.ModuleScope == nil {
-		return nil
-	}
-	sym := fa.ModuleScope.Lookup(name)
-	if sym == nil {
-		return nil
-	}
-	if sym.Resolved != nil {
-		sym = sym.Resolved
-	}
-	if sym.Type != t {
-		return nil
-	}
-	return &ast.SimpleType{Name: name}
-}
-
 // declFiles finds the analysis of a file of the build that declares sym:
 // by path, the SourceFile of a symbol of the program's own files, or for a
 // symbol with none, a std module's, the build's file whose definitions
@@ -2723,133 +1758,6 @@ func declaringFile(fa *FileAnalysis, fileOf declFiles, sym *Symbol) (*FileAnalys
 	return fa, false
 }
 
-// deriveTypeEquality reports whether te, a component type written in a
-// declaration whose type parameters are params, has equality, and when it
-// has none, the part that has none (deriveNoEquality).
-func deriveTypeEquality(fa *FileAnalysis, impls *ProjectImplIndex, fileOf declFiles, te ast.TypeExpr, params map[string]bool, seen map[string]bool) (string, bool) {
-	if te == nil {
-		return "", true
-	}
-	if fn := functionTypeIn(te); fn != nil {
-		return fmt.Sprintf("`%s`, a function value", fn.TypeString()), false
-	}
-	if parts, ok := structuralDeriveParts(te, "Equatable"); ok {
-		for _, p := range parts {
-			if holds, has := deriveTypeEquality(fa, impls, fileOf, p, params, seen); !has {
-				return holds, false
-			}
-		}
-		return "", true
-	}
-	baseName := TypeExprBaseName(te)
-	if baseName == "" || params[baseName] {
-		return "", true
-	}
-	for _, ta := range typeArgs(te) {
-		if holds, has := deriveTypeEquality(fa, impls, fileOf, ta, params, seen); !has {
-			return holds, false
-		}
-	}
-	if isInterfaceTypeName(fa, baseName) {
-		if baseName == "Iter" {
-			return "an Iter", false
-		}
-		return "", true
-	}
-	return deriveDeclEquality(fa, impls, fileOf, baseName, seen)
-}
-
-// deriveComponentOrigin is the build key of the file that declares the
-// component type named baseName as fa sees it (`std/json` for
-// `Json.ShapeError`), or "" when the name resolves to no nominal type. A
-// derive demand carries it so the missing-impl diagnostic can tell a std
-// type, which the program cannot derive or implement, from its own.
-func deriveComponentOrigin(fa *FileAnalysis, baseName string) string {
-	if fa == nil || fa.ModuleScope == nil {
-		return ""
-	}
-	sym := fa.ModuleScope.Lookup(baseName)
-	if sym == nil {
-		return ""
-	}
-	if sym.Resolved != nil {
-		sym = sym.Resolved
-	}
-	if sym.Type == nil {
-		return ""
-	}
-	if origin, ok := nominalOrigin(sym.Type); ok {
-		return origin
-	}
-	return ""
-}
-
-// stdDeriveGap is the error for a derive in a std file whose component
-// rec names has no impl of iface. DetectMissingImpls leaves out a demand
-// every recording of which is the stdlib's (its hands-off rule), so a std
-// derive over such a component would pass the front end, and the builder
-// would then decline the derived body. A program never declares std's
-// derives, so the error is reported here, where std's own analysis sees it.
-func stdDeriveGap(fa *FileAnalysis, impls *ProjectImplIndex, baseName, iface string, rec Recording) []TypeError {
-	if !missingImplsChecked(iface) || !isStdlibRecording(rec) || hasInterfaceImpl(fa, impls, baseName, iface) {
-		return nil
-	}
-	return []TypeError{TypeError{
-		File: rec.Pos.File, Line: rec.Pos.Line, Col: rec.Pos.Col,
-		Message: fmt.Sprintf("no impl of `%s` for `%s` (required via %s)", iface, baseName, formatRecordingVia(rec)),
-	}.WithHint(missingImplHelp(iface, rec.IfaceTypeParams, rec.IfaceOrigin, baseName, rec.TypeOrigin, []Recording{rec}))}
-}
-
-// hasInterfaceImpl reports whether the named type has an Iface impl
-// visible from this file's analysis. Consults two sources in order:
-//
-//   - fa.Impls — the file's own impl table, which carries the @derive
-//     synthesizer's own emitted entries from the earlier build pass.
-//   - impls.Impls — the project-level impl index built by
-//     buildProjectImplIndex (covers stdlib + sibling impls). In
-//     BuildProjectWithCache it is built BEFORE CheckDeriveBounds
-//     runs, so this branch is the load-bearing
-//     source for cross-file / stdlib impl knowledge here.
-//
-// Caller treats `false` as "no impl found, error" — boolean is sufficient
-// because the per-component report names both the type and the missing
-// interface.
-func hasInterfaceImpl(fa *FileAnalysis, impls *ProjectImplIndex, typeName, ifaceName string) bool {
-	if fa != nil && fa.Impls != nil {
-		if ifaces, ok := fa.Impls[typeName]; ok && ifaces[ifaceName] {
-			return true
-		}
-	}
-	if impls != nil {
-		if ifaces, ok := impls.Impls[typeName]; ok && ifaces[ifaceName] {
-			return true
-		}
-	}
-	return false
-}
-
-// isInterfaceTypeName reports whether the named symbol resolves to an
-// interface in the file's scope chain. Used by checkDeriveComponentTypes
-// to skip interface-typed field slots — those are existentials whose
-// runtime value carries a concrete impl that the static check can't
-// verify (and shouldn't try to). Unrecognised names also return false,
-// landing the caller in the "concrete type without impl" error path,
-// which is correct: a name that resolves to nothing in scope already
-// surfaces as an undefined-type error elsewhere.
-func isInterfaceTypeName(fa *FileAnalysis, name string) bool {
-	if fa == nil || fa.ModuleScope == nil {
-		return false
-	}
-	sym := fa.ModuleScope.Lookup(name)
-	if sym == nil {
-		return false
-	}
-	if sym.Resolved != nil {
-		sym = sym.Resolved
-	}
-	return sym.Kind == SymbolInterface
-}
-
 // boundedTypeParams mirrors the source type's TypeParams onto a synthesized
 // FuncDef, attaching the named interface as a bound on each. Spec §12 *Derive*:
 // `@derive Iface struct Box<T>` synthesizes `fn equal(a: Box<T>, b: Box<T>):
@@ -2884,272 +1792,6 @@ func boundedTypeParams(typeParams []ast.TypeParam, ifaceName string, line, col i
 }
 
 // ---------------------------------------------------------------------------
-// Hashable synthesizer
-// ---------------------------------------------------------------------------
-
-// synthesizeDeriveHashable emits a single `impl Hashable for T { fn hash(value: T) -> Int }`
-// block whose body is structurally appropriate for the type's shape:
-//
-//   - Struct: left-fold mix `Hashable.hash(value.f0) * 31 + Hashable.hash(value.f1) * 31 + ...`.
-//     0-field struct: body is `0`. 1-field: bare `Hashable.hash(value.f)` (no mix).
-//   - Enum: outer `case value` with one branch per variant; branch body mixes
-//     the variant's declaration index (as IntLit) with the structural hash of
-//     its payload. Bare variant: just the index. Variant index is per
-//     spec §12 *Derive* — declaration order determines hash buckets.
-//   - Distinct type: zero-sized → 0; tuple inner → unwrap then mix component
-//     hashes; primitive / generic / qualified → unwrap then delegate to
-//     `Hashable.hash` on the inner value.
-//
-// Position info on every synthesized node points at the type decl's line/col
-// during construction; uniquifyPositions then walks the result and stamps
-// unique (line, col) per node so the analyzer's References / Definitions maps
-// don't suffer from position aliasing. Mirrors the Equatable synthesizer's
-// shape — see synthesizeDeriveEquatable.
-func synthesizeDeriveHashable(typeNode ast.Node, site synthSite) []ast.Node {
-	typeName, ok := typeDeclName(typeNode)
-	if !ok {
-		return nil
-	}
-	line := site.base(synthKindHashable)
-	col := 1
-
-	body := hashableBody(typeNode, line, col)
-	if body == nil {
-		return nil
-	}
-
-	srcParams := typeDeclTypeParams(typeNode)
-	fn := &ast.FuncDef{
-		Name:       "hash",
-		TypeParams: boundedTypeParams(srcParams, "Hashable", line, col),
-		Params: []ast.Param{
-			{Name: "value", TypeAnnotation: receiverTypeExpr(typeName, srcParams, line, col), Line: line, Col: col},
-		},
-		ReturnTypeExpr: &ast.SimpleType{Name: "Int", Line: line, Col: col},
-		Body:           &ast.Block{Stmts: body, Line: line, Col: col},
-		Line:           line,
-		Col:            col,
-	}
-	uniquifyPositions(fn, line)
-	return []ast.Node{fn}
-}
-
-// hashableBody returns the statement list for the synthesized hash fn body,
-// dispatched on the type decl's shape. Each value-position expression is
-// wrapped in *ast.ExprStmt to match what the parser produces for top-level
-// block statements.
-func hashableBody(typeNode ast.Node, line, col int) []ast.Node {
-	switch t := typeNode.(type) {
-	case *ast.StructDef:
-		return []ast.Node{exprStmt(hashableStructExpr(t.Fields, "value", line, col), line, col)}
-	case *ast.EnumDef:
-		return []ast.Node{exprStmt(hashableEnumExpr(t, line, col), line, col)}
-	case *ast.TypeDef:
-		return hashableDistinctStmts(t, line, col)
-	case *ast.ExternType:
-		// Derive-as-assertion (see equatableBody): all values of a
-		// trivial-structure host type are equal, so they share one hash
-		// bucket — the equals/hash agreement law holds by construction.
-		return []ast.Node{exprStmt(intLit(0, line, col), line, col)}
-	}
-	return nil
-}
-
-// hashableStructExpr builds the left-fold mix of `Hashable.hash(<obj>.f)`
-// for each field. obj names the receiver ("value" at top level, or a binding
-// like a struct-pattern field name from an enum-variant case body). For
-// 0-field structs the result is the bare `0` int literal; for 1-field, the
-// bare `Hashable.hash(obj.f)` call (no mix).
-func hashableStructExpr(fields []ast.StructField, obj string, line, col int) ast.Node {
-	if len(fields) == 0 {
-		return intLit(0, line, col)
-	}
-	parts := make([]ast.Node, len(fields))
-	for i, f := range fields {
-		parts[i] = hashableHashCall(
-			fieldAccess(identExpr(obj, line, col), f.Name, line, col),
-			line, col,
-		)
-	}
-	return mixHashChain(parts, line, col)
-}
-
-// hashableEnumExpr builds the outer `case value { ... }` expression. Each
-// variant's branch body is `<index> * 31 + <payload hash>`, or just `<index>`
-// for bare variants. Variant declaration order determines the index — same
-// as the spec §12 *Derive* description for `@derive Hashable` on enums.
-func hashableEnumExpr(e *ast.EnumDef, line, col int) ast.Node {
-	branches := make([]ast.CaseBranch, 0, len(e.Variants))
-	for i, v := range e.Variants {
-		branches = append(branches, ast.CaseBranch{
-			Pattern: enumVariantPattern(e.Name, v, "_v", line, col),
-			Body:    hashableVariantBody(v, i, line, col),
-			Line:    line,
-			Col:     col,
-		})
-	}
-	return &ast.Case{
-		Value:    identExpr("value", line, col),
-		Branches: branches,
-		Line:     line,
-		Col:      col,
-	}
-}
-
-// hashableVariantBody builds the per-variant branch body:
-//
-//   - bare:                 IntLit(index)
-//   - positional arity 1:   index * 31 + Hashable.hash(v0)
-//   - positional arity N:   index * 31 + (Hashable.hash(v0) * 31 + Hashable.hash(v1) ...)
-//   - struct, 0 fields:     IntLit(index)
-//   - struct, N fields:     index * 31 + (Hashable.hash(v_<f>) ... mix)
-//   - embedded:             index * 31 + Hashable.hash(v0)
-//
-// The variant pattern's binding suffix is "_v" (see enumVariantPattern call
-// in hashableEnumExpr); `positionalBindName(i, "_v")` yields `v0`, `v1`, ...
-// and struct patterns bind each field as `v_<field>` (fieldBindName).
-func hashableVariantBody(v ast.EnumVariant, index int, line, col int) ast.Node {
-	idx := intLit(int64(index), line, col)
-	switch v.Kind {
-	case "bare":
-		return idx
-	case "positional":
-		arity := 1
-		if ws := writtenParts(v.DataTypeExpr); ws != nil {
-			arity = len(ws)
-		}
-		parts := make([]ast.Node, arity)
-		for i := 0; i < arity; i++ {
-			parts[i] = hashableHashCall(identExpr(positionalBindName(i, "_v"), line, col), line, col)
-		}
-		return mixHash(idx, mixHashChain(parts, line, col), line, col)
-	case "struct":
-		if len(v.Fields) == 0 {
-			return idx
-		}
-		parts := make([]ast.Node, len(v.Fields))
-		for i, f := range v.Fields {
-			parts[i] = hashableHashCall(identExpr(fieldBindName(f.Name, "_v"), line, col), line, col)
-		}
-		return mixHash(idx, mixHashChain(parts, line, col), line, col)
-	case "embedded":
-		return mixHash(
-			idx,
-			hashableHashCall(identExpr(positionalBindName(0, "_v"), line, col), line, col),
-			line, col,
-		)
-	}
-	return idx
-}
-
-// hashableDistinctStmts handles `type Name InnerType` and zero-sized
-// `type Name`. Zero-sized → body is the IntLit `0`. For tuple inner: unwrap
-// then mix the component hashes via tuple-element field access on the
-// unwrapped binding (`inner.first`, `inner.second`, ...). For non-tuple inner:
-// unwrap then delegate to `Hashable.hash(inner)` on the unwrapped value.
-func hashableDistinctStmts(t *ast.TypeDef, line, col int) []ast.Node {
-	if t.InnerTypeExpr == nil {
-		return []ast.Node{exprStmt(intLit(0, line, col), line, col)}
-	}
-	stmts := []ast.Node{
-		distinctUnwrap(t.Name, "inner", identExpr("value", line, col), line, col),
-	}
-	if ws := writtenParts(t.InnerTypeExpr); ws != nil {
-		parts := make([]ast.Node, len(ws))
-		for i := range ws {
-			parts[i] = hashableHashCall(
-				fieldAccess(identExpr("inner", line, col), tupleItemName(i), line, col),
-				line, col,
-			)
-		}
-		stmts = append(stmts, exprStmt(mixHashChain(parts, line, col), line, col))
-		return stmts
-	}
-	stmts = append(stmts, exprStmt(
-		hashableHashCall(identExpr("inner", line, col), line, col),
-		line, col,
-	))
-	return stmts
-}
-
-// hashableHashCall wraps an argument expression in `Hashable.hash(<arg>)`.
-// Mirrors equatableEqualsCall; the callee is FieldAccess on the `Hashable`
-// type-ident so the call routes through the same interface-qualified
-// dispatch path as user-written `Hashable.hash(x)`.
-func hashableHashCall(arg ast.Node, line, col int) ast.Node {
-	callee := &ast.FieldAccess{
-		Object: &ast.TypeIdent{Name: "Hashable", Line: line, Col: col},
-		Field:  &ast.Ident{Name: "hash", Line: line, Col: col},
-		Line:   line,
-		Col:    col,
-	}
-	return &ast.Call{
-		Func: callee,
-		Args: []ast.Node{arg},
-		Line: line,
-		Col:  col,
-	}
-}
-
-// mixHashChain folds a list of int-typed expressions into the canonical
-// left-fold mix: `[h0, h1, h2]` → `h0 * 31 + h1 * 31 + h2` (parsed as
-// `((h0 * 31) + h1) * 31 + h2` under standard precedence). Empty list
-// returns `0`; single element returns itself unchanged.
-//
-// Note: this matches the FNV-style multiply-then-add convention used by
-// Java's String#hashCode and most language-level structural hashes — same
-// behaviour the spec §12 *Derive* example assumes for `@derive Hashable`.
-func mixHashChain(parts []ast.Node, line, col int) ast.Node {
-	if len(parts) == 0 {
-		return intLit(0, line, col)
-	}
-	out := parts[0]
-	for _, p := range parts[1:] {
-		out = mixHash(out, p, line, col)
-	}
-	return out
-}
-
-// mixHash returns `<left> * 31 + <right>` as a Binary expression tree.
-// `*` has higher precedence than `+` in Nomi, so the AST shape is
-// `Binary(Op: "+", Left: Binary(Op: "*", Left: <left>, Right: 31),
-// Right: <right>)`. 31 is the conventional small prime multiplier.
-//
-// Collision note: the `*31 + h` mix is fragile for small-int patterns
-// the way Java's String#hashCode is — e.g. for primitive Int hashes
-// (`Hashable.hash(Int)` returns the value itself), `Hashable.hash(
-// Point{x: 0, y: 31}) == Hashable.hash(Point{x: 1, y: 0}) == 31`.
-// Acceptable for v1's structural-hash contract (collisions reduce hash
-// quality but don't violate the equals/hash agreement); upgrade to a
-// proper FNV-1a / SipHash mix if a real workload demands it.
-func mixHash(left, right ast.Node, line, col int) ast.Node {
-	mul := &ast.Binary{
-		Left:     left,
-		Op:       "*",
-		Right:    intLit(31, line, col),
-		Wrapping: true, // hash mixing relies on modular arithmetic, not trapping
-		Line:     line,
-		Col:      col,
-	}
-	return &ast.Binary{
-		Left:     mul,
-		Op:       "+",
-		Right:    right,
-		Wrapping: true,
-		Line:     line,
-		Col:      col,
-	}
-}
-
-// intLit returns `*ast.IntLit{Value: n, ...}` — Lexeme is empty since the
-// node has no source representation. The formatter (which round-trips via
-// Lexeme when set) would never see this — synthesized nodes don't reach
-// the formatter — but uniquifyPositions and the analyzer do.
-func intLit(n int64, line, col int) *ast.IntLit {
-	return &ast.IntLit{Value: n, Line: line, Col: col}
-}
-
-// ---------------------------------------------------------------------------
 // Comparable synthesizer
 // ---------------------------------------------------------------------------
 
@@ -3165,7 +1807,7 @@ func intLit(n int64, line, col int) *ast.IntLit {
 //     nested `case b` whose branches yield `Greater` for variants j < i,
 //     compare payloads when j == i, and a wildcard `_ -> Less` arm catches
 //     all variants j > i. Variant declaration order determines the total
-//     order — same convention as Hashable's variant index.
+//     order.
 //   - Distinct type: zero-sized → `Equal`; tuple inner → unwrap into `av` /
 //     `bv` and lexicographic-compare on `.first`, `.second`, ...; primitive / generic
 //     / qualified inner → unwrap and delegate to `Comparable.compare`.
@@ -3173,8 +1815,7 @@ func intLit(n int64, line, col int) *ast.IntLit {
 // Position info on every synthesized node points at the type decl's line/col
 // during construction; uniquifyPositions then walks the result and stamps
 // unique (line, col) per node so the analyzer's References / Definitions maps
-// don't suffer from position aliasing. Mirrors the Equatable + Hashable
-// synthesizers' shape — see synthesizeDeriveEquatable.
+// don't suffer from position aliasing.
 func synthesizeDeriveComparable(typeNode ast.Node, site synthSite) []ast.Node {
 	typeName, ok := typeDeclName(typeNode)
 	if !ok {
@@ -3218,7 +1859,7 @@ func comparableBody(typeNode ast.Node, line, col int) []ast.Node {
 	case *ast.TypeDef:
 		return comparableDistinctStmts(t, line, col)
 	case *ast.ExternType:
-		// Derive-as-assertion (see equatableBody): with one inhabitant,
+		// Derive-as-assertion (spec §12 *Host types*): with one inhabitant,
 		// every comparison is a self-comparison. Same constant body as a
 		// zero-sized distinct.
 		return []ast.Node{exprStmt(orderingIdent("Equal", line, col), line, col)}
@@ -3464,7 +2105,7 @@ func comparableDistinctStmts(t *ast.TypeDef, line, col int) []ast.Node {
 }
 
 // comparableCompareCall wraps two argument expressions in
-// `Comparable.compare(<a>, <b>)`. Mirrors equatableEqualsCall; the callee
+// `Comparable.compare(<a>, <b>)`. The callee
 // is FieldAccess on the `Comparable` type-ident so the call routes through
 // the same interface-qualified dispatch path as user-written calls.
 func comparableCompareCall(a, b ast.Node, line, col int) ast.Node {
@@ -3515,309 +2156,51 @@ func orderingPattern(name string, line, col int) ast.Node {
 }
 
 // ---------------------------------------------------------------------------
-// Debug / Display synthesizers (Display follows Debug's shape)
+// Derives that write no function: Equatable, Hashable, Debug and Display
 // ---------------------------------------------------------------------------
 
-// synthesizeDeriveDebug emits a single `impl Debug for T { fn to_string(value: T):
-// String { ... } }` block whose body produces a structural-shape stringify of
-// the value, recursively delegating to `Debug.inspect` on every nested
-// payload. See synthesizeDeriveStringify for output formats; Debug recurses
-// through `Debug.inspect` on each nested value (strings render quoted).
-func synthesizeDeriveDebug(typeNode ast.Node, site synthSite, kind synthKind) []ast.Node {
-	return synthesizeDeriveStringify("Debug", typeNode, site, kind)
-}
-
-// synthesizeDeriveDisplay emits a single `impl Display for T { fn to_string(value: T):
-// String { ... } }` block whose body produces a structural-shape stringify of
-// the value, recursively delegating to `Display.to_string` on every nested
-// payload. Same output shape as the Debug synthesizer; only the recursive
-// dispatch changes (Display vs Debug — strings render unquoted under Display).
-func synthesizeDeriveDisplay(typeNode ast.Node, site synthSite) []ast.Node {
-	return synthesizeDeriveStringify("Display", typeNode, site, synthKindDisplay)
-}
-
-// synthesizeDeriveStringify is the shared body for both Display and Debug
-// synthesizers. Output formats by shape (Display and Debug are byte-identical
-// except for what the recursive `<iface>.to_string(...)` slot renders for
-// each nested value):
-//
-//   - Struct: `TypeName{f1: <iface(value.f1)>, f2: ...}`. Empty struct →
-//     bare static `"TypeName{}"`.
-//   - Enum: `case value { ... }` with one branch per variant. Variant names
-//     are emitted bare (not `EnumName.Variant`), matching how stringification
-//     works in most languages (Java enum.toString, Rust Debug for enums).
-//   - bare:                `"VariantName"`
-//   - positional arity 1:  `"VariantName(<iface(payload)>)"`
-//   - positional arity ≥2: `"VariantName(<iface(p0)>, <iface(p1)>, ...)"`
-//     (no extra parens around the tuple — the runtime represents the
-//     payload as a tuple, but the output mirrors the construction form).
-//   - struct payload:      `"VariantName{f: <iface>, ...}"`
-//   - embedded:            `"<iface(inner)>"` — bare delegation; an
-//     embedded variant transparently behaves as the embedded type at
-//     the value level, so its output is the embedded value's output
-//     unwrapped.
-//   - Distinct primitive:  `"TypeName(<iface(inner)>)"`
-//   - Distinct tuple:      `"TypeName(<iface(inner.first)>, <iface(inner.second)>, ...)"`
-//   - Distinct zero-sized: bare static `"TypeName"`
-//
-// The body uses string-interpolation AST (`*ast.StringInterp` /
-// `*ast.StringLit`) so the produced text appears verbatim except for the
-// `${<iface>.to_string(...)}` slots, which the runtime evaluates by calling
-// the appropriate interface method on each nested value.
-//
-// Position info follows the same disjoint-band scheme as the other
-// synthesizers — see synthesizeDeriveEquatable for the rationale.
-func synthesizeDeriveStringify(iface string, typeNode ast.Node, site synthSite, kind synthKind) []ast.Node {
+// derivedShapeBlock is the impl block `derive Equatable for T`, `derive
+// Hashable for T`, `derive Debug for T` and `derive Display for T` write:
+// one that writes no function. A use of the interface at T is answered by
+// its shape (derivesByShape): Equatable compares two values as the
+// machine's one structural equality does, each part through its own impl
+// (spec §5 *Equality*), Hashable hashes a value as the machine hashes a
+// Map key of T (spec §5 *Hashing and keys*), and Debug and Display render
+// the literal that builds the value, the output spec §12 *Derive* gives
+// them, an opaque type's included. The block is the derive's impl all the
+// same: a hand-written impl of the interface for T beside it is the
+// derive conflict (detectImplCollisions), its header is held to std's
+// interface (checkDerivedInterface), it is what meets a `T: Equatable`,
+// `T: Hashable` or `T: Display` bound, and a Debug block ranks over the
+// name-only Debug of an opaque type (ImplPrecedence), which
+// SynthesizeUniversalDebug then does not write. A generic T's block names
+// its parameters, so its receiver `Box<T>` resolves; bounded, each
+// parameter carries the interface as its bound, the bound a derive
+// implies (spec §12 *Generic types*), which Equatable's, Hashable's and
+// Display's are and Debug's, always met, is not.
+func derivedShapeBlock(iface string, kind synthKind, bounded bool, typeNode ast.Node, site synthSite) []ast.Node {
 	typeName, ok := typeDeclName(typeNode)
 	if !ok {
 		return nil
 	}
 	line := site.base(kind)
-	col := 1
-
-	body := stringifyBody(iface, typeNode, site.wrapping, line, col)
-	if body == nil {
-		return nil
-	}
-
-	srcParams := typeDeclTypeParams(typeNode)
-	fn := &ast.FuncDef{
-		Name:       stringifyMethod(iface),
-		TypeParams: boundedTypeParams(srcParams, iface, line, col),
-		Params: []ast.Param{
-			{Name: "value", TypeAnnotation: receiverTypeExpr(typeName, srcParams, line, col), Line: line, Col: col},
-		},
-		ReturnTypeExpr: &ast.SimpleType{Name: "String", Line: line, Col: col},
-		Body:           &ast.Block{Stmts: body, Line: line, Col: col},
-		Line:           line,
-		Col:            col,
-	}
-	uniquifyPositions(fn, line)
-	return []ast.Node{fn}
-}
-
-// stringifyBody returns the body statements for the synthesized to_string fn,
-// dispatched on the type-decl shape. Like the other synthesizers, every
-// value-position expression at block-statement scope is wrapped in
-// *ast.ExprStmt so the analyzer's body walker descends into it.
-func stringifyBody(iface string, typeNode ast.Node, wrapping map[string]bool, line, col int) []ast.Node {
-	switch t := typeNode.(type) {
-	case *ast.StructDef:
-		return []ast.Node{exprStmt(stringifyStructExpr(iface, t.Name, t.Fields, line, col), line, col)}
-	case *ast.EnumDef:
-		return []ast.Node{exprStmt(stringifyEnumExpr(iface, t, wrapping, line, col), line, col)}
-	case *ast.TypeDef:
-		return stringifyDistinctStmts(iface, t, line, col)
-	case *ast.ExternType:
-		// Derive-as-assertion (see equatableBody): the declaration carries
-		// no payload shape, so the rendering is the bare type name — the
-		// same shape a zero-sized distinct stringifies to, and the same
-		// body the universal-Debug extern default emits
-		// (synthesizeExternNameOnlyDebug).
-		return []ast.Node{exprStmt(staticString(t.Name, line, col), line, col)}
-	}
-	return nil
-}
-
-// stringifyStructExpr builds the struct body's interpolation expression. Each
-// field renders as `<name>: ${<iface>.to_string(value.<name>)}`. Empty struct
-// → static `"TypeName{}"` literal.
-func stringifyStructExpr(iface, typeName string, fields []ast.StructField, line, col int) ast.Node {
-	if len(fields) == 0 {
-		return staticString(typeName+"{}", line, col)
-	}
-	exprs := make([]fieldDbg, len(fields))
-	for i, f := range fields {
-		exprs[i] = fieldDbg{
-			name: f.Name,
-			expr: fieldAccess(identExpr("value", line, col), f.Name, line, col),
+	params := typeDeclTypeParams(typeNode)
+	generics := make([]ast.TypeParam, len(params))
+	for i, tp := range params {
+		generics[i] = ast.TypeParam{Name: tp.Name, Line: line, Col: i + 2}
+		if bounded {
+			generics[i].Bounds = []ast.TypeExpr{&ast.SimpleType{Name: iface, Line: line, Col: i + 2}}
 		}
 	}
-	return stringifyStructLikeBody(iface, typeName, exprs, line, col)
-}
-
-// stringifyEnumExpr builds the outer `case value { ... }` for an enum. Each
-// variant produces one branch whose pattern matches the variant (binding
-// payload components) and whose body is the variant's interpolation.
-func stringifyEnumExpr(iface string, e *ast.EnumDef, wrapping map[string]bool, line, col int) ast.Node {
-	branches := make([]ast.CaseBranch, 0, len(e.Variants))
-	for _, v := range e.Variants {
-		branches = append(branches, ast.CaseBranch{
-			Pattern: enumVariantPattern(e.Name, v, "_v", line, col),
-			Body:    stringifyVariantBody(iface, v, wrapping, line, col),
-			Line:    line,
-			Col:     col,
-		})
-	}
-	return &ast.Case{
-		Value:    identExpr("value", line, col),
-		Branches: branches,
-		Line:     line,
-		Col:      col,
-	}
-}
-
-// stringifyVariantBody builds the per-variant body using the bound payload
-// names that enumVariantPattern (with suffix "_v") produced:
-//
-//   - positional bindings: v0, v1, ... (via positionalBindName)
-//   - struct bindings:     v_<field>
-//
-// Variant name in the rendered string is BARE (not enum-qualified) — that
-// matches what Debug-style stringification looks like in most languages
-// and isn't intended to be re-parseable.
-func stringifyVariantBody(iface string, v ast.EnumVariant, wrapping map[string]bool, line, col int) ast.Node {
-	switch v.Kind {
-	case "bare":
-		return staticString(v.Name, line, col)
-	case "positional":
-		arity := 1
-		if ws := writtenParts(v.DataTypeExpr); ws != nil {
-			arity = len(ws)
-		}
-		exprs := make([]ast.Node, arity)
-		for i := 0; i < arity; i++ {
-			exprs[i] = identExpr(positionalBindName(i, "_v"), line, col)
-		}
-		return stringifyTupleLikeBody(iface, v.Name, exprs, line, col)
-	case "struct":
-		exprs := make([]fieldDbg, len(v.Fields))
-		for i, f := range v.Fields {
-			exprs[i] = fieldDbg{
-				name: f.Name,
-				expr: identExpr(fieldBindName(f.Name, "_v"), line, col),
-			}
-		}
-		return stringifyStructLikeBody(iface, v.Name, exprs, line, col)
-	case "embedded":
-		// Embedded variants behave as the embedded type at the value
-		// level — output is the embedded value's output unwrapped, no
-		// `VariantName(...)` wrapping. The pattern binds a wrapping
-		// distinct's INNER value (spec §4, *Embedded Types*), so that value is rebuilt into
-		// the distinct first: `Shape.Id(5)` renders `Id(5)`, as the `Id`
-		// does on its own. Only a same-file distinct is known to wrap here.
-		bound := ast.Node(identExpr(positionalBindName(0, "_v"), line, col))
-		if st, ok := v.EmbeddedTypeExpr.(*ast.SimpleType); ok && wrapping[st.Name] {
-			bound = &ast.Call{
-				Func: &ast.TypeIdent{Name: st.Name, Line: line, Col: col},
-				Args: []ast.Node{bound},
-				Line: line,
-				Col:  col,
-			}
-		}
-		return stringifyToStringCall(iface, bound, line, col)
-	}
-	return staticString(v.Name, line, col)
-}
-
-// stringifyDistinctStmts handles `type Name InnerType` and the zero-sized
-// `type Name`. Zero-sized → static `"TypeName"`. For tuple inner: unwrap
-// into `inner` then render `TypeName(<iface inner.first>, <iface inner.second>, ...)`.
-// For non-tuple inner: unwrap then render `TypeName(<iface inner>)`.
-func stringifyDistinctStmts(iface string, t *ast.TypeDef, line, col int) []ast.Node {
-	if t.InnerTypeExpr == nil {
-		return []ast.Node{exprStmt(staticString(t.Name, line, col), line, col)}
-	}
-	stmts := []ast.Node{
-		distinctUnwrap(t.Name, "inner", identExpr("value", line, col), line, col),
-	}
-	if ws := writtenParts(t.InnerTypeExpr); ws != nil {
-		exprs := make([]ast.Node, len(ws))
-		for i := range ws {
-			exprs[i] = fieldAccess(identExpr("inner", line, col), tupleItemName(i), line, col)
-		}
-		// `Pair(1, "x")`: the call that builds it.
-		stmts = append(stmts, exprStmt(stringifyTupleLikeBody(iface, t.Name, exprs, line, col), line, col))
-		return stmts
-	}
-	// Single inner value → `TypeName(<iface inner>)`.
-	stmts = append(stmts, exprStmt(stringifyTupleLikeBody(iface, t.Name, []ast.Node{identExpr("inner", line, col)}, line, col), line, col))
-	return stmts
-}
-
-// fieldDbg pairs a rendered field name with the expression that produces
-// its value. Used for both struct decls (expr is `value.<name>`) and
-// struct-payload variants (expr is `<name>_v`, the bound pattern name).
-type fieldDbg struct {
-	name string
-	expr ast.Node
-}
-
-// stringifyStructLikeBody emits the interpolation for a record-shaped value:
-//
-//	"TypeName{f1: ${<iface>.to_string(<expr1>)}, f2: ${<iface>.to_string(<expr2>)}, ...}"
-//
-// 0 fields collapses to the static `"TypeName{}"` (no interpolation slots).
-// Reused for top-level structs and enum struct-payload variants.
-func stringifyStructLikeBody(iface, typeName string, fields []fieldDbg, line, col int) ast.Node {
-	if len(fields) == 0 {
-		return staticString(typeName+"{}", line, col)
-	}
-	parts := make([]ast.StringPart, 0, 2*len(fields)+2)
-	// Leading "TypeName{f1: "
-	parts = append(parts, ast.StringText{Value: typeName + "{" + fields[0].name + ": "})
-	parts = append(parts, ast.StringExpr{Expr: stringifyToStringCall(iface, fields[0].expr, line, col)})
-	for i := 1; i < len(fields); i++ {
-		parts = append(parts, ast.StringText{Value: ", " + fields[i].name + ": "})
-		parts = append(parts, ast.StringExpr{Expr: stringifyToStringCall(iface, fields[i].expr, line, col)})
-	}
-	parts = append(parts, ast.StringText{Value: "}"})
-	return &ast.StringInterp{Parts: parts, Line: line, Col: col}
-}
-
-// stringifyTupleLikeBody emits the interpolation for a positional-shaped value:
-//
-//	"TypeName(${<iface>.to_string(<e0>)}, ${<iface>.to_string(<e1>)}, ...)"
-//
-// 0 exprs collapses to the static `"TypeName"` (used by zero-sized distinct
-// and bare variants — the latter takes the staticString path directly, but
-// keeping the empty case here means callers don't need to special-case).
-// Reused for distinct primitive (1 expr), distinct tuple (N exprs), and
-// multi-positional enum variants (N exprs).
-func stringifyTupleLikeBody(iface, typeName string, exprs []ast.Node, line, col int) ast.Node {
-	if len(exprs) == 0 {
-		return staticString(typeName, line, col)
-	}
-	parts := make([]ast.StringPart, 0, 2*len(exprs)+2)
-	parts = append(parts, ast.StringText{Value: typeName + "("})
-	parts = append(parts, ast.StringExpr{Expr: stringifyToStringCall(iface, exprs[0], line, col)})
-	for i := 1; i < len(exprs); i++ {
-		parts = append(parts, ast.StringText{Value: ", "})
-		parts = append(parts, ast.StringExpr{Expr: stringifyToStringCall(iface, exprs[i], line, col)})
-	}
-	parts = append(parts, ast.StringText{Value: ")"})
-	return &ast.StringInterp{Parts: parts, Line: line, Col: col}
-}
-
-// stringifyToStringCall wraps an argument expression in
-// `<iface>.to_string(<arg>)` — the recursive delegation that drives the
-// format's "render every nested value with the chosen interface" rule.
-// Mirrors equatableEqualsCall / hashableHashCall / comparableCompareCall.
-// stringifyMethod returns the interface's stringify method name: Display →
-// "to_string", Debug → "inspect". They deliberately differ so the two most
-// prolific interfaces don't collide on one method name (see std/debug.nomi);
-// the synthesizer therefore emits the right name per interface for both the
-// FuncDef and the recursive `${<iface>.<method>(...)}` delegation slot.
-func stringifyMethod(iface string) string {
-	if iface == "Debug" {
-		return "inspect"
-	}
-	return "to_string"
-}
-
-func stringifyToStringCall(iface string, arg ast.Node, line, col int) ast.Node {
-	callee := &ast.FieldAccess{
-		Object: &ast.TypeIdent{Name: iface, Line: line, Col: col},
-		Field:  &ast.Ident{Name: stringifyMethod(iface), Line: line, Col: col},
-		Line:   line,
-		Col:    col,
-	}
-	return &ast.Call{
-		Func: callee,
-		Args: []ast.Node{arg},
-		Line: line,
-		Col:  col,
-	}
+	return []ast.Node{&ast.ImplBlock{
+		Interface:       &ast.SimpleType{Name: iface, Line: line, Col: 1},
+		Receiver:        receiverTypeExpr(typeName, params, line, 1),
+		Generics:        generics,
+		Line:            line,
+		Col:             1,
+		SynthOriginLine: site.line,
+		SynthOriginCol:  site.col,
+	}}
 }
 
 // staticString returns a `*ast.StringLit{Value: s}` — the parser's shape

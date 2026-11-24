@@ -13,7 +13,9 @@ import (
 // Powers Zed's `editor::GoToImplementation` (and the equivalent in every
 // other LSP-aware editor). The handler resolves the click position to a
 // symbol, then routes through the project-wide IfaceMethodImpls index to
-// list the methods of `impl Iface for T` blocks that satisfy it:
+// list the methods of `impl Iface for T` blocks that satisfy it, and the
+// `derive` entry of each derived block that writes no function
+// (shapeBlockLocations):
 //
 //   - Click on an interface name (e.g. `Display` in `impl Display for T { }` or
 //     at a `Display.to_string(...)` call site): return locations for every
@@ -82,13 +84,14 @@ func (s *Server) textDocumentImplementation(ctx *glsp.Context, params *protocol.
 func (s *Server) implLocationsForInterface(fa *analysis.FileAnalysis, iface *analysis.Symbol, openDocURI string) []protocol.Location {
 	ifaceName := iface.Name
 	it, _ := iface.Type.(*analysis.InterfaceType)
+	shapes := s.shapeBlockLocations(fa, it, ifaceName, openDocURI)
 	methodImpls, hasLocalImpls := fa.Program().IfaceMethodImpls[ifaceName]
 	externImpls := map[string][]*ast.ExternFunc(nil)
 	_, hasLocalExternImpls := fa.Program().IfaceMethodImplExterns[ifaceName]
 	if hasLocalExternImpls {
 		externImpls = fa.Program().IfaceMethodImplExterns[ifaceName]
 	}
-	if !hasLocalImpls && !hasLocalExternImpls && fa.Program().ImplIndex != nil {
+	if !hasLocalImpls && !hasLocalExternImpls && len(shapes) == 0 && fa.Program().ImplIndex != nil {
 		if fa.Program().ImplIndex.IfaceMethodImpls != nil {
 			methodImpls = fa.Program().ImplIndex.IfaceMethodImpls[ifaceName]
 		}
@@ -96,10 +99,10 @@ func (s *Server) implLocationsForInterface(fa *analysis.FileAnalysis, iface *ana
 			externImpls = fa.Program().ImplIndex.IfaceMethodImplExterns[ifaceName]
 		}
 	}
-	if len(methodImpls) == 0 && len(externImpls) == 0 {
+	if len(methodImpls) == 0 && len(externImpls) == 0 && len(shapes) == 0 {
 		return nil
 	}
-	var locs []protocol.Location
+	locs := shapes
 	for _, fns := range methodImpls {
 		for _, fn := range fns {
 			if !fa.Program().ImplOfInterface(fn, it) {
@@ -129,13 +132,16 @@ func (s *Server) implLocationsForInterface(fa *analysis.FileAnalysis, iface *ana
 func (s *Server) implLocationsForMethod(fa *analysis.FileAnalysis, iface *analysis.Symbol, methodName, openDocURI string) []protocol.Location {
 	ifaceName := iface.Name
 	it, _ := iface.Type.(*analysis.InterfaceType)
+	// A block answered by shape writes none of the interface's functions,
+	// so it answers each of them.
+	shapes := s.shapeBlockLocations(fa, it, ifaceName, openDocURI)
 	methodImpls, hasLocalImpls := fa.Program().IfaceMethodImpls[ifaceName]
 	externImpls := map[string][]*ast.ExternFunc(nil)
 	_, hasLocalExternImpls := fa.Program().IfaceMethodImplExterns[ifaceName]
 	if hasLocalExternImpls {
 		externImpls = fa.Program().IfaceMethodImplExterns[ifaceName]
 	}
-	if !hasLocalImpls && !hasLocalExternImpls && fa.Program().ImplIndex != nil {
+	if !hasLocalImpls && !hasLocalExternImpls && len(shapes) == 0 && fa.Program().ImplIndex != nil {
 		if fa.Program().ImplIndex.IfaceMethodImpls != nil {
 			methodImpls = fa.Program().ImplIndex.IfaceMethodImpls[ifaceName]
 		}
@@ -145,10 +151,10 @@ func (s *Server) implLocationsForMethod(fa *analysis.FileAnalysis, iface *analys
 	}
 	fns := methodImpls[methodName]
 	exts := externImpls[methodName]
-	if len(fns) == 0 && len(exts) == 0 {
+	if len(fns) == 0 && len(exts) == 0 && len(shapes) == 0 {
 		return nil
 	}
-	var locs []protocol.Location
+	locs := shapes
 	for _, fn := range fns {
 		if !fa.Program().ImplOfInterface(fn, it) {
 			continue
@@ -203,7 +209,7 @@ func (s *Server) implLocationFor(fa *analysis.FileAnalysis, ifaceName string, fn
 	}
 	uri := s.moduleKeyToURI(key, openDocURI)
 	if analysis.IsSynthesizedLine(fn.Line) {
-		return s.derivedConformanceLocation(fa, ifaceName, fn, uri)
+		return derivedConformanceLocation(fa, ifaceName, fa.Program().ImplBlockReceiver[fn], uri)
 	}
 	startLine := toZeroBased(fn.Line)
 	startChar := toZeroBased(fn.Col)
@@ -234,15 +240,52 @@ func (s *Server) implExternLocationFor(fa *analysis.FileAnalysis, ext *ast.Exter
 	}, true
 }
 
-// derivedConformanceLocation maps a synthesized derive-impl method back to the
-// real `derive Iface` conformance entry that produced it. The
-// lowering stamps a synthetic `@derive Iface` decorator on the receiver type's
-// declaration carrying the conformance entry's real source position (its arg is
-// the entry's interface type-expr); we recover the receiver type via
-// ImplBlockReceiver, then read that decorator. Returns ok=false when any link
-// is missing, so the caller drops the (un-navigable) synth target.
-func (s *Server) derivedConformanceLocation(fa *analysis.FileAnalysis, ifaceName string, fn *ast.FuncDef, uri protocol.DocumentUri) (protocol.Location, bool) {
-	recv := fa.Program().ImplBlockReceiver[fn]
+// shapeBlockLocations answers the `derive` entry of each block of the
+// interface it, named ifaceName, that the program's own files write with
+// no function: a derived Debug, Display, Equatable or Hashable, which the
+// type's shape answers. The impl-method index, which lists functions, holds
+// none of them. A file of the stdlib is the program's own only when it is
+// the one asked about.
+func (s *Server) shapeBlockLocations(fa *analysis.FileAnalysis, it *analysis.InterfaceType, ifaceName, openDocURI string) []protocol.Location {
+	var locs []protocol.Location
+	for _, f := range fa.Program().Files() {
+		if f != fa && analysis.IsStdlibKey(f.Origin) {
+			continue
+		}
+		uri := protocol.DocumentUri(openDocURI)
+		if f != fa {
+			uri = protocol.DocumentUri(pathToURI(f.FilePath))
+		}
+		recvs := make([]string, 0, len(f.ImplBlocks))
+		for recv := range f.ImplBlocks {
+			recvs = append(recvs, recv)
+		}
+		sort.Strings(recvs)
+		for _, recv := range recvs {
+			for _, info := range f.ImplBlocks[recv][ifaceName] {
+				if info == nil || info.Block == nil || len(info.Block.Items) > 0 || !analysis.IsSynthesizedLine(info.Block.Line) {
+					continue
+				}
+				if it != nil && (info.Interface != it.Name || info.Origin != it.Origin) {
+					continue
+				}
+				if loc, ok := derivedConformanceLocation(f, ifaceName, recv, uri); ok {
+					locs = append(locs, loc)
+				}
+			}
+		}
+	}
+	return locs
+}
+
+// derivedConformanceLocation maps a derived impl of the type named recv in
+// fa back to the real `derive Iface` conformance entry that produced it.
+// The lowering stamps a synthetic `@derive Iface` decorator on the receiver
+// type's declaration carrying the conformance entry's real source position
+// (its arg is the entry's interface type-expr), which this reads. Returns
+// ok=false when any link is missing, so the caller drops the (un-navigable)
+// synth target.
+func derivedConformanceLocation(fa *analysis.FileAnalysis, ifaceName, recv string, uri protocol.DocumentUri) (protocol.Location, bool) {
 	if recv == "" {
 		return protocol.Location{}, false
 	}

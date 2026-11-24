@@ -2503,6 +2503,18 @@
           "named": true
         },
         {
+          "type": "lambda_body_binary_expression",
+          "named": true
+        },
+        {
+          "type": "lambda_body_range_expression",
+          "named": true
+        },
+        {
+          "type": "lambda_body_unary_expression",
+          "named": true
+        },
+        {
           "type": "list",
           "named": true
         },
@@ -10943,6 +10955,10 @@
           },
           {
             "type": "binary_expression",
+            "named": true
+          },
+          {
+            "type": "binding",
             "named": true
           },
           {

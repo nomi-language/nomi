@@ -19,7 +19,10 @@ func TestStdIntrinsicOwners_EveryFunctionHasItsArm(t *testing.T) {
 	lib := std.Load()
 	for _, o := range stdIntrinsicOwners {
 		nodes := lib.Nodes[strings.TrimPrefix(o.owner.Module, "std/")]
-		var fns []string
+		// hostFns are the ones an arm lowers: a function std writes in
+		// Nomi takes the ordinary route (intrinsicArm), so the arm's table
+		// owes it no row.
+		var fns, hostFns []string
 		for _, n := range nodes {
 			impl, isImpl := n.(*ast.ImplBlock)
 			if !isImpl || impl.Interface != nil || analysis.TypeExprBaseName(impl.Receiver) != o.owner.Name {
@@ -29,6 +32,7 @@ func TestStdIntrinsicOwners_EveryFunctionHasItsArm(t *testing.T) {
 				switch fn := item.(type) {
 				case *ast.ExternFunc:
 					fns = append(fns, fn.Name)
+					hostFns = append(hostFns, fn.Name)
 				case *ast.FuncDef:
 					fns = append(fns, fn.Name)
 				}
@@ -46,7 +50,7 @@ func TestStdIntrinsicOwners_EveryFunctionHasItsArm(t *testing.T) {
 		if o.members != nil {
 			continue
 		}
-		for _, name := range fns {
+		for _, name := range hostFns {
 			switch o.arm {
 			case armChannel:
 				if _, ok := channelFuncs[o.owner.Name+"."+name]; !ok {

@@ -7,6 +7,7 @@ import
     std::http.{self, Body, Client, Cors, Headers, Method, Origin, Request, Response, Status}
     std::http::testing
     std::io.{Reader, Writer}
+    std::secret.Secret
 end
 
 fn answer(Request) -> Response
@@ -323,7 +324,7 @@ test "basic_auth quotes its realm and refuses another scheme"
     assert Headers.get(r.headers, "WWW-Authenticate")
         == Some("Basic realm=\"the \\\"back\\\" office\", charset=\"UTF-8\"")
 
-    signed = Request.with_basic_auth(testing.request(Method.Get, "/"), "a", "b")
+    signed = Request.with_basic_auth(testing.request(Method.Get, "/"), "a", Secret.new("b"))
     assert app(signed).status == Status.accepted
 end
 

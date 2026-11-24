@@ -144,8 +144,31 @@ var durationUnits = [...]struct {
 //
 // Deliberately not monotonic. std/instant documents an Instant as an absolute
 // point on the wall clock with `Instant.to_seconds` giving Unix seconds, so a
-// monotonic reading would answer a different question.
+// monotonic reading would answer a different question; MonotonicNow answers
+// that one.
 func InstantNow() Instant { return Instant(time.Now().UnixNano()) }
+
+// Monotonic is `std/instant.Monotonic` as Go code takes it: nanoseconds
+// on the monotonic clock since monotonicOrigin, a reading taken when the
+// process started.
+type Monotonic int64
+
+// monotonicOrigin is the reading every Monotonic counts from. A time.Now
+// carries the system's monotonic clock beside the wall clock, and Sub
+// between two times that both carry it reads that clock alone, so setting
+// the wall clock moves no Monotonic.
+var monotonicOrigin = time.Now()
+
+// MonotonicNow is `Monotonic.now`: the nanoseconds since monotonicOrigin
+// on the monotonic clock.
+//
+// Under `clock Clock.Virtual` the test runs in a testing/synctest bubble
+// (rt/vclock), where time.Now reads the bubble's clock and carries no
+// monotonic reading, so Sub falls back to the wall readings: the bubble's
+// clock minus the origin's. The bubble's clock moves only as its timers
+// fire and is never set, so the difference of two readings is the virtual
+// time between them, as `timer.sleep` counts it.
+func MonotonicNow() Monotonic { return Monotonic(time.Since(monotonicOrigin)) }
 
 // InstantFromTime is the nanoseconds from the epoch of a Go time, the Int a
 // Nomi Instant is: exact for every time Go represents, from Unix seconds,

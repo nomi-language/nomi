@@ -127,8 +127,6 @@ func (n Inspected) Text() string {
 func inspectText(v any) string {
 	v = Unbox(v)
 	switch x := v.(type) {
-	case string:
-		return StringLiteral(x)
 	case *Record:
 		if x != nil && x.Desc.Kind == KindEnum && x.Variant().Shape == VariantFields {
 			return InspectStruct(ShortTypeName(x.Variant().Name), namedParts(x, inspectText))
@@ -137,7 +135,7 @@ func inspectText(v any) string {
 	case *List[any], Vector[any], Map[any, any]:
 		return DisplayTextWith(x, inspectText)
 	}
-	return DisplayText(v)
+	return RowText(v)
 }
 
 func plural(n int, word string) string {

@@ -67,7 +67,7 @@ type Files map[string][]byte
 
 // GenerateFiles is Generate's source split by family: adapters_gen.go,
 // every adapter that calls no family's package, plus Families, Pure,
-// Unbounded and Held (the rows internal/stdlibbindings marks so) and Known
+// Unbounded, Seeded and Held (the rows internal/stdlibbindings marks so) and Known
 // (whether a row answers a crossing); and for each family
 // adapters_<key>_gen.go, the adapters that call its package, built where
 // the family is, and adapters_no<key>_gen.go, an error-answering stub for
@@ -182,6 +182,7 @@ func splitFamilies(src []byte) (Files, error) {
 	main = append(main, familiesFunc(table.String())...)
 	main = append(main, pureFunc(stdlibbindings.Pure())...)
 	main = append(main, unboundedFunc(stdlibbindings.Unbounded())...)
+	main = append(main, seededFunc(stdlibbindings.Seeded())...)
 	main = append(main, heldFunc(stdlibbindings.Held())...)
 	main = append(main, knownFunc()...)
 	if main, err = format.Source(main); err != nil {
@@ -269,10 +270,13 @@ func familiesFunc(rows string) []byte {
 		"\t// with their adapters.\n\tLinked bool\n" +
 		"\t// Names is every crossing whose adapter calls the family's package,\n" +
 		"\t// sorted.\n\tNames []string\n}\n\n" +
-		"// Families are the optional families. `nomi build` appends a program that\n" +
-		"// reaches none of their crossings to the lean runner, built with every\n" +
-		"// family's tag (families.LeanTags), and a runner refuses before it runs\n" +
-		"// a program that reaches a family it does not link.\n" +
+		"// Families are the optional families. The runners come in two tiers,\n" +
+		"// never a combination: the lean one, built with every family's tag\n" +
+		"// (families.LeanTags), has none, and the full one has every family, so\n" +
+		"// a new family joins the full tier and adds no runner. `nomi build`\n" +
+		"// appends a program that reaches none of their crossings to the lean\n" +
+		"// runner, and a runner refuses before it runs a program that reaches a\n" +
+		"// family it does not link.\n" +
 		"func Families() []Family {\n\treturn []Family{\n" + rows + "\t}\n}\n")
 }
 
@@ -293,6 +297,15 @@ func unboundedFunc(unbounded map[string]bool) []byte {
 		"// Unbounded reports whether the crossing name lands on an adapter whose\n"+
 			"// row is marked Unbounded: a pure function whose one call's cost grows\n"+
 			"// with an operand's value (stdlibbindings.Binding.Unbounded).\n")
+}
+
+// seededFunc is Seeded, which answers the rows marked Seeded as pureFunc
+// answers Pure.
+func seededFunc(seeded map[string]bool) []byte {
+	return markFunc(seeded, "seeded", "Seeded",
+		"// Seeded reports whether the crossing name lands on an adapter whose\n"+
+			"// row is marked Seeded: a pure function whose answer is a hash keyed by\n"+
+			"// the run's seed (stdlibbindings.Binding.Seeded).\n")
 }
 
 // heldFunc is Held, which answers the rows marked Held as pureFunc answers

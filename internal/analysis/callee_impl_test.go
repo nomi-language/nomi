@@ -9,8 +9,10 @@ import (
 
 // A call of an interface function whose receiver's type the checker knows
 // names the impl block it reaches and the function that runs: the block's
-// `fn`, its `host fn`, a derive's synthesized `fn`, or the interface's
-// default the block inherits. A call through a type parameter names none.
+// `fn`, its `host fn`, a derive's synthesized `fn` (a derived Comparable;
+// a derived Debug, Display, Equatable or Hashable writes none and is
+// answered by shape), or the interface's default the block inherits. A
+// call through a type parameter names none.
 func TestCalleeImpl_NamesTheBlockAndTheFunctionThatRuns(t *testing.T) {
 	fa, errs := checkEntry(t, `interface Greet
     fn name(value: self) -> String
@@ -34,7 +36,7 @@ struct W
     n: Int
 end
 
-derive Equatable for W
+derive Comparable for W
 
 fn written(p: P) -> String
     Greet.name(p)
@@ -48,8 +50,8 @@ fn host() -> String
     Display.to_string(5)
 end
 
-fn derived(w: W) -> Bool
-    Equatable.equal(w, w)
+fn derived(w: W) -> Ordering
+    Comparable.compare(w, w)
 end
 
 fn typed(p: P) -> String

@@ -62,4 +62,21 @@ func TestNetErr_WindowsCodesNameTheUnixVariant(t *testing.T) {
 		{"bind", 10048, "AddressInUse"},     // WSAEADDRINUSE
 		{"connectex", 10060, "Timeout"},     // WSAETIMEDOUT
 	})
+	// A receive reads WSAEMSGSIZE, a datagram longer than its buffer, as
+	// the errno a Unix system would give, which it names Truncated.
+	if got := stdio.Errno(os.NewSyscallError("wsarecvfrom", syscall.Errno(10040))); got != syscall.EMSGSIZE {
+		t.Errorf("WSAEMSGSIZE reads as errno %d, want EMSGSIZE", uint64(got))
+	}
+}
+
+// TestNetErr_UnsupportedNamesWhatIsMissing holds a failure for want of a
+// socket option or a kind of socket, however Go wraps it, to the
+// Unsupported variant with the operation and the reason.
+func TestNetErr_UnsupportedNamesWhatIsMissing(t *testing.T) {
+	err := &net.OpError{Op: "listen", Net: "tcp", Err: unsupported("windows has no SO_REUSEPORT")}
+	got := strsOf(netErr("listen", "127.0.0.1:1", err))
+	want := []string{"Unsupported", "listen", "windows has no SO_REUSEPORT"}
+	if !slices.Equal(got, want) {
+		t.Errorf("got %q, want %q", got, want)
+	}
 }

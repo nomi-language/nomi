@@ -1,10 +1,12 @@
 // Command nomi is the Nomi CLI: run, check, test, build, fmt, effects,
-// the module commands, `nomi tool`, `nomi types`, the debug adapter, the
-// MCP server and, with no arguments, the REPL. docs/tooling.md documents
-// its commands and flags for users. This comment says how `nomi build` and
-// the REPL are put together; build.go, build_web.go, run_web.go,
-// build_vm.go and repl_vm.go open with what each command does, and
-// effects_cmd.go with what `nomi effects` prints and writes.
+// the module commands, `nomi tool`, `nomi types`, `nomi editor`
+// (internal/editors), the language server, the debug adapter, the MCP
+// server and, with no arguments, the REPL.
+// docs/tooling.md documents its commands and flags for users. This comment
+// says how `nomi build` and the REPL are put together; build.go,
+// build_web.go, run_web.go, build_vm.go and repl_vm.go open with what each
+// command does, and effects_cmd.go with what `nomi effects` prints and
+// writes.
 //
 // # Commands
 //
@@ -25,7 +27,11 @@
 //
 // `nomi build` writes one executable: the nomi-vm binary with the program's
 // linked IR image appended (build.go). It is not native code; it skips the
-// front end at startup. `--target goos/goarch` cross-compiles. What a runner
+// front end at startup. `--target <os>/<arch>` cross-compiles, and a
+// js/wasm module gets wasm_exec.js and nomi-node.mjs (node/), which runs
+// it under Node, beside it; so does a js/wasm `nomi build-vm`. The loader,
+// and nomi.js for --web, pass the program's arguments and environment as
+// the globals rt/jsprocess reads, so no fixed limit applies to them. What a runner
 // does with the image, the runner variants without the network, the image's
 // layout and embedded files, the WebAssembly forms, the wasip1 reactor,
 // .nomic files and runners from a release are in the vmrunner package doc.
@@ -111,8 +117,13 @@
 // no check sees two, and put back if the input fails. Once the input ran,
 // each old impl function is redirected to the new one (Session.Supersede,
 // vm.Machine.Redirect, matched by linkage name with the file key changed),
-// so code earlier inputs compiled calls the new impl. A value's or once's
-// type is kept as source with each REPL-declared type spelled through its
+// so code earlier inputs compiled calls the new impl. An old function the
+// new impl does not write, as a derived Equatable, Hashable, Debug or Display writes
+// none, is redirected to the machine's function that answers it by the
+// value's shape
+// (vm.Machine.ByShape), which drops the type's hand-written body from the
+// machine's per-type tables; a later impl that writes it takes it back.
+// A value's or once's type is kept as source with each REPL-declared type spelled through its
 // file (vmhost.Checked.LocalType's qualifier, analysis.TypeTextQualifying).
 // When that spelling does not check, because a std type in it is one the
 // input's names do not bring into scope (`calendar.Date` through a whole

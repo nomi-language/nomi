@@ -254,8 +254,9 @@
 // loaded, which of its functions a call to has an effect, and which of
 // its `once` values a read of, and by what name, by the same walk started
 // from each function and `once` initializer the module's lowering holds
-// (vm.StdEffectCrossings), each generic function's
-// abstract body (irbuild.StdAbstractBodies, or for a module lowered with
+// (vm.StdEffectCrossings), each generic function's abstract body and each
+// body the shared lowering leaves to programs
+// (irbuild.StdAbstractBodies, or for a module lowered with
 // each program the program's own, Result.Abstract), and each `host fn`'s
 // crossing, and which functions the walk answers for at all: the stdlib
 // reference marks them. A function every call of which the builder lowers
@@ -296,13 +297,16 @@
 // maxAnalyzedRelowered of them changed, lowers only the files the edit
 // reaches and links them with the kept objects (irbuild.LowerFileAmong),
 // as `nomi check` relinks a kept program. Each file is lowered after the
-// files it imports. The set grows by two rules:
+// files it imports. The set grows by the rule every recheck and relink
+// shares (analysis.ProgramReads.Readers, from readersToo):
 //
 //   - a file whose interface hash or unannotated `once` values changed
-//     brings every file that imports it, directly or not (importersToo);
-//   - a file whose impl headers name other files than before brings every
-//     file that sees one of its old or new impls, imported or not (seersOf,
-//     over the headers analysis.ImplHeaderFiles reads, kept with the
+//     brings every file whose check reads it: one that imports it,
+//     directly or not, and one that sees an impl whose header names it or
+//     a file that imports it, such as the impl's interface;
+//   - a file whose impl headers name other receivers or files than before
+//     brings every file that sees one of its old or new impls, imported or
+//     not (over the headers analysis.FileImplHeaders reads, kept with the
 //     lowering).
 //
 // More than maxRelowered files and a quarter of the program lowers the
@@ -416,7 +420,7 @@
 // The record names what the program was built from (Program.inputs): the
 // project root's tree and each dependency module's, walked for every
 // `.nomi` file by presence and for the text of every other file a build
-// reads there (manifests, catalogs, go.mod: sourceTree); each of the
+// reads there (manifests, catalogs, nomi.lock: sourceTree); each of the
 // program's own files with its text; each `embed` pattern's base as a tree
 // of every file (analysis.EmbedInfo.Bases); each embedded file on its own,
 // since a tree walk skips the hidden names and node_modules an `all:`
@@ -553,7 +557,9 @@
 // reported passed with the cases its pass counted (CaseResult.Decided,
 // rt.DecidedUnchanged), when it has no effects: no crossing its declaration
 // does not mark pure (Machine.Effects' sense: output and `dbg`, input, the
-// clock, entropy, files, the network, processes, tasks, channels, Go). Its
+// clock, entropy, files, the network, processes, tasks, channels, Go), and
+// no hash keyed by the seed each process draws (Effects.Seeded), which
+// counts as one here (vm.CaseReach.Pure). Its
 // result is then a function of its code alone. An app field it reads is no
 // effect: a test reads one only under its group's `boot`, which publishes
 // the app for each case and is in the case's walk. RunChangedOrEffects, the

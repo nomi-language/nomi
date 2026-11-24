@@ -1,0 +1,164 @@
+// `Task.stream` under the virtual clock: an elapsed time says which tasks
+// ran together, and a log on a channel says what started when.
+import
+    std::channels.{Channel, Receiver, Sender}
+    std::duration.Duration
+    std::instant.Monotonic
+    std::tasks.{Failure, Outcome, Task}
+    std::testing.Clock
+    std::timer
+end
+
+// Answers `value` after `seconds` of the clock.
+fn after<T>(seconds: Int, value: T) -> T
+    timer.sleep(Duration.seconds(seconds))
+    value
+end
+
+fn tell<T>(out: Sender<T>, value: T)
+    _ = Sender.send(out, value)
+end
+
+fn elapsed_seconds(start: Monotonic) -> Int
+    Duration.as_seconds(Monotonic.elapsed(start))
+end
+
+// Says on `log` that the call for `n` started, then answers `n` a second
+// later.
+fn logged(log: Sender<String>, n: Int) -> Int
+    tell(log, "start ${n}")
+    after(1, n)
+end
+
+// Takes `n` after ten seconds, and says so on `log`.
+fn take_slowly(log: Sender<String>, n: Int) -> Int
+    timer.sleep(Duration.seconds(10))
+    tell(log, "took ${n}")
+    n
+end
+
+// Sleeps `seconds`, then answers it; it says on `stopped` that it ended,
+// however it ended.
+fn job(seconds: Int, stopped: Sender<Int>) -> Int
+    defer tell(stopped, seconds)
+    after(seconds, seconds)
+end
+
+// Traps after `seconds` of the clock.
+fn trap_after(seconds: Int) -> Int
+    timer.sleep(Duration.seconds(seconds))
+    Iter.find([1], &(&1 > 5))!
+end
+
+fn drained<T>(channel: Channel<T>) -> List<T>
+    Sender.close(channel.sender)
+    Receiver.iter(channel.receiver) |> Iter.to_list()
+end
+
+// How many calls had started at each "took" entry of `log`. Calls that
+// start together may log in either order, so only the counts are read.
+fn starts_at_each_take(log: List<String>) -> List<Int>
+    none: (Int, List<Int>) = (0, [])
+
+    (_, counts) = Iter.reduce(log, none, fn (starts, counts), entry ->
+        if String.starts_with(entry, "start") then
+            (starts + 1, counts)
+        else
+            (starts, List.concat(counts, [starts]))
+        end
+    end)
+
+    counts
+end
+
+group "Task.stream"
+    clock Clock.Virtual
+
+    test "results come in the source's order, not the order tasks finish"
+        start = Monotonic.now()
+
+        got =
+            [3, 1, 2]
+            |> Task.stream(fn n -> after(n, n * 10), max_running: 3)
+            |> Iter.to_list()
+
+        assert got == [30, 10, 20]
+        assert elapsed_seconds(start) == 3
+    end
+
+    test "at most max_running tasks run at once"
+        start = Monotonic.now()
+
+        got =
+            [1, 2, 3, 4, 5, 6]
+            |> Task.stream(fn n -> after(1, n), max_running: 2)
+            |> Iter.to_list()
+
+        assert got == [1, 2, 3, 4, 5, 6]
+        assert elapsed_seconds(start) == 3
+    end
+
+    test "a slow consumer holds the source back"
+        log = Channel.buffered<String>(16)
+
+        got =
+            Iter.from(1)
+            |> Task.stream(fn n -> logged(log.sender, n), max_running: 2)
+            |> Iter.map(fn n -> take_slowly(log.sender, n))
+            |> Iter.take(3)
+            |> Iter.to_list()
+
+        assert got == [1, 2, 3]
+        // When the consumer has taken k results, k + 1 calls have started,
+        // and the source was read no further.
+        assert drained(log) |> starts_at_each_take() == [2, 3, 4]
+    end
+
+    test "a consumer that stops early cancels the tasks still running"
+        stopped = Channel.buffered<Int>(8)
+        start = Monotonic.now()
+
+        first =
+            [10, 20, 30, 40]
+            |> Task.stream(fn n -> job(n, stopped.sender), max_running: 3)
+            |> Iter.first()
+
+        assert first == Some(10)
+        assert elapsed_seconds(start) == 10
+        // 20 and 30 were cancelled and ran their defers; 40 never started.
+        assert drained(stopped) |> Iter.sort() == [10, 20, 30]
+    end
+
+    test "a consumer that stops after the source ends cancels the rest too"
+        stopped = Channel.buffered<Int>(8)
+        start = Monotonic.now()
+
+        first =
+            [10, 20, 30]
+            |> Task.stream(fn n -> job(n, stopped.sender), max_running: 3)
+            |> Iter.first()
+
+        assert first == Some(10)
+        assert elapsed_seconds(start) == 10
+        assert drained(stopped) |> Iter.sort() == [10, 20, 30]
+    end
+
+    test "a task that traps ends the walk with its fault"
+        ended =
+            concurrent
+                walker = Task.spawn(fn ->
+                    [1, 2]
+                    |> Task.stream(
+                        fn n -> if n == 1 then trap_after(1) else after(5, n),
+                        max_running: 2,
+                    )
+                    |> Iter.to_list()
+                end)
+
+                Task.outcome(walker)
+            end
+
+        assert Outcome.Failed(Failure.Errored(fault)) = ended
+        assert String.contains(fault, "found nothing")
+    end
+end

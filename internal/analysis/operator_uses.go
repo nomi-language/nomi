@@ -208,7 +208,10 @@ func operatorUseOf(fa *FileAnalysis, n ast.Node) *OperatorUse {
 //     else the one block of the interface for recv, at args where recv
 //     implements the interface at several type arguments (implBlockFor).
 //     The answer is OperatorByImpl whatever recv's shape: a primitive, a
-//     List or a Map has std's block, a derived type its derived one.
+//     List or a Map has std's block, a derived type its derived one. A
+//     derive's block that writes no function (derivesByShape, a derived
+//     Equatable, Hashable, Debug or Display) is answered structurally: the
+//     type compares, hashes or renders by its shape.
 //   - recv's shape (shapeUse): per instance for a type parameter, by
 //     dispatch for an interface value, structurally for a tuple, an
 //     anonymous struct, a function value and a collection with no block.
@@ -228,6 +231,11 @@ func (fa *FileAnalysis) interfaceUse(iface, method, origin string, recv Type, ar
 	b := chosen
 	if b == nil && fa != nil {
 		b = fa.implBlockFor(recv, iface, origin, args)
+	}
+	if b != nil && derivesByShape(b) {
+		// A derived Equatable, Hashable, Debug or Display writes no
+		// function: the type compares, hashes or renders by its shape.
+		return &OperatorUse{Form: OperatorStructural}, nil
 	}
 	if b != nil {
 		return &OperatorUse{Form: OperatorByImpl, Impl: &OperatorImpl{Interface: iface, Receiver: t, Args: args, Method: implBlockMethod(b, method)}}, b
@@ -287,10 +295,11 @@ func shapeUse(iface string, t Type) (use *OperatorUse, decided bool) {
 // Hashable, which it meets by its structural equality (spec §5 *Equality
 // bounds*, *Hashing and keys*), for Debug, and for Struct, the marker
 // every struct meets. Nil for any other interface: nothing answers. Debug
-// is answered here for a struct, enum or distinct type with no written or
-// derived Debug, declared at module level or in a body, which renders by
-// its shape; an opaque type and a host type have the name-only block the
-// front end writes (SynthesizeUniversalDebug, synthesizeBlockDebug).
+// is answered here for a struct, enum or distinct type with no Debug block,
+// declared at module level or in a body, which renders by its shape, as a
+// derived Debug does (derivesByShape); an opaque type and a host type with
+// no derive have the name-only block the front end writes
+// (SynthesizeUniversalDebug, synthesizeBlockDebug).
 func noImplUse(iface string, t Type) *OperatorUse {
 	switch iface {
 	case "Equatable", "Hashable", "Debug":

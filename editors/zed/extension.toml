@@ -5,10 +5,10 @@ schema_version = 1
 authors = ["David Baldwin"]
 description = "Syntax highlighting, language server and debugger support for the Nomi programming language"
 
-[language_servers.nomi-lsp]
+[language_servers.nomi]
 name = "Nomi LSP"
 # TOML for a module's nomi.toml and phrase catalogs. Zed attaches a server
-# by language, not by path, so nomi-lsp sees every TOML buffer and answers
+# by language, not by path, so the server sees every TOML buffer and answers
 # only a nomi.toml and those under a module's `[i18n].catalogs` directory.
 languages = ["Nomi", "TOML"]
 language_ids = { "Nomi" = "nomi", "TOML" = "toml" }
@@ -23,4 +23,4 @@ schema_path = "debug_adapter_schemas/Nomi.json"
 
 [grammars.nomi]
 repository = "https://github.com/nomi-language/tree-sitter-nomi"
-rev = "21751ff58d0b1d5636a7d40b58822e0501158873"
+rev = "1c887dfc5079bbb3340b71b35a028edf531f72a8"

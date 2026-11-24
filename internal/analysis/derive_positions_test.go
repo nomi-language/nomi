@@ -12,8 +12,9 @@ import (
 // A derived impl's variant-payload binding is defined at its own position.
 // When it shared the impl function's, the Definitions slot the signature
 // check reads held the binding, so a function-typed positional payload
-// (`Num ((Int) -> Int)`) was read as the derived `inspect`'s signature:
-// "return type Int does not match interface 'Debug' return type String".
+// (`Num ((Int) -> Int)`) was read as the derived function's signature. A
+// derived Debug writes no function, and an enum with such a payload derives
+// it with no error.
 func TestUniversalDebug_FunctionTypedPositionalPayloadChecks(t *testing.T) {
 	for _, payload := range []string{"((Int) -> Int)", "(Int) -> Int", "((Int, Int) -> Bool)", "(() -> Int)"} {
 		errs := checkUniversalDebugProject(t, "enum Handler\n  Num "+payload+"\n  Other\nend\n\nderive Debug for Handler\n\nfn main()\n  _ = Handler.Other\nend\n")
@@ -21,8 +22,11 @@ func TestUniversalDebug_FunctionTypedPositionalPayloadChecks(t *testing.T) {
 	}
 }
 
-func TestUniversalDebug_PayloadBindingHasItsOwnPosition(t *testing.T) {
-	nodes, err := parser.Parse(lexer.Lex("enum Handler\n  Num Int\n  Other\nend\n\nderive Debug for Handler\n"))
+// A derive that synthesizes a body (ToJson here; a derived Debug, Display,
+// Equatable or Hashable writes no function) binds each payload at a
+// position of its own.
+func TestDerivedBody_PayloadBindingHasItsOwnPosition(t *testing.T) {
+	nodes, err := parser.Parse(lexer.Lex("enum Handler\n  Num Int\n  Other\nend\n\nderive ToJson for Handler\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -30,11 +34,15 @@ func TestUniversalDebug_PayloadBindingHasItsOwnPosition(t *testing.T) {
 	var fn *ast.FuncDef
 	for _, n := range nodes {
 		if ib, ok := n.(*ast.ImplBlock); ok {
-			fn = ib.Items[0].(*ast.FuncDef)
+			for _, item := range ib.Items {
+				if f, ok := item.(*ast.FuncDef); ok {
+					fn = f
+				}
+			}
 		}
 	}
 	if fn == nil {
-		t.Fatal("no Debug impl derived")
+		t.Fatal("no ToJson function derived")
 	}
 	var bindings int
 	for _, s := range fn.Body.Stmts {

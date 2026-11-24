@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"slices"
 	"strings"
-	"time"
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/frontend"
@@ -37,6 +36,15 @@ const InvalidRefinementCode = "literal-breaks-rule"
 // when the compiler lost the check, a bug in Nomi.
 const UncheckedRefinementCode = "unchecked-literal"
 
+// SeededHashCode is the Code of the diagnostic at a refinement's rule, a
+// typed literal's handler or a checked literal's check that can reach a
+// hash keyed by the run's seed (vm.Effects.Seeded): the compiler runs it
+// once, and the same value could hash otherwise when the program runs.
+const SeededHashCode = "seeded-hash"
+
+// seededHashHint closes a SeededHashCode diagnostic.
+const seededHashHint = "the compiler runs it once, and a hash (`Hashable.hash`, `String.hash`) is keyed by a seed each run draws, so its answer could differ when the program runs; compare the values themselves, or build a Map or Set, whose answers do not depend on the seed"
+
 // internalCheckHint closes an "internal:" diagnostic of a check the
 // compiler lost.
 const internalCheckHint = "this is a bug in Nomi, not in your program; please report it at https://github.com/nomi-language/nomi/issues"
@@ -46,7 +54,7 @@ const ruleWithoutApp = "a rule is checked with the value alone, and an app field
 
 // ruleHint closes the diagnostic of a rule that cannot run when the program
 // is compiled.
-const ruleHint = "a rule runs when the program is compiled, on each literal checked as the type; it may call pure functions whose cost its value's size bounds and read an effect-free `once`, and nothing else"
+const ruleHint = "a rule runs when the program is compiled, on each literal checked as the type; it may read an effect-free `once` and call pure functions that read no hash and whose cost its value's size bounds, and nothing else"
 
 // checkRefinements answers the diagnostics of the refinement literals that
 // fail their rules, in source order.
@@ -131,6 +139,7 @@ func (p *Program) checkRefinements(m *vm.Machine) (frontend.Diagnostics, error) 
 		}
 		found := m.Effects(checks...)
 		var msg string
+		code, hint := InvalidRefinementCode, ruleHint
 		switch {
 		case len(found.Effects) > 0:
 			msg = fmt.Sprintf("the rule of %s has effects (%s): a rule is a pure function of the value it checks", rule.Type, strings.Join(found.Effects, "; "))
@@ -138,6 +147,9 @@ func (p *Program) checkRefinements(m *vm.Machine) (frontend.Diagnostics, error) 
 			msg = fmt.Sprintf("the rule of %s reads %s: %s", rule.Type, quotedNames(p.appFieldNames(found.AppFields)), ruleWithoutApp)
 		case len(found.Unbounded) > 0:
 			msg = fmt.Sprintf("the rule of %s calls a function whose cost grows with its argument (%s): a rule must be bounded", rule.Type, strings.Join(found.Unbounded, "; "))
+		case len(found.Seeded) > 0:
+			msg = fmt.Sprintf("the rule of %s reads a hash, which differs between runs (%s): a rule must give the same answer in every run", rule.Type, strings.Join(found.Seeded, "; "))
+			code, hint = SeededHashCode, seededHashHint
 		default:
 			continue
 		}
@@ -146,8 +158,8 @@ func (p *Program) checkRefinements(m *vm.Machine) (frontend.Diagnostics, error) 
 			impure[rule.Key] = true
 		}
 		d := frontend.NewDiagnostic(rule.Path, p.sources[rule.Path], rule.Line, rule.Col, msg)
-		d.Hints = append(d.Hints, ruleHint)
-		d.Code = InvalidRefinementCode
+		d.Hints = append(d.Hints, hint)
+		d.Code = code
 		out = append(out, d)
 	}
 	for _, site := range p.res.Refinements {
@@ -207,8 +219,7 @@ func (p *Program) checkRefinement(m *vm.Machine, funcs map[string]*ir.Func, site
 		if found := m.Unretained([]*ir.Func{site.Build}, nil); len(found) > 0 {
 			return unrunnable(found)
 		}
-		lim := vm.Limits{Steps: literalSteps, Deadline: time.Now().Add(literalTime)}
-		rec, err := m.Evaluate(context.Background(), site.Build, nil, lim)
+		rec, err := m.Evaluate(context.Background(), site.Build, nil, vm.Limits{Steps: literalSteps})
 		if err != nil {
 			failure, _ := programFailure(err)
 			var internal *InternalError
@@ -257,9 +268,13 @@ func (p *Program) checkRefinement(m *vm.Machine, funcs map[string]*ir.Func, site
 				site.Text, analysis.ArticleFor(step.Type), step.Type, step.Rule, strings.Join(found.Unbounded, "; ")),
 				"a rule must be bounded")
 		}
-		lim := vm.Limits{Steps: literalSteps, Deadline: time.Now().Add(literalTime)}
-		v, err := m.Evaluate(context.Background(), f, args, lim)
-		if errors.Is(err, vm.ErrLimit) || errors.Is(err, vm.ErrDeadline) {
+		if len(found.Seeded) > 0 {
+			return report(SeededHashCode, fmt.Sprintf("%s cannot be checked as %s %s when the program is compiled: its rule `%s` reads a hash, which differs between runs (%s)",
+				site.Text, analysis.ArticleFor(step.Type), step.Type, step.Rule, strings.Join(found.Seeded, "; ")),
+				seededHashHint)
+		}
+		v, err := m.Evaluate(context.Background(), f, args, vm.Limits{Steps: literalSteps})
+		if errors.Is(err, vm.ErrLimit) {
 			return fail(fmt.Sprintf("%s cannot be checked as %s %s when the program is compiled: its rule `%s` did not finish within %d steps",
 				site.Text, analysis.ArticleFor(step.Type), step.Type, step.Rule, literalSteps))
 		}

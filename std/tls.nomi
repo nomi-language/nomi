@@ -18,11 +18,12 @@
 
 import
     bool.Bool.{self, False, True}
+    bytes.Bytes
     display.Display
     equatable.Equatable
     http::host as http_host
     instant.Instant
-    int.Int
+    int.{Int, NonNegativeInt}
     io.{self, Writer}
     iter.Iter
     lists.List
@@ -131,15 +132,15 @@ end
 
 /// Whether a server asks the client for a certificate, and checks it.
 pub enum ClientAuth
-    /// Asks for none: Go's `NoClientCert`.
+    /// Asks for none.
     NoCertificate
-    /// Asks, and accepts any or none: `RequestClientCert`.
+    /// Asks, and accepts any or none, unchecked.
     Request
-    /// Requires one, any one: `RequireAnyClientCert`.
+    /// Requires one, any one, unchecked.
     RequireAny
-    /// Checks one against `client_roots` when given: `VerifyClientCertIfGiven`.
+    /// Asks, accepts none, and checks one given against `client_roots`.
     VerifyIfGiven
-    /// Requires one and checks it: `RequireAndVerifyClientCert`.
+    /// Requires one and checks it against `client_roots`.
     Require
 end
 
@@ -240,14 +241,14 @@ pub struct Certificate
 end
 
 impl Certificate
-    /// A certificate from PEM text: the chain, then its key. Go's
-    /// `X509KeyPair`.
+    /// A certificate from PEM text: `cert` holds the chain, leaf first, and
+    /// `key` its private key, which must match the leaf.
     pub fn from_pem(cert: String, key: String) -> Result<Certificate, Error>
         handle = http_host.certificate_from_pem(cert, key) |> Result.map_err(Error.from_parts)?
         Ok(Certificate{handle:})
     end
 
-    /// A certificate from PEM files. Go's `LoadX509KeyPair`.
+    /// A certificate from PEM files, read as `from_pem` reads the text.
     pub fn load(cert_path: String, key_path: String) -> Result<Certificate, Error>
         handle =
             http_host.certificate_load(cert_path, key_path) |> Result.map_err(Error.from_parts)?
@@ -261,7 +262,7 @@ impl Certificate
     end
 end
 
-/// A cipher suite Go's TLS implements.
+/// A cipher suite std::tls implements.
 pub struct CipherSuite
     id:       Int
     name:     String
@@ -272,15 +273,15 @@ end
 derive Equatable for CipherSuite
 
 impl CipherSuite
-    /// The suites Go's TLS uses by default: Go's `CipherSuites`.
+    /// The suites std::tls implements that have no known weakness.
     //! assert Iter.any_match(CipherSuite.secure(), fn s -> s.name == "TLS_AES_128_GCM_SHA256")
     //
     pub fn secure() -> List<CipherSuite>
         http_host.cipher_suites(False) |> Iter.map(CipherSuite.of_parts) |> Iter.to_list()
     end
 
-    /// The suites Go implements but uses only when asked:
-    /// `InsecureCipherSuites`.
+    /// The suites std::tls implements but offers only when a config names
+    /// them, since each has a known weakness.
     pub fn insecure() -> List<CipherSuite>
         http_host.cipher_suites(True) |> Iter.map(CipherSuite.of_parts) |> Iter.to_list()
     end
@@ -330,20 +331,20 @@ pub struct ClientConfig
     next_protocols: List<String> = []
     min_version:    Version = Version.Tls12
     max_version:    Option<Version> = None
-    /// The cipher suite IDs it offers, for TLS 1.2 and below; `None` is Go's.
+    /// The cipher suite IDs it offers, for TLS 1.2 and below; `None`
+    /// offers a default set that holds none of `CipherSuite.insecure()`.
     cipher_suites:   Option<List<Int>> = None
     curves:          Option<List<Curve>> = None
     session_tickets: Bool = True
     /// How many sessions it keeps to resume; 0 keeps none.
     session_cache: Int = 0
     renegotiation: Renegotiation = Renegotiation.Never
-    /// Checks each handshake once Go has verified it, with what it agreed
-    /// on; an `Err` fails the handshake with its reason. Go's
-    /// `VerifyConnection`. It runs on the task making the connection.
+    /// Checks each handshake after the certificate check, with what it agreed
+    /// on; an `Err` fails it with that reason. It runs on the task connecting.
     verify: Option<(ConnectionState) -> Result<Unit, String>> = None
     /// Where the handshake's secrets are written, in the NSS key log
     /// format, so a tool such as Wireshark can read the traffic. Anyone who
-    /// reads it can read the connection. Go's `KeyLogWriter`.
+    /// reads it can read the connection.
     key_log: Option<Writer> = None
 end
 
@@ -362,18 +363,18 @@ pub struct ServerConfig
     curves:          Option<List<Curve>> = None
     session_tickets: Bool = True
     /// Chooses the certificate for each handshake from what the client
-    /// asked for; `None` from it falls back to `certificates`. Go's
-    /// `GetCertificate`. It runs on the task serving the connections.
+    /// asked for; `None` from it falls back to `certificates`. It runs on
+    /// the task serving the connections.
     certificate_for: Option<(ClientHello) -> Option<Certificate>> = None
-    /// Checks each handshake once Go has verified it, as
+    /// Checks each handshake after the certificate check, as
     /// `ClientConfig.verify` does.
     verify: Option<(ConnectionState) -> Result<Unit, String>> = None
     /// Where the handshake's secrets are written, as `ClientConfig.key_log`.
     key_log: Option<Writer> = None
 end
 
-/// What a client asked for when it started a handshake: Go's
-/// `ClientHelloInfo`, for `ServerConfig.certificate_for`.
+/// What a client asked for when it started a handshake, for
+/// `ServerConfig.certificate_for`.
 pub struct ClientHello
     /// The host the client named (SNI); "" when it named none.
     server_name: String
@@ -404,7 +405,7 @@ impl ClientHello
     end
 
     /// Whether the client can use `certificate`: its key, signature and
-    /// curves are ones the client offered. Go's `SupportsCertificate`.
+    /// curves are ones the client offered.
     pub fn supports(hello: ClientHello, certificate: Certificate) -> Bool
         http_host.hello_supports(hello.handle, certificate.handle) == ""
     end
@@ -620,11 +621,11 @@ end
 
 /// Why TLS failed.
 pub enum Error
-    /// The peer sent an alert: Go's `AlertError`.
+    /// The peer sent an alert, with its code (RFC 8446 section 6).
     Alert {code: Int, reason: String}
     /// The peer's certificate did not verify.
     Verification {reason: String, certificates: List<CertificateInfo>}
-    /// The peer did not speak TLS: Go's `RecordHeaderError`.
+    /// The peer did not speak TLS: what it sent is no TLS record.
     NotTls {reason: String}
     /// A certificate or key that does not parse, or roots that hold none.
     Certificate {reason: String}
@@ -742,7 +743,7 @@ end
 
 /// The listener's connections as TLS servers with `config`, each handshake
 /// done on the task that accepts it. It shares the listener: closing one
-/// closes both. Go's `NewListener`.
+/// closes both.
 pub fn wrap_listener(
     listener: net.Listener,
     config:   ServerConfig,
@@ -751,10 +752,101 @@ pub fn wrap_listener(
     Ok(net.Listener.of_handle(http_host.tls_wrap_listener(net.Listener.handle_of(listener), host)))
 end
 
-/// Whether the peer's certificate covers `host`: Go's `VerifyHostname`.
+/// Whether the peer's certificate covers `host`, a name or an IP address.
 pub fn verify_hostname(conn: Connection, host: String) -> Result<Unit, Error>
     case http_host.tls_verify_hostname(Connection.handle_of(conn), host)
         ""     -> Ok(Unit)
         reason -> Err(Error.Verification{reason:, certificates: []})
+    end
+end
+
+/// `length` bytes of keying material exported from the connection's TLS
+/// session (RFC 5705, and RFC 8446 section 7.5 for TLS 1.3), under `label`
+/// and `context`. Both sides of one connection export the same bytes for
+/// the same label and context, and no one else can, so a protocol over TLS
+/// binds its own keys or tokens to this connection with them. `None` and
+/// `Some(Bytes.from_list([]))` are different contexts before TLS 1.3. A
+/// connection that is not TLS, or a label TLS reserves, is an `Err`.
+//! import std::net
+//! import std::tls
+//!
+//! // A connection that is not TLS exports nothing.
+//! (a, _) = net.pipe()
+//!
+//! assert tls.export_keying_material(a, "EXPERIMENTAL-nomi", None, 32)
+//!     == Err("the connection is not TLS")
+//
+pub fn export_keying_material(
+    conn:    Connection,
+    label:   String,
+    context: Option<Bytes>,
+    length:  NonNegativeInt,
+) -> Result<Bytes, String>
+    http_host.tls_export_keying_material(
+        Connection.handle_of(conn),
+        label,
+        Option.with_default(context, Bytes.from_list([])),
+        Option.is_some(context),
+        length,
+    )
+end
+
+/// A kind of TLS channel binding: data both ends of one connection compute
+/// alike, which an authentication protocol over TLS (SCRAM's `-PLUS`
+/// mechanisms, for one) signs so that its exchange cannot be relayed to
+/// another connection.
+pub enum ChannelBinding
+    /// `tls-server-end-point` (RFC 5929): the hash of the server's
+    /// certificate, by the hash its signature names (SHA-256 for MD5 and
+    /// SHA-1). It binds to the server, not to the one connection. A
+    /// certificate signed with Ed25519 names no hash and has none.
+    ServerEndPoint
+    /// `tls-exporter` (RFC 9266): 32 bytes exported under
+    /// `EXPORTER-Channel-Binding` with an empty context, for TLS 1.3 only.
+    Exporter
+end
+
+derive Equatable for ChannelBinding
+
+impl ChannelBinding
+    /// The binding's name, as SCRAM's `p=` attribute and RFC 5056 write it:
+    /// `tls-server-end-point` or `tls-exporter`.
+    //! import std::tls.ChannelBinding
+    //!
+    //! assert ChannelBinding.name(ChannelBinding.Exporter) == "tls-exporter"
+    //
+    pub fn name(binding: ChannelBinding) -> String
+        case binding
+            .ServerEndPoint -> "tls-server-end-point"
+            .Exporter       -> "tls-exporter"
+        end
+    end
+end
+
+/// The connection's channel binding data of kind `binding`, or why it has
+/// none: it is not TLS, `Exporter` over a version before TLS 1.3, or
+/// `ServerEndPoint` with no certificate, or one whose signature names no
+/// hash.
+pub fn channel_binding(conn: Connection, binding: ChannelBinding) -> Result<Bytes, String>
+    case binding
+        .ServerEndPoint ->
+            http_host.tls_server_end_point(Connection.handle_of(conn))
+
+        .Exporter ->
+            case state(conn)
+                None ->
+                    Err("the connection is not TLS")
+
+                Some(s) when s.version != .Tls13 ->
+                    Err("tls-exporter needs TLS 1.3, and the connection is ${s.version}")
+
+                Some(_) ->
+                    export_keying_material(
+                        conn,
+                        "EXPORTER-Channel-Binding",
+                        Some(Bytes.from_list([])),
+                        32,
+                    )
+            end
     end
 end

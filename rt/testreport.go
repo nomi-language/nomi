@@ -66,8 +66,9 @@ type CaseCount struct {
 	// runner that keeps none. A test DecidedUnchanged did not run: it
 	// passed, with the cases its stored pass counted.
 	Decided string
-	// Effects says the test's code can have effects, which such a runner
-	// works out before deciding; false when Decided is "".
+	// Effects says the test's code can have effects, or read a hash keyed
+	// by the process's seed, which such a runner works out before
+	// deciding; false when Decided is "".
 	Effects bool
 }
 
@@ -77,7 +78,8 @@ const (
 	// DecidedUnchanged is a test that did not run: a stored pass holds its
 	// code, and it has no effects or the run skips those too.
 	DecidedUnchanged = "unchanged"
-	// DecidedEffects is a test that ran because it has effects.
+	// DecidedEffects is a test that ran because it has effects or reads a
+	// hash.
 	DecidedEffects = "effects"
 	// DecidedNew is a test that ran because no stored pass holds it.
 	DecidedNew = "new"

@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
 # Generate editors/helix/runtime/queries/nomi/ and set up Helix for Nomi.
 #
-#   scripts/sync-helix-runtime.sh            regenerate the query mirrors only
-#   scripts/sync-helix-runtime.sh --install  also copy the queries into your
-#                                            Helix config (a snapshot), write
-#                                            the languages.toml block and build
-#                                            the grammar
-#   scripts/sync-helix-runtime.sh --dev      the same, but link the queries
-#                                            directory to this checkout, so
-#                                            query changes need no reinstall
+#   scripts/sync-helix-runtime.sh          regenerate the query mirrors only
+#   scripts/sync-helix-runtime.sh --check  fail if the mirrors are not current
+#   scripts/sync-helix-runtime.sh --dev    regenerate, run `nomi editor install
+#                                          helix` from this checkout, then
+#                                          link the query directories to this
+#                                          checkout, so query changes need no
+#                                          reinstall
 #
-# Both setup modes build the grammar from this checkout's tree-sitter-nomi/.
+# A snapshot install is `nomi editor install helix` (internal/editors),
+# which `make install-helix` runs from this checkout.
+# TestHelixAndNeovimQueriesAreGenerated (internal/docscheck) runs --check.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -18,11 +19,23 @@ HELIX_NOMI="$ROOT/editors/helix"
 QUERY_DIR="$HELIX_NOMI/runtime/queries/nomi"
 CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 USER_HELIX="$CONFIG_HOME/helix"
-LANGUAGES="$HELIX_NOMI/languages.toml"
 
-mkdir -p "$QUERY_DIR"
-cp "$ROOT/tree-sitter-nomi/queries/injections.scm" "$QUERY_DIR/injections.scm"
-python3 - "$ROOT" "$QUERY_DIR/highlights.scm" <<'PY'
+mode="${1:-}"
+case "$mode" in
+  "" | --check | --dev) ;;
+  *) echo "usage: scripts/sync-helix-runtime.sh [--check | --dev]" >&2; exit 2 ;;
+esac
+
+# --check generates into a temporary directory and compares.
+out="$QUERY_DIR"
+if [[ "$mode" == "--check" ]]; then
+  out="$(mktemp -d "${TMPDIR:-/tmp}/nomi-helix-check.XXXXXX")"
+  trap 'rm -rf "$out"' EXIT
+fi
+
+mkdir -p "$out"
+cp "$ROOT/tree-sitter-nomi/queries/injections.scm" "$out/injections.scm"
+python3 - "$ROOT" "$out/highlights.scm" <<'PY'
 import pathlib
 import sys
 
@@ -55,85 +68,27 @@ text = text.replace("Zed layers semantic tokens", "editors layer semantic tokens
 target.write_text(text)
 PY
 
-mode="${1:-}"
 case "$mode" in
   "") echo "Synced Helix Nomi runtime in $HELIX_NOMI"; exit 0 ;;
-  --install | --dev) ;;
-  *) echo "usage: scripts/sync-helix-runtime.sh [--install | --dev]" >&2; exit 2 ;;
+  --check)
+    status=0
+    for f in injections.scm highlights.scm; do
+      if ! cmp -s "$out/$f" "$QUERY_DIR/$f"; then
+        echo "sync-helix-runtime: editors/helix/runtime/queries/nomi/$f is not current; run make build-helix" >&2
+        status=1
+      fi
+    done
+    exit "$status"
+    ;;
 esac
 
-mkdir -p "$USER_HELIX/runtime/queries" "$USER_HELIX/runtime/grammars"
-USER_QUERIES="$USER_HELIX/runtime/queries/nomi"
-# nomi-catalog is the language of a module's phrase catalogs, whose
-# queries inherit Helix's TOML ones.
+# --dev: install as a user would, from this checkout, then replace the
+# copied queries with links to it. nomi-catalog is the language of a
+# module's phrase catalogs, whose queries inherit Helix's TOML ones.
+go run -C "$ROOT" ./cmd/nomi editor install helix
 for lang in nomi nomi-catalog; do
   user_dir="$USER_HELIX/runtime/queries/$lang"
-  if [[ "$mode" == "--dev" ]]; then
-    rm -rf "$user_dir"
-    ln -s "$HELIX_NOMI/runtime/queries/$lang" "$user_dir"
-  else
-    if [[ -L "$user_dir" ]]; then
-      rm "$user_dir"
-    fi
-    mkdir -p "$user_dir"
-    cp "$HELIX_NOMI/runtime/queries/$lang/"*.scm "$user_dir/"
-  fi
+  rm -rf "$user_dir"
+  ln -s "$HELIX_NOMI/runtime/queries/$lang" "$user_dir"
 done
-
-  mkdir -p "$USER_HELIX"
-  touch "$USER_HELIX/languages.toml"
-
-  python3 - "$ROOT" "$LANGUAGES" "$USER_HELIX/languages.toml" <<'PY'
-import pathlib
-import sys
-
-root = pathlib.Path(sys.argv[1])
-source_path = pathlib.Path(sys.argv[2])
-target_path = pathlib.Path(sys.argv[3])
-grammar = root / "tree-sitter-nomi"
-
-source_lines = []
-for line in source_path.read_text().splitlines():
-    if line.startswith("source = { "):
-        line = f'source = {{ path = "{grammar}" }}'
-    source_lines.append(line)
-source = "\n".join(source_lines).strip()
-
-target = target_path.read_text()
-begin = "# BEGIN NOMI HELIX SUPPORT"
-end = "# END NOMI HELIX SUPPORT"
-block = f"{begin}\n{source}\n{end}"
-
-if begin in target and end in target:
-    before, rest = target.split(begin, 1)
-    _, after = rest.split(end, 1)
-    next_text = before.rstrip() + "\n\n" + block + after
-else:
-    next_text = target.rstrip()
-    if next_text:
-        next_text += "\n\n"
-    next_text += block + "\n"
-
-target_path.write_text(next_text)
-PY
-
-# Build only Nomi's grammar: `hx --grammar build` against the real config would
-# build every grammar Helix knows, and one unrelated failure fails the run. The
-# temporary config is the user's languages.toml with `use-grammars` replaced;
-# its runtime/ links to the real one, so nomi.so lands in the user's config.
-tmp="$(mktemp -d "${TMPDIR:-/tmp}/nomi-helix.XXXXXX")"
-trap 'rm -rf "$tmp"' EXIT
-mkdir -p "$tmp/helix/runtime"
-ln -s "$USER_HELIX/runtime/grammars" "$tmp/helix/runtime/grammars"
-ln -s "$USER_HELIX/runtime/queries" "$tmp/helix/runtime/queries"
-{
-  printf 'use-grammars = { only = ["nomi"] }\n\n'
-  grep -v '^[[:space:]]*use-grammars[[:space:]]*=' "$USER_HELIX/languages.toml" || true
-} > "$tmp/helix/languages.toml"
-XDG_CONFIG_HOME="$tmp" hx --grammar build
-
-if [[ "$mode" == "--dev" ]]; then
-  echo "Linked $USER_QUERIES to $QUERY_DIR and built the grammar"
-else
-  echo "Installed Nomi Helix support into $USER_HELIX"
-fi
+echo "Linked Helix's queries in $USER_HELIX/runtime/queries to $HELIX_NOMI/runtime/queries"

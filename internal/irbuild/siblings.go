@@ -20,7 +20,7 @@ import (
 //
 // # Terminology
 //
-// A Nomi MODULE is the nomi.toml + go.mod directory tree: the distribution and
+// A Nomi MODULE is the directory tree under a nomi.toml: the distribution and
 // orphan-rule unit. A FILE is the import-graph node and the VISIBILITY unit.
 // `test_helpers.f(x)` is file-qualified access through an imported file API
 // object and it reaches free functions only — an interface-impl method reached
@@ -596,34 +596,58 @@ func (bl *irScalarBuilder) namesLocal(id *ast.Ident) bool {
 	return local
 }
 
-// bodyBinding reports whether sym, a reference the checker recorded in fa,
-// is a value a body binds: a parameter (a lambda's and an Iter.loop
-// state's among them), a binding (a pattern's and a test's among them),
-// or a function declared in a body, which the module scope does not hold.
-func bodyBinding(fa *analysis.FileAnalysis, sym *analysis.Symbol) bool {
+// bodyBinding reports whether sym, a reference the checker recorded in
+// this gen's source, is a value a body binds: a parameter (a lambda's and
+// an Iter.loop state's among them), a binding (a pattern's and a test's
+// among them), or a function declared in a body, which the module scope
+// does not hold. A module function is read as this gen's module declares
+// it (ownDecl): in a std module checked from edited source, the shared
+// analysis's copy of one is the module's own.
+func (g *gen) bodyBinding(sym *analysis.Symbol) bool {
 	switch sym.Kind {
 	case analysis.SymbolParam, analysis.SymbolBinding:
 		return true
 	case analysis.SymbolFunction:
+		fa := g.srcFA()
 		fd, isFunc := sym.Node.(*ast.FuncDef)
 		if !isFunc || sym.Resolved != nil || fa == nil || fa.ModuleScope == nil {
 			return false
 		}
 		top := fa.ModuleScope.Lookup(sym.Name)
-		return top == nil || top.Node != fd
+		return top == nil || top.Node != g.ownDecl(fd)
 	}
 	return false
 }
 
-// lookupQualifier resolves a file qualifier to a unit index: the file
-// qualifierScope names.
+// namesOwnFile reports whether id, a qualifier, names this gen's own file:
+// its module scope, or a scope the file index resolves to this unit, which
+// for a std module checked from edited source is also the shared analysis's
+// copy of the module (indexEditedStdTwins).
+func (g *gen) namesOwnFile(id *ast.Ident) bool {
+	scope := g.qualifierScope(id)
+	if scope == nil {
+		return false
+	}
+	if fa := g.srcFA(); fa != nil && scope == fa.ModuleScope {
+		return true
+	}
+	if g.files == nil {
+		return false
+	}
+	i, ok := g.files.byScope[scope]
+	return ok && i == g.fileUnit
+}
+
+// lookupQualifier resolves a file qualifier to a sibling's unit index: the
+// file qualifierScope names, when it is another file than this one. A
+// qualifier naming this file (namesOwnFile) names no sibling.
 func (g *gen) lookupQualifier(id *ast.Ident) (int, bool) {
 	scope := g.qualifierScope(id)
 	if scope == nil || g.files == nil {
 		return 0, false
 	}
 	i, ok := g.files.byScope[scope]
-	return i, ok
+	return i, ok && i != g.fileUnit
 }
 
 // stdFileQualifier resolves a qualifier bound to a STDLIB file's API object

@@ -4,6 +4,11 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/lexer"
+	"github.com/nomi-language/nomi/internal/parser"
 )
 
 // A function of an inherent block on a generic owner whose signature does
@@ -164,5 +169,68 @@ end
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("errors:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+}
+
+// ImplFuncBlockParams answers which of a block's parameters each of its
+// functions is generic over, as the checker resolves the body: in an
+// inherent block those the signature names (none for `try_all<U, E>`, the
+// shape of std/tasks' `Task.try_await_all` in `impl Task<T>`, and the
+// function's own for `own<T>`), and in an interface impl block every one.
+func TestOwnerTypeParam_ImplFuncBlockParams(t *testing.T) {
+	src := `
+struct Box<T>
+  v: T
+end
+
+impl Box<T>
+  fn get(b: Box<T>) -> T
+    b.v
+  end
+  fn try_all<U, E>(rs: List<Result<U, E>>) -> Int
+    Iter.count(rs)
+  end
+  fn own<T>(x: T) -> T
+    x
+  end
+end
+
+interface Size
+  fn size() -> Int
+end
+
+impl Size for Box<T>
+  fn size() -> Int
+    1
+  end
+end
+`
+	nodes, _ := parser.ParseWithRecovery(lexer.Lex(src))
+	lib := loadStd()
+	fa := analysis.BuildFileWithStdlib(nodes, lib.Primitives, lib.Modules, "", nil)
+	analysis.AttachStdlibProjectImpls(fa, lib.Files)
+	if errs := append(analysis.BuildTypes(fa, nodes), analysis.CheckTypes(fa, nodes)...); len(errs) != 0 {
+		t.Fatalf("the source does not check: %v", errs)
+	}
+	got := map[string][]string{}
+	for _, n := range nodes {
+		ib, ok := n.(*ast.ImplBlock)
+		if !ok {
+			continue
+		}
+		for _, item := range ib.Items {
+			if fd, ok := item.(*ast.FuncDef); ok {
+				got[fd.Name] = analysis.ImplFuncBlockParams(fa, fd, ib, []string{"T"})
+			}
+		}
+	}
+	want := map[string][]string{
+		"get":     {"T"},
+		"try_all": nil,
+		"own":     {"T"},
+		"size":    {"T"},
+	}
+	if fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Fatalf("block parameters each function is generic over:\n got %v\nwant %v", got, want)
 	}
 }

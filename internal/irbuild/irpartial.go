@@ -1035,15 +1035,23 @@ func (bl *irScalarBuilder) partialCalleeByType(t *ast.Call) ([]ast.Param, []kind
 // calleeDeclParams is the parameter list of the declaration a callee
 // expression resolves to, or nil.
 func (g *gen) calleeDeclParams(callee ast.Node) []ast.Param {
-	switch d := g.calleeDecl(callee).(type) {
+	params, _ := declParams(g.calleeDecl(callee))
+	return params
+}
+
+// declParams is the parameter list of decl, a declaration a call can
+// reach: a `fn`, an interface function or a `host fn`. ok is false for
+// anything else.
+func declParams(decl ast.Node) (params []ast.Param, ok bool) {
+	switch d := decl.(type) {
 	case *ast.FuncDef:
-		return d.Params
+		return d.Params, true
 	case *ast.InterfaceMethod:
-		return d.Params
+		return d.Params, true
 	case *ast.ExternFunc:
-		return d.Params
+		return d.Params, true
 	}
-	return nil
+	return nil, false
 }
 
 // declaredHere reports whether fd is one of this file's functions: a
@@ -1064,7 +1072,8 @@ func (g *gen) declaredHere(fd *ast.FuncDef) bool {
 	return false
 }
 
-// calleeDecl is the declaration a callee expression resolves to, or nil.
+// calleeDecl is the declaration a callee expression resolves to, as this
+// gen's module declares it (ownDecl), or nil.
 func (g *gen) calleeDecl(callee ast.Node) ast.Node {
 	if g.fa == nil {
 		return nil
@@ -1077,7 +1086,7 @@ func (g *gen) calleeDecl(callee ast.Node) ast.Node {
 	if sym.Resolved != nil {
 		sym = sym.Resolved
 	}
-	return sym.Node
+	return g.ownDecl(sym.Node)
 }
 
 // isLocalCallable reports whether id reads a function value this body or

@@ -2,7 +2,7 @@
 
 This reference covers the `nomi` command and the files around a program:
 the commands and their flags, `nomi.toml`, modules and dependencies, the test
-runner, what each kind of build writes, the Go toolchain, environment variables,
+runner, what each kind of build writes, environment variables,
 and the editor and debugger support. What the language does is in the
 [specification](spec.md), and the standard library's types and functions are
 in the [standard library reference](/reference/). To install `nomi`, see
@@ -28,10 +28,12 @@ usage, and `nomi help` lists them all:
 | `nomi build <file>` | Write an executable from a file or a module's directory ([Executables](#executables)), a browser folder with `--web` ([A program in the browser](#a-program-in-the-browser)), or a `.nomic` file with `--no-vm` ([Compiled programs and `nomi-vm`](#compiled-programs-and-nomi-vm)). |
 | `nomi build-vm` | Write `nomi-vm`, or with `--reactor` the WASI reactor, with no program ([Compiled programs and `nomi-vm`](#compiled-programs-and-nomi-vm)). |
 | `nomi new`, `nomi init` | Start a project ([Starting a project](#starting-a-project-nomi-new-and-nomi-init)). |
-| `nomi add`, `nomi remove`, `nomi update`, `nomi fetch` | Change and download dependencies ([Add, update and remove dependencies](#add-update-and-remove-dependencies)). |
+| `nomi add`, `nomi remove`, `nomi update`, `nomi fetch`, `nomi outdated` | Change, fetch and list dependencies ([Add, update and remove dependencies](#add-update-and-remove-dependencies)). |
 | `nomi tool <module> <name>` | Run a module's tool ([Tools](#tools-nomi-tool)). |
 | `nomi types <paths>` | Write TypeScript declarations of the JSON a backend's types cross as ([TypeScript types](#typescript-types-nomi-types)). |
 | `nomi phrases accept <locale> <phrase>` | Mark a translation current ([`[i18n]`](#i18n)). |
+| `nomi editor install <editor>` | Set up Helix, Neovim, VS Code or Zed from the files `nomi` carries ([Setting up an editor](#setting-up-an-editor-nomi-editor)). |
+| `nomi lsp` | The language server editors start ([The language server](#the-language-server)). |
 | `nomi dap` | The debugger editors start ([Debugging](#debugging)). |
 | `nomi mcp` | The compiler as tools for a coding agent ([Coding agents](#coding-agents-nomi-mcp)). |
 | `nomi help [command]` | List the commands, or print one's usage. |
@@ -101,12 +103,13 @@ A function's self time is spent in its own code, and its total time adds
 what the functions it calls spent. A second table, after the functions,
 names the lines the time was spent at. A lambda is `<lambda>` at its line and
 column. A std function written in Nomi is marked `std`, and a function
-implemented in Go, such as `Map.get` or `String.join`, is marked `(host)`.
-`--profile=<file>` also writes the profile to `<file>` in pprof's format,
-which `go tool pprof -http=: <file>` shows as a call graph and a flame graph.
+the runtime implements, such as `Map.get` or `String.join`, is marked
+`(host)`. `--profile=<file>` also writes the profile to `<file>` in
+pprof's format, a gzipped `profile.proto`, which any pprof viewer reads:
+`pprof -http=: <file>` shows it as a call graph and a flame graph.
 
 The VM samples the program every millisecond, at its next call or loop
-iteration, and when a call into Go returns, so a profile measures wall time:
+iteration, and when a host function returns, so a profile measures wall time:
 a call that waits for input, a timer or a task is charged with its wait. A
 function that ends in a tail call is replaced by the function it calls, as a
 tail call does, and drops out of the stack, except that a call into a std
@@ -194,12 +197,6 @@ listed as `ok <file> (through <importer>)`; a file nothing there imports
 is checked on its own. A failed check of a directory prints `FAIL <file>` for each file that
 holds errors, a file the program imports or a phrase catalog, with
 its errors below it, and an error two programs share once.
-
-In a module whose `nomi.toml` has a `[module].path`, `nomi check` also
-fails on a `go.mod` that is missing or is not the one `nomi` writes for
-that path ([`go.mod`](#gomod)), and names the command that writes it:
-``FAIL go.mod: missing: ...; run `nomi fetch` to write it``. It writes
-nothing itself.
 
 A file that does not parse reports every syntax error it holds in one
 run: the first of each declaration, and the first of each statement inside
@@ -430,7 +427,7 @@ A program that does not check prints the check's errors and exits 1, as
 
 ```json
 {
-  "project": "example.com/app",
+  "project": "app",
   "self": {"std": ["std::fs", "std::io"], "std_in_tests": ["std::process"]},
   "deps": {
     "std": ["std::fs", "std::http"],
@@ -479,13 +476,13 @@ that `nomi run` gives a program, and runs only when someone runs it.
 `<module>` is the current module's own `[module].name` or the name its
 `nomi.toml`'s `[dependencies]` gives a dependency. A dependency's tool runs
 in the current project's build: its modules at the versions the project
-selects, and the project's `dir` entries, as `go run` of a dependency's
-command does. The tool's own `[dependencies]` say which modules it needs,
+selects, and the project's `dir` entries. The tool's own `[dependencies]` say which modules it needs,
 and its `dir` entries are not read. The tool runs with `NOMI_TOOL_MODULE`
 in its `startup.env` set to `<module>`, the name the project gives its
 module. It reads its configuration from the project's `nomi.toml` in the
 table of that name, and code it generates imports the module's files by
-it: a project with `db = { module = ".../sqlkit", ... }` writes
+it: a project with `db = { repo = "github.com/nomi-language/nomi",
+subdir = "lib/sql/sqlkit", ... }` writes
 `[db.database.main]`, runs `nomi tool db generate`, and gets code that
 imports `db::sqlkit` and `db::runtime`. It is how a module ships a code
 generator, such as sqlkit's `nomi tool sqlkit generate`
@@ -565,7 +562,7 @@ otherwise.
 
 A program is read again only while the files its build can read are as
 they were: the `.nomi` files it loads, `nomi.toml` and the other `.toml`
-files (phrase catalogs), `nomi.lock` and `go.mod` in its project and its
+files (phrase catalogs) and `nomi.lock` in its project and its
 dependencies, the files under a folder an `embed` pattern names, and any
 `nomi.toml` or `main.nomi` above the project. A `.nomi` file the
 program does not load changes it only by being added or removed, since
@@ -603,70 +600,64 @@ next: cd hello && nomi run main.nomi
 ```
 
 `nomi new <name> [dir]` starts a module in `dir` (a new directory named
-`name` when left out). It writes a `nomi.toml` with that `name` and
-`entry_points = ["main"]`, a `main.nomi` that prints hello, and an
+`name` when left out). It writes a `nomi.toml` with that `name`, the
+release of the `nomi` that wrote it as `nomi` (left out by a `nomi` built
+from source), and `entry_points = ["main"]`, a `main.nomi` that prints
+hello, and an
 `AGENTS.md` for coding agents that names the commands and links the
 [cheat sheet](https://nomi-lang.org/cheatsheet.md), keeping a `main.nomi`
 or `AGENTS.md` already there. A name is lowercase letters, digits and `_`,
 not starting with a digit, the form an import path starts with
-(`hello_world`, not `hello-world`), and not `std`. Such a module has no
-`[module].path`: nothing needs one but downloading the module from
-another project ([Distribution](#distribution)).
+(`hello_world`, not `hello-world`), and not `std`. A module does not say
+where it is published: a project that depends on it names its repository
+([Distribution](#distribution)). So `nomi new` refuses a repository as its
+argument:
 
-`nomi new <module path> [dir]` starts a module others download by that
-path. An argument with a `.` or a `/` is a module path, such as
-`github.com/you/hello-world/v2`. Its `nomi.toml` also has the `path`, its
-`name` is the path's last element without a `/vN` suffix, written as a
-name (`hello-world` is `hello_world`), `dir` defaults to that name, and it
-also writes the `go.mod` `nomi` keeps for the path ([`go.mod`](#gomod)).
+```console
+$ nomi new github.com/you/hello
+nomi new: "github.com/you/hello" is not a module name: a name is lowercase letters, digits and _, not starting with a digit, such as hello_world; a module names no repository: a project that depends on it names the repository it is published in
+```
 
-`nomi new` refuses a name or path it could not write in `nomi.toml`, and a
+`nomi new` refuses a name it could not write in `nomi.toml`, and a
 directory with a `nomi.toml`, which is a project already, before it writes
 anything. It prints what it wrote and the next command.
 
-`nomi init [name | module path]` makes the current directory a module. It
-writes its `nomi.toml`, as `nomi new` writes one, and never replaces it.
-The name or module path is the argument, else the `module` line of a
-`go.mod` already there (an argument that differs from that line is
-refused); with neither, it is an error that asks for one. `entry_points` lists the module-relative
+`nomi init <name>` makes the current directory a module. It writes its
+`nomi.toml`, as `nomi new` writes one, and never replaces it. With no name
+it is an error that asks for one. `entry_points` lists the module-relative
 name of every file under the directory with a top-level `fn main` (tools,
 test files, hidden directories and directories with their own `nomi.toml`
-are skipped), or `["main"]` when there is none and there are no tools.
-It also writes the `go.mod` `nomi` keeps ([`go.mod`](#gomod)), in place
-of one already there that says more than its module line, unless the
-directory holds Go code. It writes no
-source file, refuses a directory that is a project already, and prints what
-it wrote.
+are skipped), or `["main"]` when there is none and there are no tools. It
+writes no source file, refuses a directory that is a project already, and
+prints what it wrote.
 
 ### `nomi.toml`
 
 `nomi.toml` at a module's root is the one file a Nomi module writes about
-itself: its name, its module path, its entry points and its dependencies.
-`nomi.lock` beside it locks the versions and hashes of the dependencies
-downloaded for it ([`nomi.lock`](#nomilock)). `nomi` writes both
-(`nomi new`, `nomi init`, `nomi add`, `nomi remove`, `nomi update`,
-`nomi fetch`), and a project commits both. A module with a
-`[module].path` also has the one-line `go.mod` `nomi` writes for it
-([`go.mod`](#gomod)), so Go's module proxy can serve it.
+itself: its name, its entry points and its dependencies. `nomi.lock`
+beside it locks the version, commit and hash of each dependency fetched
+for it ([`nomi.lock`](#nomilock)). `nomi` writes both (`nomi new`,
+`nomi init`, `nomi add`, `nomi remove`, `nomi update`, `nomi fetch`), and
+a project commits both.
 
 ```toml
 # nomi.toml
 [module]
 name = "shop"
-path = "github.com/owner/shop"
+nomi = "v0.4.0"
 entry_points = ["main"]
 
 [dependencies]
-sqlite = { module = "github.com/nomi-language/nomi/lib/sql/sqlite", version = "v0.4.0" }
-local = { dir = "../local" }
-kit = { module = "example.com/kit", version = "v1.2.0", dir = "../kit" }
+markdown = { repo = "github.com/owner/markdown", version = "v0.3.0" }
+sqlite = { repo = "github.com/nomi-language/nomi", subdir = "lib/sql/sqlite", version = "v0.4.0" }
+helpers = { dir = "../helpers" }
 ```
 
 - `[module].name` is the module's own name: what its own files may start
   an import path with (`import shop::orders`), and the name `nomi add`
   gives the module by default in a project that adds it.
-- `[module].path` is the module path it is published under, optional for
-  a module nobody downloads ([Distribution](#distribution)).
+- `[module].nomi` is the lowest `nomi` release the module's source needs
+  ([The nomi a module needs](#the-nomi-a-module-needs)). It is optional.
 - `[module].entry_points` lists the files with a `fn main` other than the
   module's tools; every file under `tools/` is an entry point without
   being listed ([Project mode](#project-mode)).
@@ -674,10 +665,13 @@ kit = { module = "example.com/kit", version = "v1.2.0", dir = "../kit" }
   the name its imports use: `sqlite` above makes `import sqlite::driver`
   name `driver.nomi` at that module's root (spec §14 *Files and modules*).
   A key is lowercase letters, digits and `_`, and may not be `std` or the
-  module's own name, and two keys may not name one module path.
-- An entry holds `module` and `version`, a published module at a full
-  version (`v1.2.3`) or a pseudo-version; or `dir`, a directory relative
-  to this `nomi.toml`'s that holds the module; or all three
+  module's own name, and two keys may not name one module.
+- An entry holds `repo` and `version`, or `repo` and `commit`, with
+  `subdir` for a module that is not at the repository's root; or `dir`, a
+  directory relative to this `nomi.toml`'s that holds the module; or all
+  of them ([Dependencies](#dependencies)).
+- `[indirect]`, which `nomi update` writes, holds the lowest version the
+  build takes each repository at that only a dependency names
   ([Dependencies](#dependencies)).
 
 Every key `nomi.toml` accepts:
@@ -685,9 +679,10 @@ Every key `nomi.toml` accepts:
 | Table | Key | What it holds |
 |---|---|---|
 | `[module]` | `name` | The module's own name, which its own files' import paths may start with and which `nomi add` gives it by default. |
-| `[module]` | `path` | The module path it is published under; optional for a module nobody downloads. |
+| `[module]` | `nomi` | The lowest `nomi` release the module's source needs ([The nomi a module needs](#the-nomi-a-module-needs)). |
 | `[module]` | `entry_points` | The files with a `fn main`, other than tools ([Project mode](#project-mode)). |
-| `[dependencies]` | a dependency's name, as its imports write it | `module` and `version`, `dir`, or all three ([Dependencies](#dependencies)). |
+| `[dependencies]` | a dependency's name, as its imports write it | `repo`, `subdir` and `version` or `commit`, `dir`, or all of them ([Dependencies](#dependencies)). |
+| `[indirect]` | a repository only a dependency names, quoted | The lowest version the build takes it at, which `nomi update` writes ([Dependencies](#dependencies)). |
 | `[i18n]` | `locales` | The locales every phrase is translated into, and whose CLDR data the program carries ([`[i18n]`](#i18n)). |
 | `[i18n]` | `partial_locales` | Locales whose catalogs may leave a phrase out. |
 | `[i18n]` | `source_locale` | The language of `phrase` declarations' own text; `en` when left out. |
@@ -711,7 +706,7 @@ A function is pure, or it has effects. A project can list the effects its progra
 
 **Starting.** Run `nomi effects --write` in the project ([The effects a program has](#the-effects-a-program-has-nomi-effects)). It writes the tightest tables the program passes, from the effects it has today. Read what it wrote: each name is something the program does, and a name you did not expect is a call to look at. To keep a module from obtaining access to anything, give it an empty entry under `[effects.self.modules]`, such as `"pricing" = []`: a call in its files that has an effect a list names is then an error, and the module acts only through the handles it is passed. Once the file has that table, `--write` writes an entry for each of the project's modules. Later, `nomi effects` says how the tables and the program differ, and `--why <name>` says which calls have an effect. In the editor, a call the tables do not allow has a quick fix that adds its name to the key the help names, in `nomi.toml`, keeping the file's comments, a hover on a name in `nomi.toml` shows the calls that need it, and a name nothing needs is a hint with a fix that takes it out. A hover on a call, or on a function of the program and its calls, says the effects it has and whether the tables allow them, and the editor draws bold each call that can act ([The language server](#the-language-server)).
 
-These tables are for a project whose `[module].path` is `example.com/app` and whose `[dependencies]` names four modules, `pricing`, `reports`, `fetch` and `pg`, and whose own code is in `main.nomi`, `totals.nomi` and the test file `main_test.nomi`:
+These tables are for a project whose `[module].name` is `app` and whose `[dependencies]` names four modules, `pricing`, `reports`, `fetch` and `pg`, and whose own code is in `main.nomi`, `totals.nomi` and the test file `main_test.nomi`:
 
 ```toml
 [effects.self]
@@ -780,7 +775,7 @@ A key is a module of the project as its own code imports it: the path of its fil
 - `std_in_tests` is added to `std` for the effects the test cases have. It is set only beside `std`.
 - `entries_required = true` makes every dependency whose Nomi files the program loads have an entry under `[effects.deps.modules]`, or an `[effects.self]` in its own `nomi.toml`. A dependency with neither is an error at that key, one per module, whose `fix` in `nomi check --format json` and quick fix in the editor write the entry with the effects the module has. The modules counted are those whose Nomi files the program loads, whether or not it runs their code, and not every module the project needs. The key is false when left out.
 
-`[effects.deps.modules]` gives a dependency an entry, keyed by its name in the program ([Dependencies](#dependencies)): the name the project's `[dependencies]` gives it (`"pricing" = []`). The entry is for the calls written in that module's files: a call there must be in its entry, and in `[effects.deps]`' `std` when it is set. An empty entry allows no effects. An entry holds the module's calls from every root, tests included. The project's own name and path are not keys here, since `[effects.self]` and its entries hold its code.
+`[effects.deps.modules]` gives a dependency an entry, keyed by its name in the program ([Dependencies](#dependencies)): the name the project's `[dependencies]` gives it (`"pricing" = []`). The entry is for the calls written in that module's files: a call there must be in its entry, and in `[effects.deps]`' `std` when it is set. An empty entry allows no effects. An entry holds the module's calls from every root, tests included. The project's own name is not a key here, since `[effects.self]` and its entries hold its code.
 
 #### A dependency's own list
 
@@ -790,7 +785,6 @@ A module the project needs can declare the effects its own code has, in an `[eff
 # the nomi.toml of pg
 [module]
 name = "pg"
-path = "lib.example/pg"
 
 [effects.self]
 std = ["std::fs"]
@@ -805,57 +799,63 @@ A module with no `[effects.self]` and no entry in the project is held by the pro
 
 #### Names
 
-A std name is a std module as an import writes it (`std::fs`, `std::net`), or `std::startup`. Each of these is an error at its line in `nomi.toml`: a std name of another form, a `host:` name (which only a Go program that embeds Nomi can allow, below), a name listed twice, a std name that is no std module (naming the nearest, `did you mean "std::fs"?`), a key under `[effects.self.modules]` that is no module of the project (naming the nearest), and, as a key under `[effects.deps.modules]`, a name that names no module the project needs, or the project's own name or path. A dependency is named by the key the project's `[dependencies]` gives it, so its module path or its own `[module].name` there is an error whose help names that key (`did you mean "pg"?`). A name that is allowed and that nothing has is not an error, and neither is a std module whose functions have no effects, which allows nothing. A dependency's own `std` and entries are held to the same rules, and an error in them is reported at its line in the dependency's `nomi.toml`. A key directly under `[effects]` is an error that names the two tables.
+A std name is a std module as an import writes it (`std::fs`, `std::net`), or `std::startup`. Each of these is an error at its line in `nomi.toml`: a std name of another form, a `host:` name (which only a program that embeds Nomi can allow, below), a name listed twice, a std name that is no std module (naming the nearest, `did you mean "std::fs"?`), a key under `[effects.self.modules]` that is no module of the project (naming the nearest), and, as a key under `[effects.deps.modules]`, a name that names no module the project needs, or the project's own name. A dependency is named by the key the project's `[dependencies]` gives it, so its repository or its own `[module].name` there is an error whose help names that key (`did you mean "pg"?`). A name that is allowed and that nothing has is not an error, and neither is a std module whose functions have no effects, which allows nothing. A dependency's own `std` and entries are held to the same rules, and an error in them is reported at its line in the dependency's `nomi.toml`. A key directly under `[effects]` is an error that names the two tables.
 
 #### What counts as an effect
 
-The lists name a program's effects. An effect acts on, or reads from, something outside the program: files, the network, processes, output and input, the clock, entropy, the environment and the arguments, tasks, a nested program, and a function a Go program that embeds Nomi supplies. An effect also makes state that later calls act through: a channel, a Reader or Writer over memory, a sandbox or a fake, a cookie jar, a supervisor, a WebAssembly instance. A signature or a seal draws a nonce and is one. Two kinds of call are not named. A pure function computes its answer from its operands alone: formatting a time, a seeded generator, parsing. A call that acts only through a value it is given is named where that value was made: getting a handle is the call (opening a file, dialing, listening, making an HTTP client, starting a process, the standard streams, making a channel), and using it is not, so a function handed an open file and writing to it, handed a channel and sending on it, or handed a `Client` and fetching through it, has no effect a list names. `Client.new` and `http.default_client` are `std::http`, and so is every module function that sends with the default client (`http.get`, `http.fetch`), since it gets that client itself. A call through an interface value is a use too when it reaches a std implementation of a type only std code makes: what any std implementation of the type does is named at the call into std that makes the value, such as `storage.local` or `mail.smtp`, so a function handed a `Store` and putting through it has no effect a list names, and a program that makes no `std::storage::testing` store is not charged for one. A call that reaches an implementation outside std is named in that implementation's file, as any call there is. Reading the program's own embedded files (`Files.read`) acts through the tree an `embed` declaration holds, and a declaration is no call, so no list names it. What a call costs is not an effect, and neither is an exit status, a trap or a failed assertion. `dbg` prints, and is an effect: the editor and `nomi effects --tree` show it as `dbg`. No list needs an entry for it, since `nomi build` refuses a program that holds one, so a module whose entry is `[]` may hold a `dbg` while you work on it. A boot that takes a `Startup` reads the environment and the arguments, and is `std::startup`, reported at the boot.
+The lists name a program's effects. An effect acts on, or reads from, something outside the program: files, the network, processes, output and input, the clock, entropy, the environment and the arguments, tasks, a nested program, and a host function the embedding program supplies. An effect also makes state that later calls act through: a channel, a Reader or Writer over memory, a sandbox or a fake, a cookie jar, a supervisor, a WebAssembly instance. A signature or a seal draws a nonce and is one. Two kinds of call are not named. A pure function computes its answer from its operands alone: formatting a time, a seeded generator, parsing. A call that acts only through a value it is given is named where that value was made: getting a handle is the call (opening a file, dialing, listening, making an HTTP client, starting a process, the standard streams, making a channel), and using it is not, so a function handed an open file and writing to it, handed a channel and sending on it, or handed a `Client` and fetching through it, has no effect a list names. `Client.new` and `http.default_client` are `std::http`, and so is every module function that sends with the default client (`http.get`, `http.fetch`), since it gets that client itself. A call through an interface value is a use too when it reaches a std implementation of a type only std code makes: what any std implementation of the type does is named at the call into std that makes the value, such as `storage.local` or `mail.smtp`, so a function handed a `Store` and putting through it has no effect a list names, and a program that makes no `std::storage::testing` store is not charged for one. A call that reaches an implementation outside std is named in that implementation's file, as any call there is. Reading the program's own embedded files (`Files.read`) acts through the tree an `embed` declaration holds, and a declaration is no call, so no list names it. What a call costs is not an effect, and neither is an exit status, a trap or a failed assertion. `dbg` prints, and is an effect: the editor and `nomi effects --tree` show it as `dbg`. No list needs an entry for it, since `nomi build` refuses a program that holds one, so a module whose entry is `[]` may hold a `dbg` while you work on it. A boot that takes a `Startup` reads the environment and the arguments, and is `std::startup`, reported at the boot.
 
 A call to one of these public std functions has the effect its row names, the name a list must hold for it: the function obtains access to something outside the program, or makes state that later calls act through. A function that acts only through a handle it is passed, such as `Dir.write_text` or `Writer.print`, is not in the table, though the editor draws a call to it bold, since bold marks a call that is not provably pure ([The language server](#the-language-server)). The standard library reference marks the same functions "Has effects": the table and the marks come from one analysis of std.
 
 | Module | Functions with effects |
 |---|---|
-| `std::actors` | `Actor.call`, `Actor.start` |
+| `std::actors` | `Actor.call`, `Actor.start`, `Agent.get`, `Agent.get_and_update`, `Agent.start`, `Agent.update` |
 | `std::calendar` | `DateTime.local_zone`, `DateTime.now_in`, `DateTime.now_local`, `NaiveDateTime.utc_now` |
 | `std::channels` | `Arm.after`, `Channel.buffered`, `Channel.unbuffered`, `Receiver.receive_within` |
+| `std::cipher` | `Key.generate`, `cipher.seal` |
 | `std::compiler` | `compiler.check`, `compiler.check_project`, `compiler.hover`, `compiler.run`, `compiler.run_file` |
 | `std::context` | `Context.deadline_remaining`, `Context.with_timeout` |
-| `std::fs` | `fs.chunks`, `fs.copy`, `fs.create`, `fs.create_dir`, `fs.create_symlink`, `fs.current_dir`, `fs.exists`, `fs.glob`, `fs.lines`, `fs.link_metadata`, `fs.list`, `fs.make_temp_dir`, `fs.metadata`, `fs.open`, `fs.open_dir`, `fs.open_file`, `fs.read`, `fs.read_link`, `fs.read_text`, `fs.remove`, `fs.remove_all`, `fs.remove_all_quietly`, `fs.rename`, `fs.set_mode`, `fs.sync_dir`, `fs.temp_dir`, `fs.walk`, `fs.within`, `fs.write`, `fs.write_text` |
+| `std::fs` | `Dir.watch`, `Dir.watch_each`, `fs.chunks`, `fs.copy`, `fs.create`, `fs.create_dir`, `fs.create_link`, `fs.create_symlink`, `fs.current_dir`, `fs.disk_usage`, `fs.exists`, `fs.glob`, `fs.group_name`, `fs.lines`, `fs.link_metadata`, `fs.list`, `fs.make_temp_dir`, `fs.metadata`, `fs.open`, `fs.open_dir`, `fs.open_file`, `fs.read`, `fs.read_link`, `fs.read_text`, `fs.remove`, `fs.remove_all`, `fs.remove_all_quietly`, `fs.rename`, `fs.same_file`, `fs.set_link_owner`, `fs.set_mode`, `fs.set_owner`, `fs.set_times`, `fs.sync_dir`, `fs.temp_dir`, `fs.touch`, `fs.truncate`, `fs.user_name`, `fs.walk`, `fs.watch`, `fs.watch_each`, `fs.within`, `fs.write`, `fs.write_text` |
 | `std::fs::testing` | `testing.conformance`, `testing.dir`, `testing.run` |
 | `std::http` | `Body.reader`, `Client.new`, `Client.stream`, `Client.with_tls`, `CookieJar.new`, `FormFile.open`, `Request.dump`, `Request.dump_outgoing`, `Request.limit_body`, `Request.parts`, `Response.content`, `Response.dump`, `ReverseProxy.to`, `Tracer.new`, `http.default_client`, `http.fetch`, `http.file_server`, `http.file_server_embedded`, `http.get`, `http.head`, `http.limit_body`, `http.listen`, `http.log_requests`, `http.post`, `http.post_form`, `http.request_id`, `http.reverse_proxy`, `http.serve`, `http.serve_embedded`, `http.serve_file`, `http.serve_here`, `http.stream`, `http.timeout` |
 | `std::http::testing` | `testing.chunks`, `testing.decompressed`, `testing.open_websocket`, `testing.with_server` |
-| `std::instant` | `Instant.now` |
-| `std::io` | `Reader.from_bytes`, `Reader.from_chunks`, `Reader.from_fn`, `Reader.from_text`, `Reader.from_text_chunks`, `Writer.collect`, `Writer.from_fn`, `io.eprint`, `io.ewrite`, `io.inspect`, `io.lines`, `io.print`, `io.read_line`, `io.stderr`, `io.stdin`, `io.stdout`, `io.write` |
+| `std::instant` | `Instant.now`, `Monotonic.elapsed`, `Monotonic.now` |
+| `std::io` | `Reader.from_bytes`, `Reader.from_chunks`, `Reader.from_fn`, `Reader.from_text`, `Reader.from_text_chunks`, `Writer.collect`, `Writer.from_fn`, `io.eprint`, `io.ewrite`, `io.inspect`, `io.is_terminal`, `io.lines`, `io.print`, `io.read_line`, `io.stderr`, `io.stdin`, `io.stdout`, `io.write` |
 | `std::jobs` | `Worker.new`, `Worker.start`, `jobs.enqueue`, `jobs.run_one`, `jobs.wake` |
 | `std::jobs::testing` | `Inline.claim`, `Inline.insert`, `Inline.new`, `Inline.prune`, `Inline.record_tick`, `Inline.release`, `Inline.renew`, `Inline.rescue`, `Inline.settle`, `testing.conformance`, `testing.rules`, `testing.run_queued` |
 | `std::jwt` | `jwt.sign`, `jwt.sign_as`, `jwt.verify`, `jwt.verify_as` |
+| `std::key_exchange` | `PrivateKey.generate` |
 | `std::locale` | `Locale.load`, `Locale.loaded` |
 | `std::log` | `Logger.json`, `Logger.text`, `log.debug`, `log.error`, `log.info`, `log.log`, `log.warn` |
 | `std::log::testing` | `testing.run` |
 | `std::mail` | `Smtp.send`, `mail.deliver`, `mail.render`, `mail.smtp` |
 | `std::mail::testing` | `Memory.new`, `Memory.send`, `testing.with_smtp_server` |
-| `std::net` | `net.dial`, `net.listen`, `net.lookup_address`, `net.lookup_cname`, `net.lookup_host`, `net.lookup_ip`, `net.lookup_mx`, `net.lookup_ns`, `net.lookup_port`, `net.lookup_srv`, `net.lookup_txt`, `net.pipe`, `net.serve` |
+| `std::net` | `net.dial`, `net.dial_unix`, `net.inherited_listeners`, `net.listen`, `net.listen_unix`, `net.lookup_address`, `net.lookup_cname`, `net.lookup_host`, `net.lookup_ip`, `net.lookup_mx`, `net.lookup_ns`, `net.lookup_port`, `net.lookup_srv`, `net.lookup_txt`, `net.pipe`, `net.serve` |
 | `std::passwords` | `Argon2id.hash`, `Bcrypt.hash`, `Pbkdf2.hash`, `Scrypt.hash`, `passwords.hash`, `passwords.needs_rehash`, `passwords.verify` |
 | `std::phrase` | `Catalog.load`, `Noun.localize` |
-| `std::process` | `process.output`, `process.run`, `process.spawn` |
+| `std::process` | `Child.stop`, `process.id`, `process.output`, `process.run`, `process.spawn` |
 | `std::process::testing` | `testing.run` |
 | `std::random` | `Seed.from_os`, `random.secure_bytes` |
-| `std::sessions` | `Session.new`, `Session.renew`, `Session.set`, `sessions.with_session`, `sessions.write` |
-| `std::signatures` | `PrivateKey.generate_ecdsa_p256`, `PrivateKey.generate_ed25519`, `PrivateKey.generate_rsa`, `signatures.sign`, `signatures.sign_with` |
+| `std::sessions` | `Session.new`, `sessions.with_session`, `sessions.write` |
+| `std::signals` | `signals.each`, `signals.receiver` |
+| `std::signatures` | `PrivateKey.generate_ecdsa_p256`, `PrivateKey.generate_ecdsa_p384`, `PrivateKey.generate_ecdsa_p521`, `PrivateKey.generate_ed25519`, `PrivateKey.generate_rsa`, `signatures.encrypt`, `signatures.sign`, `signatures.sign_with` |
 | `std::sql::testing` | `Fake.new`, `testing.conformance`, `testing.conformance_answer`, `testing.rules` |
 | `std::storage` | `storage.handler`, `storage.local`, `storage.local_dir` |
 | `std::storage::testing` | `Memory.new`, `Memory.put` |
 | `std::supervisors` | `Supervisor.flush`, `Supervisor.new`, `Supervisor.spawn`, `Supervisor.spawn_all` |
-| `std::tasks` | `Task.spawn`, `Task.spawn_all` |
-| `std::timer` | `timer.sleep` |
+| `std::system` | `system.arch`, `system.cache_dir`, `system.config_dir`, `system.cpu_count`, `system.data_dir`, `system.executable`, `system.home_dir`, `system.hostname`, `system.memory`, `system.os`, `system.runtime`, `system.user` |
+| `std::tasks` | `Task.race`, `Task.spawn`, `Task.spawn_all`, `Task.stream`, `Task.try_await_all`, `Task.within` |
+| `std::terminal` | `RawMode.release`, `RawMode.restore`, `terminal.raw_mode`, `terminal.read_key`, `terminal.read_key_within`, `terminal.read_password`, `terminal.size`, `terminal.size_of`, `terminal.supports_color` |
+| `std::timer` | `timer.every`, `timer.sleep` |
 | `std::tls` | `Certificate.load`, `ClientConfig.host`, `ServerConfig.host`, `tls.client`, `tls.dial`, `tls.listen`, `tls.server`, `tls.wrap_listener` |
+| `std::udp` | `udp.bind`, `udp.bind_unix`, `udp.dial`, `udp.dial_unix`, `udp.inherited_sockets`, `udp.serve` |
 | `std::uuid` | `Uuid.v4`, `Uuid.v7` |
 | `std::wasm` | `wasm.instantiate` |
 | `std::websocket` | `websocket.connect` |
 
 #### How a call is named
 
-A call is named by the std module the code called, not the one that crosses: std::net, std::tls and std::websocket dial and look up names through std::http's functions, so `net.dial(...)` is `std::net` and `http.get(...)` is `std::http`. The standard library reference puts that name under the signature of each function a call to which has an effect, as `Has effects: std::fs`, by the same walk. A function a Go program that embeds Nomi supplies is `host:` and its key, which only that program's own list can allow ([A host's own list](#a-hosts-own-list)).
+A call is named by the std module the code called, not the one that crosses: std::net, std::tls and std::websocket dial and look up names through std::http's functions, so `net.dial(...)` is `std::net` and `http.get(...)` is `std::http`. The standard library reference puts that name under the signature of each function a call to which has an effect, as `Has effects: std::fs`, by the same walk. A host function the embedding program supplies is `host:` and its key, which only that program's own list can allow ([A host's own list](#a-hosts-own-list)).
 
 #### What a module is charged for
 
@@ -913,7 +913,7 @@ Each refusal names the module and the table whose list does not allow the call, 
 
 A refused call in a dependency's files is one error, at the call, and it ends with a note at the place in the project's own code that leads there: the last step out of the project's files on the way, a call, a function used as a value, a call through an interface or a value displayed, in the words the help's chain uses. When several places lead there, the note names the first and counts the rest; `--all-calls`, `--format json`'s `related` and the editor give each. The editor marks each place in the project's file with the refusal and offers the same quick fix there, and the mark's related location is the dependency's call.
 
-`nomi check --format json` gives each such diagnostic the code `effect-not-allowed` and its `args`: the name; the list it is over, `self`, `self.modules`, `deps` or `deps.modules`; the module whose files hold the call, the project's own `[module].path` (else its `[module].name`) for its own files, a dependency's name in the program for a dependency's, and the entry's key for `self.modules`; then what that list allows: `"args":["std::http","self","example.com/app","std::io","std::fs"]`. Its `fix` adds what the help says to add to each list the call is over, and its `file` is `nomi.toml`, since the edit is there; the editor offers the same edit as a quick fix.
+`nomi check --format json` gives each such diagnostic the code `effect-not-allowed` and its `args`: the name; the list it is over, `self`, `self.modules`, `deps` or `deps.modules`; the module whose files hold the call, the project's own `[module].name` (else its entry's name) for its own files, a dependency's name in the program for a dependency's, and the entry's key for `self.modules`; then what that list allows: `"args":["std::http","self","app","std::io","std::fs"]`. Its `fix` adds what the help says to add to each list the call is over, and its `file` is `nomi.toml`, since the edit is there; the editor offers the same edit as a quick fix.
 
 A call over the `[effects.self]` a dependency declares in its own `nomi.toml` has the code `effect-not-declared`, with the same `args` and the list `self`: the name, `self`, the module, then each name its own `std` holds. Over its own entry for the file's module under its `[effects.self.modules]`, the list is `self.modules` and the names are the entry's, and the headline names the entry: `` pricing's `calc` has the effect std::fs, and its entry under the module's own [effects.self.modules] allows it no effects ``. The module declares fewer effects than its code has, so the help says the fix is in that module, naming its `nomi.toml`, and names the project's lists only when they do not allow the call either. A call over more than one list is reported once: over the module's own list first, then the project's entry for the module, then `[effects.deps]`, and the help names the others it is over.
 
@@ -955,8 +955,8 @@ is allowed and changes nothing.
 
 ```tree
 my_project/
-├── nomi.toml  # name, path, entry points and dependencies
-├── nomi.lock  # the downloaded dependencies' versions and hashes
+├── nomi.toml  # name, entry points and dependencies
+├── nomi.lock  # the fetched dependencies' versions, commits and hashes
 ├── main.nomi  # an entry: fn main and an optional fn boot
 ├── tools/
 │   └── seed.nomi  # a tool, run by nomi tool my_app seed
@@ -1078,19 +1078,24 @@ application's list does not reach them.
 
 A module names its dependencies in its `nomi.toml`'s `[dependencies]`
 table ([`nomi.toml`](#nomitoml)), and `nomi.lock` beside it locks the
-version and hash of each one downloaded ([`nomi.lock`](#nomilock)). A
-published module is fetched through Go's module proxy and checksum
-database, without the `go` command. `nomi publish` is a reserved name with
-no command behind it, there is no Nomi-specific registry
+version, commit and hash of each one fetched ([`nomi.lock`](#nomilock)). A
+published module is a directory of a git repository at a version tag,
+fetched from the repository's host over HTTPS.
+`nomi publish` is a reserved name with no command behind it
 ([Distribution](#distribution)), and the compiler does not check semantic
 versions.
 
 ### Add, update and remove dependencies
 
 These commands work on the project of the nearest `nomi.toml` at or above
-the current directory. With none, they say `` nomi add: no nomi.toml in
-<dir> or above it, so there is no project to change; start one with
-`nomi new <name>`, or make this directory one with `nomi init <name>` ``. They write `nomi.toml`'s `[dependencies]` and `nomi.lock`,
+the current directory. With none, they say so and name the two commands
+that start a project:
+
+```console
+nomi add: no nomi.toml in <dir> or above it, so there is no project to change; start one with `nomi new <name>`, or make this directory one with `nomi init <name>`
+```
+
+They write `nomi.toml`'s `[dependencies]` and `nomi.lock`,
 which the project commits. An edit keeps the file's comments, blank lines
 and other tables: an entry that changes keeps its comment, a new entry goes
 at the end of `[dependencies]`, and a file with no such table gets one
@@ -1099,50 +1104,133 @@ after `[module]`. They check only `[dependencies]`: an error elsewhere in
 in a project whose `[sqlkit]` table is an error until `sqlkit` is a
 dependency.
 
-- `nomi add [<name>=]<module>[@version]`: name a published module in
-  `[dependencies]`, at its latest release when no version is given, else
-  at a full version such as `v1.2.3`; download it and what it needs; and
-  write `nomi.lock`. The entry's name is `<name>` when given, else the
-  name an entry already gives that module path, else the module's own
-  `[module].name`. A path inside a module adds the module that holds it,
-  the longest prefix of the path the proxy has. A module with no
-  `nomi.toml` is refused: `example.com/gokit v1.0.0 has no nomi.toml, so
-  it is not a Nomi module`. It prints `added greet, example.com/greet
-  v0.2.0 (import greet)`. A first-party library
-  ([Distribution](#distribution)) with no version given is taken at the
-  version of the release `nomi` was installed from, and at its latest
-  commit by a `nomi` built from source.
+- `nomi add [<name>=]<repository>[/<subdir>][@version]`: name a published
+  module in `[dependencies]`, at its repository's latest release when no
+  version is given (or `@latest`), else at the tag named, such as `v1.2.3`
+  or a prerelease such as `v1.3.0-rc.1`; fetch it and what it needs; and
+  write `nomi.lock`. A repository is a host and a path, with no scheme and
+  no `.git`: `github.com/owner/name`. A path past the repository names the
+  module in that directory of it, which the entry writes as `subdir`. On
+  GitHub, Codeberg, Bitbucket and sourcehut a repository is the first two
+  path elements after the host; elsewhere `nomi add` takes the longest
+  prefix of the path whose host answers for its tags. The entry's name is
+  `<name>` when given, else the name an entry already gives that module,
+  else the module's own `[module].name`. A directory with no `nomi.toml`
+  at that tag is refused: `github.com/owner/kit v1.0.0 has no nomi.toml,
+  so it is not a Nomi module`. A short version is refused with the full one
+  (`write the full version, v0.1.0`), and so is a branch name, since a
+  version is a tag. One tag versions a whole repository, so with no
+  version given, a module of a repository the project already takes at a
+  version is added at that version, and the line says so: `added b,
+  github.com/owner/kit/b v0.3.0 (import b), at the version the project
+  already takes github.com/owner/kit at`. A version named (or `@latest`)
+  moves the project's other entries of that repository to it too, into
+  another line as well ([Dependencies](#dependencies)), and prints `moved
+  a to v1.0.0 with it, since one
+  tag versions github.com/owner/kit` for each. A first-party library
+  ([Distribution](#distribution)) with no version given, from a repository
+  the project does not take yet, is taken at the version of the release
+  `nomi` was installed from, and at the repository's latest release by a
+  `nomi` built from source.
+
+  ```console
+  $ nomi add github.com/owner/kit/table
+  nomi: fetching github.com/owner/kit v0.3.0
+  added table, github.com/owner/kit/table v0.3.0 (import table)
+
+  modules
+    table
+      not imported yet
+  ```
+
+  That wrote `table = { repo = "github.com/owner/kit", subdir = "table",
+  version = "v0.3.0" }`.
+- `nomi add [<name>=]<repository>[/<subdir>]@<commit>`, with a commit's
+  40 hex digits: name the module at that commit, written as the entry's
+  `commit` (`fix = { repo = "github.com/owner/fix", commit = "..." }`),
+  and move the project's other entries of the repository to it, as a
+  version named does. A short commit is refused: `` nomi add:
+  github.com/owner/fix@4f1c0b7e9d2a: "4f1c0b7e9d2a" is a short commit:
+  write all 40 hex digits of it ``.
 - `nomi add [<name>=]<directory>`, for an argument that starts with `./`,
   `../` or `/`: name the Nomi module in that directory with a `dir` entry,
   relative to the project root (`csvdata = { dir = "../csvdata" }`). An
-  entry that already names that module's path keeps its name and version
-  and gains the `dir`. A directory with no `nomi.toml` is refused. It
-  prints `added csvdata from ../csvdata (import csvdata)`.
+  entry of that name that names a repository keeps its repository and
+  version and gains the `dir`. A directory with no `nomi.toml` is refused.
+  It prints `added csvdata from ../csvdata (import csvdata)`.
 - `nomi remove <name>`: take the entry out of `[dependencies]`, and write
   `nomi.lock` without it and the modules only it needed. `<name>` is the
-  entry's name or its module path. It refuses while a Nomi file of the
-  project imports the dependency, and names the file and line. It prints `removed greet
-  (example.com/greet v0.1.0)` or `removed csvdata (from ../csvdata)`, and
-  `removed example.com/strutil v1.0.0, which nothing else needs` for each
-  module that went with it.
-- `nomi update [name]`: move one entry, named by its name or its module
-  path, or every entry with a version and no `dir`, to the highest
-  release of its module path, as `go get -u` does: never a new major
-  version (that is another path, `/v2`), and never a pre-release. A
-  module the project does not name moves only as the modules that need
-  it ask. It writes `nomi.lock` and prints each module of the build list
-  that changed: `example.com/greet v0.1.0 -> v0.2.0`,
-  `example.com/strutil v1.1.0 (added: an updated module requires it)` or
-  `example.com/strutil v1.0.0 (removed: nothing needs it any more)`, or
-  `every dependency is at its latest release` when nothing moved. A
-  first-party library moves to the version of the release `nomi` was
-  installed from, down from a later commit too, and from a `nomi` built
-  from source to its latest commit.
-- `nomi fetch [dir]`: download the modules the project needs and write
-  `nomi.lock`. A later command with `--offline` then needs no network.
-- `--offline` on `run`, `test`, `check`, `build`, `fetch` and `add`:
-  download nothing; a module or toolchain the caches lack is an error that
-  names it. `GOPROXY=off` refuses module downloads the same way.
+  entry's name or its module (`github.com/owner/kit/table`). It refuses
+  while a Nomi file of the project imports the dependency, and names the
+  file and line: `` nomi remove: main.nomi:2 imports greet; remove the
+  import first ``. It prints `removed table (github.com/owner/kit/table
+  v0.3.0)` or `removed csvdata (from ../csvdata)`, and
+  `removed github.com/owner/kit/csv v0.3.0, which nothing else needs` for
+  each module that went with it.
+- `nomi update [name]`: move one entry, named by its name or its module, or
+  every entry with a version and no `dir`, to its repository's highest
+  release in the same line: from v1 on the same major version, and below
+  v1 the same minor version, so from `v0.1.0` it takes the highest
+  `v0.1.x` and not `v0.2.0`, and from `v1.0.0` the highest `v1.x.y` and
+  not `v2.0.0`. It never takes a prerelease, so an entry that names a
+  prerelease later than every release stays at it. One tag versions a
+  whole repository, so the entries of one repository move together. With
+  no name, it then covers the whole build: each repository only a
+  dependency names rises to its highest release in its line too, as each
+  one that version then needs does, and each is recorded in the project's
+  `[indirect]` table ([Dependencies](#dependencies)), so the choice is in
+  `nomi.toml` and not only in `nomi.lock`. A floor of a repository the
+  build no longer reaches goes. With a name, it moves that entry alone.
+  `nomi add <repository>@<version>` is how a project crosses a line.
+  An entry at a commit has no later release, so `nomi update` leaves it as
+  it is and says so: `fix is at commit 4f1c0b7e9d2a6c3b8e5f0a1d7c9b2e4f6a8d0c13, which nomi update
+  leaves as it is`. It writes `nomi.lock` and prints each
+  module of the build list that changed, such as
+  `github.com/owner/strutil v1.1.0 (added: an updated module requires it)`
+  or `github.com/owner/strutil v1.0.0 (removed: nothing needs it any
+  more)`, or `every repository of the build is at the latest release of its line` when nothing
+  moved. A first-party library moves to the version of the release `nomi`
+  was installed from, down from a later tag too, and from a `nomi` built
+  from source to the latest release.
+
+  ```console
+  $ nomi update
+  nomi: fetching github.com/owner/greet v0.2.3
+  nomi: fetching github.com/owner/strutil v1.1.0
+  github.com/owner/greet v0.2.0 -> v0.2.3
+  github.com/owner/strutil v1.0.0 -> v1.1.0 (under [indirect]: only a dependency names it)
+
+  modules
+    greet
+      no effects
+      no change
+    strutil
+      no effects
+      no change
+  ```
+- `nomi fetch [dir]`: fetch the modules the project needs and write
+  `nomi.lock`. It prints `2 modules in the module cache for .`. A later
+  command with `--offline` then needs no network.
+- `nomi outdated [dir]`: list each repository of the build, as
+  `nomi.lock` locks it, that has a later release than the one it is
+  taken at: its version, the latest release in its line, which
+  `nomi update` would take, the latest release of all, and `direct` for a
+  repository the project names or `through` the modules whose
+  `[dependencies]` reach it. A repository taken at a commit is not listed.
+  It changes nothing, and exits 0 whether or not anything is behind. It
+  reads each repository's tags from its host, so with `--offline` it says
+  it needs the network.
+
+  ```console
+  $ nomi outdated
+  repository                version  latest in its line  latest  reached
+  github.com/owner/greet    v0.2.3   v0.2.3              v0.3.0  direct
+  github.com/owner/strutil  v1.1.0   v1.1.0              v2.0.0  through greet
+  ```
+- `--offline` on `run`, `test`, `check`, `build`, `fetch`, `add`, `types`
+  and `effects`: fetch nothing. A module the cache lacks is an error that
+  names it: `module github.com/owner/greet v0.2.0 is not in the module
+  cache, and --offline forbids fetching it`.
 
 `nomi add` and `nomi update` then print the effects each Nomi module they
 added or moved has, from its own files, as `nomi effects` prints them
@@ -1154,13 +1242,15 @@ changed from the old version, one line each: `now also has the effect
 std::http`, `no longer has the effect std::fs`, or `no change`.
 
 ```console
-added fetch, example.com/fetch v1.2.0 (import fetch)
+$ nomi add github.com/owner/files
+nomi: fetching github.com/owner/files v1.2.0
+added files, github.com/owner/files v1.2.0 (import files)
 
 modules
-  fetch
+  files
     std::fs
 
-wrote "fetch" = ["std::fs"] under [effects.deps.modules] in nomi.toml
+wrote "files" = ["std::fs"] under [effects.deps.modules] in nomi.toml
 nomi.toml's [effects] tables allow every effect the program has
 ```
 
@@ -1178,16 +1268,40 @@ the add or update stands.
 
 ### Dependencies
 
-An entry of `[dependencies]` names a module by `module` and `version`, by
-`dir`, or by all three:
+An entry of `[dependencies]` names a module by `repo` and `version`, or
+`repo` and `commit`, with `subdir` for a module that is not at the
+repository's root; by `dir`; or by all of them:
 
 ```toml
 [dependencies]
-sqlite = { module = "github.com/nomi-language/nomi/lib/sql/sqlite", version = "v0.4.0" }
-local = { dir = "../local" }
-kit = { module = "example.com/kit", version = "v1.2.0", dir = "../kit" }
+markdown = { repo = "github.com/owner/markdown", version = "v0.3.0" }
+sqlite = { repo = "github.com/nomi-language/nomi", subdir = "lib/sql/sqlite", version = "v0.4.0" }
+helpers = { dir = "../helpers" }
+kit = { repo = "example.com/kit", version = "v1.2.0", dir = "../kit" }
+fix = { repo = "github.com/owner/fix", commit = "4f1c0b7e9d2a6c3b8e5f0a1d7c9b2e4f6a8d0c13" }
 ```
 
+- **A module is a repository and a directory.** `repo` is a host and a
+  path, with no scheme and no `.git`. `subdir` is a slash path below the
+  repository's root, never empty, `.` or with `..`. A version is a tag of
+  the repository: `vX.Y.Z`, or a prerelease `vX.Y.Z-...`. The module is
+  that directory of the repository at that tag, and it must hold a
+  `nomi.toml`.
+- **A module at a commit.** `commit` in place of `version` takes the
+  module at that commit, all 40 hex digits of it: a short commit is an
+  error that says to write all 40, and an entry with both `version` and
+  `commit` is an error. A build takes a repository at one point, so a
+  requirement on a repository at a commit and one on it at a tag,
+  anywhere in the graph, are an error that names both requirers, as two
+  lines are, and so are two different commits: `` app requires
+  github.com/owner/fix v1.0.0 and github.com/owner/kit v1.0.0 requires
+  github.com/owner/fix at commit 4f1c0b7e9d2a6c3b8e5f0a1d7c9b2e4f6a8d0c13: a build takes a repository at one point, so its
+  requirements are all at tags or all at one commit ``. Two requirements
+  at the same commit are one. A fetched module's own entries at a commit
+  are read the same way. A commit is fetched by its id: from the host's
+  archive of the commit on the five known hosts
+  ([Distribution](#distribution)), and through `git` otherwise
+  ([Private modules](#private-modules)).
 - **Names are the importer's.** The key is the name the module's own files
   import the dependency by (`import sqlite::driver`). Each module's files
   import through that module's own `[dependencies]`: a dependency's files
@@ -1199,35 +1313,72 @@ kit = { module = "example.com/kit", version = "v1.2.0", dir = "../kit" }
   being built, the main module (the project of `nomi run`, `test`,
   `check` or `build`), and in every module loaded from a directory. There
   the directory, relative to that module's own `nomi.toml`, holds the
-  module, and the module path it holds stands for that path wherever
-  another module needs it, as Go's `replace` does. So a project with only
+  module. An entry with a `repo` and a `dir` makes the directory stand for
+  that module wherever another module requires it. So a project with only
   `sqlkit = { dir = "../nomi/lib/sql/sqlkit" }` also takes `migrate`,
   `postgres` and `sqlite` from the directories sqlkit's own `nomi.toml`
-  names. The main module's own entry for a module path wins over a
+  names. The main module's own entry for a module wins over a
   dependency's `dir` for it, whether that entry is a `dir` or a version.
-  A module downloaded from the proxy is in the module cache, away from
-  its author's disk, so its `dir` entries are not read: an entry with
-  `module` and `version` is taken from the proxy, and an entry with only
-  a `dir` is skipped. A `dir` entry needs no `module`; one without it
-  takes the module path from the directory's `[module].path`, if any.
-- **Which versions.** For each module path the build reaches, the version
-  is the highest any reached module's `[dependencies]` asks for, and in a
-  plain `run`, `test`, `check` or `build` at least the version `nomi.lock`
-  locks. Only the selected versions' own `[dependencies]` are read, and
-  the selection repeats until no module asks for a higher version. With
-  `nomi.lock` current, that is the lock's list.
-- **First-party libraries.** The modules under
-  `github.com/nomi-language/nomi/lib/` (the SQLite driver, sqlkit,
-  Markdown, ...) are tested with the compiler of the same commit, so
-  `nomi add` and `nomi update` keep every one a project names on one
-  version. A release `nomi` takes them at its own version. While
-  `nomi.lock` takes one at another version, `run`, `test`, `check` and
-  `build` print one line before anything else, and then go on:
-  `` note: nomi.lock takes github.com/nomi-language/nomi/lib/markdown
-  v0.4.0, and this nomi is release v0.5.0, which takes the first-party
-  libraries at v0.5.0; run `nomi update` to move them to it ``. A library
-  loaded from a `dir` entry is never noted, and a `nomi` built from source
-  notes nothing.
+- **A fetched module's `dir` names its neighbor.** In a module fetched
+  from its repository, a `dir` entry names the module in that directory of
+  the same repository at the same tag: sqlkit's
+  `sqlite = { dir = "../sqlite" }` is `lib/sql/sqlite` at sqlkit's
+  version. So modules of one repository name each other with no version,
+  in a checkout and fetched alike. A fetched module's `dir` entry that
+  leaves its repository is an error: a module names a module of another
+  repository by `repo` and `version`.
+- **Which versions.** For each repository the build reaches, the version
+  is the highest any reached module's `[dependencies]` asks for of any
+  module in it, and in a plain `run`, `test`, `check` or `build` at least
+  the version `nomi.lock` locks. Every module of the repository is taken
+  at that one tag. Only the selected versions' own `[dependencies]` are
+  read, and the selection repeats until no module asks for a higher
+  version. With `nomi.lock` current, that is the lock's list.
+- **One line per repository.** A repository's line is its major version
+  from v1 on (`v1`, `v2`), and below v1 its minor version (`v0.1`,
+  `v0.2`), since by convention each 0.x line may break the one before, as
+  each major version may. Two requirements on one repository in different
+  lines are an error that names both, as `nomi update` never moves a
+  repository into another line: `` hello requires github.com/owner/strutil
+  v2.0.0 and github.com/owner/greet v0.2.0 requires github.com/owner/strutil
+  v1.1.0: one tag versions a whole repository, so every requirement on it
+  must be in one line, a major version from v1 on and a minor version below
+  v1 ``. So `v0.1.0` and `v0.2.0` of one repository are an error, and
+  `v0.1.0` and `v0.1.3` take `v0.1.3`. A project whose dependency asks for
+  another 0.x line of a repository than the project does builds once one
+  of them moves to the other's line, by `nomi add <repository>@<version>`
+  or by a release of the dependency.
+- **Repositories only a dependency names.** A repository the project
+  reaches only through its dependencies is taken at the highest version
+  they ask for, so it rises only when one of them asks for more. The
+  project's `[indirect]` table holds the lowest version it takes such a
+  repository at, by the repository, quoted:
+
+  ```toml
+  [indirect]
+  "github.com/owner/strutil" = "v1.1.0"
+  ```
+
+  `nomi update` writes it ([Add, update and remove
+  dependencies](#add-update-and-remove-dependencies)). An entry is a
+  requirement on the repository by the module that writes it, held to the
+  others on it as any is: in one line, and not beside a commit. It puts
+  nothing in the build that no requirement reaches. A version is a tag,
+  never a commit, and a repository the module's `[dependencies]` names,
+  with no `dir`, may not have an entry, since the entry there gives its
+  version; `nomi add` of a module of the repository takes its entry out.
+  A fetched module's own `[indirect]` counts as its requirements do.
+- **First-party libraries.** The modules under `lib/` of
+  `github.com/nomi-language/nomi` (the SQLite driver, sqlkit, Markdown,
+  ...) are tested with the compiler of the same commit and versioned by
+  its release tags, so a project takes every one it names at one version.
+  A release `nomi` takes them at its own version. While `nomi.lock` takes
+  them at another version, `run`, `test`, `check` and `build` print one
+  line before anything else, and then go on: `` note: nomi.lock takes
+  github.com/nomi-language/nomi/lib/markdown v0.4.0, and this nomi is
+  release v0.5.0, which takes the first-party libraries at v0.5.0; run
+  `nomi update` to move them to it ``. A library loaded from a `dir`
+  entry is never noted, and a `nomi` built from source notes nothing.
 - **Names in the program.** A module the project's `[dependencies]` names
   has that name in the program. A module the project does not name, which
   only another dependency needs, has the name the first module that
@@ -1236,140 +1387,255 @@ kit = { module = "example.com/kit", version = "v1.2.0", dir = "../kit" }
   name. That name keys its entry under `[effects.deps.modules]` and names
   it in `nomi effects`' report and its errors
   ([Effects lists](#effects-lists)).
-- **Download.** `run`, `test`, `check` and `build` download what is
-  missing. Module zips come from `GOPROXY` (default
-  `https://proxy.golang.org,direct`) through the module proxy protocol,
-  into the Go module cache (`GOMODCACHE`), which the `go` command shares;
-  a module already there is not downloaded again. A proxy is an
-  `https://` or `http://` server, or a `file://` directory laid out as
-  one ([Private modules](#private-modules)).
-- **Verification.** Each zip's hash is checked against `nomi.lock`. A
-  module `nomi.lock` does not hold is checked against the checksum
-  database (`GOSUMDB`, default `sum.golang.org`; `GONOSUMDB`, `GOPRIVATE`
-  and `GOSUMDB=off` exempt modules as they do for Go) before it is
-  locked. A hash that differs from either is an error and installs
-  nothing.
-- **The language server** reads only the module cache and never downloads.
+- **Fetching.** `run`, `test`, `check` and `build` fetch what is missing,
+  and name each repository they fetch on a terminal (`nomi: fetching
+  github.com/owner/greet v0.2.0`). A repository's tags come from git's
+  smart HTTP advertisement and its files from the host's archive of the
+  tag, two HTTPS requests with no git, on the five hosts in
+  [Distribution](#distribution); any other host is read through `git`
+  ([Private modules](#private-modules)).
+- **The module cache.** A repository at a tag is extracted once, whole,
+  into `<user cache>/nomi/modules/<host>/<path>@<tag>` (`~/Library/Caches`
+  on macOS, `~/.cache` on Linux, `%LocalAppData%` on Windows), or under
+  `NOMI_MODULE_CACHE`, and every module of it is read from there. Its
+  files are read-only. A module already there is not fetched again, so a
+  command whose `nomi.lock` is current and whose modules are cached makes
+  no network request. A repository nothing has read for two weeks is
+  removed by a later fetch, which looks at most once a day.
+- **Verification.** Every module, fetched or already in the cache, is
+  checked against the commit and hash `nomi.lock` holds for it. A
+  different hash, or a tag that names another commit, is a
+  `SECURITY ERROR` ([`nomi.lock`](#nomilock)), and a fetch that finds one
+  installs nothing.
+- **The language server** reads only the module cache and never fetches.
   An import of a module the project needs and the cache lacks is an error
   whose hint says to run `nomi fetch`.
 
+### The nomi a module needs
+
+Nomi makes no compatibility promise yet, so a module written for a later
+`nomi` can fail on an earlier one with errors that have nothing to do with
+the cause. A module says which release it needs in `[module]`:
+
+```toml
+[module]
+name = "kit"
+nomi = "v0.6.0"
+```
+
+When the running `nomi` is a release older than that, every command that
+reads the module (`check`, `run`, `test`, `build`, `fetch`, `add`,
+`update` and the language server) stops before checking anything, with one
+error that names the module, the release it needs and the one running.
+The module is the project itself or a dependency, which the error names by
+its repository, directory and version:
+
+```console
+$ nomi check main.nomi
+error: module github.com/owner/kit/table v1.2.0 needs nomi v0.6.0 or later, and this nomi is v0.5.0; install a newer nomi
+ --> main.nomi:1:1
+  |
+1 | import std::io
+  | ^^^^^^
+```
+
+Its code is `nomi-version`. `nomi add` of such a module leaves `nomi.toml`
+as it was. The key is optional, and a module without it is never refused.
+There is no upper bound. A `nomi` built from source has no release, so it
+refuses no module and prints nothing about it. `nomi new` and `nomi init`
+write the key with the release of the `nomi` that runs them, and leave it
+out on a `nomi` built from source.
+
 ### Private modules
 
-A private module comes from a module proxy, as a public one does: an
-`https://` server that serves the module proxy protocol, or a `file://`
-directory laid out as one. Name it first in `GOPROXY`
-(`GOPROXY=https://proxy.example.com,https://proxy.golang.org`), and keep
-the checksum database out with `GOPRIVATE` or `GONOSUMDB`. `GOPRIVATE`
-also sends a module `direct`, past every proxy, as it does for Go, so add
-`GONOPROXY=none` to have the proxy serve the modules `GOPRIVATE` names.
+A private repository is read through `git`, which must be on `PATH`. When
+one of the five known hosts refuses a repository's tags or archive with
+401, 403, 404 or 410, as it refuses a private repository, `nomi` asks `git`
+instead, and a repository on any other host is always read through `git`:
+`git ls-remote --tags https://<repo>`, then a depth-1 fetch of the tag into
+a temporary repository and `git archive` of it. A module at a commit needs
+no tag listing: `git` fetches the commit by its id at depth 1. A server
+serves a commit by its id when a branch or tag reaches it and it speaks
+git's protocol version 2, which `git` asks for and current servers speak,
+or sets `uploadpack.allowReachableSHA1InWant`. One that does not, or a
+commit the repository lacks, is an error that says so, with `git`'s own
+message: `` the server of git.example.com/team/kit does not serve commit
+... ``; push a branch or tag that reaches the commit, or take a tag. `git` reads your own
+configuration, so your credential helper answers for the repository, and
+your `url.<base>.insteadOf` rules apply. `nomi` runs it with
+`GIT_TERMINAL_PROMPT=0`, so it never asks for a password on the terminal.
 
-A proxy's credentials are the user info of its URL in `GOPROXY`:
-`https://ci:<token>@proxy.example.com`, which `nomi` sends as basic
-authentication. `nomi` reads no `.netrc` and no `GOAUTH`, and an error
-names the URL with the password left out (`https://ci:xxxxx@...`).
+When `git` fails over HTTPS because it has no credentials for the host, or
+the host refuses the ones it sent, `nomi` reads the repository over SSH
+instead, as `ssh://git@<repo>`, with your SSH key. Its tags and its files
+then both come over SSH, and so does every other repository on that host
+for the rest of the command, with no HTTPS try first. `nomi` runs ssh with
+`-o BatchMode=yes` added to the command `git` would run (`GIT_SSH_COMMAND`,
+`core.sshCommand`, `GIT_SSH`, else `ssh`), so it never asks for a
+passphrase and never accepts a host key it does not know: load your key
+into the SSH agent, and connect to the host once with `ssh` to record its
+key. When SSH fails too, the error names the repository and gives both of
+`git`'s messages:
 
-`nomi` reads no version control repository itself. A module `GOPROXY`
-sends `direct`, because `GONOPROXY` or `GOPRIVATE` names it or because
-the proxies before `direct` do not have it, is downloaded by the `go`
-command when one is on `PATH`, with its own credentials, and its hash is
-checked against `nomi.lock` like any download's. With no `go` on `PATH` it
-is an error that names the module, says why it went `direct`, and says
-what to set to serve it from a proxy instead.
+```console
+nomi add: fetching github.com/owner/private@v1.0.0: git could not read repository github.com/owner/private over HTTPS or over SSH:
+	git ls-remote --tags https://github.com/owner/private: fatal: could not read Username for 'https://github.com': terminal prompts disabled
+	git ls-remote --tags ssh://git@github.com/owner/private: git@github.com: Permission denied (publickey).
+	    fatal: Could not read from remote repository.
+	    ...
+git reads a private repository over SSH with a key the host accepts, or over HTTPS with a credential helper (`git help credentials`)
+```
+
+`nomi` reads no token variable and no `.netrc` of its own, and looks up no
+vanity path.
+
+With no `git` on `PATH`, such a repository is an error that says it needs
+git: `` repository github.com/owner/private was refused by github.com (404
+Not Found), as a private repository is, which nomi reads through git, and
+git is not on PATH ``, or, on another host, `` repository
+git.example.com/team/kit is on git.example.com, a host nomi reads only
+through git, and git is not on PATH ``.
 
 ### Distribution
 
-Distribution rides on the Go module proxy: a module pushed with a version
-tag to a public repository (GitHub, GitLab, etc.) is served by
-`proxy.golang.org` and fetched as *Dependencies* above describes. Its
-`[module].path` is where it is published, such as
-`github.com/owner/shop`, and others add it by that path.
-Several modules may share one repository, each in a subdirectory with its
-own `nomi.toml` and tags prefixed by it (`sqlite/v0.3.0`), as Go lays
-them out. A major version from 2 on is its own module path, ending in
-`/v2`, `/v3` and so on, as in Go. The proxy serves a module in a
-subdirectory, or at a `/vN` path, only with a `go.mod` there that names
-it, and that `go.mod` also keeps the subdirectory's files out of the zip
-of the module around it, so each such module commits the `go.mod` `nomi`
-writes ([`go.mod`](#gomod)).
+Publishing a module is pushing a version tag to its repository: `v1.2.3`,
+or a prerelease such as `v1.3.0-rc.1`, which `nomi add` takes only when
+it is named. Others add it by its repository, and by its
+directory there when it is not at the root. A module says nothing in its
+`nomi.toml` about where it is published.
 
-The first-party libraries are published this way from the compiler's
-repository. A release of `nomi` tags the compiler (`v0.5.0`) and each
-library at the same version (`lib/markdown/v0.5.0`,
-`lib/sql/sqlite/v0.5.0`), and a release `nomi` adds and updates them at
-that version. If the module proxy lacks a library at its version, `nomi
-add` and `nomi update` stop and say which tag the release was published
-without, and take no other version unless one is named:
-`nomi add github.com/nomi-language/nomi/lib/markdown@v0.4.0`.
+One tag versions the whole repository. Several modules may share one
+repository, each a directory with its own `nomi.toml`, and every one of
+them is at the tag the repository is at: there are no tags per directory.
+They name each other by `dir` entries, which need no version
+([Dependencies](#dependencies)). A new major version is a tag such as
+`v2.0.0` of the same repository.
+
+A host must serve two things over HTTPS: the tag advertisement of git's
+smart HTTP protocol, at `https://<repo>.git/info/refs?service=git-upload-pack`
+(sourcehut's without `.git`), which every git host serves, and an archive
+of a tag or a commit, a `.tar.gz` with one top directory. `nomi` knows
+the archive URL of five hosts, each with `<ref>` the tag, or for a module
+at a commit the commit's 40 hex digits:
+
+| Host | Archive of a tag or a commit |
+|---|---|
+| `github.com` | `https://github.com/<owner>/<repo>/archive/refs/tags/<tag>.tar.gz`, and `https://github.com/<owner>/<repo>/archive/<commit>.tar.gz` for a commit |
+| `gitlab.com` | `https://gitlab.com/<path>/-/archive/<ref>/<name>-<ref>.tar.gz`, `<name>` the last element of `<path>` |
+| `codeberg.org` | `https://codeberg.org/<owner>/<repo>/archive/<ref>.tar.gz` |
+| `bitbucket.org` | `https://bitbucket.org/<owner>/<repo>/get/<ref>.tar.gz` |
+| `git.sr.ht` | `https://git.sr.ht/~<user>/<repo>/archive/<ref>.tar.gz` |
+
+A repository on any other host, a self-hosted Gitea or GitLab among them,
+is read through `git` ([Private modules](#private-modules)), so a module
+there needs `git` on its users' `PATH`. Only regular files and
+directories are installed from an archive. A link, symbolic or hard, is
+not installed: a module whose own directory holds one is an error that
+names it, and a link elsewhere in the repository is skipped. An archive
+that holds a device file or a path that escapes its directory is refused.
+
+This way of publishing has costs to know:
+
+- **The first fetch of a version trusts the host.** There is no checksum
+  database. The first `nomi add` or `nomi fetch` of a version records the
+  commit and hash it got in `nomi.lock`, and every later fetch, in any
+  clone of the project, must match them. So `nomi.lock` catches a tag
+  moved, or files changed, after that first fetch, but not a host that
+  served the wrong files to it.
+- **A version lives as long as its tag.** A repository or a tag deleted
+  from its host cannot be fetched again. A machine whose module cache
+  still holds it builds on, and a fresh clone or an emptied cache fails:
+
+  ```console
+  $ nomi fetch
+  nomi fetch: fetching github.com/owner/files v1.2.0: repository github.com/owner/files has no tag v1.2.0
+  ```
+- **Every module in one repository shares its version.** A release of one
+  is a release of all of them, and a project takes them all at one tag.
+
+The first-party libraries are directories of the compiler's repository,
+`github.com/nomi-language/nomi`, under `lib/`, published this way. A
+release of `nomi` is one tag of that repository (`v0.5.0`), and a release
+`nomi` adds and updates the libraries at that tag. If the repository lacks
+it, `nomi add` and `nomi update` stop and say the release was published
+without it, and take no other version unless one is named:
+`nomi add github.com/nomi-language/nomi/lib/markdown@v0.4.0`. A `nomi`
+built from source takes the latest release tag, and while the repository
+has none, `nomi add` of a library says so: ``github.com/nomi-language/nomi
+has no release yet, so its first-party libraries have no version to take;
+add one from a checkout with `nomi add <directory>` ``.
 
 There is no Nomi-specific registry, and none is planned.
 
 ### `nomi.lock`
 
-`nomi.lock` beside `nomi.toml` locks the build: one line per module from
-the proxy that the project needs, with its path, its selected version,
-the `h1:` hash of its zip (the hash the checksum database serves), and
-`direct` when the project's `nomi.toml` names it. Lines are sorted by
-path. A module loaded from a directory, by the project's `dir` entry or
-by one of a module so loaded, has no line, so a project whose
-dependencies are all directories gets no `nomi.lock`, and one already
-there is written with no lines. The project commits it.
+`nomi.lock` beside `nomi.toml` locks the build: one line per fetched
+module the project needs, with its repository, its directory there (`.`
+for the root), its selected version, the commit the tag named, the hash of
+its files, and `direct` when the project's `nomi.toml` names it. A module
+taken at a commit has the word `commit` as its version, which no tag can
+be since a tag is a version `vX.Y.Z`, and the commit beside it. The hash
+is `sha256:` and the SHA-256 of a line `<sum>  <path>` per regular file in
+the module's directory at that tag, as `sha256sum` prints them, sorted by
+path, each path from the module's directory. The repository and the
+version are not part of it, and neither are file modes. Lines are sorted
+by repository and directory. A module loaded from a directory, by the
+project's `dir` entry or by one of a module so loaded, has no line, so a
+project whose dependencies are all directories gets no `nomi.lock`, and
+one already there is written with no lines. The project commits it.
 
 ```text
-# nomi.lock locks the version of each module this project needs and the
-# hash of its files. nomi fetch, add, remove and update write it; commit it.
-example.com/greet v0.2.0 h1:3k8fZ0n2vJ+0dH1Xx0C0Yy8uB6C1y4mH1o2iW9gq2bE= direct
-example.com/strutil v1.0.0 h1:Qm4n6m7yV2s7xQ9b0d5uX3n1J8a0Zk4n7v6Y2pD3cHg=
+# nomi.lock locks each module this project fetches: its repository, its
+# directory there (. for the root), the tag (or `commit` for a module taken
+# at a commit), the commit and the hash of its files. nomi fetch, add,
+# remove and update write it; commit it.
+github.com/owner/fix . commit 4f1c0b7e9d2a6c3b8e5f0a1d7c9b2e4f6a8d0c13 sha256:5d1e6a0f3c9b8e7d2a4f6c1b0e9d8a7f3c2b1a0e9f8d7c6b5a4f3e2d1c0b9a87 direct
+github.com/owner/greet . v0.2.0 b59dd9377cf60b87eaf6825df22d7e32875e2d23 sha256:c02f53f71111860cd71831c5b9871bdb5d96af575fb40c3733eadec79e03ff10 direct
+github.com/owner/kit csv v0.3.0 ecfeb371a6f410df58c279acc94dd013d841c73c sha256:fe3e9fed62198abf1023eb6a167b4388179529bd39358a0d4b5a2019212dde32
+github.com/owner/kit table v0.3.0 ecfeb371a6f410df58c279acc94dd013d841c73c sha256:cc7cf8a18fb19398707c83c76b239ee7e02b5ad9ae899c6e63f1186d04872e30 direct
+github.com/owner/strutil . v1.1.0 52bd494d04551f4b4025aba1e7387a8b14230e68 sha256:7ae190245d125b235bae549084a7642cd9cc3dd551ed9572f641dfe05fff7a72
 ```
 
 `nomi fetch`, `nomi add`, `nomi remove` and `nomi update` write it, from
-the versions the requirements select. So do `run`, `test`, `check` and
-`build` under `GOFLAGS=-mod=mod`. Otherwise those four refuse a module
-zip `nomi.lock` does not hold, as Go's `-mod=readonly` default refuses one
-`go.sum` lacks:
+the versions the requirements select. `run`, `test`, `check` and `build`
+read it and never write it: they fetch a module it locks that the cache
+lacks, and refuse one it does not hold:
 
 ```console
-nomi.lock has no entry for module example.com/greet v0.1.0; run `nomi fetch` to add it
+$ nomi check main.nomi
+error: nomi.lock has no entry for module github.com/owner/strutil v1.1.0; run `nomi fetch` to add it
+ --> main.nomi:1:1
+  |
+1 | import std::io
+  | ^^^^^^
+
+error: no module `greet::greeting`: no file greeting.nomi in greet/
+ --> main.nomi:2:8
+  |
+2 | import greet::greeting
+  |        ^^^^^^^^^^^^^^^
+  = help: the project needs module github.com/owner/strutil v1.1.0, which is not in the module cache; run `nomi fetch` to download it
 ```
 
-A download whose hash differs from its line fails with `checksum mismatch`
-and a `SECURITY ERROR` that says the module, the proxy or `nomi.lock` has
-been tampered with, and installs nothing.
+Files whose hash differs from their line fail with `checksum mismatch`
+and a `SECURITY ERROR`, and install nothing:
 
-### `go.mod`
+```console
+$ nomi fetch
+nomi: fetching github.com/owner/greet v0.2.0
+nomi fetch: fetching github.com/owner/greet v0.2.0: verifying github.com/owner/greet v0.2.0: checksum mismatch
+	files:     sha256:c02f53f71111860cd71831c5b9871bdb5d96af575fb40c3733eadec79e03ff10
+	nomi.lock: sha256:d02f53f71111860cd71831c5b9871bdb5d96af575fb40c3733eadec79e03ff10
 
-A module whose `nomi.toml` has a `[module].path` has a `go.mod` beside it
-that holds only its module line, which `nomi` writes:
-
-```gomod
-// Generated by nomi from nomi.toml's [module].path. Do not edit.
-module github.com/owner/shop/v2
+SECURITY ERROR
+The files do not match the hash nomi.lock records for them. So the repository's tag, the host or nomi.lock has been changed. Nothing was installed
 ```
 
-It is there for Go's module proxy, which reads a module's path from it
-([Distribution](#distribution)); `nomi` reads nothing else from it, and
-the module's dependencies stay in `nomi.toml` and `nomi.lock`. `nomi new`,
-`nomi init`, `nomi add`, `nomi remove`, `nomi update` and `nomi fetch`
-write it when it is missing or says anything else, and so does any
-command that writes `nomi.lock`. `nomi check` fails while it is missing
-or out of date ([Checking](#checking-nomi-check)). The project commits it.
-A module with no `[module].path` gets none.
-
-A Nomi module holds no Go code, so a `go.mod` beside a `nomi.toml` with a
-`[module].path` is the one `nomi` keeps: one that says more than its
-module line (a `go` line, a `require`, a `replace`) is out of date, and the
-commands above write it again. A directory that holds `.go` files, in it or
-in a directory under it, is a Go module's instead, such as a Go program
-that embeds Nomi beside its own `nomi.toml`. `nomi` keeps its `go.mod` as
-written, or writes none when there is none, and `nomi check` says nothing
-about it. Go files that Go leaves out of the module do not count: those
-under a `testdata` directory, a directory whose name starts with `.` or
-`_`, or a directory with a `go.mod` of its own.
-
-In a directory with no Go code, nothing reads a `go.sum`, or a `go.mod`
-beside a `nomi.toml` with no `[module].path`. `nomi check`, `new`, `init`,
-`fetch`, `add`, `remove` and `update` then print one line, `note: go.mod
-and go.sum are not read: ...`, that says they can be deleted. `nomi`
-deletes neither.
+A tag that names another commit than its line is a `SECURITY ERROR` too
+(`tag v0.2.0 names commit ..., and nomi.lock records ...`): the tag moved
+after the lock was written. Files in the module cache that do not match
+their line are one as well, which says the cache or `nomi.lock` has been
+changed.
 
 ## Running tests
 
@@ -1395,7 +1661,7 @@ nothing starts there, `nomi test` runs nothing and exits non-zero with
 `--format json` that error is a `"type":"file"` failure record.
 
 `nomi test --run <regexp>` runs only the tests whose names the regular
-expression matches (Go's RE2 syntax, as `go test -run` takes it). The name
+expression matches (RE2 syntax, as std::regex reads it). The name
 is the one the report prints after `<file> :: `: `parses a date`,
 `dates / parses a date` for a test in a group, `double //! test line 4` for
 an attached test, and `todo api [sqlite] / creates a todo` for a test in a
@@ -1453,7 +1719,10 @@ test result: ok. 4216 passed, 0 failed; 3 ran, 4213 unchanged
 A test has no effects when everything it can reach computes its results
 from its operands alone: nothing writes output (`dbg` included), reads
 input, the clock, files, the network or the system's randomness, makes a
-channel or a task, starts a process or calls Go. An app field its group's
+channel or a task, or starts a process. Reading a hash counts as
+an effect here: `String.hash`, or `Hashable.hash` of a String, a collection
+or a struct, is keyed by a seed each run draws, so the next run may hash
+the same value otherwise. An app field its group's
 `boot` publishes is no effect, since the boot is part of the test's code.
 Such a test's result depends on its code alone,
 so code that did not change cannot pass one run and fail the next. A test
@@ -1500,8 +1769,8 @@ FAIL coins_test.nomi :: flips forever
 
 A `subtests` table is one test, so its rows share the limit. `nomi run` has
 no limit, and neither has a test run under the debugger (`nomi dap`), where
-a paused test must not time out. Work inside a single call into Go (a Go
-binding, say) cannot be stopped until the call returns.
+a paused test must not time out. Work inside a single host function call
+cannot be stopped until the call returns.
 
 ### Output
 
@@ -1604,9 +1873,10 @@ summary record comes last:
   each passed or failed test's record carries `decided`: `unchanged` for
   a test that did not run, and for one that ran, why: `new` (no stored
   pass), `changed` (its code or settings differ), `moved` (an assertion
-  whose failure is a value moved), `effects` (it has effects) or `all`
-  (`--all`), and `effects` set to `true` for a test whose code can have
-  effects, as `--reaching` records carry it too. The summary then counts
+  whose failure is a value moved), `effects` (it has effects or reads a
+  hash) or `all` (`--all`), and `effects` set to `true` for a test whose
+  code can have effects or read a hash, as `--reaching` records carry it
+  too. The summary then counts
   the unchanged cases, which `passed` includes, as `unchanged`. These are
   omitted when no cache was used or nothing was unchanged.
 
@@ -1641,15 +1911,13 @@ wherever `nomi test` runs.
 result to each file, `-l` lists the files that would change, and `-d` shows a
 diff. `-check` lists them as `-l` does and exits 1 when there are any, which is
 the check a CI step runs (`-l` exits 0). Editors format on save through
-`nomi-lsp`.
+`nomi lsp`.
 
 `nomi fmt` gives every program one layout and has no options. It indents 4
 spaces per level and breaks lines at 100 columns. It keeps a few layout
 choices of the author's, which Writing Nomi lists
 ([Let `nomi fmt` own the layout](/writing/files-and-layout/#1-let-nomi-fmt-own-the-layout)),
-and decides the rest from the syntax and the width. The
-[formatter's package doc](../internal/format/doc.go) says why some of
-these rules are built the way they are.
+and decides the rest from the syntax and the width.
 
 **Blank lines between statements.** A statement that spans more than one
 line gets a blank line before it, unless it opens its block, and after it,
@@ -1767,12 +2035,12 @@ parameter's default, `return` and `assert`.
 the lines below its header, one indent in, closed by `end` at the header's
 indent; an empty one is `end` on the header's line.
 
-**`if`, binding `else` and lambda bodies.** See
-[one-line `if` and binding `else`](../internal/format/doc.go)
-for when a guard or a two-branch `if` is written inline on one line (a
-two-branch `if` up to 50 columns, or up to the line's width when its
-`else` is one atom such as `None`, `0`, `""` or `[]`); an
-`else if` chain is always in block form. A binding `else` whose statement
+**`if`, binding `else` and lambda bodies.** A guard
+(`if n < 0 then return 0`) and a binding `else` stay on one line whenever
+they fit the line, so a run of guards reads as a run of one-line
+statements. A two-branch `if` is written inline (`if c then a else b`) up
+to 50 columns, or up to the line's width when its `else` is one atom such
+as `None`, `0`, `""` or `[]`; an `else if` chain is always in block form. A binding `else` whose statement
 holds an `if` or a `case` is always in block form too, so `else`, `return`,
 `if` and `then` never share a line. An inline `if` too wide for its
 line is written in block form. An inline `if` that something follows on its
@@ -1781,8 +2049,9 @@ parentheses, and an `if` stage that another stage follows is written in
 block form. A single-expression lambda whose body is an `if` holding
 `break`, `continue` or `return` goes below the header, closed by `end`, as
 does a value-producing lambda body that does not fit, and a call it ends
-closes with `end)`. A body written below its `->` stays that way (the
-[formatter's package doc](../internal/format/doc.go) says why).
+closes with `end)`. A body written below its `->` stays there, closed by
+`end`, even when it would fit on the header's line, so a body the
+formatter once moved below does not move back on a later run.
 
 **`case` arms.** When every arm fits on one line as `pattern -> body` and no
 body is a block, the arms sit on consecutive lines. Otherwise every arm
@@ -1830,7 +2099,7 @@ end
 A block is a run of such items on consecutive lines at one indent. A blank
 line, a comment line or an item over several lines ends it, and each run
 aligns on its own, so a `case` whose arms put their bodies below `->`
-aligns nothing. Where a run breaks follows gofmt: two neighbouring items
+aligns nothing. Where a run breaks: two neighbouring items
 whose left parts are both at most 40 columns wide always align, and past
 that an item starts a new section when its left part is 2.5 times wider or
 narrower than the geometric mean of its section's so far. Each section
@@ -1872,18 +2141,22 @@ its `return value`s too, since such an `if` is a statement and has no
 value.
 
 **Struct literals and anonymous struct types** are kept on one line when
-short and broken one field per line, each with a comma, when long
-([brace-bounded field constructs](../internal/format/doc.go)).
-An anonymous struct type or variant written across lines keeps one field per
-line. Literals follow
-[a line break after a literal's opening bracket](../internal/format/doc.go);
-lists of numbers are [filled](../internal/format/doc.go); long
-comparisons and boolean chains break
-[before the operator](../internal/format/doc.go); three
-levels of brackets break
-[the outermost](../internal/format/doc.go); and comments stay
-[with their item](../internal/format/doc.go). A trailing comment is never moved to
-make room, so it may run past 100 columns.
+short and broken one field per line, each with a comma, when long. The
+break is made at the braces, so a long anonymous struct in a parameter's
+type breaks itself, not the parameter list. An anonymous struct type or
+variant written across lines keeps one field per line.
+
+**Literals and operators.** A literal written with a line break after its
+opening bracket stays broken, its first element on the line below the
+bracket; delete that line break to join it again. A list of number literals
+is filled, as many elements to a line as fit; a list of other literals is
+not. A long comparison or `and`/`or` chain breaks before the operator, the
+right operand one indent in, and a broken chain puts each operator on a
+line of its own. When literals (lists, maps, sets, struct literals) nest
+three deep, the outermost breaks, and the ones inside it stay on one line
+when they fit. A comment inside a bracketed list stays with its item, and a
+list that holds a comment is written one item per line. A trailing comment
+is never moved to make room, so it may run past 100 columns.
 
 **Small layouts.** One space follows `not`, and parentheses written around
 it or its operand stay. A `?` or `!` sits against its expression. In a block `if`, `else` and
@@ -1896,9 +2169,9 @@ the line its `|>` is on.
 
 ### Executables
 
-`nomi build <file> [-o <out>] [--target <goos>/<goarch>]` writes one executable: the `nomi-vm` binary with the compiled program appended to it, the way `deno compile` and `bun build --compile` work. At startup `nomi-vm` reads the program from its own file and runs `main` exactly as `nomi run` does: the same arguments, standard input, signal handling, output and exit status. It skips the front end, so a hello-world program starts in a few milliseconds, and then runs on the same VM at `nomi run` speed. It is not native code.
+`nomi build <file> [-o <out>] [--target <os>/<arch>]` writes one executable: the `nomi-vm` binary with the compiled program appended to it, the way `deno compile` and `bun build --compile` work. At startup `nomi-vm` reads the program from its own file and runs `main` exactly as `nomi run` does: the same arguments, standard input, signal handling, output and exit status. It skips the front end, so a hello-world program starts in a few milliseconds, and then runs on the same VM at `nomi run` speed. It is not native code.
 
-The executable goes in the working directory, named after the file without `.nomi`, unless `-o` names it. `nomi build <dir>` builds the one entry point of a module's directory ([Project mode](#project-mode)) and names the executable after the directory, as `go build` does. Beside the directory that name is the directory's own, so `nomi build` refuses it there and `-o` names another file.
+The executable goes in the working directory, named after the file without `.nomi`, unless `-o` names it. `nomi build <dir>` builds the one entry point of a module's directory ([Project mode](#project-mode)) and names the executable after the directory. Beside the directory that name is the directory's own, so `nomi build` refuses it there and `-o` names another file.
 
 `nomi build` refuses what `nomi run` would refuse, with the same text, and writes nothing: a front-end error, or an error at each piece of code the compiler cannot compile. It also refuses:
 
@@ -1912,27 +2185,30 @@ nomi build: 1 todo and 2 dbgs remain:
   main.nomi:8:18 |> dbg
 ```
 
-`--target`, or `GOOS`/`GOARCH` in the environment, picks the platform. `nomi-vm` comes from, in order:
+`--target <os>/<arch>` picks the platform, such as `linux/amd64`, `windows/amd64`, `js/wasm` or `wasip1/wasm`; without it the executable is for the platform `nomi` runs on. `nomi-vm` comes in two builds: the full one, and a lean one without the network and WebAssembly modules that `nomi build` uses for a program that reaches neither. It comes from, in order:
 
-1. `nomi-vm` beside `nomi` (or beside the file a symlinked `nomi` resolves to), built for the target. Every release archive ships one.
-2. Not for a release `nomi`: a source checkout of the compiler. `nomi-vm` is built with `go build` and cached. This is how `go install` and a development tree work.
-3. A `nomi-vm` downloaded earlier for this release and target.
-4. Download: the archive that holds it, from the release this `nomi` was cut as, verified against the release's checksum file, with only that `nomi-vm` extracted and cached. `nomi build` prints the URL it downloads, and with no network the error names it.
+1. For its own platform, a release `nomi` carries both builds, compressed, and unpacks the one a build needs into its cache the first time.
+2. `nomi-vm` beside `nomi` (or beside the file a symlinked `nomi` resolves to), built for the target.
+3. Not for a release `nomi`: a source checkout of the compiler. `nomi-vm` is built with `go build` and cached. This is how `go install` and a development tree work.
+4. A `nomi-vm` unpacked or downloaded earlier for this release and target.
+5. Download: the platform's runners archive, `nomi_<version>_<os>_<arch>_runners.tar.gz`, from the release this `nomi` was cut as, verified against the release's checksum file, with only that `nomi-vm` extracted and cached. `nomi build` prints the URL it downloads, and with no network the error names it.
 
-A program importing `std::compiler` is appended to `nomi-vm-compiler`, which links the front end. A release ships it in a second archive per target, `nomi_<version>_<os>_<arch>_compiler.tar.gz`, so the main archives stay small. Unpack it beside `nomi`, or let `nomi build` download it.
+A release keeps the runners it unpacks or downloads in the runner cache, one directory per release. A release's directory that no build has used for two weeks is removed by a build of another release, which looks at most once a day. If that release builds again, it unpacks or downloads its runners again.
 
-A prebuilt `nomi-vm` must come from the same commit as `nomi` and be the kind asked for. Both are in its build information, and `nomi build` refuses a `nomi-vm` from another commit, or a plain one where a program needs `nomi-vm-compiler`. So a release builds executables for every platform and every program with no Go toolchain, and a built binary needs nothing at all.
+A program importing `std::compiler` is appended to `nomi-vm-compiler`, which links the front end and has no lean build. A release ships it in an archive of its own per target, `nomi_<version>_<os>_<arch>_compiler.tar.gz`. Unpack it beside `nomi`, or let `nomi build` download it.
+
+A prebuilt `nomi-vm` must come from the same commit as `nomi` and be the kind asked for. Both are in its build information, and `nomi build` refuses a `nomi-vm` from another commit, or a plain one where a program needs `nomi-vm-compiler`. So a release builds executables for every platform and every program, and a built binary needs nothing at all.
 
 A WebAssembly target, `js/wasm` or `wasip1/wasm`, writes `<name>.wasm` by default. Nothing may follow a module's last section, so the program goes inside the module:
 
 - A `wasip1/wasm` module carries it as one more active data segment, which the WebAssembly engine writes into a 4 MiB area of the `nomi-vm`'s own memory when it instantiates the module. The module reads its program from there, so it needs no file access: `wasmtime run hello.wasm` runs it, and so does a browser's WASI shim with no file system.
 - The area is uninitialized memory, so it adds nothing to the file. It raises the module's declared initial memory by 4 MiB, to 12.3 MiB for the reactor without the network and 15.8 MiB for the one with it. `nomi build` refuses a program whose compiled form is larger than the area, naming the limit.
 - A `js/wasm` module carries it in a custom section named `nomi.image`, which every runtime skips. A module cannot read its own sections, so it looks where its host can supply them. It uses `globalThis.nomiImage` when a loader has set it to the section's bytes (`new Uint8Array(WebAssembly.Module.customSections(module, "nomi.image")[0])`), and otherwise reads the file argv[0] names through the host's `fs`.
-- Go's own loader runs a `js/wasm` module under Node unchanged: `node "$(go env GOROOT)/lib/wasm/wasm_exec_node.js" hello.wasm`. That loader hands the module Node's whole environment as `startup.env`, and Go's js/wasm runtime refuses to start when the arguments and environment together pass 8 KB ("total length of command line and environment variables exceeds limit"). In a large environment, run it with only what the program reads, as `env -i PATH="$PATH" node ...`. `nomi.js` passes only the `env` its caller gives.
+- Beside a `js/wasm` module `nomi build` writes `wasm_exec.js`, the module's JavaScript support file, and `nomi-node.mjs`, which runs the module under Node 22 or later with nothing else installed: `node nomi-node.mjs hello.wasm [args...]`. The words after the module are its `startup.args`, and Node's whole environment is its `startup.env`, whatever their size. The loader sets them as `globalThis.nomiArgs` and `globalThis.nomiEnv` before the module starts, and the runtime reads them from there. Go's js/wasm support file has room for 8 KiB of arguments and environment, so only the module's path and the variables the Go runtime reads as it starts (`GODEBUG`, `GOGC`, `GOMEMLIMIT` and `TMPDIR`) go through it. `nomi.js` passes only the `env` its caller gives, the same way.
 
 A `wasip1/wasm` program with at least one `export fn` is written as a WASI reactor instead of a command module (spec §7 *Exported Functions*). The program is appended to `nomi-vm-reactor`, the same VM linked as a reactor, which is found, built, downloaded and checked as `nomi-vm` is. `nomi-wasi.js` and `nomi-wasi.d.ts`, the JavaScript host for it, are written beside the module.
 
-The `js/wasm` build keeps the browser build's limits: its file system is in memory, empty under Node, and a call nests at most 1,000 deep. A command-line program that reads real files belongs on `wasip1/wasm`. Every release ships a runner-only archive for each WebAssembly target, so a release `nomi` downloads it as it would any other platform's. The `js/wasm` archive also carries the `wasm_exec.js` of the Go that built its `nomi-vm`, and the `wasip1/wasm` archive carries `nomi-vm-reactor` beside `nomi-vm`.
+The `js/wasm` build keeps the browser build's limits: its file system is in memory, empty under Node, and a call nests at most 1,000 deep. A command-line program that reads real files belongs on `wasip1/wasm`. Every release ships a runners archive for each WebAssembly target, so a release `nomi` downloads it as it would any other platform's. The `js/wasm` archive also carries the `wasm_exec.js` its `nomi-vm` needs, and the `wasip1/wasm` archive carries `nomi-vm-reactor` beside `nomi-vm`.
 
 ### Embedded files
 
@@ -1974,7 +2250,7 @@ export default defineConfig({
 
 ### Effect classes
 
-A std host function that acts outside the program in a way some target cannot has an effect class: `files` for std::fs's, `processes` for std::process's, `network` for std::http's requests, `connect` for std::net's and std::tls's dials and std::net's lookups, and `listen` for a server or listener. Every target has `files`, a `js/wasm` module's in memory. A `js/wasm` module sends HTTP requests through the browser's `fetch` but cannot open other connections, start programs or serve; a `wasip1/wasm` module has none of the four.
+A std host function that acts outside the program in a way some target cannot has an effect class: `files` for std::fs's, `processes` for std::process's, `network` for std::http's requests, `connect` for std::net's, std::tls's and std::udp's dials, a Unix socket's included, and std::net's lookups, and `listen` for a server, a listener or a bound datagram socket. Every target has `files`, a `js/wasm` module's in memory. A `js/wasm` module sends HTTP requests through the browser's `fetch` but cannot open other connections, start programs or serve; a `wasip1/wasm` module has none of the four. std::signals has no class: a program that receives signals builds for every target, and where none arrives (Windows, a browser, WASI) `signals.receiver` answers `Err(Unsupported)`, so a command line tool subscribes where it can.
 
 `nomi build` walks what `main`, the boot and the exported functions can reach, and refuses a program that reaches a call of a class its target lacks. It writes nothing and lists each call in the program's own code that reaches the class, at that call: the std function it calls (`fs.read_text`), the host function that one reaches (`fs/host.read_text`), and the functions the call is reached through. A hint follows, to build for another target or pass `--allow-unsupported <class>`.
 
@@ -1988,7 +2264,7 @@ A `wasip1/wasm` build of a program that compiles or runs a WebAssembly module wi
 
 ### Compiled programs and `nomi-vm`
 
-`nomi build <file> --no-vm [-o <out>]` writes the compiled program alone (`<name>.nomic` in the working directory by default), for a `nomi-vm` that does not carry it, or for a reactor to load ([Calling exported functions](#calling-exported-functions)). It needs no Go toolchain and no `nomi-vm`, and the same file runs on every platform's `nomi-vm`.
+`nomi build <file> --no-vm [-o <out>]` writes the compiled program alone (`<name>.nomic` in the working directory by default), for a `nomi-vm` that does not carry it, or for a reactor to load ([Calling exported functions](#calling-exported-functions)). It needs no `nomi-vm`, and the same file runs on every platform's `nomi-vm`.
 
 - It records the program's exported functions, so a program with an `export fn` and no `fn main` builds too. `nomi-vm` and `nomi run` refuse to run such a program, with `` this program has no `fn main`; it is called through its exported functions ``, and exit 1.
 - It refuses what `nomi build` refuses, with the same text.
@@ -2006,11 +2282,11 @@ A `.nomic` file is a header followed by the program's image:
 | 18 + `n` | 8 | `L`, the image's length, a little-endian u64 |
 | 26 + `n` | `L` | The image, the same bytes `nomi build` appends to `nomi-vm` |
 
-`nomi build-vm [--target <goos>/<goarch>] [--compiler] [--no-network] [-o <out>]` writes a copy of the `nomi-vm` that `nomi build` appends programs to, with no program: `nomi-vm` by default, with `.exe` or `.wasm` as the target needs. `--no-network` writes the smaller `nomi-vm` that `nomi build` uses for a program that never uses std::http, std::net, std::tls or std::wasm: it runs any other program, and refuses one that reaches the network or a WebAssembly module before running it. It comes from where `nomi build` gets one, so a release needs no Go toolchain for it. For `js/wasm` it also writes the matching `wasm_exec.js` beside it. For `wasip1/wasm` it writes the command module.
+`nomi build-vm [--target <os>/<arch>] [--compiler | --no-network] [-o <out>]` writes a copy of the `nomi-vm` that `nomi build` appends programs to, with no program: `nomi-vm` by default, with `.exe` or `.wasm` as the target needs. `--no-network` writes the smaller `nomi-vm` that `nomi build` uses for a program that makes no network or WebAssembly call: it runs any other program, and refuses one that reaches the network or a WebAssembly module before running it. It comes from where `nomi build` gets one. For `js/wasm` it also writes `wasm_exec.js` and `nomi-node.mjs` beside it, as `nomi build` does. For `wasip1/wasm` it writes the command module.
 
-`nomi build-vm --reactor [--compiler] [--no-network] [-o <out>]` writes `nomi-vm-reactor` with no program instead (`nomi-vm-reactor.wasm` by default), which takes its program through `nomi_load` ([Calling exported functions](#calling-exported-functions)). It writes `nomi-wasi.js` and `nomi-wasi.d.ts` beside it, the JavaScript host that runs it in a browser or Node, creating the folder they go in if it does not exist. The reactor exists only for `wasip1/wasm`, so that is its target, and `--target` with any other value is a usage error.
+`nomi build-vm --reactor [--compiler | --no-network] [-o <out>]` writes `nomi-vm-reactor` with no program instead (`nomi-vm-reactor.wasm` by default), which takes its program through `nomi_load` ([Calling exported functions](#calling-exported-functions)). It writes `nomi-wasi.js` and `nomi-wasi.d.ts` beside it, the JavaScript host that runs it in a browser or Node, creating the folder they go in if it does not exist. The reactor exists only for `wasip1/wasm`, so that is its target, and `--target` with any other value is a usage error.
 
-`nomi build-vm` takes no program file, and neither form takes `nomi build`'s `--no-vm`, `--web` or `--static`: a program with an `export fn` built with `nomi build --target wasip1/wasm` is already a reactor with that program inside it. `--compiler` writes the `nomi-vm` or reactor that links `std::compiler`'s hosts, which a compiled program importing `std::compiler` needs, and which needs Go to build.
+`nomi build-vm` takes no program file, and neither form takes `nomi build`'s `--no-vm`, `--web` or `--static`: a program with an `export fn` built with `nomi build --target wasip1/wasm` is already a reactor with that program inside it. `--compiler` writes the `nomi-vm` or reactor that links `std::compiler`'s hosts, which a compiled program importing `std::compiler` needs. It has no lean build, so `--compiler` and `--no-network` do not go together.
 
 A `nomi-vm` with no program of its own takes one when it starts:
 
@@ -2023,7 +2299,7 @@ $ nomi-vm --help
 
 Given a path, it reads the `.nomic` file there and passes the words after the path to the program as `startup.args`. Given no path, or `-`, it reads one `.nomic` file from the start of standard input, using the header's length, and reads nothing past its last byte. The rest of standard input is the program's own input, and the words after `-` are its arguments. So `cat app.nomic input.txt | nomi-vm` runs `app` over `input.txt`. Stdin is the way to hand a program to a host with no filesystem, such as a browser's WASI shim.
 
-- A `wasip1/wasm` `nomi-vm` takes a path through a preopened directory (`wasmtime run --dir=. nomi-vm.wasm app.nomic`), and a `js/wasm` one under Go's loader reads a path through Node's `fs` (`node wasm_exec_node.js nomi-vm.wasm app.nomic`). Either takes the program on stdin.
+- A `wasip1/wasm` `nomi-vm` takes a path through a preopened directory (`wasmtime run --dir=. nomi-vm.wasm app.nomic`), and a `js/wasm` one under its loader reads a path through Node's `fs` (`node nomi-node.mjs nomi-vm.wasm app.nomic`). Either takes the program on stdin.
 - A `nomi-vm` whose terminal is its standard input, or whose standard input is empty or not a `.nomic` file, prints its usage. A word starting with `-` other than these is a usage error.
 - A `nomi-vm` that `nomi build` appended a program to runs that program and treats every argument as the program's, so `./app --version` passes `--version` to `app`.
 
@@ -2038,7 +2314,7 @@ Given a path, it reads the `.nomic` file there and passes the words after the pa
 | File | What it is |
 |---|---|
 | `app.wasm` | The `js/wasm` module `--target js/wasm` writes, with its memory capped at 1 GiB. |
-| `nomi.js` | An ES module: the loader and its `run` function, with Go's JS support file `wasm_exec.js` from the Go toolchain that built the js/wasm `nomi-vm` inside it. Each run starts this same file as its module worker. |
+| `nomi.js` | An ES module: the loader and its `run` function, with the js/wasm support file `wasm_exec.js` that its `nomi-vm` needs inside it. Each run starts this same file as its module worker. |
 | `index.html` | A page that runs `main` with an output pane and an input line. |
 | `locales/<tag>.nomil` | For a program that lists its locales, one file per listed locale `[i18n].web_embedded` leaves out: its CLDR data and translations, which the program loads with `Locale.load` ([Locales in the browser](#locales-in-the-browser)). |
 
@@ -2081,9 +2357,9 @@ const { exitCode, fatal } = await run("./app.wasm", {
 
 - Output reaches the callbacks as written, so a prompt written with `io.write` and no newline appears before the program waits for input.
 - Standard input is a string, served and then ended; an async function, asked for one line at a time, with `null` ending the input; or absent, so `io.read_line` returns `Ok(None)` at once.
-- The environment holds what `env` gives plus `NOMI_COLOR=never`, unless `env` sets it, so diagnostics carry no colour codes. Nothing comes from the page's URL or cookies. Arguments and environment together must fit in the 8 KB Go's loader reserves for them.
+- The environment holds what `env` gives plus `NOMI_COLOR=never`, unless `env` sets it, so diagnostics carry no colour codes. Nothing comes from the page's URL or cookies. Arguments and environment may be any size.
 
-The exit code is `nomi run`'s: 0, an `Exit`'s code (spec §15 *Entry callbacks*), or 1 for a `main` returning any other `Err`, a trap or a failed assertion. When the Go runtime stops (an allocation past the 1 GiB cap, a deadlock), the run resolves with exit code 2 and Go's own line, such as `fatal error: out of memory`, as `fatal`.
+The exit code is `nomi run`'s: 0, an `Exit`'s code (spec §15 *Entry callbacks*), or 1 for a `main` returning any other `Err`, a trap or a failed assertion. When the runtime stops (an allocation past the 1 GiB cap, a deadlock), the run resolves with exit code 2 and the runtime's own line, such as `fatal error: out of memory`, as `fatal`.
 
 The browser build's limits apply as under `--target js/wasm`: the program's file system is in memory ([std::fs](/reference/fs/)), a call nests at most 1,000 deep, and no signal arrives. The file system starts with the files `files` gives, by path from its working directory `/work`. The run resolves with `files`, every file in it when the program ended, by the same paths (absolute for a file outside `/work`); a run stopped by `timeoutMs` or `signal` has no `files`. The clock, `std::random`, tasks, channels and `sleep` work. Tasks share the worker's one thread, so a task that never yields starves the others.
 
@@ -2280,7 +2556,7 @@ not take is an error result naming it: `` nomi_load_with has no option
   before the program runs anything, a program that has an effect
   the names do not allow from `main`, the boot or any exported function.
   The error result names each call at the file and line the program was
-  built from, and says how it is reached, in the words `vmhost` uses:
+  built from, and says how it is reached:
 
   ```console
   greeter.nomi:4: this program has the effect std::io, and the host allows no effects
@@ -2329,8 +2605,8 @@ after an earlier call has booted it, they are an error result.
 fn`s are answered by the runner that loads the reactor, through the
 reactor's import `nomi.host_call(key_ptr, key_len, args_ptr, args_len: i32)
 -> i64`, for the keys `nomi_load_with`'s `"host_calls"` lists. A key is the
-one a Go host table registers (spec §19 *`host` declarations and
-embedders*): `greet` in the entry file, `helpers/util.greet` for
+one spec §19 *`host` declarations and embedders* gives each `host fn`:
+`greet` in the entry file, `helpers/util.greet` for
 `helpers/util.nomi`, a dependency's file under the dependency's name. The
 reactor passes the UTF-8 key and the arguments as a JSON array, each
 encoded by its type's `ToJson`, as an exported function's result is. The
@@ -2404,7 +2680,7 @@ have no host to answer them.
 with its TypeScript declarations in `nomi-wasi.d.ts`, and `nomi build
 --target wasip1/wasm` writes both beside a reactor it embeds a program in: the toolchain's
 JavaScript host for this ABI, an ES module that runs in browsers and in Node
-with no WASI library, as Go's `wasm_exec.js` is the host for `js/wasm`. It
+with no WASI library. It
 implements the WASI preview1 imports the reactor needs (no preopened
 directories; an import it does not know returns `ENOSYS`) and
 `nomi.host_call`, and over the ABI
@@ -2456,7 +2732,7 @@ each carried locale's tailoring. The Chinese and Korean tailorings are
 carried only by a program that lists a locale whose collation chain reaches
 them; one that lists no locales sorts Chinese and Korean in the root order.
 
-`std::calendar` embeds Go's `time/tzdata` package (≈ 450 KB) so IANA zone
+`std::calendar` carries the IANA time zone database (≈ 450 KB), so zone
 lookups (`America/New_York`, `Asia/Tokyo`, …) work on every host without
 requiring system-provided tzdata.
 
@@ -2482,19 +2758,6 @@ browser cached from the last deploy, is refused: the image and its files
 share a build id. Anywhere but a browser build `Locale.load` returns at
 once.
 
-## The Go toolchain
-
-A release `nomi` never downloads Go, and builds nothing with it. Running,
-checking and testing a program need no Go toolchain, and building one
-takes the `nomi-vm` the release ships ([Executables](#executables)). The
-one command any `nomi` runs Go for is a download of a module `GOPROXY`
-sends `direct`, which the `go` on `PATH` makes when there is one
-([Private modules](#private-modules)).
-
-A `nomi` built from source, in a clone or with `go install`, builds each
-`nomi-vm` from the compiler's source with Go: the `go` that `NOMI_GO`
-names (a `go` command or a Go root), else the `go` on `PATH`.
-
 ## When code cannot run yet
 
 A program that reaches a function the compiler cannot compile yet fails before its first effect:
@@ -2508,66 +2771,122 @@ Setting `NOMI_DEBUG_LOWERING=1` adds the compiler's own reason to each of these 
 
 ## Environment variables
 
-These variables change what `nomi` does. Go's own module variables
-(`GOPROXY`, `GONOPROXY`, `GOPRIVATE`, `GOSUMDB`, `GONOSUMDB`,
-`GOMODCACHE`, `GOFLAGS`) work as [Dependencies](#dependencies),
-[Private modules](#private-modules) and [`nomi.lock`](#nomilock) describe,
-and `GOOS` and `GOARCH` pick a build's target as `--target` does.
+These variables change what `nomi` does.
 
 | Variable | What it does |
 |---|---|
 | `NOMI_ENV` | `nomi test` sets it to `test` unless it is set ([The test environment](#the-test-environment)). Programs read it from `startup.env`. |
 | `NOMI_TOOL_MODULE` | `nomi tool <module> <name>` sets it to `<module>`, the name the project gives the tool's module, which the tool reads its table in `nomi.toml` by and imports the module by in code it generates ([Tools](#tools-nomi-tool)). |
 | `NOMI_MAIN_MODULE` | `nomi tool` sets it to the project's directory, so the tool, and any process it starts, builds with the project's dependencies rather than the ones its own module's `nomi.toml` names. |
-| `NOMI_COLOR` | `always` (or `1`, `true`, `yes`, `force`) colours diagnostics and test reports even into a pipe; `never` (or `0`, `false`, `no`) never colours them. Otherwise `NO_COLOR` or `TERM=dumb` turns colour off, `CLICOLOR_FORCE` turns it on, and colour goes only to a terminal. |
+| `NOMI_COLOR` | `always` (or `1`, `true`, `yes`, `force`) colours diagnostics and test reports even into a pipe; `never` (or `0`, `false`, `no`) never colours them. Otherwise `NO_COLOR` or `TERM=dumb` turns colour off, `CLICOLOR_FORCE` turns it on, and colour goes only to a terminal. A program's `terminal.supports_color` follows the same rule. |
 | `NOMI_DIAGNOSTICS` | `short` prints each diagnostic as one `path:line:col: message` line, for every command. |
 | `NOMI_ALL_CALLS` | Any value prints every call `[effects]` lists refuse, not the first of each name, as `--all-calls` does ([Effects lists](#effects-lists)). |
-| `NOMI_DEBUG_LOWERING` | For work on the compiler. Any value but `0` adds the compiler's own reason to each "not supported yet" error ([When code cannot run yet](#when-code-cannot-run-yet)). |
-| `NOMI_GO` | The `go` command, or a Go root, that a `nomi` built from source builds a `nomi-vm` with, ahead of the `go` on `PATH` ([The Go toolchain](#the-go-toolchain)). A release `nomi` builds nothing with Go. |
-| `NOMI_COMPILER_SOURCE` | For work on the compiler. A checkout of the compiler that a `nomi` built from source builds a `nomi-vm` from, in place of the compiler version it was built from. |
-| `NOMI_RELEASE_BASE_URL` | For tests of the compiler. Where a release `nomi build` downloads the runners it lacks from, in place of the project's GitHub releases. |
+| `LISTEN_PID`, `LISTEN_FDS`, `LISTEN_FDNAMES` | systemd's socket activation, which other service managers and restarting parents follow too. When `LISTEN_PID` is the process's id, `net.inherited_listeners` and `udp.inherited_sockets` take the `LISTEN_FDS` sockets passed from descriptor 3 on, named by `LISTEN_FDNAMES`, in a program `nomi run` runs or one `nomi build` wrote. Not on Windows. |
+| `NOMI_HASH_SEED` | Fixes the seed a run keys its hashes by, which it otherwise draws at random when it starts: any text, and the same text gives every run the same `Hashable.hash` of a String, a collection or a struct. `nomi` and a built program both read it. Use it to reproduce a run that printed a hash; a program that keeps a seed fixed lets whoever knows it choose keys that collide. |
+| `NOMI_DEBUG_LOWERING` | Any value but `0` adds the compiler's own reason to each "not supported yet" error ([When code cannot run yet](#when-code-cannot-run-yet)), which helps a report of the gap. |
+| `NOMI_GO` | The `go` command, or a Go root, that a `nomi` built from source builds a `nomi-vm` with, ahead of the `go` on `PATH` ([Installing Nomi](install.md)). |
+| `NOMI_COMPILER_SOURCE` | A checkout of the compiler that a `nomi` built from source builds a `nomi-vm` from, in place of the checkout or the version it was built from ([Installing Nomi](install.md)). |
 | `NOMI_RUNNER_CACHE_ROOT` | The directory that holds the `nomi-vm` runners `nomi build` builds or downloads, in place of `<user cache>/nomi/builds`. The cache is safe to delete. |
 | `NOMI_RUNNER_CACHE_MAX_ENTRIES` | How many runner directories that cache keeps before it removes the oldest (256 unless set); zero or less keeps every one. |
+| `NOMI_MODULE_CACHE` | The directory, in place of `<user cache>/nomi/modules`, that holds each repository fetched for a project's dependencies, extracted at its tag ([Dependencies](#dependencies)). Its files are read-only. |
 | `NOMI_STD_CACHE_ROOT` | The directory, in place of `<user cache>/nomi`, under which the language server writes the standard library's source for go-to-definition into std. |
 | `NOMI_ARTIFACT_CACHE` | The directory, in place of `<user cache>/nomi/artifacts`, where `nomi` keeps what it compiles once and reads back in later runs: each program `nomi run`, `check`, `test` and `build` compiled ([The artifact cache](#the-artifact-cache)), the machine code of each WebAssembly module a program compiled, which a built program reads and writes too, and for a `nomi` built from source the standard library's interfaces and its lowering, which a release embeds instead. `off` keeps nothing. The cache is safe to delete. |
 | `NOMI_DEBUG_ARTIFACT_CACHE` | `1` reports on stderr whether each command read a kept program, and why not, and whether it kept one. |
-| `NOMI_DEBUG_STD_BUNDLE` | For work on the compiler. `1` reports on stderr why a cached standard library lowering or its cached interfaces were not used. |
-| `NOMI_STD_WHOLE` | For work on the compiler. `1` builds every standard library module when a command starts, as the language server does, rather than only the modules the program imports. |
-| `NOMI_STD_STATE` | For work on the compiler. `off` builds the standard library's base modules instead of reading them back from the state a previous run kept, and keeps none. |
-| `NOMI_STD_PATH` | For work on the compiler. The directory of standard library sources `nomi` reads, in place of the one it finds beside itself or in the checkout it was built from. |
-| `NOMI_CHECK_FROM_INTERFACES` | For work on the compiler. `1` checks every project file again against the interfaces of the files it imports, and fails the program where the two checks differ. |
-| `NOMI_SUBST_VERIFY` | For work on the compiler. Any value holds each type a generic instance's frame carries to the kind the compiler lowers it at, as every test binary does. |
-| `NOMI_CALLEE_LOG` | For work on the compiler. A file that each difference between the function a call lowers to and the one the checker recorded is written to. |
-| `NOMI_LINK_OBJECTS` | For work on the compiler. `1` links every program through objects encoded a module at a time; `perfile` lowers each file on its own and compares it with the whole lowering. |
-| `NOMI_PERFILE_REPORT` | For work on the compiler. With `NOMI_LINK_OBJECTS=perfile`, `1` reports each file's comparison on standard error. |
-| `NOMI_NO_INLINE` | For work on the VM. Any value stops the VM compiling a small function's code into its callers. |
-| `NOMI_NO_INPLACE` | For work on the VM. Any value makes every update copy its value rather than change it in place. |
-| `NOMI_NO_LOOP_JUMP` | For work on the VM. Any value compiles each self tail call as a call rather than a jump. |
-| `NOMI_NO_FAST_READS` | For work on the VM. Any value sends each read the VM answers on a fast path, such as `Vector.get`, through its plain crossing. |
-| `NOMI_NO_FUSED_DEFAULT` | For work on the VM. Any value makes each `Option.with_default` and `Result.with_default` call its intrinsic rather than the fused form. |
 | `NOMI_PROFILE` | `1` profiles a run as `nomi run --profile` does and prints the table on standard error when it ends; a file name also writes the profile there in pprof's format, as `--profile=<file>` does ([`--profile`](#where-the-time-goes---profile)). It works for `nomi run` and for an executable `nomi build` wrote. |
-| `NOMI_CPUPROFILE` | For work on the VM. A file that `nomi run`, and a `nomi build` executable, write a Go CPU profile of the run to, for `go tool pprof <nomi or the executable> <file>`. The frames are the VM's Go functions, not the program's Nomi functions. |
 
 ## Editors and debugger
 
-Each editor's setup is in its README:
+`nomi editor install <editor>` sets up an editor
+([Setting up an editor](#setting-up-an-editor-nomi-editor)). Each
+editor's README has the rest:
 [VS Code](../editors/vscode/README.md),
 [Neovim](../editors/nvim/README.md) and
 [Helix](../editors/helix/README.md). The Zed extension is
 [`editors/zed`](../editors/zed/extension.toml). An editor formats on save
 with `nomi fmt` ([Formatting](#formatting)), reports what `nomi check`
 reports ([Checking](#checking-nomi-check)) through the language server
-`nomi-lsp`, debugs through `nomi dap` ([Debugging](#debugging)), and a
+`nomi lsp`, debugs through `nomi dap` ([Debugging](#debugging)), and a
 coding agent asks the compiler through `nomi mcp`
 ([Coding agents](#coding-agents-nomi-mcp)).
 
+### Setting up an editor: `nomi editor`
+
+`nomi` carries each editor's Nomi support and writes it where the editor
+reads it, so the editor's files match the compiler's version and need no
+clone of the repository:
+
+```console
+$ nomi editor install helix
+$ nomi editor install nvim
+$ nomi editor install vscode
+$ nomi editor install zed
+```
+
+| Editor | What `install` does |
+|---|---|
+| `helix` | Writes the queries and the grammar's C into Helix's configuration directory (`~/.config/helix`, `$XDG_CONFIG_HOME/helix`, or `%AppData%\helix` on Windows), and Nomi's entries into its `languages.toml` between `# BEGIN NOMI HELIX SUPPORT` and `# END NOMI HELIX SUPPORT`, with the grammar's source that copy. Then it builds only Nomi's grammar with `hx --grammar build` and runs `hx --health nomi`. |
+| `nvim` | Writes the plugin into `site/pack/nomi/start/nomi` in Neovim's data directory (`~/.local/share/nvim`, `$XDG_DATA_HOME/nvim`, or `%LocalAppData%\nvim-data` on Windows), and compiles the parser into it with `$CC`, else `cc`. |
+| `vscode` | Installs the extension with `code --install-extension`. |
+| `zed` | Writes the extension into `extensions/installed/nomi` in Zed's data directory (`~/Library/Application Support/Zed` on macOS, `~/.local/share/zed` or `$XDG_DATA_HOME/zed` on Linux, `%LocalAppData%\Zed` on Windows). Restart Zed to load it. |
+
+A release `nomi` carries the VS Code extension and the Zed extension's
+compiled WebAssembly. A `nomi` built from source carries neither, since
+they are built with Node and with Rust; from a clone, `make
+install-vscode` and `make install-zed` build them and install them the
+same way.
+
+The Zed install writes the layout Zed unpacks a registry extension into.
+That layout is Zed's own and not a documented interface, and whether
+Zed's extension update check ever removes an extension its registry does
+not list has not been checked. An `extensions/installed/nomi` that `nomi`
+did not write, a dev extension's link or a registry install, is left alone
+unless `install` is given `--force`.
+
+Neovim and Helix wrap comments at `nomi fmt`'s 100 columns (`textwidth`
+and `text-width`). A Zed extension cannot set a line length or indent
+guides, so these go in Zed's `settings.json`: `"languages": { "Nomi": {
+"preferred_line_length": 100 } }` for "editor: rewrap", and `"languages":
+{ "Nomi": { "indent_guides": { "enabled": false } } }` to turn indent
+guides off. Zed attaches a language server by language, not by path, so it
+sends every TOML buffer to `nomi lsp`, which answers only a `nomi.toml` and
+a module's phrase catalogs; `"languages": { "TOML": { "language_servers":
+["!nomi", "..."] } }` stops that.
+
+`nomi editor` with no words lists each editor, whether its support is
+installed and from which version, and where it goes. `nomi editor
+uninstall <editor>` removes what `install` wrote, and in Helix's
+`languages.toml` only the marked block. `--dry-run` on either prints
+every path it would write or remove and every command it would run, and
+changes nothing. When a step cannot run, because `hx`, a C compiler or
+`code` is missing, the rest is installed, the command says what is
+missing and the command to run again, and it exits 1.
+
+Each install writes `nomi-version` into the directory it owns. Run it
+again after updating `nomi`.
+
 ### The language server
 
-`nomi-lsp` gives diagnostics, hover, go-to-definition, completion, rename
+`nomi lsp` serves the Language Server Protocol on stdin and stdout until the
+editor sends `exit` or closes its input. Every editor starts it from the
+`nomi` on `PATH`, so it needs nothing else from the install. It
+takes no argument but `--stdio`, the transport it always uses, which
+VS Code's client adds. It logs to standard error.
+
+It gives diagnostics, hover, go-to-definition, completion, rename
 and code actions. Its diagnostics are `nomi check`'s, including code the
 program reaches that type-checks but cannot be compiled to run yet, and it
 reports each `todo` and `dbg` as a warning, and each string that writes
 `$name` where a `name` is in scope, with a quick fix that writes `${name}`.
+
+Go-to-definition into the standard library opens the module's file in its
+source tree. Where there is none, as in an installed `nomi`, it opens a
+read-only copy of this `nomi`'s standard library, written under `<user
+cache>/nomi/std/<version>/` (`NOMI_STD_CACHE_ROOT` replaces `<user
+cache>/nomi`). `nomi test`, `nomi check` and `nomi run` treat a file of
+that copy as the module it is a copy of, as they do the module's file in
+the source tree. A file of another version's copy, or one changed since it
+was written, is no module of this `nomi`'s, and each refuses it in one error
+that says so.
 
 **`nomi.toml`.** Each editor sends a module's `nomi.toml` to the server,
 which keeps the editor's TOML highlighting for it. The server checks the
@@ -2809,7 +3128,7 @@ it passes as it did. A large suite answers mostly `unchanged_tests`, such
 as 3 tests in `tests` and 4,213 unchanged, since an edit reaches few tests.
 
 `check`, `run_tests` and `tests_reaching` run `nomi check` and `nomi test`
-as child processes of the same `nomi`, and download the modules a project
+as child processes of the same `nomi`, and fetch the modules a project
 needs as those commands do. The other tools run in process: the language server's
 analysis for positions, which reads each file from the disk when a tool
 names it, and the formatter.

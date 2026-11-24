@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise. N is the case count vmcmd.Tester.File answers, each `subtests` row a case.
-records 739
-declared-cases 4206
+records 746
+declared-cases 4248
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -4069,14 +4069,36 @@ T test result: ok. 5 passed, 0 failed
 T
 C 16-concurrency/actor/actor_test.nomi
 E 0
-N 3
-H d6f5729e5abf99439ecc0ad7b37b00faa441e28549a53032b441c01eecaa6285
+N 4
+H e828ae9aac35921ce2cdb9cf68afddb30897239ac1d1cc624f6f6cd25c5962cb
 T ok <root>/tests/16-concurrency/actor/actor_test.nomi :: a counter actor / casts accumulate into state a call reads back
 T ok <root>/tests/16-concurrency/actor/actor_test.nomi :: a counter actor / a call nobody answers times out
+T ok <root>/tests/16-concurrency/actor/actor_test.nomi :: a counter actor / a call whose handler traps answers Crashed at once
 T ok <root>/tests/16-concurrency/actor/actor_test.nomi :: a counter actor / a stopped actor answers Stopped
-T test result: ok. 3 passed, 0 failed
+T test result: ok. 4 passed, 0 failed
+T --- stderr ---
+T nomi: background task errored (attempt 1): line 35: `String.to_int("none")` found nothing — retrying in <jitter>
+T
+C 16-concurrency/actor/agent_test.nomi
+E 0
+N 5
+H ba7ca3556388923dfe9a73dcf714a637609c0e218e0735b688763558c29bed63
+T ok <root>/tests/16-concurrency/actor/agent_test.nomi :: a counter agent / updates from many tasks at once all count
+T ok <root>/tests/16-concurrency/actor/agent_test.nomi :: a counter agent / get_and_update hands out distinct ids
+T ok <root>/tests/16-concurrency/actor/agent_test.nomi :: a counter agent / get reads the state in the caller
+T ok <root>/tests/16-concurrency/actor/agent_test.nomi :: a counter agent / a change that traps answers Crashed at once
+T ok <root>/tests/16-concurrency/actor/agent_test.nomi :: a counter agent / a stopped agent answers Stopped
+T test result: ok. 5 passed, 0 failed
+T --- stderr ---
+T nomi: background task errored (attempt 1): line 51: `String.to_int("none")` found nothing — retrying in <jitter>
 T
 C 16-concurrency/actor/counter_actor.nomi
+E 0
+N 0
+H 0c2509cd2e409c34a39df0e469abbbd27c728dc267791bbd372ed7934b35bbf6
+T count: Ok(2)
+T
+C 16-concurrency/actor/counter_agent.nomi
 E 0
 N 0
 H 0c2509cd2e409c34a39df0e469abbbd27c728dc267791bbd372ed7934b35bbf6
@@ -4227,6 +4249,43 @@ T ok <root>/tests/16-concurrency/supervisors/supervisors_test.nomi :: named task
 T ok <root>/tests/16-concurrency/supervisors/supervisors_test.nomi :: named task groups / a cancelled task reports Cancelled rather than Completed
 T ok <root>/tests/16-concurrency/supervisors/supervisors_test.nomi :: named task groups / a spawn in an assertion's subject
 T test result: ok. 7 passed, 0 failed
+T
+C 16-concurrency/task_helpers_test.nomi
+E 0
+N 19
+H 1c663f0b6fa98ceeecf1db3d51a5e7e65db39b0fa24db141bcb6c059ef269743
+T ok <root>/tests/16-concurrency/task_helpers_test.nomi :: Task.try_await_all / every Ok answers in the order of the tasks
+T ok <root>/tests/16-concurrency/task_helpers_test.nomi :: Task.try_await_all / the first Err to finish answers, not the first in the list
+T ok <root>/tests/16-concurrency/task_helpers_test.nomi :: Task.try_await_all / an Err cancels the tasks still running and waits for them
+T ok <root>/tests/16-concurrency/task_helpers_test.nomi :: Task.try_await_all / no tasks is Ok with no values
+T ok <root>/tests/16-concurrency/task_helpers_test.nomi :: Task.try_await_all / a task that traps stops the wait with its fault
+T ok <root>/tests/16-concurrency/task_helpers_test.nomi :: Task.race / the first body to finish answers
+T ok <root>/tests/16-concurrency/task_helpers_test.nomi :: Task.race / the losers are cancelled and waited for
+T ok <root>/tests/16-concurrency/task_helpers_test.nomi :: Task.race / a body that traps first ends the race with its fault
+T ok <root>/tests/16-concurrency/task_helpers_test.nomi :: Task.race / a loser is cancelled before it can trap
+T ok <root>/tests/16-concurrency/task_helpers_test.nomi :: Task.race / cancelling the caller cancels every body
+T ok <root>/tests/16-concurrency/task_helpers_test.nomi :: Task.within / a body that finishes in time answers Ok
+T ok <root>/tests/16-concurrency/task_helpers_test.nomi :: Task.within / a wait that runs out answers TimedOut and stops the body
+T ok <root>/tests/16-concurrency/task_helpers_test.nomi :: Task.within / a body that traps in time ends the call with its fault
+T ok <root>/tests/16-concurrency/task_helpers_test.nomi :: timer.every / a quick job runs on the interval
+T ok <root>/tests/16-concurrency/task_helpers_test.nomi :: timer.every / the wait starts when the job ends
+T ok <root>/tests/16-concurrency/task_helpers_test.nomi :: timer.every / cancelling the caller stops the wait at once
+T ok <root>/tests/16-concurrency/task_helpers_test.nomi :: timer.every / a job that traps ends every with its fault
+T ok <root>/tests/16-concurrency/task_helpers_test.nomi :: Receiver.iter / a walk reads each value as it arrives, until the channel closes
+T ok <root>/tests/16-concurrency/task_helpers_test.nomi :: Receiver.iter / a consumer that stops early leaves the rest on the channel
+T test result: ok. 19 passed, 0 failed
+T
+C 16-concurrency/task_stream_test.nomi
+E 0
+N 6
+H c166d4b3a4ab5a5ae56d06e4920a5ac599413590988476a93c2ae9477d83f531
+T ok <root>/tests/16-concurrency/task_stream_test.nomi :: Task.stream / results come in the source's order, not the order tasks finish
+T ok <root>/tests/16-concurrency/task_stream_test.nomi :: Task.stream / at most max_running tasks run at once
+T ok <root>/tests/16-concurrency/task_stream_test.nomi :: Task.stream / a slow consumer holds the source back
+T ok <root>/tests/16-concurrency/task_stream_test.nomi :: Task.stream / a consumer that stops early cancels the tasks still running
+T ok <root>/tests/16-concurrency/task_stream_test.nomi :: Task.stream / a consumer that stops after the source ends cancels the rest too
+T ok <root>/tests/16-concurrency/task_stream_test.nomi :: Task.stream / a task that traps ends the walk with its fault
+T test result: ok. 6 passed, 0 failed
 T
 C 17-typed-literals/fragments_test.nomi
 E 0
@@ -4716,6 +4775,15 @@ T ok <root>/tests/20-data-access/http_middleware_test.nomi :: method_override le
 T ok <root>/tests/20-data-access/http_middleware_test.nomi :: method_override reads only a POST, and only within the body limit
 T test result: ok. 23 passed, 0 failed
 T
+C 20-data-access/jwt_algorithms_test.nomi
+E 0
+N 3
+H b8ea745f6f57d8f787441811228d949e455ac0e893e9624ada34c1d682b92306
+T ok <root>/tests/20-data-access/jwt_algorithms_test.nomi :: each algorithm verifies a token OpenSSL signed
+T ok <root>/tests/20-data-access/jwt_algorithms_test.nomi :: a token is refused under a key of another algorithm, even of its kind
+T ok <root>/tests/20-data-access/jwt_algorithms_test.nomi :: each algorithm signs a token it then verifies
+T test result: ok. 3 passed, 0 failed
+T
 C 20-data-access/jwt_test.nomi
 E 0
 N 10
@@ -4745,8 +4813,8 @@ T test result: ok. 5 passed, 0 failed
 T
 C 20-data-access/sessions_test.nomi
 E 0
-N 13
-H ba29e83cf41d46a64927e957bebeb6fbf8594ae48b7f8df38daefbb614b1ace6
+N 14
+H 0f9ddbf49a36215839745026b9729a24e948c9432a7b6c665c0672538e76cda3
 T ok <root>/tests/20-data-access/sessions_test.nomi :: a session written by one request is read by the next
 T ok <root>/tests/20-data-access/sessions_test.nomi :: a request with no cookie has no session and gets no cookie
 T ok <root>/tests/20-data-access/sessions_test.nomi :: an unchanged session writes no cookie
@@ -4760,7 +4828,19 @@ T ok <root>/tests/20-data-access/sessions_test.nomi :: a session too large for a
 T ok <root>/tests/20-data-access/sessions_test.nomi :: a cross-site post never reaches the session
 T ok <root>/tests/20-data-access/sessions_test.nomi :: expiry / a session ends at max_age however busy it is
 T ok <root>/tests/20-data-access/sessions_test.nomi :: expiry / an idle session ends, and a request moves its timeout along
-T test result: ok. 13 passed, 0 failed
+T ok <root>/tests/20-data-access/sessions_test.nomi :: expiry / a request's session work takes one time, however long its handler runs
+T test result: ok. 14 passed, 0 failed
+T
+C 20-data-access/signature_schemes_test.nomi
+E 0
+N 5
+H a3448d3f18952a73607a899bbd41f93120d6fe2729e8636c82b861467f700a89
+T ok <root>/tests/20-data-access/signature_schemes_test.nomi :: each scheme checks a signature OpenSSL made, and only for its message
+T ok <root>/tests/20-data-access/signature_schemes_test.nomi :: an ECDSA key's usual scheme is its curve's, and a signature of another hash fails
+T ok <root>/tests/20-data-access/signature_schemes_test.nomi :: each new scheme signs what it then checks
+T ok <root>/tests/20-data-access/signature_schemes_test.nomi :: each RSA-OAEP hash decrypts what OpenSSL encrypted, and only with its label
+T ok <root>/tests/20-data-access/signature_schemes_test.nomi :: each RSA-OAEP hash decrypts what it encrypted, and other keys refuse
+T test result: ok. 5 passed, 0 failed
 T
 C 20-data-access/signatures_test.nomi
 E 0
@@ -4875,6 +4955,14 @@ N 2
 H 7f35e7aad80380c6b32e67768132b051338f8303387687732bc29616fa200392
 T ok <root>/tests/20-data-access/websocket_chat/chat_test.nomi :: a chat room / a message reaches every member
 T ok <root>/tests/20-data-access/websocket_chat/chat_test.nomi :: a chat room / a member alone hears their own message
+T test result: ok. 2 passed, 0 failed
+T
+C 20-data-access/websocket_compression_test.nomi
+E 0
+N 2
+H 650e4d95ed9da471c5ea551e2868a114e2dca57bd2fd8db9f3295b3d37b7c860
+T ok <root>/tests/20-data-access/websocket_compression_test.nomi :: a server that compresses takes a browser's offer, and messages cross compressed
+T ok <root>/tests/20-data-access/websocket_compression_test.nomi :: a server that does not compress takes no offer
 T test result: ok. 2 passed, 0 failed
 T
 C 20-data-access/websocket_test.nomi

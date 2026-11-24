@@ -17,8 +17,6 @@ type Module struct {
 	// Name is the module's name, its nomi.toml's, which a block imports
 	// (`import sqlite`, `import sqlite::describe`).
 	Name string
-	// Path is its module path, as a [dependencies] entry names it.
-	Path string
 	// Dir is its directory in this repository, slash-separated.
 	Dir string
 	// Requires is the names of the tour modules its nomi.toml names, which
@@ -39,12 +37,12 @@ var Modules = []Module{
 	// sqlite/describe. The driver is Nomi alone over std::net, which has no
 	// sockets in the browser, so there every call answers that Postgres
 	// cannot be reached.
-	{Name: "postgres", Path: "github.com/nomi-language/nomi/lib/sql/postgres", Dir: "lib/sql/postgres", Files: moduleSources["postgres"], Embedded: moduleEmbedded["postgres"]},
-	{Name: "sqlite", Path: "github.com/nomi-language/nomi/lib/sql/sqlite", Dir: "lib/sql/sqlite", Files: moduleSources["sqlite"], Embedded: moduleEmbedded["sqlite"]},
+	{Name: "postgres", Dir: "lib/sql/postgres", Files: moduleSources["postgres"], Embedded: moduleEmbedded["postgres"]},
+	{Name: "sqlite", Dir: "lib/sql/sqlite", Files: moduleSources["sqlite"], Embedded: moduleEmbedded["sqlite"]},
 	// migrate is sqlkit's migration runner. Its nomi.toml also names the
 	// postgres driver, for its tools and tests.
-	{Name: "migrate", Path: "github.com/nomi-language/nomi/lib/sql/migrate", Dir: "lib/sql/migrate", Requires: []string{"postgres", "sqlite"}, Files: moduleSources["migrate"], Embedded: moduleEmbedded["migrate"]},
-	{Name: "sqlkit", Path: "github.com/nomi-language/nomi/lib/sql/sqlkit", Dir: "lib/sql/sqlkit", Requires: []string{"migrate", "postgres", "sqlite"}, Files: moduleSources["sqlkit"], Embedded: moduleEmbedded["sqlkit"]},
+	{Name: "migrate", Dir: "lib/sql/migrate", Requires: []string{"postgres", "sqlite"}, Files: moduleSources["migrate"], Embedded: moduleEmbedded["migrate"]},
+	{Name: "sqlkit", Dir: "lib/sql/sqlkit", Requires: []string{"migrate", "postgres", "sqlite"}, Files: moduleSources["sqlkit"], Embedded: moduleEmbedded["sqlkit"]},
 }
 
 // ModulesDir is the directory of a block's project that Source writes the
@@ -56,7 +54,7 @@ const ModulesDir = "tour_modules"
 // its own (virtualproject's namesModules), which would be the block's to
 // state. Then it is src's files (a single-file block's as main.nomi), with
 // a [dependencies] table that names each module the block imports and each
-// tour module those name, by its path and its directory under ModulesDir,
+// tour module those name, by its directory under ModulesDir,
 // in the block's own nomi.toml or in one Source writes, and each module's
 // files there, its embedded ones as base64 sections.
 func Source(src string) string {
@@ -75,7 +73,8 @@ func Source(src string) string {
 	}
 	deps := "[dependencies]\n"
 	for _, m := range used {
-		deps += m.Name + " = { module = \"" + m.Path + "\", version = \"v0.0.0\", dir = \"./" + ModulesDir + "/" + m.Name + "\" }\n"
+		deps += m.Name + " = { dir = \"./" + ModulesDir + "/" + m.Name + "\" }\n"
+
 	}
 	if project.Manifest != nil {
 		// The block's own nomi.toml gains the table.

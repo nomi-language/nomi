@@ -11,9 +11,10 @@ import (
 // function and no impl. At an instance's type arguments (here, those a call
 // of the generic records), CalleeAt answers what a call written at that
 // type records: the block and the function that runs, a written `fn`, a
-// generic block's, an inherited default, a `host fn`, a derived `fn`, and
-// for a function with `self` only in its result, the one the type names.
-// A type argument that is an interface type leaves the record as it is.
+// generic block's, an inherited default, a `host fn`, a derived `fn` (a
+// derived Comparable's), and for a function with `self` only in its
+// result, the one the type names. A type argument that is an interface
+// type leaves the record as it is.
 func TestCalleeAt_AnswersARecordAtAnInstancesTypes(t *testing.T) {
 	fa, errs := checkEntry(t, `interface Greet
     fn name(value: self) -> String
@@ -67,7 +68,7 @@ struct W
     n: Int
 end
 
-derive Equatable for W
+derive Comparable for W
 
 fn named<T>(x: T) -> String where T: Greet
     T.name(x)
@@ -81,8 +82,8 @@ fn shown<T>(x: T) -> String where T: Display
     Display.to_string(x)
 end
 
-fn same<T>(a: T, b: T) -> Bool where T: Equatable
-    Equatable.equal(a, b)
+fn same<T>(a: T, b: T) -> Ordering where T: Comparable
+    Comparable.compare(a, b)
 end
 
 fn made<T>() -> T where T: Make
@@ -109,7 +110,7 @@ fn shown_int() -> String
     shown(5)
 end
 
-fn same_w(w: W) -> Bool
+fn same_w(w: W) -> Ordering
     same(w, w)
 end
 

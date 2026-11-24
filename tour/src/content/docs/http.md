@@ -46,7 +46,9 @@ literal](/typed-literals/#checked-literals): it is a `Url`, not a `Result`,
 and it escapes each `${...}` for where it stands. `ann b` goes out as the
 path segment `ann%20b`, and the handler's `request.url.path` reads it back
 decoded. A request runs under the context in force, so a deadline or a
-cancelled task stops it.
+cancelled task stops it. A `Client` made from `ClientOptions` connects as
+its `Transport` says, and a transport's `unix_socket` sends every request
+to a Unix socket, as Docker's API takes them.
 
 ## Handlers and routes
 
@@ -305,7 +307,9 @@ end
 ```
 
 The page cannot listen on a port, so this one does not run here.
-`nomi run` serves it on port 8080.
+`nomi run` serves it on port 8080. `Server{listener: Some(l)}` serves on a
+`net.Listener` instead: a Unix socket's, or one systemd's socket
+activation passed (`net.inherited_listeners`).
 
 `http.file_server(dir)` serves a folder from the disk.
 `http.file_server_embedded(files)` serves files the program
@@ -384,9 +388,11 @@ every `/admin` route, before they join the others. std::http has `cors`,
 `cross_origin_protection`, `compress`, `basic_auth` and
 `method_override`; see the [reference](/reference/http/#httpcors) for
 their options. `http.compress()` gzips a response for a client that
-takes gzip. `http.basic_auth("admin", check)` returns 401, naming the
+takes gzip; [std::compress](/reference/compress/) does the same for any
+bytes or stream. `http.basic_auth("admin", check)` returns 401, naming the
 realm `admin`, until the browser sends a user and password `check`
-accepts; compare them with
+accepts. The password reaches `check` as a [`Secret`](/reference/secret/);
+compare them with
 `hash.equal_in_constant_time`, never `==`, whose timing shows how much
 of a guess was right.
 
@@ -481,8 +487,8 @@ inside it and logs the id `request_id` gives the request.
 ### Sessions
 
 [std::sessions](/reference/sessions/) keeps a value of your own type
-across requests in one cookie, encrypted and authenticated with
-AES-256-GCM under a key derived from a secret the app holds.
+across requests in one cookie, sealed with AES-256-GCM by [std::cipher](/reference/cipher/) under a key derived from a secret the app holds.
+To encrypt other data at rest, such as a database field or a token, seal it with std::cipher directly.
 `sessions.with_session(store)` is middleware that hands the handler the
 session beside the request, as a `Session<T>`, so `require_user` can be
 built on it. A handler changes the session with `Session.set` or

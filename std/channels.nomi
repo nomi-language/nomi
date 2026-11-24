@@ -3,15 +3,16 @@
 //# its consumer; `Channel.unbuffered()` makes every send wait for a
 //# receive. `Sender.send` returns `Err` once the channel is closed,
 //# `Sender.close` closes it, and `Receiver.receive` returns `None` when it
-//# is closed and drained. `Channel.select` waits on several channel
-//# operations and timers at once, and `Receiver.receive_within` on one
-//# channel with a timeout. How a task waiting on a channel is cancelled is a
-//# language rule ([Concurrency](/spec/concurrency/)).
+//# is closed and drained; `Receiver.iter` reads the values as an `Iter`
+//# until then. `Channel.select` waits on several channel operations and
+//# timers at once, and `Receiver.receive_within` on one channel with a
+//# timeout. How a task waiting on a channel is cancelled is a language rule
+//# ([Concurrency](/spec/concurrency/)).
 //#
 //# ## Multiplexing
 //#
 //# Producers that share one message type fan in through a single channel
-//# of an enum:
+//# of an enum, and the consumer takes each message as it arrives:
 //#
 //# ```nomi
 //# concurrent
@@ -20,12 +21,15 @@
 //#     p1 = Task.spawn(fn -> Sender.send(events.sender, Event.UserMsg("hello")))
 //#     p2 = Task.spawn(fn -> Sender.send(events.sender, Event.Tick(1)))
 //#
-//#     case Receiver.receive(events.receiver)
-//#         Some(.UserMsg(msg)) -> handle_msg(msg)
-//#         Some(.Tick(n))      -> handle_tick(n)
-//#         Some(.Shutdown)     -> io.print("shutting down")
-//#         None                -> io.print("channel closed")
-//#     end
+//#     Receiver.iter(events.receiver)
+//#     |> Iter.take(2)
+//#     |> Iter.each(fn event ->
+//#         case event
+//#             .UserMsg(msg) -> handle_msg(msg)
+//#             .Tick(n)      -> handle_tick(n)
+//#             .Shutdown     -> io.print("shutting down")
+//#         end
+//#     end)
 //#
 //#     _ = Task.await(p1)
 //#     _ = Task.await(p2)
@@ -52,8 +56,9 @@ import
     debug.Debug
     duration.Duration
     int.{Int, PositiveInt}
+    iter.Iter
     lists.NonEmptyList
-    option.Option
+    option.Option.{self, None, Some}
     results.Result
     tasks.Task
     unit.Unit
@@ -249,6 +254,30 @@ impl Receiver<T>
         receiver: Receiver<T>,
         wait:     Duration,
     ) -> Result<Option<T>, TimedOut>
+
+    /// The values `receiver` delivers, as an `Iter`, until the channel is
+    /// closed and drained. Each element is a `Receiver.receive`, so a walk
+    /// waits for each value and takes it off the channel. A consumer that
+    /// stops early, as `Iter.take` does, leaves the values after it on the
+    /// channel, and a second walk carries on where the first stopped.
+    //! ch = Channel.buffered<Int>(3)
+    //! assert Ok(_) = Sender.send(ch.sender, 1)
+    //! assert Ok(_) = Sender.send(ch.sender, 2)
+    //! assert Ok(_) = Sender.send(ch.sender, 3)
+    //! Sender.close(ch.sender)
+    //!
+    //! assert Receiver.iter(ch.receiver) |> Iter.take(1) |> Iter.to_list() == [1]
+    //! assert Receiver.iter(ch.receiver) |> Iter.map(&(&1 * 10)) |> Iter.to_list() == [20, 30]
+    //
+    pub fn iter<T>(receiver: Receiver<T>) -> Iter<T>
+        Iter.repeat(receiver)
+        |> Iter.map(fn from ->
+            case Receiver.receive(from)
+                Some(value) -> value
+                None        -> break
+            end
+        end)
+    end
 end
 
 impl Debug for Receiver<T>
@@ -321,5 +350,6 @@ end
 pub type ChannelClosed
 
 /// Returned by `Receiver.receive_within` when its wait ran out before a
-/// value arrived or the channel closed.
+/// value arrived or the channel closed, and by `Task.within` when its wait
+/// ran out before the body finished.
 pub type TimedOut

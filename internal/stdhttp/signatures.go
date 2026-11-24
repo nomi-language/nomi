@@ -7,7 +7,8 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
-	"crypto/sha256"
+	_ "crypto/sha256" // the hashes the schemes name
+	_ "crypto/sha512"
 	"crypto/x509"
 	"encoding/asn1"
 	"encoding/pem"
@@ -18,32 +19,131 @@ import (
 	"github.com/nomi-language/nomi/rt"
 )
 
-// std/signatures/host: Ed25519, ECDSA P-256 and RSA keys and signatures
-// over Go's crypto packages. The key encodings are crypto/x509's, which
-// links net, so these sit with the network adapters (the
-// internal/hostgen/stdtable split): a program that never touches a key
-// runs on the runner without crypto/x509.
+// std/signatures/host: Ed25519, ECDSA and RSA keys and signatures over
+// Go's crypto packages. The key encodings are crypto/x509's, which links
+// net, so these sit with the network adapters (the internal/hostgen/stdtable
+// split): a program that never touches a key runs on the runner without
+// crypto/x509.
 //
 // A key crosses as DER: a private key as PKCS #8, a public key as PKIX
 // (SubjectPublicKeyInfo). Every function that takes one takes DER that
 // SigPrivateFromDER or SigPublicFromDER accepted, which std/signatures'
 // opaque key types guarantee, so a key that does not parse is a trap.
+//
+// Two tables say what std/signatures offers: sigKinds is its KeyKind and
+// sigSchemes its Scheme, each in declaration order, so a variant's code is
+// its position in both (std/signatures.nomi's `kind_code` and
+// `scheme_code`). Signing and checking read the scheme's row: the kind of
+// key it takes, the hash it signs, and the form of its signature.
 
-// Key kinds, as std/signatures' KeyKind numbers its variants.
+// sigKindRow is one KeyKind: its variant's name and, for ECDSA, its curve.
+type sigKindRow struct {
+	variant string
+	curve   elliptic.Curve
+}
+
+var sigKinds = [...]sigKindRow{
+	{"Ed25519", nil},
+	{"EcdsaP256", elliptic.P256()},
+	{"EcdsaP384", elliptic.P384()},
+	{"EcdsaP521", elliptic.P521()},
+	{"Rsa", nil},
+}
+
+// The kinds a switch on a key's Go type names.
 const (
 	sigKindEd25519 = 0
-	sigKindP256    = 1
-	sigKindRSA     = 2
+	sigKindRSA     = 4
 )
 
-// Signature schemes, as std/signatures' Scheme numbers its variants.
+// A signature's form: how a scheme's row signs and checks.
 const (
-	sigEd25519  = 0
-	sigES256    = 1
-	sigRS256    = 2
-	sigPS256    = 3
-	sigES256DER = 4
+	formEd25519    = iota // Ed25519 over the message itself
+	formECDSAFixed        // r and s, each the curve's size, as JWS writes them
+	formECDSADER          // ASN.1 DER, as X.509 and OpenSSL write it
+	formPKCS1             // RSA PKCS #1 v1.5
+	formPSS               // RSA PSS, MGF1 over the same hash, the salt the hash's size
 )
+
+// sigSchemeRow is one Scheme: its variant's name, the key kind it signs
+// with, the hash it signs (none for Ed25519), and its form.
+type sigSchemeRow struct {
+	variant string
+	kind    int64
+	hash    crypto.Hash
+	form    int
+}
+
+var sigSchemes = [...]sigSchemeRow{
+	{"Ed25519", sigKindEd25519, 0, formEd25519},
+	{"EcdsaSha256", 1, crypto.SHA256, formECDSAFixed},
+	{"EcdsaSha256Der", 1, crypto.SHA256, formECDSADER},
+	{"EcdsaSha384", 2, crypto.SHA384, formECDSAFixed},
+	{"EcdsaSha384Der", 2, crypto.SHA384, formECDSADER},
+	{"EcdsaSha512", 3, crypto.SHA512, formECDSAFixed},
+	{"EcdsaSha512Der", 3, crypto.SHA512, formECDSADER},
+	{"RsaPkcs1Sha256", sigKindRSA, crypto.SHA256, formPKCS1},
+	{"RsaPkcs1Sha384", sigKindRSA, crypto.SHA384, formPKCS1},
+	{"RsaPkcs1Sha512", sigKindRSA, crypto.SHA512, formPKCS1},
+	{"RsaPssSha256", sigKindRSA, crypto.SHA256, formPSS},
+	{"RsaPssSha384", sigKindRSA, crypto.SHA384, formPSS},
+	{"RsaPssSha512", sigKindRSA, crypto.SHA512, formPSS},
+}
+
+// sigEncryptions is std/signatures' Encryption in declaration order: each
+// is RSA-OAEP (RFC 8017) with one hash for its digest and its MGF1.
+var sigEncryptions = [...]struct {
+	variant string
+	hash    crypto.Hash
+}{
+	{"RsaOaepSha256", crypto.SHA256},
+	{"RsaOaepSha384", crypto.SHA384},
+	{"RsaOaepSha512", crypto.SHA512},
+}
+
+// sigEncryption is the hash of encryption, a code std/signatures.nomi's
+// `encryption_code` answers and so always in the table.
+func sigEncryption(encryption int64) crypto.Hash {
+	if encryption < 0 || encryption >= int64(len(sigEncryptions)) {
+		panic(fmt.Sprintf("signatures: no encryption has code %d", encryption))
+	}
+	return sigEncryptions[encryption].hash
+}
+
+// SigEncrypt is `std::signatures::host.encrypt`: plaintext encrypted to the
+// RSA public key der with RSA-OAEP, label bound to it, or why it is too long
+// for the key and the hash. std/signatures passes only an RSA key.
+func SigEncrypt(der rt.Bytes, encryption int64, plaintext, label rt.Bytes) rt.Result[rt.Bytes, string] {
+	h := sigEncryption(encryption)
+	key := parsePublic(der).(*rsa.PublicKey)
+	most := key.Size() - 2*h.Size() - 2
+	if len(plaintext) > most {
+		return rt.Err[rt.Bytes](fmt.Sprintf("RSA-OAEP with this key and %s encrypts at most %d bytes, got %d",
+			sigEncryptions[encryption].variant, max(most, 0), len(plaintext)))
+	}
+	out, err := rsa.EncryptOAEP(h.New(), rand.Reader, key, []byte(plaintext), []byte(label))
+	if err != nil {
+		rt.Trap("signatures: encrypting: " + err.Error())
+	}
+	return rt.Ok[rt.Bytes, string](rt.Bytes(out))
+}
+
+// SigDecrypt is `std::signatures::host.decrypt`: the plaintext ciphertext
+// holds under the RSA private key der with RSA-OAEP and label, or None.
+// Every cause of a failure (a ciphertext of the wrong length, a value past
+// the modulus, a bad padding, another label) is the one None, and Go's
+// rsa.DecryptOAEP checks the padding in constant time, so a failure tells
+// nothing about the key or the plaintext. std/signatures passes only an
+// RSA key.
+func SigDecrypt(der rt.Bytes, encryption int64, ciphertext, label rt.Bytes) rt.Option[rt.Bytes] {
+	h := sigEncryption(encryption)
+	key := parsePrivate(der).(*rsa.PrivateKey)
+	out, err := rsa.DecryptOAEP(h.New(), nil, key, []byte(ciphertext), []byte(label))
+	if err != nil {
+		return rt.None[rt.Bytes]()
+	}
+	return rt.Some(rt.Bytes(out))
+}
 
 // Bounds on an RSA key's size in bits. 2048 is the least NIST allows for
 // new keys; 8192 bounds how long generation takes.
@@ -59,21 +159,41 @@ func sigKind(key any) (int64, error) {
 	case ed25519.PrivateKey, ed25519.PublicKey:
 		return sigKindEd25519, nil
 	case *ecdsa.PrivateKey:
-		return p256Kind(k.Curve)
+		return curveKind(k.Curve)
 	case *ecdsa.PublicKey:
-		return p256Kind(k.Curve)
+		return curveKind(k.Curve)
 	case *rsa.PrivateKey, *rsa.PublicKey:
 		return sigKindRSA, nil
 	}
 	return -1, fmt.Errorf("unsupported key type %T", key)
 }
 
-func p256Kind(c elliptic.Curve) (int64, error) {
-	if c != elliptic.P256() {
-		return -1, fmt.Errorf("unsupported ECDSA curve %s; only P-256 is supported", c.Params().Name)
+// curveKind is the kind of an ECDSA key over c.
+func curveKind(c elliptic.Curve) (int64, error) {
+	for i, k := range sigKinds {
+		if k.curve != nil && k.curve == c {
+			return int64(i), nil
+		}
 	}
-	return sigKindP256, nil
+	return -1, fmt.Errorf("unsupported ECDSA curve %s; P-256, P-384 and P-521 are supported", c.Params().Name)
 }
+
+// sigScheme is the row of scheme, a code std/signatures.nomi's
+// `scheme_code` answers and so always in the table.
+func sigScheme(scheme int64) sigSchemeRow {
+	if scheme < 0 || scheme >= int64(len(sigSchemes)) {
+		panic(fmt.Sprintf("signatures: no scheme has code %d", scheme))
+	}
+	return sigSchemes[scheme]
+}
+
+// SigSchemeName is `std::signatures::host.scheme_name`: a scheme's variant
+// name.
+func SigSchemeName(scheme int64) string { return sigScheme(scheme).variant }
+
+// SigSchemeKind is `std::signatures::host.scheme_kind`: the kind of key a
+// scheme signs with.
+func SigSchemeKind(scheme int64) int64 { return sigScheme(scheme).kind }
 
 // SigGenerateEd25519 is `std::signatures::host.generate_ed25519`: a new Ed25519
 // private key from crypto/rand.
@@ -85,12 +205,16 @@ func SigGenerateEd25519() rt.Bytes {
 	return marshalPrivate(key)
 }
 
-// SigGenerateP256 is `std::signatures::host.generate_p256`: a new ECDSA P-256
-// private key from crypto/rand.
-func SigGenerateP256() rt.Bytes {
-	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+// SigGenerateECDSA is `std::signatures::host.generate_ecdsa`: a new ECDSA
+// private key of kind, an ECDSA kind, from crypto/rand.
+func SigGenerateECDSA(kind int64) rt.Bytes {
+	curve := sigKinds[kind].curve
+	if curve == nil {
+		panic(fmt.Sprintf("signatures: kind %d is not ECDSA", kind))
+	}
+	key, err := ecdsa.GenerateKey(curve, rand.Reader)
 	if err != nil {
-		rt.Trap("signatures: generating a P-256 key: " + err.Error())
+		rt.Trap("signatures: generating an " + sigKinds[kind].variant + " key: " + err.Error())
 	}
 	return marshalPrivate(key)
 }
@@ -313,37 +437,38 @@ func SigEd25519PublicBytes(der rt.Bytes) rt.Bytes {
 // ecdsaSignature is an ECDSA signature's ASN.1 form.
 type ecdsaSignature struct{ R, S *big.Int }
 
-// SigSign is `std::signatures::host.sign`: message signed under the PKCS #8 key
-// der with scheme. std/signatures passes only a scheme the key's kind has.
+// digestOf is message hashed with h.
+func digestOf(h crypto.Hash, message rt.Bytes) []byte {
+	d := h.New()
+	d.Write([]byte(message))
+	return d.Sum(nil)
+}
+
+// SigSign is `std::signatures::host.sign`: message signed under the PKCS #8
+// key der with scheme. std/signatures passes only a scheme of the key's
+// kind.
 func SigSign(der rt.Bytes, scheme int64, message rt.Bytes) rt.Bytes {
+	row := sigScheme(scheme)
 	key := parsePrivate(der)
-	digest := sha256.Sum256([]byte(message))
+	if kind, _ := sigKind(key); kind != row.kind {
+		rt.Trap(fmt.Sprintf("signatures: %s does not sign with a %s key", row.variant, sigKinds[kind].variant))
+	}
 	var sig []byte
 	var err error
-	switch k := key.(type) {
-	case ed25519.PrivateKey:
-		if scheme != sigEd25519 {
-			break
+	switch row.form {
+	case formEd25519:
+		sig = ed25519.Sign(key.(ed25519.PrivateKey), []byte(message))
+	case formECDSAFixed, formECDSADER:
+		k := key.(*ecdsa.PrivateKey)
+		sig, err = ecdsa.SignASN1(rand.Reader, k, digestOf(row.hash, message))
+		if err == nil && row.form == formECDSAFixed {
+			sig, err = ecdsaFixed(sig, ecdsaSize(k.Curve))
 		}
-		return rt.Bytes(ed25519.Sign(k, []byte(message)))
-	case *ecdsa.PrivateKey:
-		if scheme != sigES256 && scheme != sigES256DER {
-			break
-		}
-		sig, err = ecdsa.SignASN1(rand.Reader, k, digest[:])
-		if err == nil && scheme == sigES256 {
-			sig, err = ecdsaFixed(sig)
-		}
-	case *rsa.PrivateKey:
-		switch scheme {
-		case sigRS256:
-			sig, err = rsa.SignPKCS1v15(nil, k, crypto.SHA256, digest[:])
-		case sigPS256:
-			sig, err = rsa.SignPSS(rand.Reader, k, crypto.SHA256, digest[:], &rsa.PSSOptions{SaltLength: rsa.PSSSaltLengthEqualsHash})
-		}
-	}
-	if sig == nil && err == nil {
-		rt.Trap(fmt.Sprintf("signatures: scheme %d does not sign with a %T", scheme, key))
+	case formPKCS1:
+		sig, err = rsa.SignPKCS1v15(nil, key.(*rsa.PrivateKey), row.hash, digestOf(row.hash, message))
+	case formPSS:
+		sig, err = rsa.SignPSS(rand.Reader, key.(*rsa.PrivateKey), row.hash, digestOf(row.hash, message),
+			&rsa.PSSOptions{SaltLength: rsa.PSSSaltLengthEqualsHash})
 	}
 	if err != nil {
 		rt.Trap("signatures: signing: " + err.Error())
@@ -351,46 +476,50 @@ func SigSign(der rt.Bytes, scheme int64, message rt.Bytes) rt.Bytes {
 	return rt.Bytes(sig)
 }
 
-// ecdsaFixed is an ASN.1 P-256 signature as r and s, 32 bytes each.
-func ecdsaFixed(der []byte) ([]byte, error) {
+// ecdsaSize is the size of r and of s in a fixed-form signature over c:
+// the curve's order in whole bytes (32, 48 and 66).
+func ecdsaSize(c elliptic.Curve) int { return (c.Params().N.BitLen() + 7) / 8 }
+
+// ecdsaFixed is an ASN.1 ECDSA signature as r and s, size bytes each.
+func ecdsaFixed(der []byte, size int) ([]byte, error) {
 	var s ecdsaSignature
 	if _, err := asn1.Unmarshal(der, &s); err != nil {
 		return nil, err
 	}
-	out := make([]byte, 64)
-	s.R.FillBytes(out[:32])
-	s.S.FillBytes(out[32:])
+	out := make([]byte, 2*size)
+	s.R.FillBytes(out[:size])
+	s.S.FillBytes(out[size:])
 	return out, nil
 }
 
-// SigIsValid is `std::signatures::host.is_valid`: whether signature is message's
-// under the PKIX key der with scheme. A signature of the wrong shape, or a
-// scheme the key's kind does not have, is False.
+// SigIsValid is `std::signatures::host.is_valid`: whether signature is
+// message's under the PKIX key der with scheme. A signature of the wrong
+// shape, or a scheme of another kind than the key's, is False.
 func SigIsValid(der rt.Bytes, scheme int64, message, signature rt.Bytes) bool {
+	row := sigScheme(scheme)
 	key := parsePublic(der)
-	digest := sha256.Sum256([]byte(message))
+	if kind, _ := sigKind(key); kind != row.kind {
+		return false
+	}
 	sig := []byte(signature)
-	switch k := key.(type) {
-	case ed25519.PublicKey:
-		return scheme == sigEd25519 && ed25519.Verify(k, []byte(message), sig)
-	case *ecdsa.PublicKey:
-		switch scheme {
-		case sigES256:
-			if len(sig) != 64 {
-				return false
-			}
-			r, s := new(big.Int).SetBytes(sig[:32]), new(big.Int).SetBytes(sig[32:])
-			return ecdsa.Verify(k, digest[:], r, s)
-		case sigES256DER:
-			return ecdsa.VerifyASN1(k, digest[:], sig)
+	switch row.form {
+	case formEd25519:
+		return ed25519.Verify(key.(ed25519.PublicKey), []byte(message), sig)
+	case formECDSAFixed:
+		k := key.(*ecdsa.PublicKey)
+		size := ecdsaSize(k.Curve)
+		if len(sig) != 2*size {
+			return false
 		}
-	case *rsa.PublicKey:
-		switch scheme {
-		case sigRS256:
-			return rsa.VerifyPKCS1v15(k, crypto.SHA256, digest[:], sig) == nil
-		case sigPS256:
-			return rsa.VerifyPSS(k, crypto.SHA256, digest[:], sig, &rsa.PSSOptions{SaltLength: rsa.PSSSaltLengthAuto}) == nil
-		}
+		r, s := new(big.Int).SetBytes(sig[:size]), new(big.Int).SetBytes(sig[size:])
+		return ecdsa.Verify(k, digestOf(row.hash, message), r, s)
+	case formECDSADER:
+		return ecdsa.VerifyASN1(key.(*ecdsa.PublicKey), digestOf(row.hash, message), sig)
+	case formPKCS1:
+		return rsa.VerifyPKCS1v15(key.(*rsa.PublicKey), row.hash, digestOf(row.hash, message), sig) == nil
+	case formPSS:
+		return rsa.VerifyPSS(key.(*rsa.PublicKey), row.hash, digestOf(row.hash, message), sig,
+			&rsa.PSSOptions{SaltLength: rsa.PSSSaltLengthAuto}) == nil
 	}
 	return false
 }

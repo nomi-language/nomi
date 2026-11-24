@@ -106,6 +106,7 @@ func TestARecordIsReadUntilAFileItReadChanges(t *testing.T) {
 	// A file no build of a program reads changes nothing.
 	write(t, filepath.Join(root, "notes.txt"), "changed\n")
 	write(t, filepath.Join(root, "out", "run.log"), "written by the program\n")
+	write(t, filepath.Join(root, "go.mod"), "module x\n")
 	if got := lookup(t, root); got != "image" {
 		t.Fatalf("after a file no build reads changed, the payload reads as %q", got)
 	}
@@ -119,7 +120,7 @@ func TestARecordIsReadUntilAFileItReadChanges(t *testing.T) {
 		{"a source removed", func() { os.Remove(filepath.Join(root, "lib", "more.nomi")) }},
 		{"the manifest edited", func() { write(t, filepath.Join(root, "nomi.toml"), "[module]\nname = \"other\"\n") }},
 		{"a catalog added", func() { write(t, filepath.Join(root, "messages", "fr", "main.toml"), "") }},
-		{"a go.mod added", func() { write(t, filepath.Join(root, "go.mod"), "module x\n") }},
+		{"a nomi.lock added", func() { write(t, filepath.Join(root, "nomi.lock"), "# locked\n") }},
 		{"a manifest above the root", func() { write(t, filepath.Join(filepath.Dir(root), "nomi.toml"), "") }},
 		{"the manifest above the root removed", func() { os.Remove(filepath.Join(filepath.Dir(root), "nomi.toml")) }},
 	} {

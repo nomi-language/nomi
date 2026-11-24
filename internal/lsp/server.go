@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/buildversion"
 	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/modcache"
 	"github.com/nomi-language/nomi/internal/stdcache"
@@ -18,9 +19,9 @@ import (
 	_ "github.com/tliron/commonlog/simple"
 )
 
-const serverName = "nomi-lsp"
-
-var version = "0.1.0"
+// serverName is the name initialize reports and the source of the
+// diagnostics the server makes about itself.
+const serverName = "nomi"
 
 // Server holds the state for the Nomi language server.
 type Server struct {
@@ -183,7 +184,7 @@ func (s *Server) stdFileURI(module string) string {
 }
 
 func (s *Server) initialize(ctx *glsp.Context, params *protocol.InitializeParams) (any, error) {
-	commonlog.NewInfoMessage(0, "nomi-lsp initializing")
+	commonlog.NewInfoMessage(0, "nomi lsp initializing")
 
 	capabilities := s.handler.CreateServerCapabilities()
 
@@ -259,6 +260,7 @@ func (s *Server) initialize(ctx *glsp.Context, params *protocol.InitializeParams
 		s.docs.SetWorkspaceRoot(root)
 	}
 
+	version := buildversion.Current()
 	return initializeResult{
 		Capabilities: initCapabilities{
 			ServerCapabilities:  capabilities,

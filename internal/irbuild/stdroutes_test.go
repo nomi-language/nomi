@@ -8,11 +8,12 @@ import (
 )
 
 // TestEveryStdRouteNamesAStdFunction: every std function the builder
-// lowers by a route of its own (stdRoutes, testingCheck) is one a std
-// module declares, by the identity the checker gives that module's
-// functions (analysis.FileAnalysis.StdFuncs), so a renamed or moved std
-// function, or a key whose Impl names no impl of it, fails here instead of
-// reaching the general call route.
+// lowers by a route of its own (stdRoutes), and the `check` the checker
+// types as a keyword form (analysis.StdTestingCheck), is one a std module
+// declares, by the identity the checker gives that module's functions
+// (analysis.FileAnalysis.StdFuncs), so a renamed or moved std function,
+// or a key whose Impl names no impl of it, fails here instead of reaching
+// the general call route.
 func TestEveryStdRouteNamesAStdFunction(t *testing.T) {
 	lib := std.All()
 	declared := map[analysis.StdFunc]bool{}
@@ -24,7 +25,7 @@ func TestEveryStdRouteNamesAStdFunction(t *testing.T) {
 	if len(declared) == 0 {
 		t.Fatal("read no std function definitions, so this test checks nothing")
 	}
-	keys := []analysis.StdFunc{testingCheck}
+	keys := []analysis.StdFunc{analysis.StdTestingCheck}
 	for id := range stdRoutes {
 		keys = append(keys, id)
 	}

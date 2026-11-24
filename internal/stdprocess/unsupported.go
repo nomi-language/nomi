@@ -11,8 +11,12 @@ import (
 // osProcess has no instances on a target that cannot start a process.
 type osProcess struct{}
 
-func (*osProcess) wait(*rt.Frame, *child) {}
-func (*osProcess) kill(*child)            {}
+func (*osProcess) wait(*rt.Frame, *child)                          {}
+func (*osProcess) kill(*child)                                     {}
+func (*osProcess) signal(*child, string, string, bool) *rt.IOError { return nil }
+
+// processID is 1: a js/wasm or wasip1 module has no process id of its own.
+func processID() int64 { return 1 }
 
 // startOS answers Unsupported: a js/wasm or wasip1 module cannot start a
 // process. `nomi build` refuses such a program for these targets unless

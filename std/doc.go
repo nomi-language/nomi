@@ -13,7 +13,8 @@
 // std holds what Go's standard library and a few small libraries the
 // compiler's module requires can back (std/fs, std/sql's vocabulary,
 // std/http over net/http, std/toml over BurntSushi/toml, std/passwords'
-// Argon2id, scrypt and bcrypt over golang.org/x/crypto). lib/ holds
+// Argon2id, scrypt and bcrypt and std/cipher's ChaCha20-Poly1305 over
+// golang.org/x/crypto). lib/ holds
 // first-party modules that carry an engine of their own or are
 // opinionated layers over std: lib/sql/sqlite (SQLite) and lib/image
 // (C image codecs), each compiled to WebAssembly in the module and run by
@@ -23,17 +24,13 @@
 // lib/sql/sqlkit, lib/jobs/postgres and lib/storage/s3, which are Nomi
 // alone over std and the drivers. No lib module binds Go.
 //
-// Each lib module is its own module with its own nomi.toml and the go.mod
-// nomi writes for its path, nested in this repository, so the compiler's
-// module excludes it. It is versioned with nomi's commits, with no tags. A
-// module that depends on a sibling names it in [dependencies] by its path,
-// a published commit as a floor, and the sibling's directory (`dir`).
-// `nomi add` and `nomi update` keep every
-// github.com/nomi-language/nomi/lib/... module a project depends on at one
-// commit, the one added or the newest, so a sibling's version never needs
-// moving when a batch is pushed. When a module comes to need a newer
-// sibling, `nomi add github.com/nomi-language/nomi/lib/<sibling>@<commit>`
-// in the module moves its floor to a pushed commit.
+// Each lib module is a directory of this repository with its own
+// nomi.toml, and holds no Go. One release tag versions the repository, so
+// every lib module a project depends on is taken at that one tag. A module
+// that depends on a sibling names it in [dependencies] by the sibling's
+// directory alone (`sqlite = { dir = "../sqlite" }`), which a project that
+// fetches the module reads as the sibling at the same tag (internal/modcache
+// package doc), so a sibling's entry never needs a version.
 //
 // TestLibModules in cmd/nomi runs their Nomi tests, the shop example's
 // generated-code check and `nomi effects --check` on each. Its postgres
@@ -62,7 +59,7 @@
 //     their binary size on the programs that ask for them. std/calendar is
 //     why a hello-world artifact contains no `time/tzdata`. The stdlib is
 //     one Nomi module, so such a package is not separately distributable
-//     and carries neither nomi.toml nor go.mod.
+//     and carries no nomi.toml.
 //
 // # Modules written only in Nomi
 //
@@ -197,9 +194,9 @@
 //
 // # Sessions
 //
-// std/sessions is Nomi. Its two crossings in std/http/host, `seal` and
-// `open_sealed`, are AES-256-GCM (rt/seal.go) with a random 12-byte nonce
-// before the ciphertext. A cookie's value is that, in unpadded base64url,
+// std/sessions is Nomi. It seals with std::cipher: a `SessionKey` holds an
+// AES-256-GCM `Key`, and `cipher.seal` puts a random 12-byte nonce before
+// the ciphertext and tag. A cookie's value is that, in unpadded base64url,
 // over a JSON object: `c` and `s` (Unix seconds the session began and was
 // last written), `f` (flash messages for the next request) and `v` (the
 // app's value through `ToJson`, absent for none). The additional data is
@@ -235,6 +232,53 @@
 // "Signatures"). jwt uses `hash.hmac_sha256` for HS256 and
 // `signatures.sign_with` and `is_valid_with` for the rest; a key holds the one
 // algorithm it was made for, which a token's `alg` must name.
+//
+// # Encryption and key exchange
+//
+// std/cipher and std/key_exchange are Nomi over their internal host
+// modules, both internal/stdcipher (its package doc): AES-GCM and AES-CTR
+// over Go's crypto/aes, ChaCha20-Poly1305 and XChaCha20-Poly1305 over
+// golang.org/x/crypto, and ECDH over Go's crypto/ecdh. They are the one
+// AEAD and the one key agreement in the implementation; std/sessions seals
+// with std::cipher. The Nomi side holds each algorithm's lengths, checks
+// keys and nonces, and draws a seal's nonce and a cipher key with
+// `random.secure_bytes`, so every crossing but a key-exchange key's
+// generation is a Pure row. HKDF is `hash.hkdf` over Go's crypto/hkdf in
+// internal/stdhash, with the HMAC of any `hash.Algorithm`. None is in a
+// family, so a program that encrypts runs on the lean runner.
+//
+// # Compression
+//
+// std/compress is Nomi over std/compress/host, internal/stdcompress (its
+// package doc): gzip, zlib and raw deflate over Go's compress packages.
+// It is the one compressor in the implementation: std/http's `compress`
+// middleware and `testing.decompressed` call it. Its readers and writers
+// are rt's streams made as they are read or written (rt.NewPullReader,
+// rt.NewPushWriter), so a read of the wrapped stream runs on the frame of
+// the read; a stream that is not valid fails a read with std::io's
+// `Error.Corrupt` or `Error.Truncated`. It is in no family, so a program
+// that compresses runs on the lean runner. Formats whose engines Go's
+// standard library lacks (zstd, brotli) belong in lib/, compiled to
+// WebAssembly as lib/image's codecs are.
+//
+// # System information and the monotonic clock
+//
+// std/system is Nomi over std/system/host, internal/stdsystem (its package
+// doc): the operating system, the architecture, the CPU count, the
+// hostname, the executable's path, the user, the user's directories and
+// the memory the program holds. Each row is Outside with no class: every
+// target answers it, a js/wasm or wasip1 module with `Error.Unsupported`
+// for what it has none of, so nothing refuses a program at build. The
+// directories read the process's environment in the host, not the
+// program's `Startup`. std/process's `process.id` is a row of the same
+// kind in std/process/host.
+//
+// std/instant's `Monotonic` is an opaque Int of nanoseconds since a reading
+// rt takes when the process starts (rt.MonotonicNow), on Go's monotonic
+// clock, which setting the wall clock does not move. Under a virtual clock
+// the reading is the bubble's clock, so a test's sleeps add up exactly.
+// It has a row in internal/irbuild's opaqueSpecs, since `Monotonic.now`'s
+// Go signature names it.
 //
 // # Object storage
 //

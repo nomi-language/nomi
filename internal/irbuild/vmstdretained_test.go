@@ -17,14 +17,24 @@ package irbuild
 // are expected to be empty, and their classifiers are validated by
 // TestVMCoverage_TheHostClassifierCatchesItsPlant and
 // TestVMCoverage_TheLinkingClassifierCatchesItsPlant.
+//
+// Each call runs under the machine's own bound on a run (vmStdCall): a body
+// that waits on something nothing in isolation answers, or computes past
+// the bound, is stopped. One the machine entered before the bound stopped
+// it is recorded as `blocks`, so the list names the functions that wait.
+// TestVMCoverage_TheProbeBoundStopsAWaitAndASpin holds the bound to a plant
+// of each kind.
 
 import (
+	"context"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/nomi-language/nomi/internal/ir"
 	"github.com/nomi-language/nomi/internal/vm"
@@ -83,7 +93,7 @@ func TestIRRetainedStdPopulationRuns(t *testing.T) {
 	failures := map[string][]string{}
 	var lines []string
 	ran := 0
-	var unimplemented []string
+	var unimplemented, blocks []string
 	for _, fn := range fns {
 		for _, b := range fn.Blocks() {
 			for _, in := range b.Instrs() {
@@ -107,7 +117,7 @@ func TestIRRetainedStdPopulationRuns(t *testing.T) {
 		}
 		m := vm.NewProgram(mod, modules, io.Discard).WithHosts(testHosts).WithEntryCounts()
 		var lastErr error
-		okAny := false
+		okAny, waits := false, false
 		vectors := vmArgShapes(mod, fn, modules...)
 		if f := byBody[fn]; f != nil {
 			if args, ok := vmArgsForKindsIn(f.params, irModuleQualifier(mod.Name())); ok {
@@ -115,7 +125,12 @@ func TestIRRetainedStdPopulationRuns(t *testing.T) {
 			}
 		}
 		for _, args := range vectors {
-			entered, err := vmCall(m, fn, args)
+			entered, stopped, err := vmStdCall(m, fn, args, vmStdProbeBound)
+			if entered && stopped {
+				// No other argument vector changes what the body waits for.
+				waits = true
+				break
+			}
 			if vmRan(entered, err) {
 				okAny = true
 				break
@@ -126,6 +141,11 @@ func TestIRRetainedStdPopulationRuns(t *testing.T) {
 			}
 		}
 		key := vmStdDeclKey(fn, mod, byBody[fn])
+		if waits {
+			blocks = append(blocks, key)
+			lines = append(lines, key+"\t"+vmStdBlocks)
+			continue
+		}
 		if okAny {
 			ran++
 			lines = append(lines, key+"\tran")
@@ -154,11 +174,81 @@ func TestIRRetainedStdPopulationRuns(t *testing.T) {
 		t.Logf("  FAILS %-46s %d  %s", k, len(failures[k]), strings.Join(failures[k], ", "))
 	}
 	t.Logf("%d retained std functions, %d executed by the VM", len(fns), ran)
+	t.Logf("%d function(s) waited past the probe's bound of %s after the machine entered them: %s",
+		len(blocks), vmStdProbeBound, strings.Join(blocks, ", "))
 	t.Logf("%d function(s) take an interface value std retains no impl of, and get the trial "+
 		"leaf for it: %s", len(unimplemented), strings.Join(unimplemented, "; "))
 
 	vmRetainedStd.check(t, lines)
 	vmCheckBuckets(t, failures)
+}
+
+// TestVMCoverage_TheProbeBoundStopsAWaitAndASpin: vmStdCall stops a body
+// that waits on a channel nothing sends to and a body that loops without
+// end, each after the machine entered it, and leaves a body that answers
+// alone. Without the bound either plant holds the run until the test
+// binary's timeout.
+func TestVMCoverage_TheProbeBoundStopsAWaitAndASpin(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "main.nomi")
+	src := `import
+    std::channels.{Channel, Receiver}
+end
+
+fn wait(n: Int) -> Int
+    ch = Channel.buffered<Int>(1)
+    case Receiver.receive(ch.receiver)
+        Some(v) -> v + n
+        None    -> n
+    end
+end
+
+fn spin(n: Int) -> Int
+    if n < 0 then n else spin(n + 1)
+end
+
+fn quick(n: Int) -> Int
+    n + 1
+end
+
+fn main()
+    _ = quick(1)
+end
+`
+	if err := os.WriteFile(path, []byte(src), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	p, err := Analyze(path)
+	if err != nil {
+		t.Fatalf("the front end rejects the plants: %v", err)
+	}
+	res, _, err := GenerateIR(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var mod *ir.Module
+	funcs := map[string]*ir.Func{}
+	for _, m := range res.IR {
+		for _, f := range m.Funcs() {
+			switch f.Name() {
+			case "wait", "spin", "quick":
+				mod, funcs[f.Name()] = m, f
+			}
+		}
+	}
+	if len(funcs) != 3 {
+		t.Fatalf("the program retained %d of the three plants", len(funcs))
+	}
+	m := vm.NewProgram(mod, res.IRModules(), io.Discard).WithHosts(testHosts).WithEntryCounts()
+	const bound = 50 * time.Millisecond
+	for _, tc := range []struct {
+		name    string
+		stopped bool
+	}{{"quick", false}, {"wait", true}, {"spin", true}} {
+		entered, stopped, err := vmStdCall(m, funcs[tc.name], []any{int64(1)}, bound)
+		if !entered || stopped != tc.stopped {
+			t.Errorf("%s: entered %v, stopped %v (err %v); want entered, stopped %v", tc.name, entered, stopped, err, tc.stopped)
+		}
+	}
 }
 
 // vmStdDeclKey is a std function's key in vm-std-retained.txt: its declaring
@@ -180,6 +270,28 @@ func vmStdDeclKey(fn *ir.Func, mod *ir.Module, f *stdFunc) string {
 		file = mod.Name()
 	}
 	return file + ":" + name
+}
+
+// vmStdBlocks is the outcome of a function the machine entered and the
+// probe's bound then stopped (vmStdCall): it waits on something nothing in
+// isolation answers, or computes past the bound on made-up arguments.
+const vmStdBlocks = "blocks"
+
+// vmStdProbeBound is how long one probe call of a std function may take,
+// in real time. Far longer than any std body takes on the probe's
+// arguments, and short enough that a body that waits costs the run little.
+const vmStdProbeBound = 2 * time.Second
+
+// vmStdCall is vmCall under the machine's own bound on a run: StopOn and
+// Call over one context that ends after bound, as vmhost bounds a
+// program's run. A wait wakes when the context ends and a computing body
+// stops at its next step. stopped says the bound ended the call.
+func vmStdCall(m *vm.Machine, fn *ir.Func, args []any, bound time.Duration) (entered, stopped bool, err error) {
+	ctx, cancel := context.WithTimeout(context.Background(), bound)
+	defer cancel()
+	before := m.Entries(fn)
+	_, err = m.StopOn(ctx).Call(ctx, fn, vmOperands(args))
+	return m.Entries(fn) > before, err != nil && ctx.Err() != nil, err
 }
 
 // vmArgsForKindsIn is a sample argument per parameter kind for a body of the

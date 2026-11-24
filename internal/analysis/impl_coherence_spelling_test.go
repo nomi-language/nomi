@@ -31,7 +31,7 @@ end
 
 fn main() end
 `, nil)
-	expectRejected(t, errs, "duplicate impl: `ToJson` is implemented for `User` by modules <project entry> (function `to_json`)")
+	expectRejected(t, errs, "duplicate impl: `ToJson` is implemented for `User` twice in this module; a type implements an interface once")
 }
 
 // Two interfaces of one name, one a sibling's named through its module,

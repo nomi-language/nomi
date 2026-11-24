@@ -14,7 +14,8 @@ import (
 // and the startup the boot is given. With what the case reaches that this
 // machine cannot run, it answers the effects that code can have, in
 // Effects' sense (a crossing its declaration does not mark pure, `dbg`
-// among them), and the code itself as parts: each function the walk
+// among them), the hashes keyed by the run's seed it can read
+// (Effects.Seeded), and the code itself as parts: each function the walk
 // reached, keyed by its identity across lowerings (ir.FuncKey), with the
 // SHA-256 of its code without source positions (ir.BodySum). A function
 // with no linkage name (the case's body, a lambda) is keyed by its name and
@@ -39,15 +40,23 @@ type CaseReach struct {
 	// Unretained is what the case reaches that this machine cannot run, as
 	// Unretained answers it.
 	Unretained []Unretained
-	// Effects is each effect the case's code can have, "F calls K", sorted:
-	// empty for a case whose result its code alone decides.
+	// Effects is each effect the case's code can have, "F calls K", sorted.
 	Effects []string
+	// Seeded is each call the case's code can make into a pure crossing
+	// whose answer is a hash keyed by the run's seed, "F calls K", sorted
+	// (Effects.Seeded).
+	Seeded []string
 	// Parts is the code the case can run, sorted by key, sum and lines, so
 	// one program's walk answers them in one order.
 	Parts []CodePart
 	// funcs is every function the walk reached (Reaches).
 	funcs map[*ir.Func]bool
 }
+
+// Pure reports whether the case's result is decided by its code alone: it
+// has no effect and reads no hash keyed by the run's seed, so code that did
+// not change answers as it did, in this process or another.
+func (r CaseReach) Pure() bool { return len(r.Effects) == 0 && len(r.Seeded) == 0 }
 
 // Reaches reports whether the case's walk reached any of fns: whether its
 // code can run one of them.
@@ -178,9 +187,10 @@ func (m *Machine) ReachCase(c ir.TestCase, sums *CodeSums) CaseReach {
 		boots = append(boots, b, c.Group().Startup)
 	}
 	w := reachWalk{m: m, seen: map[*ir.Func]bool{}, found: map[string]Unretained{},
-		parent: map[*ir.Func]*ir.Func{}, effects: map[string]bool{}, unbounded: map[string]bool{}}
+		parent: map[*ir.Func]*ir.Func{}, effects: map[string]bool{}, unbounded: map[string]bool{},
+		seeded: map[string]bool{}}
 	reached, found := w.run([]*ir.Func{c.Fn()}, boots)
-	out := CaseReach{Unretained: found, Effects: sortedKeys(w.effects), funcs: reached}
+	out := CaseReach{Unretained: found, Effects: sortedKeys(w.effects), Seeded: sortedKeys(w.seeded), funcs: reached}
 	if len(found) > 0 || sums == nil {
 		return out
 	}

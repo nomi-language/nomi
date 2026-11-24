@@ -95,14 +95,15 @@ func (g *gen) qualOwnerName(t *ast.Call) string {
 }
 
 // funcDeclAt is the declaration of the module function (a `fn` or a `host
-// fn`) the checker resolved the name written at line:col to, or nil when
-// the name is anything else: a local, a parameter, a `once`, a type.
+// fn`) the checker resolved the name written at line:col to, as this gen's
+// module declares it (ownDecl), or nil when the name is anything else: a
+// local, a parameter, a `once`, a type.
 func (g *gen) funcDeclAt(line, col int) ast.Node {
 	sym := g.checkedRef(line, col)
 	if sym == nil || sym.Kind != analysis.SymbolFunction {
 		return nil
 	}
-	return sym.Node
+	return g.ownDecl(sym.Node)
 }
 
 // stdTypeModule is the std module (`duration`) that declares the type sym

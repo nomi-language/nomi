@@ -190,7 +190,7 @@ inspecting and cancelling one task need only its handle: `Task.await`,
 the task has.
 
 The difference is whether you must use the handle. A task owned by a
-`concurrent` block must be awaited or inspected before the block can end. A
+`concurrent` block must be awaited or cancelled before the block can end. A
 task owned by a supervisor need not be, because the supervisor waits for it.
 
 For batches, `Supervisor.spawn_all` works like
@@ -243,6 +243,11 @@ deferred calls run after that. Anything a cancelled task already did stays
 done, so a write with several steps can be left half finished.
 
 A second Ctrl-C skips the wait and exits immediately.
+
+A program can't catch `SIGINT` or `SIGTERM`: it always stops when asked. The
+signals that mean "do something and keep running", such as `SIGHUP` to reread
+configuration, arrive as values on a channel from
+[std::signals](/reference/signals/).
 
 ## Failures can't vanish quietly
 
@@ -428,91 +433,127 @@ the queued notifications went out before you report success.
 
 Nomi has no variable you can change. Values are immutable, and app fields
 can't change once `boot` returns. Sometimes several callers need to share
-something that changes: a rate limiter's tokens, a connection pool's free
-list, an in-memory cache. Give that state to one task, and talk to the task
-with messages. [`std::actors`](/reference/actors/) does this:
+something that changes: a hit counter, an in-memory cache, a rate limiter's
+tokens. Give that state to one task, and talk to the task with messages.
+[`std::actors`](/reference/actors/) has two ways to do it.
+
+An `Agent` holds a value. Callers send it functions on the value, and it
+runs them one at a time, in the order they were sent:
 
 ```nomi-run
 import
-    std::actors.{Actor, CallError, Reply}
+    std::actors.{Agent, CallError}
     std::io
     std::supervisors.{Restart, Supervisor}
     std::testing.Clock
 end
 
-enum Counter
-    Add Int
-    Get {reply: Reply<Int>}
-end
-
-fn handle(count: Int, message: Counter) -> Int
-    case message
-        .Add(n) ->
-            count + n
-
-        .Get{reply:} ->
-            Reply.send(reply, count)
-            count
-    end
-end
-
 struct Config
     context: Context
-    counter: Actor<Counter>
+    hits:    Agent<Int>
 end
 
 fn boot() -> Result<Config, String>
     workers = Supervisor.new(max_running: 1, restart: Restart.Transient)
-    Ok(Config{context: Context.root(), counter: Actor.start(workers, 0, handle)})
+    Ok(Config{context: Context.root(), hits: Agent.start(workers, 0)})
 end
 
-fn get() -> Result<Int, CallError>
-    Actor.call(Config.counter, fn reply -> .Get{reply:})
+fn hits() -> Result<Int, CallError>
+    Agent.get(Config.hits, fn n -> n)
 end
 
 fn main()
-    _ = Actor.cast(Config.counter, .Add(2))
-    io.print("count: ${get()}")
+    _ = Agent.update(Config.hits, &(&1 + 2))
+    io.print("hits: ${hits()}")
 end
 
-group "a counter actor"
+group "a hit counter"
     // Waits take no real time under a virtual clock.
     clock Clock.Virtual
 
     boot boot()
 
-    test "messages accumulate into state a caller can read back"
-        _ = Actor.cast(Config.counter, .Add(5))
-        _ = Actor.cast(Config.counter, .Add(7))
-        assert get() == Ok(12)
+    test "changes run in order, and a read sees every one sent before it"
+        _ = Agent.cast(Config.hits, &(&1 + 5))
+        _ = Agent.cast(Config.hits, &(&1 + 7))
+        assert hits() == Ok(12)
     end
 end
 ```
 <!-- expect
-count: Ok(2)
-ok a counter actor / messages accumulate into state a caller can read back
+hits: Ok(2)
+ok a hit counter / changes run in order, and a read sees every one sent before it
 test result: ok. 1 passed, 0 failed
 -->
 
-The state is `count`, which `handle` folds each message into. Nothing
-outside the actor's task can reach it. One task reads the inbox, so it
-handles messages one at a time, in the order they were sent, and no locks
-are needed.
+`Agent.update` returns once its change has run, and `Agent.cast` once it is
+queued. `Agent.get` reads the value, and `Agent.get_and_update` changes it
+and returns part of it in one step, such as taking the next id. Nothing
+outside the agent's task can reach the value, so no locks are needed.
 
-`Actor.cast` returns as soon as its message is queued. `Actor.call` builds
-its message around a new `Reply`, which the handler replies to with
-`Reply.send`, and waits for the reply up to a timeout, five seconds unless
-the call gives another (`timeout: Duration.seconds(1)`). Each call has its
-own `Reply`, so two callers can't get each other's replies, and a call that
-gets none returns `Err(CallError.TimedOut)`.
+An `Actor` is for a protocol: messages that mean different things, as an
+enum of your own, and a handler that folds each one into the state. This
+rate limiter hands out tokens, and a job that
+[`timer.every`](/reference/timer/#timerevery) runs refills them every
+second:
+
+```nomi
+enum Limiter
+    Take {reply: Reply<Bool>}
+    Refill
+end
+
+fn handle(tokens: Int, message: Limiter) -> Int
+    case message
+        .Take{reply:} ->
+            Reply.send(reply, tokens > 0)
+            if tokens > 0 then tokens - 1 else 0
+
+        .Refill ->
+            10
+    end
+end
+
+fn boot() -> Result<Config, String>
+    workers = Supervisor.new(max_running: 2, restart: Restart.Transient)
+    limiter = Actor.start(workers, 10, handle)
+
+    _ = Supervisor.spawn(workers, fn ->
+        timer.every(Duration.seconds(1), fn ->
+            _ = Actor.cast(limiter, .Refill)
+        end)
+    end)
+
+    Ok(Config{context: Context.root(), limiter:})
+end
+
+fn allowed() -> Result<Bool, CallError>
+    Actor.call(Config.limiter, fn reply -> .Take{reply:})
+end
+```
+
+`Actor.cast` returns once its message is queued. `Actor.call` builds its
+message around a new `Reply`, which the handler answers with `Reply.send`,
+and waits for it up to a timeout, five seconds unless the call gives another
+(`timeout: Duration.seconds(1)`). Each call has its own `Reply`, so callers
+can't get each other's replies.
+
+A call to an agent or an actor fails with a
+[`CallError`](/reference/actors/#enum-callerror):
+
+- `Crashed`, at once, when the handler or the change traps on the message.
+  The supervisor's restart rule decides whether the task starts again, with
+  the state it was started with.
+- `TimedOut`, when no reply comes within the timeout.
+- `Stopped`, when the agent or actor has been stopped.
 
 Each read costs two channel operations and a switch between tasks. If the
 state is mostly read, ask whether it needs to live in the program and change
 at all. A value you can compute again, or a row in a database you already
 query, needs none of this.
 
-Use an actor when several callers change shared state and the changes must
-happen one at a time.
+Use an agent or an actor when several callers change shared state and the
+changes must happen one at a time.
 
 ## What background work can't promise
 

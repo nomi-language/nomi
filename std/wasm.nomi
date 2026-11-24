@@ -174,7 +174,7 @@ pub enum Trap
     /// values its `Import` does not declare.
     ImportFailed {name: String, message: String}
 
-    /// Any other trap, in wazero's words: an integer divided by zero or
+    /// Any other trap, in the engine's words: an integer divided by zero or
     /// overflowed, a float converted to an integer it does not fit, the
     /// stack overflowed.
     Other {message: String}

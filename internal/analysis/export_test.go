@@ -145,7 +145,7 @@ func InstalledForTest(dm *DocumentManager, uri string) BuiltForTest {
 // MissingImpls reads (programDemands): each bucket some recording outside
 // the stdlib demands, with its recordings each once in position order.
 func UnionDemandsForTest(files []*FileAnalysis) map[string]map[string][]Recording {
-	d := newProgramDemands(&Program{ImplIndex: &ProjectImplIndex{}, files: files}, nil, files)
+	d := newProgramDemands(&Program{ImplIndex: &ProjectImplIndex{}, files: files}, nil, files, false)
 	out := map[string]map[string][]Recording{}
 	for b, bk := range d.buckets {
 		if bk.wanted == 0 {

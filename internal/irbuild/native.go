@@ -156,50 +156,6 @@ func (k kind) key() string {
 	return fmt.Sprintf("%d/%p/%p/%p/%p", k.tag, k.def, k.comp, k.iface, k.tp)
 }
 
-// zeroSized reports whether values of this kind occupy no storage, which is
-// what lets a zero-sized enum payload be stored nowhere at all.
-//
-// Each structural tag answers for itself: a function value always stores
-// something, while a `(Unit, Unit)` stores nothing.
-func (k kind) zeroSized() bool {
-	return k.zeroSizedOn(nil)
-}
-
-// zeroSizedOn is zeroSized inside a walk already standing on path. See
-// types.go's typePath for why the guard is a parameter and not a field.
-func (k kind) zeroSizedOn(path typePath) bool {
-	switch k.tag {
-	case tagUnit:
-		return true
-	case tagNever:
-		// No value of it exists to store, but a payload of it keeps its
-		// slot: the variant is declared with the field, and an Infallible
-		// field is a field no construction fills.
-		return false
-	case tagNamed:
-		return k.def.zeroSizedOn(path)
-	case tagFunc:
-		return false
-	case tagList:
-		return false
-	case tagMap:
-		return false
-	case tagSeq:
-		return false
-	case tagTuple, tagAnonStruct:
-		// A tuple or record of nothing but zero-sized parts stores nothing.
-		// Field names cost no storage, so the record answers by the same
-		// walk.
-		for _, p := range k.comp.parts {
-			if !p.zeroSizedOn(path) {
-				return false
-			}
-		}
-		return true
-	}
-	return false
-}
-
 // nomi is the type's Nomi name, for a refusal's detail text.
 func (k kind) nomi() string {
 	if k.comp != nil {
@@ -523,6 +479,15 @@ type gen struct {
 	templatesByDecl  map[ast.Node]*genericTemplate
 	genericInsts     map[string][]*typeDef
 	genericInstOrder []*typeDef
+	// genericInstNesting is how many instances genericInstance is building
+	// inside one another, the number the type instantiation guard reads
+	// (typeInstCap).
+	genericInstNesting int
+	// genericInstCalls counts the calls of genericInstance, interned
+	// answers included, and genericInstBudget, which only a test sets, is
+	// how many it may take before it panics, so that instantiation whose
+	// work grows without bound fails the test at once.
+	genericInstCalls, genericInstBudget int
 	// genericImplQueue is one implDef per (impl block, instance) pair, drained
 	// by flushGenericImpls at the end of the module walk. A queue rather than a
 	// map because an entry is built exactly once and building one can append
@@ -566,6 +531,9 @@ type gen struct {
 	// a copy of a written call (callDefaultsOf).
 	callDefaultsFA *analysis.FileAnalysis
 	callDefaultsAt map[analysis.Pos]*analysis.DefaultedCall
+	// ownDefaultsOf holds each CallDefaults record as this gen's module
+	// declares what it names (ownDefaults).
+	ownDefaultsOf map[*analysis.DefaultedCall]*analysis.DefaultedCall
 	// resolvedCallsAt indexes resolvedCallsFA's Calls by position, for a
 	// copy of a written call (resolvedCallOf).
 	resolvedCallsFA *analysis.FileAnalysis
@@ -599,12 +567,10 @@ type gen struct {
 	// kinds are this gen's kinds. The key needs its receiver half; see
 	// ifaceinst.go.
 	ifaceInsts map[ifaceInstKey]*ifaceInst
-	// stdProgIfaces is this gen's def of each std interface it names that
-	// has no rt table, and stdProgHeld each std type a value of one was
-	// held at unboxed: a builtin scalar, or a std struct or enum. See
-	// stdprogiface.go.
-	stdProgIfaces map[*ast.InterfaceDef]*ifaceDef
-	stdProgHeld   map[*ifaceDef]map[kind]bool
+	// stdProgHeld is each std type a value of a std interface with no rt
+	// table was held at unboxed: a builtin scalar, or a std struct or enum.
+	// See stdprogiface.go.
+	stdProgHeld map[*ifaceDef]map[kind]bool
 	// erasures is checkedErasures' answer, read once from the checker's
 	// record of this unit's source.
 	erasures []checkedErasure

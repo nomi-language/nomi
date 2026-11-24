@@ -102,7 +102,7 @@ func (c *checker) wholeValueMatches(arg, target Type, recPos Pos) bool {
 		return true
 	}
 	if iface, ok := resolveTypeVar(target).(*InterfaceType); ok {
-		return c.ifaceParamAdmits(arg, iface, recPos, RecordingKindInterfaceTypedParam)
+		return c.ifaceParamAdmits(arg, iface, Recording{Pos: recPos, Kind: RecordingKindInterfaceTypedParam})
 	}
 	return false
 }

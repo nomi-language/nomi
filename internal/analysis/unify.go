@@ -754,7 +754,7 @@ func unifyInterfaceAgainstConcrete(m unifyMode, iface *InterfaceType, concrete T
 		}
 		dup := false
 		for _, l := range lists {
-			if typesAllEqual(l, args) {
+			if sameTypeArgs(l, args) {
 				dup = true
 				break
 			}
@@ -900,6 +900,11 @@ func typeSatisfiesInterfaceForImplMatch(concrete Type, iface *InterfaceType, imp
 		}
 		return existentialMeets(concreteIface, iface)
 	}
+	if conj, ok := concrete.(*ConjunctionType); ok {
+		// A conjunction value meets a bound by the same rule, through
+		// each of its members.
+		return existentialMeets(conj, iface)
+	}
 	if iface.Name == "Struct" {
 		return isStructShaped(concrete)
 	}
@@ -929,7 +934,7 @@ func typeSatisfiesInterfaceForImplMatch(concrete Type, iface *InterfaceType, imp
 	}); decided {
 		return implements
 	}
-	if implements, decided := structuralEqualityConformance(concrete, iface, implementedIn(impls), func(p Type) bool {
+	if implements, decided := structuralEqualityConformance(concrete, iface, ownEqualityIn(impls, implTypeArgs), func(p Type) bool {
 		return typeSatisfiesInterfaceForImplMatch(p, iface, impls, implTypeArgs, seen)
 	}); decided {
 		return implements

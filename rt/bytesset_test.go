@@ -2,11 +2,12 @@ package rt
 
 import "testing"
 
-// TestBytesIndexOfAny_EveryByteIsItsOwnCandidate holds BytesIndexOfAny and
-// BytesLastIndexOfAny to a search that tests each byte against each byte of
-// the set, over every byte value in the data and sets that reach each of the
-// bit set's four words, high bytes and byte values that are not UTF-8
-// included.
+// TestBytesIndexOfAny_EveryByteIsItsOwnCandidate holds BytesIndexOfAny,
+// BytesIndexOfNone and their last forms to a search that tests each byte
+// against each byte of the set, over every byte value in the data, sets
+// that reach each of the bit set's four words, high bytes and byte values
+// that are not UTF-8 included, and windows whose bounds fall before, inside
+// and past the data, a stop before its start among them.
 func TestBytesIndexOfAny_EveryByteIsItsOwnCandidate(t *testing.T) {
 	var all []byte
 	for b := range 256 {
@@ -25,29 +26,43 @@ func TestBytesIndexOfAny_EveryByteIsItsOwnCandidate(t *testing.T) {
 	cases := 0
 	for _, set := range sets {
 		for _, from := range []int64{-1, 0, 1, 63, 64, 200, 256, 511, 512, 600} {
+			for _, stop := range []int64{-1, 0, 64, 65, 300, 512, 1000} {
+				for _, in := range []bool{true, false} {
+					want := None[int64]()
+					for i := max(0, int(from)); i < min(len(data), int(stop)); i++ {
+						if naive(set, i) == in {
+							want = Some(int64(i))
+							break
+						}
+					}
+					search, name := BytesIndexOfAny, "index_of_any"
+					if !in {
+						search, name = BytesIndexOfNone, "index_of_none"
+					}
+					if got := search(data, set, SmallInt(from), SmallInt(stop)); got != want {
+						t.Errorf("%s(set %q, from %d, stop %d) = %v, want %v", name, set, from, stop, got, want)
+					}
+					cases++
+				}
+			}
+		}
+		for _, in := range []bool{true, false} {
 			want := None[int64]()
-			for i := max(0, int(from)); i < len(data); i++ {
-				if naive(set, i) {
+			for i := len(data) - 1; i >= 0; i-- {
+				if naive(set, i) == in {
 					want = Some(int64(i))
 					break
 				}
 			}
-			if got := BytesIndexOfAny(data, set, SmallInt(from)); got != want {
-				t.Errorf("index_of_any(set %q, from %d) = %v, want %v", set, from, got, want)
+			search, name := BytesLastIndexOfAny, "last_index_of_any"
+			if !in {
+				search, name = BytesLastIndexOfNone, "last_index_of_none"
+			}
+			if got := search(data, set); got != want {
+				t.Errorf("%s(set %q) = %v, want %v", name, set, got, want)
 			}
 			cases++
 		}
-		want := None[int64]()
-		for i := len(data) - 1; i >= 0; i-- {
-			if naive(set, i) {
-				want = Some(int64(i))
-				break
-			}
-		}
-		if got := BytesLastIndexOfAny(data, set); got != want {
-			t.Errorf("last_index_of_any(set %q) = %v, want %v", set, got, want)
-		}
-		cases++
 	}
 	t.Logf("%d searches", cases)
 }

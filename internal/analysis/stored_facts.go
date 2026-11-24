@@ -1012,56 +1012,22 @@ func (pi *ProgramInterfaces) Supply(key string) *ProgramSupply {
 	return SupplyOf(fa)
 }
 
-// ImportClosure answers the keys of the files the file with key imports,
-// directly or through others, read from the interfaces' imports (the file's
-// own included), with key itself; Closure reads the file's imports from its
-// source instead.
+// ImportClosure answers the keys of the files with an interface that the
+// file with key imports, directly or through others, read from the
+// interfaces' imports (the file's own included), with key itself.
 func (pi *ProgramInterfaces) ImportClosure(key string) map[string]bool {
-	seen := map[string]bool{key: true}
-	queue := slices.Clone(pi.imports[key])
-	for len(queue) > 0 {
-		k := queue[0]
-		queue = queue[1:]
-		if seen[k] {
-			continue
-		}
-		if _, ok := pi.encoded[k]; !ok {
-			continue
-		}
-		seen[k] = true
-		queue = append(queue, pi.imports[k]...)
-	}
-	return seen
+	return pi.withInterfaces(pi.programReads("").ImportClosure(key), key)
 }
 
-// Importers answers the keys of the files that import one of keys,
-// directly or through others, keys excluded.
-func (pi *ProgramInterfaces) Importers(keys []string) map[string]bool {
-	by := map[string][]string{}
-	for k, imps := range pi.imports {
-		if _, ok := pi.encoded[k]; !ok {
-			continue
-		}
-		for _, imp := range imps {
-			by[imp] = append(by[imp], k)
+// withInterfaces keeps of keys those of files with an interface, and the
+// one given.
+func (pi *ProgramInterfaces) withInterfaces(keys map[string]bool, keep string) map[string]bool {
+	for k := range keys {
+		if _, ok := pi.encoded[k]; !ok && k != keep {
+			delete(keys, k)
 		}
 	}
-	out := map[string]bool{}
-	queue := slices.Clone(keys)
-	for len(queue) > 0 {
-		k := queue[0]
-		queue = queue[1:]
-		for _, from := range by[k] {
-			if !out[from] {
-				out[from] = true
-				queue = append(queue, from)
-			}
-		}
-	}
-	for _, k := range keys {
-		delete(out, k)
-	}
-	return out
+	return keys
 }
 
 // StoredOfEncoded is StoredOf with no impl headers, which StoredOf works

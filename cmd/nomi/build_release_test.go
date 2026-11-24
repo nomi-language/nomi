@@ -1,7 +1,7 @@
 package main
 
 // `nomi build` from a release: a `nomi` with no compiler source and no Go
-// toolchain, beside the prebuilt `nomi-vm` its archive ships, and
+// toolchain, carrying its platform's two runners as a release's does, and
 // downloading a runner it does not have from a release served locally. See
 // internal/runners/prebuilt.go.
 
@@ -75,12 +75,11 @@ func releaseNomi(t *testing.T) string {
 // runners it could be installed or served with, and the platform the cross
 // runner is for.
 type fakeReleaseBuild struct {
-	// install holds nomi and a matching nomi-vm and nomi-vm-nonet, as an
-	// unpacked archive.
+	// install holds nomi alone, carrying its platform's nomi-vm and
+	// nomi-vm-nonet, as the release's main archive unpacked.
 	install string
-	// bare holds the same nomi and no runner.
-	bare string
-	// mismatch holds the same nomi and a runner with no VCS stamp.
+	// mismatch holds a release nomi that carries no runner, and runners
+	// beside it with no VCS stamp.
 	mismatch string
 	// crossRunner is a runner for cross.
 	crossRunner string
@@ -90,8 +89,8 @@ type fakeReleaseBuild struct {
 	// wasiReactor is the wasip1 reactor the wasip1 archive ships beside
 	// its runner.
 	wasiReactor string
-	// compiler holds the same nomi and std/compiler's lean runner, as the
-	// compiler archive unpacked beside the main one.
+	// compiler holds a release nomi that carries no runner and
+	// std/compiler's runner, as the compiler archive unpacked beside it.
 	compiler string
 }
 
@@ -123,10 +122,13 @@ func releaseBuild(t *testing.T) fakeReleaseBuild {
 		base := filepath.Join(filepath.Dir(nomiBin), "release")
 		b := fakeReleaseBuild{
 			install:  filepath.Join(base, "install"),
-			bare:     filepath.Join(base, "bare"),
 			mismatch: filepath.Join(base, "mismatch"),
 			compiler: filepath.Join(base, "compiler"),
 		}
+		// The runners install's nomi carries, gzipped by hostrunnersgen
+		// into an overlay as scripts/release.sh does.
+		hostRunner := exe(filepath.Join(base, "runners", "nomi-vm"))
+		embed := filepath.Join(base, "embed")
 		goos, goarch := crossTarget()
 		b.cross = goos + "/" + goarch
 		b.crossRunner = filepath.Join(base, "cross", "nomi-vm")
@@ -144,12 +146,12 @@ func releaseBuild(t *testing.T) fakeReleaseBuild {
 			env      []string
 			extra    []string
 		}{
-			{exe(filepath.Join(b.install, "nomi")), "./cmd/nomi", nil, []string{"-ldflags", ldflags}},
-			{exe(filepath.Join(b.install, "nomi-vm")), "./cmd/nomi-vm", nil, []string{"-ldflags", "-s -w"}},
-			{exe(filepath.Join(b.install, "nomi-vm-nonet")), "./cmd/nomi-vm", nil, []string{"-tags", leanTags, "-ldflags", "-s -w"}},
-			{exe(filepath.Join(b.bare, "nomi")), "./cmd/nomi", nil, []string{"-ldflags", ldflags}},
+			{hostRunner, "./cmd/nomi-vm", nil, []string{"-ldflags", "-s -w"}},
+			{hostRunner + "-nonet", "./cmd/nomi-vm", nil, []string{"-tags", leanTags, "-ldflags", "-s -w"}},
+			{"", "./internal/runners/hostrunnersgen", nil, []string{embed, hostRunner, hostRunner + "-nonet"}},
+			{exe(filepath.Join(b.install, "nomi")), "./cmd/nomi", nil, []string{"-tags", "nomi_hostrunners", "-overlay", filepath.Join(embed, "overlay.json"), "-ldflags", ldflags}},
 			{exe(filepath.Join(b.compiler, "nomi")), "./cmd/nomi", nil, []string{"-ldflags", ldflags}},
-			{exe(filepath.Join(b.compiler, "nomi-vm-compiler-nonet")), "./cmd/nomi-vm", nil, []string{"-tags", "nomi_compiler," + leanTags, "-ldflags", "-s -w"}},
+			{exe(filepath.Join(b.compiler, "nomi-vm-compiler")), "./cmd/nomi-vm", nil, []string{"-tags", "nomi_compiler", "-ldflags", "-s -w"}},
 			{exe(filepath.Join(b.mismatch, "nomi")), "./cmd/nomi", nil, []string{"-ldflags", ldflags}},
 			{exe(filepath.Join(b.mismatch, "nomi-vm")), "./cmd/nomi-vm", nil, []string{"-buildvcs=false", "-ldflags", "-s -w"}},
 			{exe(filepath.Join(b.mismatch, "nomi-vm-nonet")), "./cmd/nomi-vm", nil, []string{"-buildvcs=false", "-tags", leanTags, "-ldflags", "-s -w"}},
@@ -164,6 +166,9 @@ func releaseBuild(t *testing.T) fakeReleaseBuild {
 		}
 		for _, s := range steps {
 			args := append(append([]string{"build", "-trimpath"}, s.extra...), "-o", s.out, s.pkg)
+			if s.out == "" {
+				args = append([]string{"run", s.pkg}, s.extra...)
+			}
 			cmd := exec.Command("go", args...)
 			cmd.Dir = root
 			cmd.Env = append(append(os.Environ(), "CGO_ENABLED=0"), s.env...)
@@ -206,11 +211,12 @@ const releaseHello = "import std::io\n\nfn main()\n  io.print(\"hi\")\nend\n"
 const unreachableRelease = "http://127.0.0.1:1/no-release-in-tests"
 
 // TestBuildFromRelease_TheInstalledRunnerBuildsEveryProgram: a release-shaped
-// `nomi` with its archive's nomi-vm beside it, no compiler source and no
-// Go, builds every whole-program corpus program, and each binary
-// matches its golden record. A program importing std/compiler, whose
-// runner is in the compiler archive, is refused when that cannot be
-// downloaded, and nothing is built from source.
+// `nomi` alone, carrying its runners, with no compiler source and no Go,
+// builds every whole-program corpus program, and each binary matches its
+// golden record. A program importing std/compiler, whose runner is in the
+// compiler archive, is refused when that cannot be downloaded, and nothing
+// is built from source. The cache holds the two runners nomi carries,
+// unpacked, and nothing else.
 func TestBuildFromRelease_TheInstalledRunnerBuildsEveryProgram(t *testing.T) {
 	t.Parallel()
 	b := releaseBuild(t)
@@ -230,16 +236,24 @@ func TestBuildFromRelease_TheInstalledRunnerBuildsEveryProgram(t *testing.T) {
 	if built == 0 {
 		t.Fatal("no program was built, so this test compared nothing")
 	}
-	// The download directory a refused std/compiler program made stays
-	// empty.
+	carried := filepath.Join(cache, "nomi-vm", releaseTestVersion, runtime.GOOS+"_"+runtime.GOARCH)
+	unpacked := 0
 	err := filepath.WalkDir(cache, func(path string, d os.DirEntry, err error) error {
-		if err == nil && !d.IsDir() && strings.HasPrefix(d.Name(), "nomi-vm") {
-			t.Errorf("the cache holds %s: a runner was built or downloaded instead of the installed one", path)
+		if err != nil || d.IsDir() || !strings.HasPrefix(d.Name(), "nomi-vm") {
+			return err
 		}
-		return err
+		if filepath.Dir(path) == carried && (d.Name() == exe("nomi-vm") || d.Name() == exe("nomi-vm-nonet")) {
+			unpacked++
+			return nil
+		}
+		t.Errorf("the cache holds %s: a runner was built or downloaded instead of the carried one", path)
+		return nil
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+	if unpacked != 2 {
+		t.Errorf("the cache holds %d of the two runners nomi carries, unpacked in %s", unpacked, carried)
 	}
 	t.Logf("%d programs built from the installed runner; refused: %d importing std/compiler",
 		built, compiler)
@@ -281,8 +295,9 @@ end
 	}
 }
 
-// TestBuildFromRelease_AMismatchedRunnerIsRefused: a runner beside nomi that
-// does not come from nomi's commit is refused by name, and nothing is written.
+// TestBuildFromRelease_AMismatchedRunnerIsRefused: a runner beside a release
+// nomi that carries none, and that does not come from nomi's commit, is
+// refused by name, and nothing is written.
 func TestBuildFromRelease_AMismatchedRunnerIsRefused(t *testing.T) {
 	b := releaseBuild(t)
 	dir := t.TempDir()
@@ -336,7 +351,7 @@ end
 		out := exe(filepath.Join(t.TempDir(), "nested"))
 		got := runProcess(t, releaseEnv(t, t.TempDir()), dir, "", exe(filepath.Join(b.install, "nomi")), "build", entry, "-o", out)
 		archive := fmt.Sprintf("%s/%s/nomi_%s_%s_%s_compiler", unreachableRelease, releaseTestVersion, releaseTestVersion, runtime.GOOS, runtime.GOARCH)
-		if got.exit == 0 || !strings.Contains(got.stderr, "no nomi-vm-compiler-nonet for "+runtime.GOOS+"/"+runtime.GOARCH+" is installed") ||
+		if got.exit == 0 || !strings.Contains(got.stderr, "no nomi-vm-compiler for "+runtime.GOOS+"/"+runtime.GOARCH+" is installed") ||
 			!strings.Contains(got.stderr, archive) || strings.Contains(got.stderr, "Install Go") || strings.Contains(got.stderr, "Go toolchain") {
 			t.Fatalf("exit %d, want the refusal to name %s and suggest no Go:\n%s", got.exit, archive, got.transcript())
 		}
@@ -373,8 +388,8 @@ func sha256Hex(data []byte) string {
 	return hex.EncodeToString(s[:])
 }
 
-// localRelease serves the fake release's archive for the cross target and its
-// checksum manifest, as GitHub serves a release's assets.
+// localRelease serves the fake release's runners archive for the cross target
+// and its checksum manifest, as GitHub serves a release's assets.
 func localRelease(t *testing.T, b fakeReleaseBuild, corruptSum bool) (*httptest.Server, *atomic.Int64) {
 	t.Helper()
 	runner, err := os.ReadFile(b.crossRunner)
@@ -386,10 +401,8 @@ func localRelease(t *testing.T, b fakeReleaseBuild, corruptSum bool) (*httptest.
 		t.Fatal(err)
 	}
 	goos, goarch := crossTarget()
-	archive := fmt.Sprintf("nomi_%s_%s_%s.tar.gz", releaseTestVersion, goos, goarch)
+	archive := fmt.Sprintf("nomi_%s_%s_%s_runners.tar.gz", releaseTestVersion, goos, goarch)
 	data := tarGzFiles(t, map[string][]byte{
-		"./nomi":          []byte("not the cli"),
-		"./nomi-lsp":      []byte("not the lsp"),
 		"./nomi-vm":       runner,
 		"./nomi-vm-nonet": runnerNoNet,
 	})
@@ -416,10 +429,11 @@ func localRelease(t *testing.T, b fakeReleaseBuild, corruptSum bool) (*httptest.
 }
 
 // TestBuildFromRelease_CrossTargetDownloadsTheRunner: `--target` for a
-// platform with no runner installed downloads that platform's archive from
-// the same release, verifies it against the checksum file, caches its
-// nomi-vm, and reuses the cache without asking again. A bad checksum
-// installs nothing, and an unreachable release names the URL.
+// platform other than the one whose runners nomi carries downloads that
+// platform's runners archive from the same release, verifies it against the
+// checksum file, caches its nomi-vm, and reuses the cache without asking
+// again. A bad checksum installs nothing, and an unreachable release names
+// the URL.
 func TestBuildFromRelease_CrossTargetDownloadsTheRunner(t *testing.T) {
 	b := releaseBuild(t)
 	nomi := exe(filepath.Join(b.install, "nomi"))
@@ -427,7 +441,7 @@ func TestBuildFromRelease_CrossTargetDownloadsTheRunner(t *testing.T) {
 	entry := filepath.Join(dir, "hello.nomi")
 	mustWrite(t, entry, releaseHello)
 	goos, goarch := crossTarget()
-	archive := fmt.Sprintf("/%s/nomi_%s_%s_%s.tar.gz", releaseTestVersion, releaseTestVersion, goos, goarch)
+	archive := fmt.Sprintf("/%s/nomi_%s_%s_%s_runners.tar.gz", releaseTestVersion, releaseTestVersion, goos, goarch)
 
 	t.Run("download, then cache", func(t *testing.T) {
 		srv, requests := localRelease(t, b, false)
@@ -504,9 +518,9 @@ func TestBuildFromRelease_CrossTargetDownloadsTheRunner(t *testing.T) {
 // carries, so a test can tell it from GOROOT's.
 const releaseWasmExec = "// wasm_exec.js from the release archive\n"
 
-// wasmRelease serves the fake release's js/wasm and wasip1/wasm archives as
-// scripts/release.sh lays them out: the runner, for js/wasm wasm_exec.js
-// beside it, and for wasip1/wasm the reactor beside it.
+// wasmRelease serves the fake release's js/wasm and wasip1/wasm runners
+// archives as scripts/release.sh lays them out: the runners, for js/wasm
+// wasm_exec.js beside them, and for wasip1/wasm the reactors beside them.
 func wasmRelease(t *testing.T, b fakeReleaseBuild) *httptest.Server {
 	t.Helper()
 	files := map[string][]byte{}
@@ -536,7 +550,7 @@ func wasmRelease(t *testing.T, b fakeReleaseBuild) *httptest.Server {
 			}
 			members["./nomi-vm-reactor-nonet"] = reactorNoNet
 		}
-		archive := fmt.Sprintf("nomi_%s_%s.tar.gz", releaseTestVersion, strings.ReplaceAll(target, "/", "_"))
+		archive := fmt.Sprintf("nomi_%s_%s_runners.tar.gz", releaseTestVersion, strings.ReplaceAll(target, "/", "_"))
 		data := tarGzFiles(t, members)
 		files["/"+releaseTestVersion+"/"+archive] = data
 		fmt.Fprintf(&sums, "%s  ./%s\n", sha256Hex(data), archive)

@@ -145,10 +145,11 @@ type ifaceDef struct {
 	// order; nil for an ordinary def. With instOf it is the instance's
 	// identity (ifaceInstKey).
 	instArgs []kind
-	// stdOrigin is the declaring std module (`std/hashable`) of a std
-	// interface's def built from std's declaration, a generic one's
-	// instances included, and "" otherwise. Its dispatch symbols are the
-	// program's (stdProgMethodSym). See stdprogiface.go.
+	// stdOrigin is the declaring std module (`std/hashable`) of the
+	// process's def of an interface std declares in Nomi (stdtypes.go), a
+	// generic one's template and every gen's instances of it included, and
+	// "" otherwise. Its dispatch symbols are std's (stdProgMethodSym). See
+	// stdprogiface.go.
 	stdOrigin string
 }
 
@@ -458,6 +459,17 @@ func (g *gen) declareIfaces(nodes []ast.Node) {
 			g.ifaces[id.Name].why = "duplicate interface declaration"
 			continue
 		}
+		if g.ifacesByDecl == nil {
+			// A fixture may build a gen literal and not go through newGen.
+			g.ifacesByDecl = map[ast.Node]*ifaceDef{}
+		}
+		if d := g.adoptedStdIface(id); d != nil {
+			// The process's def of a std interface (stdtypes.go), already
+			// resolved, so it stays out of ifaceOrder.
+			g.ifaces[id.Name] = d
+			g.ifacesByDecl[id] = d
+			continue
+		}
 		d := &ifaceDef{
 			nomi:      id.Name,
 			decl:      id,
@@ -465,7 +477,16 @@ func (g *gen) declareIfaces(nodes []ast.Node) {
 			lowerable: true,
 			unit:      -1,
 		}
+		if g.stdIfaceMarked(id) {
+			// Marked before its signatures resolve, as a type's shell is
+			// (stdtypes.go).
+			d.stdOrigin = g.fa.Origin
+		}
 		switch {
+		case len(id.TypeParams) == 0 && len(id.WhereClauses) > 0 && d.stdOrigin != "":
+			// An interface-level where clause is a constraint no dispatch
+			// checks, so a std interface with one is no value's kind.
+			d.lowerable, d.why = false, "std interface signature"
 		case len(id.TypeParams) > 0 || len(id.WhereClauses) > 0:
 			// A generic interface's template is not erasable and not
 			// dispatchable (an impl block resolves against its own instance,
@@ -479,10 +500,6 @@ func (g *gen) declareIfaces(nodes []ast.Node) {
 		// and the conformance obligation is discharged ENTIRELY by the analyzer
 		// at the impl block, including for a non-enum receiver.
 		g.ifaces[id.Name] = d
-		if g.ifacesByDecl == nil {
-			// A fixture may build a gen literal and not go through newGen.
-			g.ifacesByDecl = map[ast.Node]*ifaceDef{}
-		}
 		g.ifacesByDecl[id] = d
 		g.ifaceOrder = append(g.ifaceOrder, d)
 	}
@@ -826,11 +843,6 @@ func (g *gen) resolveImplDef(d *implDef, ib *ast.ImplBlock, recv kind) {
 			}
 			d.iface, d.ifaceSubst, d.ifaceSubstTypes = inst.def, inst.subst, inst.types
 			d.instArgs = ifaceTemplateArgs(tpl, inst.subst)
-			// Live for every item signature AND for inheritDefaults below: an
-			// item's annotation may name `T` and an inherited default's
-			// parameter kinds are the INSTANCE's, already substituted.
-			g.pushIfaceSubst(substIfaceImpl, d, inst.subst, inst.types)
-			defer g.popIfaceSubst()
 		} else if def != nil {
 			d.iface = def
 		} else if rec != nil {
@@ -1097,7 +1109,6 @@ func (g *gen) implItemSig(d *implDef, fd *ast.FuncDef) (*implItem, implGap) {
 	}
 	it := &implItem{
 		impl:      d,
-		instKey:   g.substLinkKey(),
 		decl:      fd,
 		name:      fd.Name,
 		params0:   fd.Params,
@@ -1174,6 +1185,8 @@ func (g *gen) inheritDefaults(d *implDef) {
 	if d.iface == nil || !d.lowerable {
 		return
 	}
+	// A default's signature is the interface's, at the block's arguments.
+	defer g.enterIfaceCode(d)()
 	for _, m := range d.iface.order {
 		if m.decl.Body == nil || d.items[m.name] != nil {
 			continue
@@ -1210,7 +1223,6 @@ func (g *gen) inheritDefaults(d *implDef) {
 		}
 		it := &implItem{
 			impl:      d,
-			instKey:   g.substLinkKey(),
 			name:      m.name,
 			params0:   m.decl.Params,
 			body:      body,
@@ -1512,22 +1524,28 @@ func (g *gen) implFor(ib *ast.ImplBlock) *implDef {
 
 // emitImpl lowers every item in the block, then checks that the receiver has
 // a runtime identity (bindImpl).
-//
-// A generic interface instantiation pushes its frame here, because lowering is
-// where a monomorphized default body resolves its type parameters and this runs
-// long after resolveImplDef's frame was popped. `flushGenericImpls` does the
-// same for a generic receiver's frame, and the two nest: they bind different
-// names and genericSubstKind scans innermost-first.
 func (g *gen) emitImpl(d *implDef) {
 	defer g.enterTypeScope(d.typeScope)()
-	if d.ifaceSubst != nil {
-		g.pushIfaceSubst(substIfaceImpl, d, d.ifaceSubst, d.ifaceSubstTypes)
-		defer g.popIfaceSubst()
-	}
+	g.implFuncs(d)
+	g.bindImpl(d)
+}
+
+// implFuncs lowers every function of block d. An inherited default of a
+// generic interface is lowered under the interface's frame at the block's
+// arguments (enterIfaceCode), since its body is the interface's. The
+// block's own functions are lowered under the frame `flushGenericImpls`
+// pushes for a generic receiver, and never under the interface's: `impl
+// Holds<List<T>> for Box<T>` binds two `T`s.
+func (g *gen) implFuncs(d *implDef) {
 	for _, it := range d.order {
+		if it.inherited {
+			exit := g.enterIfaceCode(d)
+			g.implFunc(d, it)
+			exit()
+			continue
+		}
 		g.implFunc(d, it)
 	}
-	g.bindImpl(d)
 }
 
 // implFunc lowers one impl function, or one interface default monomorphized for

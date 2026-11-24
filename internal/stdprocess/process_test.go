@@ -32,7 +32,7 @@ func TestMain(m *testing.M) {
 // `upper` copies its input to its output in capitals, `fail <code>`
 // writes `bad` to its error and exits with code, `env <name>` prints a
 // variable, `pwd` prints its directory's base name, and `sleep` waits an
-// hour.
+// hour. Any other command is signalHelper's (signal_test.go).
 func helper(cmd string, args []string) int {
 	switch cmd {
 	case "echo":
@@ -54,6 +54,8 @@ func helper(cmd string, args []string) int {
 		fmt.Println(filepath.Base(wd))
 	case "sleep":
 		time.Sleep(time.Hour)
+	default:
+		return signalHelper(cmd)
 	}
 	return 0
 }

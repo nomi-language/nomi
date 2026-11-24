@@ -73,7 +73,7 @@ func (r *completionRequest) pipeCandidates() []candidate {
 				}
 			}
 		}
-		for _, iface := range r.implementedInterfaces(owner) {
+		for _, iface := range r.fa.ImplementedInterfaces(lhs) {
 			imp, ok := r.ownerReach(iface)
 			if !ok {
 				continue
@@ -136,12 +136,6 @@ func (r *completionRequest) firstParamAccepts(fn *analysis.Symbol, t analysis.Ty
 		return real.Kind == analysis.SymbolInterfaceMethod
 	}
 	return r.typeFits(t, p)
-}
-
-// implementedInterfaces lists the interfaces the type named owner
-// implements, from the file's impl table and the project's, in name order.
-func (r *completionRequest) implementedInterfaces(owner string) []string {
-	return r.fa.ImplementedInterfaces(owner)
 }
 
 // interfaceSymbol finds the interface declaration named name: visible at

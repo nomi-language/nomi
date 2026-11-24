@@ -5,6 +5,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"debug/elf"
 	"os"
 	"os/exec"
@@ -12,6 +13,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/nomi-language/nomi/internal/expectation"
 	"github.com/nomi-language/nomi/internal/nodeenv"
@@ -36,19 +38,44 @@ func buildEnv(cacheRoot string) []string {
 		"NOMI_RUNNER_CACHE_ROOT="+cacheRoot, "NOMI_COLOR=never")
 }
 
-// runNode runs node as runProcess does, with only the part of env Node and
-// the test need (nodeenv.Minimal), so a large caller environment cannot
-// exceed the js/wasm loader's limit.
+// nodeLimit bounds one Node process a test starts. Every run that passes
+// takes seconds; one that has not ended by now never will, and its test
+// fails with what it printed instead of holding the package until the
+// package's timeout.
+const nodeLimit = 2 * time.Minute
+
+// runNode runs node, or a Node script such as tsc, as runProcess does, with
+// only the part of env Node and the test need (nodeenv.Minimal). Every Node
+// process the tests start runs through it, except the one
+// TestBuildCommand_TheNodeLoaderPassesAnyEnvironmentAndItsStatus starts with
+// a large environment on purpose. Past nodeLimit the process is killed and
+// the test fails with its output so far.
 func runNode(t *testing.T, env []string, dir, stdin, node string, args ...string) observedRun {
 	t.Helper()
-	return runProcess(t, nodeenv.Minimal(env), dir, stdin, node, args...)
+	return runFor(t, nodeLimit, nodeenv.Minimal(env), dir, stdin, node, args...)
 }
 
 // runProcess runs path with args in dir, over stdin, with env, and answers
 // its streams and exit status.
 func runProcess(t *testing.T, env []string, dir, stdin, path string, args ...string) observedRun {
 	t.Helper()
-	cmd := exec.Command(path, args...)
+	return runFor(t, 0, env, dir, stdin, path, args...)
+}
+
+// runFor is runProcess for at most limit, or with no bound when limit is 0.
+// A process past its limit is killed, and the test fails with its stdout
+// and stderr so far. Its pipes are closed a few seconds after the kill even
+// when a child it started still holds them.
+func runFor(t *testing.T, limit time.Duration, env []string, dir, stdin, path string, args ...string) observedRun {
+	t.Helper()
+	ctx := context.Background()
+	if limit > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, limit)
+		defer cancel()
+	}
+	cmd := exec.CommandContext(ctx, path, args...)
+	cmd.WaitDelay = 5 * time.Second
 	cmd.Dir = dir
 	cmd.Env = env
 	cmd.Stdin = strings.NewReader(stdin)
@@ -56,6 +83,10 @@ func runProcess(t *testing.T, env []string, dir, stdin, path string, args ...str
 	cmd.Stdout, cmd.Stderr = &out, &errOut
 	err := cmd.Run()
 	o := observedRun{stdout: out.String(), stderr: errOut.String()}
+	if ctx.Err() != nil {
+		t.Fatalf("%s %s had not exited after %s, so it was killed\n--- stdout so far ---\n%s\n--- stderr so far ---\n%s",
+			path, strings.Join(args, " "), limit, o.stdout, o.stderr)
+	}
 	if err != nil {
 		exitErr, ok := err.(*exec.ExitError)
 		if !ok {

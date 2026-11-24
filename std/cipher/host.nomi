@@ -1,0 +1,35 @@
+//# The Go-backed half of std::cipher: AES-GCM, ChaCha20-Poly1305,
+//# XChaCha20-Poly1305 and AES-CBC-HMAC sealing and opening, and AES-CTR
+//# (internal/stdcipher). An engine is 0 for AES-GCM, 1 for
+//# ChaCha20-Poly1305, 2 for XChaCha20-Poly1305 and 3 for AES-CBC-HMAC.
+//# std::cipher checks every length before it crosses. It is internal; a
+//# program imports std::cipher.
+
+import
+    bytes.Bytes
+    int.Int64
+    option.Option
+end
+
+/// `plaintext` sealed under `key` and `nonce` with `associated`: the
+/// ciphertext, then the tag.
+pub host fn seal(
+    engine:     Int64,
+    key:        Bytes,
+    nonce:      Bytes,
+    plaintext:  Bytes,
+    associated: Bytes,
+) -> Bytes
+
+/// The plaintext `sealed` (ciphertext, then tag) holds under `key`, `nonce`
+/// and `associated`, or `None` when its tag does not verify.
+pub host fn open(
+    engine:     Int64,
+    key:        Bytes,
+    nonce:      Bytes,
+    sealed:     Bytes,
+    associated: Bytes,
+) -> Option<Bytes>
+
+/// `data` XORed with the AES-CTR keystream of `key` from `counter`.
+pub host fn aes_ctr(key: Bytes, counter: Bytes, data: Bytes) -> Bytes

@@ -1,12 +1,11 @@
 NODE22_BIN ?= /opt/homebrew/opt/node@22/bin
 
-.PHONY: test test-go test-std test-programs test-tour fmt build build-tour-grammar-wasm deploy-tour start-tour build-lsp build-cli build-zed build-zed-queries build-helix install-helix build-nvim build-nvim-parser install-nvim test-nvim build-vscode install-vscode test-vscode dev-editors dev-nvim dev-helix dev-zed enable-hooks check-full fuzz publish-main
+.PHONY: test test-go test-std test-programs test-tour fmt build build-tour-grammar-wasm deploy-tour start-tour build-cli build-zed build-zed-queries build-helix install-helix build-nvim build-nvim-parser install-nvim test-nvim build-vscode install-vscode test-vscode install-zed dev-editors dev-nvim dev-helix dev-zed enable-hooks check-full fuzz publish-main
 
 test: test-std test-programs test-go
 
 build: build-tour-grammar-wasm
 	./scripts/build-tour-wasm.sh
-	$(MAKE) build-lsp
 	$(MAKE) build-cli
 	$(MAKE) build-zed
 	$(MAKE) build-helix
@@ -80,10 +79,9 @@ start-tour: tour/node_modules/.package-lock.json
 tour/node_modules/.package-lock.json: tour/package-lock.json
 	PATH="$(NODE22_BIN):$$PATH" npm --prefix tour ci
 
-# On a Mac with Xcode's command line tools, nomi and nomi-lsp are linked by
-# the system linker (cgo on, -linkmode=external), which writes chained fixups
-# instead of the Go linker's rebase opcodes: nomi reaches main about 1 ms
-# sooner. On macOS cgo selects no different std files (net and os/user call
+# On a Mac with Xcode's command line tools, nomi is linked by the system
+# linker (cgo on, -linkmode=external), which writes chained fixups instead of
+# the Go linker's rebase opcodes: nomi reaches main about 1 ms sooner. On macOS cgo selects no different std files (net and os/user call
 # libSystem either way). scripts/dev-editors.sh's cli makes the same choice.
 # Releases and nomi-vm stay on Go's linker.
 ifeq ($(shell uname -s),Darwin)
@@ -92,9 +90,6 @@ LOCAL_LINK_ENV := CGO_ENABLED=1
 LOCAL_LINK_FLAGS := -ldflags=-linkmode=external
 endif
 endif
-
-build-lsp:
-	$(LOCAL_LINK_ENV) go install $(LOCAL_LINK_FLAGS) ./cmd/nomi-lsp
 
 build-cli:
 	$(LOCAL_LINK_ENV) go build $(LOCAL_LINK_FLAGS) -o nomi ./cmd/nomi
@@ -113,12 +108,12 @@ build-zed: build-zed-queries
 build-helix: build-zed-queries
 	./scripts/sync-helix-runtime.sh
 
-# Snapshot install for people who use Nomi: copies the queries into the Helix
-# config and builds the grammar from this checkout. To work on Nomi, use
+# Snapshot install from this checkout: regenerates the queries, then runs
+# `nomi editor install helix` (internal/editors) from this checkout, as a
+# release `nomi` runs it from its own files. To work on Nomi, use
 # `make dev-helix`, which links the queries instead.
-install-helix:
-	./scripts/sync-helix-runtime.sh --install
-	hx --health nomi
+install-helix: build-helix
+	go run ./cmd/nomi editor install helix
 
 # Neovim: editors/nvim/queries/nomi/*.scm are generated from Zed's highlights and
 # Helix's other queries (see scripts/sync-nvim-runtime.sh). The parser is
@@ -137,11 +132,13 @@ test-nvim: build-nvim-parser
 build-nvim-parser:
 	./scripts/sync-nvim-runtime.sh --parser editors/nvim/parser
 
-# Snapshot install for people who use Nomi: copies the plugin and a freshly
-# compiled parser into ${XDG_DATA_HOME:-~/.local/share}/nvim/site/pack/nomi/start/nomi.
+# Snapshot install from this checkout: regenerates the queries, then runs
+# `nomi editor install nvim`, which copies the plugin and a freshly compiled
+# parser into ${XDG_DATA_HOME:-~/.local/share}/nvim/site/pack/nomi/start/nomi.
 # To work on Nomi, load editors/nvim from this checkout and use `make dev-nvim`.
 install-nvim:
-	./scripts/sync-nvim-runtime.sh --install
+	./scripts/sync-nvim-runtime.sh
+	go run ./cmd/nomi editor install nvim
 
 # VS Code: package editors/vscode as editors/vscode/nomi.vsix (needs Node 22+
 # and npm; nothing is published). Its TextMate grammar is derived from
@@ -150,8 +147,25 @@ build-vscode:
 	npm --prefix editors/vscode ci
 	npm --prefix editors/vscode run package
 
+# The extensions that are built, not copied, reach `nomi editor install` as
+# a release carries them: an overlay supplies the built file under the build
+# tag that embeds it (internal/editors, vsix_embed.go and zedwasm_embed.go;
+# scripts/release.sh stages both with internal/runners/hostrunnersgen).
+# The overlay goes in the temporary directory, outside what vsce packages.
+OVERLAY_DIR := $(or $(TMPDIR),/tmp)
+editor_overlay = printf '{"Replace":{"%s":"%s"}}\n' "$(CURDIR)/internal/editors/$(1)" "$(CURDIR)/$(2)" > "$(OVERLAY_DIR)/nomi-$(1).json"
+
 install-vscode: build-vscode
-	code --install-extension editors/vscode/nomi.vsix --force
+	$(call editor_overlay,nomi.vsix,editors/vscode/nomi.vsix)
+	go run -tags nomi_vsix -overlay "$(OVERLAY_DIR)/nomi-nomi.vsix.json" ./cmd/nomi editor install vscode
+
+# Zed: build the extension's WebAssembly (rustup's wasm32-wasip2 target) and
+# install it as a plain extension with `nomi editor install zed`. To work on
+# Nomi, use `make dev-zed` and Zed's dev extension instead.
+install-zed:
+	cargo build --release --target wasm32-wasip2 --manifest-path editors/zed/Cargo.toml
+	$(call editor_overlay,extension.wasm,editors/zed/target/wasm32-wasip2/release/zed_nomi.wasm)
+	go run -tags nomi_zedwasm -overlay "$(OVERLAY_DIR)/nomi-extension.wasm.json" ./cmd/nomi editor install zed
 
 # Unit tests (test-at-cursor scanning, grammar over tests/ and std/)
 # and the grammar's assertion file. `npm --prefix editors/vscode run
@@ -161,7 +175,7 @@ test-vscode:
 	npm --prefix editors/vscode test
 
 # Working on Nomi: make this machine's editors follow this checkout
-# (scripts/dev-editors.sh). dev-editors also installs nomi and nomi-lsp.
+# (scripts/dev-editors.sh). dev-editors also installs nomi.
 # scripts/git-hooks/post-merge runs the parts a merge into main, or into a
 # branch in git config nomi.editorBranches, needs; enable it with
 # `make enable-hooks`.

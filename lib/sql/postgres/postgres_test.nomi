@@ -10,6 +10,7 @@ import
     std::uuid.Uuid
     postgres.{self, Listener, Notification}
     postgres::describe
+    postgres::scratch
 end
 
 // Every test runs on a fresh database of the process's scratch server,
@@ -415,4 +416,14 @@ test "cancelling a task stops its query on the server, and the connection still 
 
     rows = Conn.query(db, Sql"SELECT 1 AS n")?
     assert rows |> Iter.map(fn row -> Row.get<Int>(row, "n")) |> Iter.to_list() == [Ok(1)]
+end
+
+test "a host that is a directory connects over the Unix socket in it, with no TLS"
+    url = postgres.scratch()?
+    dir = scratch.socket_directory()?
+    db = postgres.connect("${url}&host=${dir}&sslmode=require")?
+    defer sql.close_quietly(db)
+
+    rows = Conn.query(db, Sql"SELECT inet_client_addr() IS NULL AS local")?
+    assert rows |> Iter.map(fn row -> Row.get<Bool>(row, "local")) |> Iter.to_list() == [Ok(True)]
 end

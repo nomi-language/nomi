@@ -21,13 +21,13 @@
 //# and processing instructions are nodes of the tree. Text must be UTF-8;
 //# a declaration of any other encoding is an error.
 //#
-//# Reading is Go's encoding/xml, which fetches nothing: it never reads an
-//# external entity or DTD, and the only entities it knows are the five
-//# XML predefines (`&lt;`, `&gt;`, `&amp;`, `&apos;`, `&quot;`) and
-//# character references. A document with a DOCTYPE is refused unless
-//# `allow_doctype` is set, and then its DTD is skipped unread, so an
-//# entity it declares is still an error where it is used. An XXE or
-//# "billion laughs" document fails before it expands anything.
+//# Reading fetches nothing: it never reads an external entity or DTD, and the
+//# only entities it knows are the five XML predefines (`&lt;`, `&gt;`,
+//# `&amp;`, `&apos;`, `&quot;`) and character references. A document with a
+//# DOCTYPE is refused unless `allow_doctype` is set, and then its DTD is
+//# skipped unread, so an entity it declares is still an error where it is
+//# used. An XXE or "billion laughs" document fails before it expands
+//# anything.
 
 import
     bool.Bool.{self, False, True}

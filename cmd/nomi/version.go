@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"runtime"
 	"runtime/debug"
 
@@ -60,29 +61,44 @@ func currentVersionLine() string {
 	return versionLine(info)
 }
 
+// versionToolchainEnv names the variable that adds the Go toolchain that
+// built `nomi` to its version line, for work on the compiler: any value but
+// `0` does.
+const versionToolchainEnv = "NOMI_DEBUG_VERSION"
+
 // versionLine is the whole of what `nomi --version` prints.
 //
-// The Go toolchain and the platform are on the same line because the first
-// thing a bug report needs after the revision is which toolchain and which
-// target produced the binary, and both are free: runtime.Version and the
-// GOOS/GOARCH constants are linker-provided and do not depend on build info
-// being present at all. So the line degrades to a revision-less `unknown`
-// rather than to nothing.
+// The platform is on the same line because the first thing a bug report
+// needs after the revision is which target produced the binary, and it is
+// free: the GOOS/GOARCH constants are linker-provided and do not depend on
+// build info being present at all. So the line degrades to a revision-less
+// `unknown` rather than to nothing. The Go toolchain is left out, since a
+// user writes, runs and builds Nomi without one; versionToolchainEnv puts
+// it in for work on the compiler.
 //
 // A nil info means debug.ReadBuildInfo reported no build information.
 func versionLine(info *debug.BuildInfo) string {
-	return versionLineFor(runners.ReleaseVersion, info)
+	toolchain := ""
+	if v := os.Getenv(versionToolchainEnv); v != "" && v != "0" {
+		toolchain = runtime.Version()
+	}
+	return versionLineFor(runners.ReleaseVersion, info, toolchain)
 }
 
 // versionLineFor is versionLine for a binary cut as release (empty when it
-// was not). A release names its tag first and keeps the revision beside it,
-// since the tag is what its runner downloads are fetched by and the revision
-// is what a prebuilt runner is checked against.
-func versionLineFor(release string, info *debug.BuildInfo) string {
-	if release != "" {
-		return fmt.Sprintf("nomi %s (%s, %s %s/%s)", release, versionToken(info), runtime.Version(), runtime.GOOS, runtime.GOARCH)
+// was not), with the Go toolchain's version before the platform when
+// toolchain is not empty. A release names its tag first and keeps the
+// revision beside it, since the tag is what its runner downloads are
+// fetched by and the revision is what a prebuilt runner is checked against.
+func versionLineFor(release string, info *debug.BuildInfo, toolchain string) string {
+	platform := runtime.GOOS + "/" + runtime.GOARCH
+	if toolchain != "" {
+		platform = toolchain + " " + platform
 	}
-	return fmt.Sprintf("nomi %s (%s %s/%s)", versionToken(info), runtime.Version(), runtime.GOOS, runtime.GOARCH)
+	if release != "" {
+		return fmt.Sprintf("nomi %s (%s, %s)", release, versionToken(info), platform)
+	}
+	return fmt.Sprintf("nomi %s (%s)", versionToken(info), platform)
 }
 
 // versionToken is the version itself (internal/buildversion).

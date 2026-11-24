@@ -254,16 +254,19 @@ func (m *Machine) limitedTestFn(fn *ir.Func, group ir.TestGroup, unrunnable *[]s
 				// A boot that returned `Err` ends the case before its body,
 				// reported as a `?` on the `boot` line that returned the
 				// `Err` would be. rt's case cleanup runs what boot deferred.
-				return &rt.EarlyReturnFailure{Line: group.BootLine, Expr: group.BootText,
-					Value: rt.RowText(failed.result)}
+				text, renderErr := m.returnedText(fn, fr, failed.result)
+				if renderErr == nil {
+					return &rt.EarlyReturnFailure{Line: group.BootLine, Expr: group.BootText, Value: text}
+				}
+				run, err = m, renderErr
 			}
 		}
+		// A case with no boot runs on the frame rt hands it, which carries
+		// the case's output capture.
+		runtime := fr
 		if err == nil {
-			// A case with no boot runs on the frame rt hands it, which
-			// carries the case's output capture.
-			runtime := run.hostFrame
-			if runtime == nil {
-				runtime = fr
+			if run.hostFrame != nil {
+				runtime = run.hostFrame
 			}
 			_, err = run.activate(fn, nil, nil, runtime, true, run.depth, nil)
 		}
@@ -277,8 +280,8 @@ func (m *Machine) limitedTestFn(fn *ir.Func, group ir.TestGroup, unrunnable *[]s
 		}
 		// A `?` whose boundary is the test body: the case ended early, and
 		// the report is an rt.EarlyReturnFailure — the try's line, its text
-		// as the formatter renders it, and the propagated variant as
-		// rt.RowText renders it.
+		// as the formatter renders it, and the propagated variant
+		// (returnedText).
 		var early *tryReturn
 		if errors.As(err, &early) && early.at != nil {
 			// A `?` that carried an AssertionFailure (`testing.check(e)?`)
@@ -287,8 +290,11 @@ func (m *Machine) limitedTestFn(fn *ir.Func, group ir.TestGroup, unrunnable *[]s
 			if f, isFailure := rowVerdict(err); isFailure {
 				return f
 			}
-			return &rt.EarlyReturnFailure{Line: early.at.Pos().Line(), Expr: early.at.Text(),
-				Value: rt.RowText(early.value)}
+			text, renderErr := run.returnedText(fn, runtime, early.value)
+			if renderErr == nil {
+				return &rt.EarlyReturnFailure{Line: early.at.Pos().Line(), Expr: early.at.Text(), Value: text}
+			}
+			err = renderErr
 		}
 		if cp, internal := AsCompilePanic(err); internal {
 			// A compiler bug is the case's failure, reported as one; it is
@@ -306,4 +312,14 @@ func (m *Machine) limitedTestFn(fn *ir.Func, group ir.TestGroup, unrunnable *[]s
 		*unrunnable = append(*unrunnable, fmt.Sprintf("%s: %s", fn.Name(), err))
 		return nil
 	}
+}
+
+// returnedText is how the value that ended case fn early reads under its
+// report's `returned:`: a `?`'s `Err` or `None`, or the `Err` a group's boot
+// returned, rendered as an assertion's `values:` row renders a value
+// (rowText). The case's activation is gone, so a written Debug runs as the
+// callee of a frame detached from it, on the case's runtime frame, as a
+// boot's deferred cleanup runs (deferToBootCleanup).
+func (m *Machine) returnedText(fn *ir.Func, runtime *rt.Frame, v any) (string, error) {
+	return m.rowText(&frame{fn: fn, runtime: runtime, depth: m.depth}, v)
 }

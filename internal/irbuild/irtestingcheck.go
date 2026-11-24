@@ -13,7 +13,9 @@ package irbuild
 // (isTestingCheck): `q.check(e)` with q the module std/testing by any name
 // (`testing`, or `t` after `import std::testing as t`), or a name a
 // selective import bound to the function (`import std::testing.{check as
-// verify}`). Either way it takes one positional argument.
+// verify}`). Either way it takes one positional argument and no type
+// arguments, and its subject is one `assert` takes: the checker refuses
+// any other call, and the function named as a value at any other subject.
 //
 // The subject may be a Bool, an `Option`/`Result` (judged by shape in the VM)
 // or a retained `Assertable`, whose `failure` impl the builder calls and hands
@@ -53,17 +55,14 @@ func (bl *irScalarBuilder) testingCheckCall(t *ast.Call) bool {
 }
 
 // isTestingCheck reports whether c, the callee the checker recorded for a
-// call, is std/testing's `check`: the function itself, which a selective
-// import's name calls (`check(e)`, `verify(e)` after `import
-// std::testing.{check as verify}`), or the keyword form the checker types
-// `q.check(e)` as where q is the module std/testing, whose reference is
-// the `check` assertion (checkTestingCheckCall). A binding named `testing`
-// whose `check` field the call reads is a value callee, and a project
-// module named `testing` is its own, and neither.
+// call, is std/testing's `check`: the checker types every call of it as
+// the keyword form, whose reference is the `check` assertion
+// (checkTestingCheckCall), however it is spelled (`testing.check(e)`,
+// `t.check(e)`, `check(e)`, `verify(e)` after `import
+// std::testing.{check as verify}`). A binding named `testing` whose
+// `check` field the call reads is a value callee, and a project module
+// named `testing` is its own, and neither.
 func isTestingCheck(c analysis.Callee) bool {
-	if c.Std == testingCheck {
-		return true
-	}
 	return c.Kind == analysis.CalleeKeyword && c.Ref != nil && c.Ref.Kind == analysis.SymbolAssertion &&
 		c.Ref.Assertion != nil && c.Ref.Assertion.Keyword == "check"
 }

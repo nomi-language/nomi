@@ -134,7 +134,7 @@ func axis13ShapeOf(f *ir.Func, t ir.Temp, depth int) axis13Shape {
 			return a13Decimal
 		case ir.ConstString:
 			return a13String
-		case ir.ConstEmptyList, ir.ConstEmptySet, ir.ConstEmptyVector:
+		case ir.ConstEmptyList:
 			return a13Container
 		}
 		return a13Unknown

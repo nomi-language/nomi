@@ -7,9 +7,9 @@ vim.g.loaded_nomi = true
 require('nomi.filetype').register()
 vim.treesitter.language.register('nomi', 'nomi')
 
--- nomi-lsp's `effect` modifier marks code that has effects (a call that
--- reads a file, a function that can): bold, on top of the token's own
--- colour. `default` leaves a user's own definition alone, and a
+-- The language server's `effect` modifier marks code that has effects (a
+-- call that reads a file, a function that can): bold, on top of the token's
+-- own colour. `default` leaves a user's own definition alone, and a
 -- colorscheme that clears highlights gets it again.
 local function define_effect()
   vim.api.nvim_set_hl(0, '@lsp.mod.effect.nomi', { bold = true, default = true })
@@ -22,7 +22,7 @@ if vim.g.nomi_lsp ~= false then
   vim.lsp.enable('nomi')
 end
 
--- The commands nomi-lsp's code lenses carry, which `vim.lsp.codelens.run()`
+-- The commands the language server's code lenses carry, which `vim.lsp.codelens.run()`
 -- executes: Run test / Run group / Run attached test, and Run on `fn main`.
 vim.lsp.commands['nomi.runTest'] = function(command)
   local args = command.arguments or {}

@@ -213,7 +213,7 @@ func TestEveryHostDeclarationInAGoBackedModuleIsRegistered(t *testing.T) {
 			"the walk is not reaching most of the stdlib and the Go-backed set below is a lower bound",
 			report.Silent)
 	}
-	if got, want := strings.Join(report.GoBacked, " "), "calendar collation currency decimal duration float int locale money/format passwords/host phrase/format plural random regex strings toml/host"; got != want {
+	if got, want := strings.Join(report.GoBacked, " "), "calendar cipher/host collation compress/host currency decimal duration float int key_exchange/host locale money/format passwords/host phrase/format plural random regex strings system/host toml/host"; got != want {
 		t.Errorf("Go-backed std modules derived as %q, want %q. A NEW module here is fine — "+
 			"update this control. A MISSING one means its rows stopped matching its declarations.",
 			got, want)

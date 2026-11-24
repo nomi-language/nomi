@@ -2,8 +2,16 @@
 // the opening handshake's accept key and the client's side of it, framing,
 // masking, fragmented messages, control frames, and the closing handshake.
 // It is std/websocket's Go side, reached through internal/stdhttp's
-// adapters, and uses only Go's standard library. It speaks no extension, so
-// permessage-deflate is never negotiated.
+// adapters, and uses Go's standard library and rt's XOR kernel for masking
+// (rt.XorRepeating, behind `Bytes.xor_repeating`). Its one extension is
+// permessage-deflate (RFC 7692) with no context takeover (deflate.go),
+// negotiated only when the program asks for it: a client offers it when
+// Request.Compress is set, and a server takes an offer through
+// AcceptDeflate. With it, each data message whose compressed form is
+// smaller is sent compressed, its first frame's RSV1 set, and a compressed
+// message received is decompressed against MaxMessage, so a message that
+// expands past it closes the connection with 1009 having produced no more
+// than the limit.
 //
 // A Conn has one reader at a time and serializes its writers, so any number
 // of tasks may send on one connection while one task receives. A ping is
@@ -24,6 +32,8 @@ import (
 	"sync"
 	"time"
 	"unicode/utf8"
+
+	"github.com/nomi-language/nomi/rt"
 )
 
 // Opcodes (RFC 6455 section 5.2).
@@ -94,6 +104,9 @@ type Options struct {
 	// CloseTimeout is how long Close waits for the peer's close frame;
 	// zero is DefaultCloseTimeout.
 	CloseTimeout time.Duration
+	// Deflate is permessage-deflate, agreed in the handshake: messages may
+	// arrive compressed, and are sent compressed when that is smaller.
+	Deflate bool
 }
 
 // CloseError is how a connection ended without a clean close: the peer's
@@ -235,6 +248,7 @@ func (c *Conn) Receive(ctx context.Context) (msg Message, ok bool, err error) {
 	var (
 		assembling bool
 		text       bool
+		compressed bool
 		data       []byte
 	)
 	for {
@@ -254,6 +268,7 @@ func (c *Conn) Receive(ctx context.Context) (msg Message, ok bool, err error) {
 			return Message{}, false, c.peerClosed(f.payload)
 		case opText, opBinary:
 			text = f.op == opText
+			compressed = f.compressed
 			data = append(data[:0], f.payload...)
 			assembling = !f.fin
 		case opContinuation:
@@ -261,6 +276,16 @@ func (c *Conn) Receive(ctx context.Context) (msg Message, ok bool, err error) {
 			assembling = !f.fin
 		}
 		if (f.op == opText || f.op == opBinary || f.op == opContinuation) && !assembling {
+			if compressed {
+				inflated, err := inflate(data, c.opts.MaxMessage)
+				switch {
+				case errors.Is(err, errInflatedTooBig):
+					return Message{}, false, c.fail(CloseTooBig, fmt.Sprintf("a message over %d bytes once decompressed", c.opts.MaxMessage))
+				case err != nil:
+					return Message{}, false, c.fail(CloseInvalidData, "a compressed message that does not decompress")
+				}
+				data = inflated
+			}
 			if text && !utf8.Valid(data) {
 				return Message{}, false, c.fail(CloseInvalidData, "a text message that is not UTF-8")
 			}
@@ -270,9 +295,11 @@ func (c *Conn) Receive(ctx context.Context) (msg Message, ok bool, err error) {
 }
 
 type frame struct {
-	fin     bool
-	op      byte
-	payload []byte
+	fin bool
+	op  byte
+	// compressed is RSV1 on a message's first frame under permessage-deflate.
+	compressed bool
+	payload    []byte
 }
 
 // readFrame reads one frame, checking what RFC 6455 section 5 requires of it.
@@ -290,9 +317,12 @@ func (c *Conn) readFrame(ctx context.Context, held int64, assembling bool) (fram
 	if _, err := io.ReadFull(c.br, head[:]); err != nil {
 		return frame{}, err
 	}
-	f := frame{fin: head[0]&0x80 != 0, op: head[0] & 0x0F}
-	if head[0]&0x70 != 0 {
+	f := frame{fin: head[0]&0x80 != 0, op: head[0] & 0x0F, compressed: head[0]&0x40 != 0}
+	if head[0]&0x30 != 0 || f.compressed && !c.opts.Deflate {
 		return frame{}, &ProtocolError{CloseProtocolError, "reserved bits set with no extension agreed"}
+	}
+	if f.compressed && f.op != opText && f.op != opBinary {
+		return frame{}, &ProtocolError{CloseProtocolError, "RSV1 set on a frame that does not start a message"}
 	}
 	masked := head[1]&0x80 != 0
 	length := int64(head[1] & 0x7F)
@@ -361,9 +391,11 @@ func (c *Conn) readFrame(ctx context.Context, held int64, assembling bool) (fram
 	return f, nil
 }
 
+// mask XORs b in place with key repeated, by the kernel behind
+// `Bytes.xor_repeating`.
 func mask(key [4]byte, b []byte) {
-	for i := range b {
-		b[i] ^= key[i&3]
+	if len(b) > 0 {
+		rt.XorRepeating(b, b, key[:], 0)
 	}
 }
 
@@ -493,9 +525,15 @@ func closePayload(code int, reason string) []byte {
 
 // writeFrame writes one final frame; the caller holds wmu.
 func (c *Conn) writeFrame(op byte, payload []byte) error {
+	return c.writeFrameBits(0x80|op, payload)
+}
+
+// writeFrameBits writes one frame whose first byte is first: FIN, the
+// RSV bits and the opcode. The caller holds wmu.
+func (c *Conn) writeFrameBits(first byte, payload []byte) error {
 	n := len(payload)
 	head := make([]byte, 0, 14+n)
-	head = append(head, 0x80|op)
+	head = append(head, first)
 	maskBit := byte(0)
 	if c.opts.Client {
 		maskBit = 0x80
@@ -523,17 +561,24 @@ func (c *Conn) writeFrame(op byte, payload []byte) error {
 	return err
 }
 
-// Send sends one message as one frame. It waits for other senders, and
-// stops when ctx ends.
+// Send sends one message as one frame, compressed under permessage-deflate
+// when that is smaller. It waits for other senders, and stops when ctx
+// ends.
 func (c *Conn) Send(ctx context.Context, text bool, data []byte) error {
-	op := byte(opBinary)
+	first := byte(0x80 | opBinary)
 	if text {
 		if !utf8.Valid(data) {
 			return errors.New("websocket: a text message must be UTF-8")
 		}
-		op = opText
+		first = 0x80 | opText
 	}
-	return c.write(ctx, op, data)
+	if c.opts.Deflate && len(data) > 0 {
+		if packed := deflate(data); len(packed) < len(data) {
+			first |= 0x40
+			data = packed
+		}
+	}
+	return c.write(ctx, first, data)
 }
 
 // Ping sends a ping with payload, at most 125 bytes.
@@ -541,10 +586,11 @@ func (c *Conn) Ping(ctx context.Context, payload []byte) error {
 	if len(payload) > 125 {
 		return errors.New("websocket: a ping payload over 125 bytes")
 	}
-	return c.write(ctx, opPing, payload)
+	return c.write(ctx, 0x80|opPing, payload)
 }
 
-func (c *Conn) write(ctx context.Context, op byte, data []byte) error {
+// write writes one frame whose first byte is first, as writeFrameBits.
+func (c *Conn) write(ctx context.Context, first byte, data []byte) error {
 	c.wmu.Lock()
 	defer c.wmu.Unlock()
 	if torn, _ := c.ended(); torn || c.closeSent {
@@ -556,7 +602,7 @@ func (c *Conn) write(ctx context.Context, op byte, data []byte) error {
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
-	if err := c.writeFrame(op, data); err != nil {
+	if err := c.writeFrameBits(first, data); err != nil {
 		c.closeSent = true
 		e := &CloseError{CloseAbnormal, describe(err)}
 		c.teardown(e)

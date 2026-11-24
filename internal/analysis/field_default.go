@@ -164,7 +164,7 @@ func (c *checker) checkFieldDefaults(owner string, fields []ast.StructField, dec
 		if valTy == nil {
 			continue
 		}
-		if c.argMatchesParam(valTy, declared, c.recPos(line, col), RecordingKindInterfaceTypedParam) {
+		if c.argMatchesParam(valTy, declared, c.site(line, col, RecordingKindInterfaceTypedParam)) {
 			continue
 		}
 		c.addMismatch(line, col, declared, valTy, c.typef("field '%s' of %s: expected %s, got %s", f.Name, owner, declared, valTy))

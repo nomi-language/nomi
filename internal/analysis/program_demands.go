@@ -29,6 +29,9 @@ type programDemands struct {
 	// entry, when set, is the file whose bodies' demands count: every other
 	// file contributes only what its declarations demand (manifest).
 	entry *FileAnalysis
+	// stdOwn is whether the check is a std module's own (stdMissingImpls),
+	// whose std demands count. A program's check leaves them to it (wants).
+	stdOwn bool
 	// idx is the impl index and files the demanders the cache was built
 	// over. owner is the program's stdlib base, whose files' impls idx
 	// holds, and base is owner when files holds every one of its files, or
@@ -55,8 +58,8 @@ type programDemands struct {
 type fileDemands struct {
 	generation uint64
 	// has is every bucket of the file's own ImplManifest, and wants those
-	// a recording outside the stdlib demands, in a file outside the
-	// stdlib. A file base owns has neither: the base answers for it.
+	// a recording the check reads demands (programDemands.wants). A file
+	// base owns has neither: the base answers for it.
 	has, wants []implPair
 	// impls is a copy of the file's own Impls when it was read, nil for a
 	// file owner owns.
@@ -103,17 +106,19 @@ func (p *Program) missingImplsKept(kept **programDemands, entry *FileAnalysis) [
 	p.demandsMu.Lock()
 	defer p.demandsMu.Unlock()
 	if d := *kept; d == nil || d.entry != entry || !d.update(p) {
-		*kept = newProgramDemands(p, entry, p.Files())
+		*kept = newProgramDemands(p, entry, p.Files(), false)
 	}
 	return (*kept).diagnostics()
 }
 
 // newProgramDemands reads every file of files, p's files or some of them,
 // and works out every bucket. The supply is p's whole: its index, and the
-// own impls of every file of p the index does not answer for.
-func newProgramDemands(p *Program, entry *FileAnalysis, files []*FileAnalysis) *programDemands {
+// own impls of every file of p the index does not answer for. stdOwn makes
+// it a std module's own check (programDemands.stdOwn).
+func newProgramDemands(p *Program, entry *FileAnalysis, files []*FileAnalysis, stdOwn bool) *programDemands {
 	d := &programDemands{
 		entry:   entry,
+		stdOwn:  stdOwn,
 		idx:     p.ImplIndex,
 		files:   slices.Clone(files),
 		owner:   p.stdBase,
@@ -218,16 +223,16 @@ func (d *programDemands) read(fa *FileAnalysis) fileDemands {
 		return part
 	}
 	// A file's checker records at the file's own path.
-	stdlibFile := isStdlibRecording(Recording{Pos: Pos{File: fa.FilePath}})
+	leftToStd := !d.wants(Recording{Pos: Pos{File: fa.FilePath}})
 	for iface, byType := range d.manifest(fa) {
 		for typeName, recs := range byType {
 			b := implPair{typeName: typeName, iface: iface}
 			part.has = append(part.has, b)
-			if stdlibFile {
+			if leftToStd {
 				continue
 			}
 			for _, rec := range recs {
-				if !isStdlibRecording(rec) && !fa.demandOfNoType(typeName, rec) {
+				if d.wants(rec) && !fa.demandOfNoType(typeName, rec) {
 					part.wants = append(part.wants, b)
 					break
 				}
@@ -235,6 +240,15 @@ func (d *programDemands) read(fa *FileAnalysis) fileDemands {
 		}
 	}
 	return part
+}
+
+// wants reports whether the demand rec makes its bucket one the check
+// reads. A program's check reads the demands made outside std. Std's own
+// demands, of every kind, are its own check's (stdMissingImpls), which
+// reports a gap once, where std is checked, and not in every program that
+// loads the module.
+func (d *programDemands) wants(rec Recording) bool {
+	return d.stdOwn || !isStdlibRecording(rec)
 }
 
 // manifest is the demands fa contributes: all of its own, or under an

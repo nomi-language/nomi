@@ -1,6 +1,7 @@
 package rt
 
 import (
+	"fmt"
 	"strings"
 	"unicode/utf8"
 )
@@ -75,6 +76,36 @@ func IntToByte(n Int) Option[Byte] {
 // ByteToInt is `Byte.to_int`.
 func ByteToInt(b Byte) int64 { return int64(b) }
 
+// ByteShiftLeft is `Byte.wrapping_shift_left`: b's bits moved n places up, the bits
+// moved past the eighth dropped, so a shift of 8 or more is 0.
+func ByteShiftLeft(b Byte, n Int) Byte {
+	k := shiftCount(n)
+	if k >= 8 {
+		return 0
+	}
+	return b << k
+}
+
+// ByteShiftRight is `Byte.wrapping_shift_right`: b's bits moved n places down, zeros
+// moving in from the top, so a shift of 8 or more is 0.
+func ByteShiftRight(b Byte, n Int) Byte {
+	k := shiftCount(n)
+	if k >= 8 {
+		return 0
+	}
+	return b >> k
+}
+
+// shiftCount is a Byte shift's count, a NonNegativeInt, saturated: every
+// count past int64 shifts all eight bits out, as 8 does.
+func shiftCount(n Int) int64 {
+	k := n.Saturated()
+	if k < 0 {
+		Trap(fmt.Sprintf("a Byte shift's count is a NonNegativeInt, got %d", k))
+	}
+	return k
+}
+
 // BytesLength is `Bytes.length`: the count of octets.
 //
 // Not characters and not grapheme clusters. "hé" is two graphemes, two Unicode
@@ -146,8 +177,8 @@ func bytesDecodeString(data string) (string, bool) {
 	return data, true
 }
 
-// BytesHash is `Hashable.hash` for Bytes: FNV-1a 64-bit over the octets, as
-// StringHash is over a String's. Equal Bytes hash equally, which is all the
+// BytesHash is `Hashable.hash` for Bytes: StringHash over the octets, as
+// over a String's. Equal Bytes hash equally, which is all the
 // Hashable contract asks; a Map key or Set element of Bytes is bucketed by
 // HashBytes, the kernel's own hash.
 func BytesHash(data Bytes) int64 { return StringHash(string(data)) }
@@ -262,8 +293,6 @@ func BytesFromList(items *List[Byte]) Bytes {
 // same byte equality Equal uses.
 func HashByte(b Byte) uint64 { return uint64(b) }
 
-// HashBytes is FNV-1a over the octets. Routed through StringHash — Nomi's `String.hash`, the same
-// FNV — because a second FNV loop in this package is the "one FNV, not two"
-// rule rt/hash.go states. `rt.Bytes` is a Go string, so this is not a
-// conversion.
+// HashBytes is StringHash over the octets, the one string hash rt/hash.go
+// names. `rt.Bytes` is a Go string, so this is not a conversion.
 func HashBytes(data Bytes) uint64 { return uint64(StringHash(string(data))) }

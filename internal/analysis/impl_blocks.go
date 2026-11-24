@@ -30,7 +30,7 @@ func (fa *FileAnalysis) implBlockFor(recv Type, iface, origin string, ifaceArgs 
 	}
 	var found *ast.ImplBlock
 	for _, cand := range fa.implCandidates(t, iface, origin) {
-		if ifaceArgs != nil && !typesAllEqual(cand.args, ifaceArgs) {
+		if ifaceArgs != nil && !sameTypeArgs(cand.args, ifaceArgs) {
 			// `Holds.holds(b, x)` at a Box that implements Holds<Int>
 			// and Holds<String>: the block of the call's instance.
 			continue
@@ -46,6 +46,46 @@ func (fa *FileAnalysis) implBlockFor(recv Type, iface, origin string, ifaceArgs 
 		}
 	}
 	return found
+}
+
+// ImplAsksParts reports whether a use of b, a type's impl of Debug,
+// Display, Equatable, Hashable or Comparable (nil for a type with none),
+// asks that interface of the type's parts. It is the one answer to that
+// question, which the bound demands (recordPartDemands,
+// recordImplReceiverBoundConformances) and the equality domain
+// (ownEqualityOf) read.
+//
+// A type with no impl answers by its shape, through each part's own impl,
+// and so does a derive's block that writes no function (derivesByShape)
+// and a block whose functions are all `host fn`s: no Nomi body says what
+// the machine does with the parts, and std's Equatable and Hashable of
+// List, Map, Set and Vector, written so, compare and hash every element.
+// A block that writes a function with a body answers by it: the body was
+// checked under the block's where bounds alone, so those bounds are all a
+// use asks of the type's arguments (recordImplReceiverBoundConformances),
+// and `impl Equatable for Measure<P> where P: Unit2` compares a
+// `Measure<Op>` whose Op holds a function.
+func ImplAsksParts(b *ast.ImplBlock) bool {
+	if b == nil || derivesByShape(b) {
+		return true
+	}
+	if len(b.Items) == 0 {
+		// The interface's default bodies answer.
+		return false
+	}
+	for _, it := range b.Items {
+		if _, host := it.(*ast.ExternFunc); !host {
+			return false
+		}
+	}
+	return true
+}
+
+// implAsksPartsAt is ImplAsksParts for t's impl of the interface ifaceName
+// declared at ifaceOrigin. Where no single block answers (implBlockFor),
+// the use asks the parts.
+func (c *checker) implAsksPartsAt(t Type, ifaceName, ifaceOrigin string) bool {
+	return ImplAsksParts(c.fa.implBlockFor(t, ifaceName, ifaceOrigin, nil))
 }
 
 // blockImplOf is the impl block of the interface iface the front end wrote

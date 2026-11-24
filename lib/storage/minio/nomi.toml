@@ -1,7 +1,6 @@
 [module]
 name = "minio"
-path = "github.com/nomi-language/nomi/lib/storage/minio"
 entry_points = ["real"]
 
 [dependencies]
-s3 = { module = "github.com/nomi-language/nomi/lib/storage/s3", version = "v0.0.0-20261102115722-e15c01bbc477", dir = "../s3" }
+s3 = { dir = "../s3" }

@@ -380,7 +380,7 @@ func (o *EffectWalk) sites() map[*ir.Func][]ir.Pos {
 	for _, f := range o.order {
 		for _, e := range o.edges[f] {
 			_, render := e.at.(*ir.Render)
-			if (e.kind == EdgeCall || e.kind == EdgeDispatch || e.kind == EdgeValue || e.kind == EdgeOnce || e.kind == EdgeDebug && render) && e.at != nil && !f.Pos().Stdlib() && !e.to.Pos().Stdlib() {
+			if (e.kind == EdgeCall || e.kind == EdgeDispatch || e.kind == EdgeValue || e.kind == EdgeOnce || e.kind == EdgeDebug && render || e.namedPart()) && e.at != nil && !f.Pos().Stdlib() && !e.to.Pos().Stdlib() {
 				sites[e.to] = append(sites[e.to], e.at.Pos())
 			}
 		}
@@ -478,8 +478,8 @@ func (o *EffectWalk) acting() map[*ir.Func]bool {
 // crossesActing reports whether in makes a crossing whose declaration does
 // not mark it pure (effectOf).
 func (o *EffectWalk) crossesActing(in ir.Instr) bool {
-	e, unbounded := o.m.effectOf(in, "")
-	return e != "" && !unbounded
+	_, kind := o.m.effectOf(in, "")
+	return kind == refuseEffect
 }
 
 // Acting is each function outside std the walk reached that can act
@@ -511,8 +511,8 @@ type ActCall struct {
 // ActCalls is each call in code outside std the walk reached that can act,
 // in position order: a crossing whose declaration does not mark it pure, a
 // direct call of a function that can act (Acts), a dispatched call one of
-// whose implementations can, a rendering one of whose named Debug bodies
-// can (ir.Render's DebugImpls, which it calls for the parts its value
+// whose implementations can, a rendering one of whose named bodies
+// can (ir.Render's PartImpls, which it calls for the parts its value
 // holds, as a dispatch calls its implementations), and a call or an
 // iteration (an ir.Iter) one of whose operands holds a function value
 // whose body can act (`Iter.each(xs, io.print)`), which it may run. A
@@ -543,7 +543,10 @@ func (o *EffectWalk) ActCalls() []ActCall {
 				direct[e.at] = direct[e.at] || acts[e.to]
 			case EdgeValue:
 				value[e.at] = value[e.at] || acts[e.to]
-			case EdgeDispatch, EdgeDebug:
+			case EdgeDispatch, EdgeDebug, EdgeDisplay:
+				if e.kind == EdgeDisplay && !e.namedPart() {
+					continue
+				}
 				t := dispatch[e.at]
 				if t == nil {
 					t = &tally{}
@@ -600,15 +603,15 @@ func (o *EffectWalk) ActCalls() []ActCall {
 					}
 					continue
 				case *ir.Render:
-					// A rendering calls the Debug body it names for each
-					// part its value holds of that body's type, as a
-					// dispatch does.
+					// A rendering calls the Debug or Display body it names
+					// for each part its value holds of that body's type,
+					// as a dispatch does.
 					switch t := dispatch[in]; {
 					case t != nil && t.acting == t.all:
 						out = append(out, ActCall{At: in.Pos(), In: f})
 					case t != nil && t.acting > 0:
 						some := ""
-						if impl, ok := n.DebugImpls()[0].Fn.Impl(); ok {
+						if impl, ok := n.PartImpls()[0].Fn.Impl(); ok {
 							some = impl.Interface + "." + impl.Func
 						}
 						out = append(out, ActCall{At: in.Pos(), In: f, Some: some})

@@ -47,15 +47,15 @@ func (r *typeRegistry) ifaceDefOf(o *typeOwner) *ifaceDef {
 }
 
 // ifaceOfDecl is this gen's def of the interface declaration decl: its
-// own (ifacesByDecl), or its mirror of another program file's
-// (mirrorIface, the one def any spelling of it reaches here). Nil for a
-// declaration this gen holds no def of: none, or a std module's that this
-// gen does not lower.
+// own (ifacesByDecl, decl read as this gen's module declares it,
+// ownDecl), or its mirror of another program file's (mirrorIface, the one
+// def any spelling of it reaches here). Nil for a declaration this gen
+// holds no def of: none, or a std module's that this gen does not lower.
 func (g *gen) ifaceOfDecl(decl ast.Node) *ifaceDef {
 	if isNilNode(decl) {
 		return nil
 	}
-	if d := g.ifacesByDecl[decl]; d != nil {
+	if d := g.ifacesByDecl[g.ownDecl(decl)]; d != nil {
 		return d
 	}
 	if g.reg != nil {

@@ -20,6 +20,8 @@ func InstallShutdownSignals(fr *Frame) func() {
 		case <-done:
 			return
 		}
+		// The status a shell gives a process the signal ended: 130 for
+		// SIGINT, 143 for SIGTERM.
 		code := 130
 		if s, ok := first.(syscall.Signal); ok {
 			code = 128 + int(s)
@@ -31,7 +33,7 @@ func InstallShutdownSignals(fr *Frame) func() {
 			case <-done:
 			}
 		}()
-		DrainSupervisors()
+		DrainForSignal(code)
 		func() {
 			defer func() {
 				if r := recover(); r != nil {

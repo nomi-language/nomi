@@ -52,8 +52,9 @@ const (
 	// KindEnum is a declared enum, including the prelude's Option, Result and
 	// Fragment. Sym is its identity; Elems are the type arguments.
 	KindEnum
-	// KindDistinct is `type Name Inner` (Elems[0] is Inner) or a zero-sized
-	// marker `type Name` (no Elems).
+	// KindDistinct is `type Name Inner` (Elems[0] is Inner, and Elems[1:]
+	// are the type arguments of a generic instance) or a zero-sized marker
+	// `type Name` (no Elems).
 	KindDistinct
 	// KindTuple is `(A, B, ...)`; Elems are the components in order.
 	KindTuple
@@ -247,13 +248,18 @@ func NewEnumType(sym *Symbol, args ...*ValType) *ValType {
 	return &ValType{kind: KindEnum, sym: sym, elems: requireElems(args, "NewEnumType")}
 }
 
-// NewDistinctType is a distinct type over inner, or a marker when inner is nil.
-func NewDistinctType(sym *Symbol, inner *ValType) *ValType {
+// NewDistinctType is a distinct type over inner, with a generic instance's
+// arguments, or a marker when inner is nil. A marker takes no arguments.
+func NewDistinctType(sym *Symbol, inner *ValType, args ...*ValType) *ValType {
 	requireTypeSym(sym, "NewDistinctType")
 	t := &ValType{kind: KindDistinct, sym: sym}
-	if inner != nil {
-		t.elems = []*ValType{inner}
+	if inner == nil {
+		if len(args) > 0 {
+			panic("ir: NewDistinctType: a marker with type arguments")
+		}
+		return t
 	}
+	t.elems = requireElems(append([]*ValType{inner}, args...), "NewDistinctType")
 	return t
 }
 
@@ -392,7 +398,7 @@ func (t *ValType) SetVariants(variants []Variant) {
 // its parts (`type Coord (Int, Int)`), which a rendering spreads:
 // `Coord(3, 4)`.
 func (t *ValType) SetSpread() {
-	if t.kind != KindDistinct || len(t.elems) != 1 || t.elems[0].kind != KindTuple {
+	if t.kind != KindDistinct || len(t.elems) == 0 || t.elems[0].kind != KindTuple {
 		panic("ir: ValType.SetSpread: " + t.String() + " is not a distinct over a tuple")
 	}
 	t.spread = true
@@ -432,7 +438,8 @@ func (t *ValType) Sym() *Symbol { return t.sym }
 func (t *ValType) NumElems() int { return len(t.elems) }
 
 // Elem is component i: a type argument, a tuple or record part, an element,
-// a map's key (0) or value (1), a function parameter, a distinct's inner type.
+// a map's key (0) or value (1), a function parameter, a distinct's inner type
+// (0) and then its type arguments.
 func (t *ValType) Elem(i int) *ValType { return t.elems[i] }
 
 // Names are a record's field names, parallel to its Elems.
@@ -599,17 +606,55 @@ func sameCovariantEnum(want, have *ValType) bool {
 	return n == "option.Option" || n == "results.Result"
 }
 
-// InstanceKey tells apart the instances of one generic struct or enum: t's
-// spelling (`main.Box<Bool>`) when t is a struct or enum with type
-// arguments, and empty for every other type. Two instances share a runtime
-// type name, so a consumer that selects a body by a value's runtime type
-// keys on this too; a value's descriptor carries the key of the type its
-// construction built it at.
+// InstanceKey tells apart the instances of one generic struct, enum or
+// distinct type: its name and type arguments (`main.Box<Bool>`,
+// `main.Tagged<Meters>`) when t has type arguments, and empty for every
+// other type. The key is the arguments, not the representation: a phantom
+// `Tagged<A>` and `Tagged<B>` over one inner type are two instances. Two
+// instances share a runtime type name, so a consumer that selects a body
+// by a value's runtime type keys on this too; a value's descriptor carries
+// the key of the type its construction built it at.
 func (t *ValType) InstanceKey() string {
-	if t == nil || (t.kind != KindStruct && t.kind != KindEnum) || len(t.elems) == 0 {
+	args := t.typeArgs()
+	if len(args) == 0 {
 		return ""
 	}
-	return t.String()
+	var b strings.Builder
+	writeInstance(&b, t.sym, args)
+	return b.String()
+}
+
+// typeArgs is a declared struct's, enum's or distinct type's type
+// arguments, or nil for every other type.
+func (t *ValType) typeArgs() []*ValType {
+	if t == nil {
+		return nil
+	}
+	switch t.kind {
+	case KindStruct, KindEnum:
+		return t.elems
+	case KindDistinct:
+		if len(t.elems) > 1 {
+			return t.elems[1:]
+		}
+	}
+	return nil
+}
+
+// writeInstance spells a nominal type with its arguments: `main.Box<Int>`.
+func writeInstance(b *strings.Builder, sym *Symbol, args []*ValType) {
+	b.WriteString(sym.Name())
+	if len(args) == 0 {
+		return
+	}
+	b.WriteString("<")
+	for i, a := range args {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		a.write(b)
+	}
+	b.WriteString(">")
 }
 
 // String is t's Nomi-like spelling, for diagnostics and dumps.
@@ -635,14 +680,13 @@ func (t *ValType) write(b *strings.Builder) {
 	}
 	switch t.kind {
 	case KindStruct, KindEnum, KindHandle:
-		b.WriteString(t.sym.Name())
-		if len(t.elems) > 0 {
-			args("<", ">")
-		}
+		writeInstance(b, t.sym, t.elems)
 	case KindDistinct:
-		b.WriteString(t.sym.Name())
+		writeInstance(b, t.sym, t.typeArgs())
 		if len(t.elems) > 0 {
-			args("(", ")")
+			b.WriteString("(")
+			t.elems[0].write(b)
+			b.WriteString(")")
 		}
 	case KindIface:
 		b.WriteString("dyn ")

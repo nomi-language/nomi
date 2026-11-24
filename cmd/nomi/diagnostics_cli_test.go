@@ -331,8 +331,8 @@ func TestDiagnostics_ASyntaxErrorInAnImportedFileNamesIt(t *testing.T) {
 // The program's own errors (orphan and duplicate impls, duplicate type-owned
 // functions and impl blocks, inherent impls outside their type's file) are
 // found while the entry is checked, and each is printed at the file its
-// position is in, with that file's source line: here child.nomi, imported by
-// main.nomi. They were printed with main.nomi's path at child.nomi's line.
+// position is in, with that file's source line: here child.nomi and
+// other.nomi, imported by main.nomi. They were printed with main.nomi's path at child.nomi's line.
 func TestDiagnostics_ProgramErrorsNameTheirFile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
@@ -411,8 +411,9 @@ impl Shout for Box
     end
 end
 `)
-	wantShort := "child.nomi:8:8: duplicate impl: `Display` is implemented for `bool.Bool` by modules child, std/bool (function `to_string`); a type implements an interface once at each set of type arguments\n" +
-		"child.nomi:40:8: duplicate impl: `Shout` is implemented for `child.Box` by modules child, other (function `shout`); a type implements an interface once at each set of type arguments\n" +
+	wantShort := "child.nomi:7:1: duplicate impl: `Display` is implemented for `bool.Bool` by modules child, std/bool; a type implements an interface once at each set of type arguments\n" +
+		"other.nomi:7:1: duplicate impl: `Shout` is implemented for `child.Box` by modules child, other; a type implements an interface once at each set of type arguments\n" +
+		"child.nomi:39:1: note: the other impl is here\n" +
 		"child.nomi:14:12: duplicate type-owned function: `Box.a` is defined 2 times — a type may define each function at most once\n" +
 		"child.nomi:13:1: duplicate type-owned impl: `impl Box` appears 2 times in file \"child\" — merge its functions into one block\n" +
 		"child.nomi:8:8: orphan impl: `Display` (declared in module \"std\") for `Bool` (declared in module \"std\") cannot be implemented in module \"shop\" (function `to_string`): the interface, the implementing type, or a type heading a type argument the interface's functions take must be declared in the implementing module\n" +
@@ -423,7 +424,8 @@ end
 	// Each long diagnostic shows child.nomi's own source line.
 	excerpts := []string{
 		" --> child.nomi:8:8\n  |\n8 |     fn to_string(_b: Bool) -> String\n",
-		"  --> child.nomi:40:8\n   |\n40 |     fn shout(_v: Box) -> String\n",
+		" --> child.nomi:7:1\n  |\n7 | impl Display for Bool\n",
+		" --> other.nomi:7:1\n  |\n7 | impl Shout for Box\n",
 		"  --> child.nomi:14:12\n   |\n14 |     pub fn a(b: Box) -> Int\n",
 		"  --> child.nomi:13:1\n   |\n13 | impl Box\n",
 		"  --> child.nomi:29:1\n   |\n29 | impl Thing\n",
@@ -457,7 +459,7 @@ func TestDiagnostics_AnOrphanImplInAnotherModuleNamesItsFile(t *testing.T) {
 
 	// The file is printed as a path of the system, the module by its name.
 	file := filepath.Join("fx", "rate.nomi")
-	want := file + ":6:8: duplicate impl: `Display` is implemented for `bool.Bool` by modules fx/rate, std/bool (function `to_string`); a type implements an interface once at each set of type arguments\n" +
+	want := file + ":5:1: duplicate impl: `Display` is implemented for `bool.Bool` by modules fx/rate, std/bool; a type implements an interface once at each set of type arguments\n" +
 		file + ":6:8: orphan impl: `Display` (declared in module \"std\") for `Bool` (declared in module \"std\") cannot be implemented in module \"fx\" (function `to_string`): the interface, the implementing type, or a type heading a type argument the interface's functions take must be declared in the implementing module\n"
 	// A path outside the working directory is printed whole. On macOS the
 	// temporary directory is printed resolved (/private/var/...); on Windows

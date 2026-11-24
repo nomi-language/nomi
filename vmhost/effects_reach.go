@@ -74,7 +74,9 @@ func Reached(path string, opts ...Option) (*Reach, error) {
 	if err != nil {
 		return nil, err
 	}
-	if _, _, ok := frontend.StdlibFile(abs); ok {
+	if _, _, ok, err := frontend.StdlibFile(abs); err != nil {
+		return nil, err
+	} else if ok {
 		return nil, fmt.Errorf("%s is a std module, which no nomi.toml holds", path)
 	}
 	p, err := checkedProgram(newConfig(opts), abs)

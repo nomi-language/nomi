@@ -11,59 +11,31 @@ import (
 // Tests for `@derive` on host type declarations (derive-as-assertion,
 // spec §12 *Host types*): the decorator asserts the type has trivial
 // structure (a zero-sized singleton), and the synthesizers emit constant
-// bodies — `True` / `0` / `Equal` / the bare type name — rather than
-// recursing into structure the declaration doesn't carry.
+// bodies (`Equal`, the bare type name) rather than recursing into
+// structure the declaration doesn't carry. Equatable, Hashable, Debug and
+// Display write no function.
 
 const externDeriveSrc = `pub host type Tok
 derive Equatable for Tok
 derive Comparable for Tok
 derive Hashable for Tok`
 
-// TestDeriveExternTypeEquatableIsTrue pins the Equatable body: a single
-// ExprStmt holding the bare `True` ident — the same constant body a
-// zero-sized distinct derives.
-func TestDeriveExternTypeEquatableIsTrue(t *testing.T) {
-	fn := synthMethodForSource(t, externDeriveSrc, "equal", "Equatable", "Tok")
-	if fn == nil {
-		t.Fatal("no synthesized Equatable impl (fn equals) for host type Tok")
-	}
-	if len(fn.Params) != 2 {
-		t.Errorf("expected 2 params, got %d", len(fn.Params))
-	}
-	if fn.AutoSynth {
-		t.Error("explicit @derives must not be marked AutoSynth")
-	}
-	if len(fn.Body.Stmts) != 1 {
-		t.Fatalf("expected 1-stmt body, got %d", len(fn.Body.Stmts))
-	}
-	es, ok := fn.Body.Stmts[0].(*ast.ExprStmt)
-	if !ok {
-		t.Fatalf("expected ExprStmt, got %T", fn.Body.Stmts[0])
-	}
-	ti, ok := es.Expr.(*ast.TypeIdent)
-	if !ok || ti.Name != "True" {
-		t.Errorf("expected body == TypeIdent(True), got %T %v", es.Expr, es.Expr)
+// TestDeriveExternTypeEquatableWritesNoFunction: a derived Equatable on a
+// host type writes no function, as on any other type: two values compare
+// as the machine compares the host's handles (rt.Equal), which for a type
+// of one inhabitant is always equal.
+func TestDeriveExternTypeEquatableWritesNoFunction(t *testing.T) {
+	if fn := synthMethodForSource(t, externDeriveSrc, "equal", "Equatable", "Tok"); fn != nil {
+		t.Errorf("derive Equatable for host type Tok writes `fn equal`, want no function")
 	}
 }
 
-// TestDeriveExternTypeHashableIsZero pins the Hashable body: the constant
-// `0` — all values of a trivial-structure type are equal, so they share one
-// hash bucket and the equals/hash law holds.
-func TestDeriveExternTypeHashableIsZero(t *testing.T) {
-	fn := synthMethodForSource(t, externDeriveSrc, "hash", "Hashable", "Tok")
-	if fn == nil {
-		t.Fatal("no synthesized Hashable impl (fn hash) for host type Tok")
-	}
-	if len(fn.Body.Stmts) != 1 {
-		t.Fatalf("expected 1-stmt body, got %d", len(fn.Body.Stmts))
-	}
-	es, ok := fn.Body.Stmts[0].(*ast.ExprStmt)
-	if !ok {
-		t.Fatalf("expected ExprStmt, got %T", fn.Body.Stmts[0])
-	}
-	il, ok := es.Expr.(*ast.IntLit)
-	if !ok || il.Value != 0 {
-		t.Errorf("expected body == IntLit(0), got %T %v", es.Expr, es.Expr)
+// TestDeriveExternTypeHashableWritesNoFunction: a derived Hashable on a
+// host type writes no function, as on any other type: a value hashes as
+// the machine hashes the host's handle (rt.Hash).
+func TestDeriveExternTypeHashableWritesNoFunction(t *testing.T) {
+	if fn := synthMethodForSource(t, externDeriveSrc, "hash", "Hashable", "Tok"); fn != nil {
+		t.Errorf("derive Hashable for host type Tok writes `fn hash`, want no function")
 	}
 }
 
@@ -85,28 +57,16 @@ func TestDeriveExternTypeComparableIsEqual(t *testing.T) {
 	assertOrderingValue(t, es.Expr, "Equal")
 }
 
-// TestDeriveExternTypeDebugAndDisplayAreNameOnly pins the stringify pair:
-// both bodies are the static bare type name — the declaration carries no
-// payload shape, matching the universal-Debug extern default's rendering.
+// TestDeriveExternTypeDebugAndDisplayAreNameOnly pins a host type's
+// derived Debug and Display: each writes no function, and rt renders a
+// host value with no body by its bare type name.
 func TestDeriveExternTypeDebugAndDisplayAreNameOnly(t *testing.T) {
 	src := `pub host type Tok
 derive Debug for Tok
 derive Display for Tok`
 	for method, iface := range map[string]string{"inspect": "Debug", "to_string": "Display"} {
-		fn := synthMethodForSource(t, src, method, iface, "Tok")
-		if fn == nil {
-			t.Fatalf("no synthesized %s impl (fn %s) for host type Tok", iface, method)
-		}
-		if len(fn.Body.Stmts) != 1 {
-			t.Fatalf("%s: expected 1-stmt body, got %d", iface, len(fn.Body.Stmts))
-		}
-		es, ok := fn.Body.Stmts[0].(*ast.ExprStmt)
-		if !ok {
-			t.Fatalf("%s: expected ExprStmt, got %T", iface, fn.Body.Stmts[0])
-		}
-		sl, ok := es.Expr.(*ast.StringLit)
-		if !ok || sl.Value != "Tok" {
-			t.Errorf("%s: expected body == StringLit(\"Tok\"), got %T %v", iface, es.Expr, es.Expr)
+		if fn := synthMethodForSource(t, src, method, iface, "Tok"); fn != nil {
+			t.Errorf("derive %s for host type Tok writes `fn %s`, want no function", iface, method)
 		}
 	}
 }

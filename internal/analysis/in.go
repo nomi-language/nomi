@@ -129,9 +129,6 @@ func (c *checker) reportCollectionWithoutImpl(n *ast.Call, iface *InterfaceType,
 	collection := n.Args[0]
 	line, col := nodeLineCol(collection)
 	before := len(c.errors)
-	if c.reportGenericArgMismatch(n.Func, at, concrete, nil, collection, c.argLabel(n, 0), line, col, nil) {
-		last := &c.errors[len(c.errors)-1]
-		*last = last.WithHint(c.boundHelp(concrete, at))
-	}
+	c.reportGenericArgMismatch(n.Func, at, concrete, nil, collection, c.argLabel(n, 0), line, col, nil, c.argSite(n, 0, collection, line, col))
 	return len(c.errors) > before
 }

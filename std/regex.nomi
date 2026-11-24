@@ -19,6 +19,32 @@
 //# Replace every match with `String.replace(text, re, replacement)`, whose
 //# replacement names a group as `$1` or `${name}`.
 //#
+//# ## Syntax
+//#
+//# A pattern is matched against the text's code points. A match starts as
+//# early in the text as it can, and among those the pattern's first
+//# alternative and greediest repetition win, as in Perl.
+//#
+//# - `.` is any code point but `\n`. `[abc]`, `[^abc]` and `[a-z]` are
+//#   classes. `\d`, `\w` and `\s` are the ASCII digits, word characters
+//#   (`[0-9A-Za-z_]`) and spaces (`[\t\n\f\r ]`), and `\D`, `\W` and `\S`
+//#   their complements. `[[:alpha:]]` names an ASCII class, and `\pL`,
+//#   `\p{Greek}` and `\PL` a Unicode category or script and its complement.
+//# - `x*`, `x+`, `x?`, `x{n}`, `x{n,}` and `x{n,m}` repeat `x` as many times
+//#   as they can; followed by `?` (`x*?`) they repeat it as few. A count is
+//#   at most 1000.
+//# - `(x)` is a group, `(?P<name>x)` or `(?<name>x)` a named one, and
+//#   `(?:x)` one that captures nothing. `x|y` matches either.
+//# - `^` and `$` match at the start and end of the text, as `\A` and `\z`
+//#   do, and `\b` and `\B` at an ASCII word boundary and anywhere else.
+//# - `(?i)` ignores case, `(?m)` makes `^` and `$` match at each line's start
+//#   and end, `(?s)` lets `.` match `\n`, and `(?U)` swaps as many and as
+//#   few. `(?i:x)` sets a flag for `x` alone.
+//# - `\` before a punctuation character matches that character. `\t`,
+//#   `\n`, `\x41` and `\x{1F600}` are single characters, and `\Q...\E` is
+//#   literal text.
+//# - There is no lookahead, lookbehind or backreference.
+//#
 //# ## Capture types
 //#
 //# `Regex<C>` carries the type of its capture groups: `C` is what
@@ -78,9 +104,9 @@ end
 
 /// A compiled regular expression whose capture groups have the type `C`.
 ///
-/// Matching is RE2's, by Go's `regexp` package: it never backtracks, so it
-/// takes time linear in the input, and it has no lookaround or
-/// backreferences. Write a pattern as a backtick literal, `` Regex`\d+` ``:
+/// Matching never backtracks, so it takes time linear in the input, and a
+/// pattern has no lookaround or backreferences ([Syntax](#syntax)).
+/// Write a pattern as a backtick literal, `` Regex`\d+` ``:
 /// its backslashes need no escaping and the pattern is checked when the
 /// program is compiled.
 ///

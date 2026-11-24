@@ -1178,13 +1178,17 @@ module.exports = grammar({
     // inside the body. An `->` that ends its line takes the lines below, to
     // `end`. A parameter's annotation is a full type, so `fn f: (Int) -> Int
     // -> f(1)` reads the function type `(Int) -> Int` whole before the
-    // lambda's own `->`.
+    // lambda's own `->`. A body on the `->`'s line may also discard its
+    // expression, `fn i -> _ = send(i)`, the binding a body below would hold.
     lambda: $ => choice(
       prec.right(3, seq(
         'fn',
         optional(commaSep1($.lambda_parameter)),
         '->',
-        field('body', prec(2, $._expression)),
+        field('body', choice(
+          prec(2, $._expression),
+          alias($._lambda_discard, $.binding),
+        )),
       )),
       prec(3, seq(
         'fn',
@@ -1233,7 +1237,10 @@ module.exports = grammar({
         'fn',
         optional(commaSep1($.lambda_parameter)),
         '->',
-        field('body', prec(2, choice(prec.dynamic(1, $.call_expression), $._lambda_body_expression))),
+        field('body', choice(
+          prec(2, choice(prec.dynamic(1, $.call_expression), $._lambda_body_expression)),
+          alias($._then_lambda_discard, $.binding),
+        )),
       )),
       prec(3, seq(
         'fn',
@@ -1242,6 +1249,17 @@ module.exports = grammar({
         field('body', $.body),
       )),
     ),
+
+    // `_ = expr`, a lambda's body on its `->`'s line that discards its
+    // value. In a `then` lambda the value ends at the next `|>`. The name is
+    // an identifier, so that `_` stays one in `fn x -> _`, where a `'_'`
+    // token would take it; the compiler admits only `_` here.
+    _lambda_discard: $ => prec.right(-1, seq($.identifier, '=', $._expression)),
+    _then_lambda_discard: $ => prec.right(-1, seq(
+      $.identifier,
+      '=',
+      prec(2, choice(prec.dynamic(1, $.call_expression), $._lambda_body_expression)),
+    )),
 
     _lambda_body_expression: $ => choice(
       $.identifier,

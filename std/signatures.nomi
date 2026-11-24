@@ -1,13 +1,15 @@
 //# Digital signatures: a private key signs a message, and anyone with the
 //# matching public key can check that the message is the one signed and
-//# was signed by that key. Three algorithms, over Go's standard library:
+//# was signed by that key. Three algorithms:
 //#
 //# - Ed25519 (RFC 8032): small fast keys and 64-byte signatures. Use it
 //#   when nothing else decides.
-//# - ECDSA over P-256 with SHA-256 (FIPS 186-5), which JWTs call ES256 and
+//# - ECDSA (FIPS 186-5) over P-256 with SHA-256, P-384 with SHA-384 or
+//#   P-521 with SHA-512, which JWTs call ES256, ES384 and ES512 and
 //#   browsers' WebCrypto calls ECDSA.
-//# - RSA with SHA-256 (RFC 8017), in PKCS #1 v1.5 padding (JWT's RS256) or
-//#   PSS (PS256), for systems that ask for RSA.
+//# - RSA (RFC 8017) with SHA-256, SHA-384 or SHA-512, in PKCS #1 v1.5
+//#   padding (JWT's RS256, RS384 and RS512) or PSS (PS256, PS384 and
+//#   PS512), for systems that ask for RSA.
 //#
 //# ```nomi
 //# key = PrivateKey.generate_ed25519()
@@ -16,6 +18,10 @@
 //#
 //# assert signatures.is_valid(PrivateKey.public_key(key), message, signature)
 //# ```
+//#
+//# An RSA key also encrypts: `encrypt` seals a short message, such as a
+//# key for `std::cipher`, to a public key with RSA-OAEP, and only its
+//# private key's `decrypt` opens it.
 //#
 //# Keys are read and written as PEM, the `-----BEGIN PRIVATE KEY-----`
 //# text that OpenSSL writes (`openssl genpkey -algorithm ed25519`), or as
@@ -42,23 +48,36 @@ pub enum KeyKind
     Ed25519
     /// ECDSA over the NIST P-256 curve (secp256r1).
     EcdsaP256
+    /// ECDSA over the NIST P-384 curve (secp384r1).
+    EcdsaP384
+    /// ECDSA over the NIST P-521 curve (secp521r1).
+    EcdsaP521
     Rsa
 end
 
 derive Equatable for KeyKind
 
 impl Display for KeyKind
+    /// The kind's name: `Ed25519`, `ECDSA P-256`, `ECDSA P-384`, `ECDSA
+    /// P-521` or `RSA`.
+    //! import std::signatures.KeyKind
+    //!
+    //! assert "${KeyKind.EcdsaP384}" == "ECDSA P-384"
+    //
     fn to_string(kind: KeyKind) -> String
         case kind
             .Ed25519   -> "Ed25519"
             .EcdsaP256 -> "ECDSA P-256"
+            .EcdsaP384 -> "ECDSA P-384"
+            .EcdsaP521 -> "ECDSA P-521"
             .Rsa       -> "RSA"
         end
     end
 end
 
 /// How a signature is made and checked. Each key kind has its own; `sign`
-/// and `is_valid` use the first one listed for it.
+/// and `is_valid` use the first one listed for it. An ECDSA scheme's hash
+/// goes with its curve, as JWS pairs them.
 pub enum Scheme
     /// Ed25519, for an Ed25519 key: 64 bytes.
     Ed25519
@@ -68,15 +87,57 @@ pub enum Scheme
     /// ECDSA P-256 with SHA-256 in ASN.1 DER, the form OpenSSL and X.509
     /// use: 70 to 72 bytes.
     EcdsaSha256Der
+    /// ECDSA P-384 with SHA-384, as r and s of 48 bytes each (JWS ES384).
+    EcdsaSha384
+    /// ECDSA P-384 with SHA-384 in ASN.1 DER.
+    EcdsaSha384Der
+    /// ECDSA P-521 with SHA-512, as r and s of 66 bytes each (JWS ES512).
+    EcdsaSha512
+    /// ECDSA P-521 with SHA-512 in ASN.1 DER.
+    EcdsaSha512Der
     /// RSA PKCS #1 v1.5 with SHA-256 (JWS RS256): as long as the key's
     /// modulus.
     RsaPkcs1Sha256
+    /// RSA PKCS #1 v1.5 with SHA-384 (JWS RS384).
+    RsaPkcs1Sha384
+    /// RSA PKCS #1 v1.5 with SHA-512 (JWS RS512).
+    RsaPkcs1Sha512
     /// RSA PSS with SHA-256 and MGF1-SHA-256 (JWS PS256). Signing uses a
-    /// 32-byte salt; checking accepts any salt length.
+    /// salt as long as the hash, 32 bytes; checking accepts any salt
+    /// length. So do the two below.
     RsaPssSha256
+    /// RSA PSS with SHA-384 and MGF1-SHA-384 (JWS PS384).
+    RsaPssSha384
+    /// RSA PSS with SHA-512 and MGF1-SHA-512 (JWS PS512).
+    RsaPssSha512
 end
 
 derive Equatable for Scheme
+
+impl Scheme
+    /// The kind of key `scheme` signs with.
+    //! import std::signatures.{KeyKind, Scheme}
+    //!
+    //! assert Scheme.key_kind(Scheme.EcdsaSha512) == KeyKind.EcdsaP521
+    //! assert Scheme.key_kind(Scheme.RsaPssSha384) == KeyKind.Rsa
+    //
+    pub fn key_kind(scheme: Scheme) -> KeyKind
+        kind_of(host.scheme_kind(scheme_code(scheme)))
+    end
+end
+
+/// How `encrypt` and `decrypt` pad a message: RSA-OAEP (RFC 8017), one hash
+/// for its digest and its mask generation (MGF1), as JWE's `RSA-OAEP-256`
+/// and WebCrypto's RSA-OAEP use them. A message of an RSA key of `n` bytes
+/// is at most `n` minus twice the hash's size minus 2 bytes long: 190 bytes
+/// for a 2048-bit key with SHA-256.
+pub enum Encryption
+    RsaOaepSha256
+    RsaOaepSha384
+    RsaOaepSha512
+end
+
+derive Equatable for Encryption
 
 /// A private key: what signs. Its bytes never print; `Display` and
 /// `Debug` show `PrivateKey(<kind>)`.
@@ -114,7 +175,25 @@ impl PrivateKey
     //! assert PrivateKey.kind(PrivateKey.generate_ecdsa_p256()) == KeyKind.EcdsaP256
     //
     pub fn generate_ecdsa_p256() -> PrivateKey
-        PrivateKey{kind: .EcdsaP256, der: host.generate_p256()}
+        generate_ecdsa(.EcdsaP256)
+    end
+
+    /// A new ECDSA P-384 key.
+    //! import std::signatures.{KeyKind, PrivateKey}
+    //!
+    //! assert PrivateKey.kind(PrivateKey.generate_ecdsa_p384()) == KeyKind.EcdsaP384
+    //
+    pub fn generate_ecdsa_p384() -> PrivateKey
+        generate_ecdsa(.EcdsaP384)
+    end
+
+    /// A new ECDSA P-521 key.
+    //! import std::signatures.{KeyKind, PrivateKey}
+    //!
+    //! assert PrivateKey.kind(PrivateKey.generate_ecdsa_p521()) == KeyKind.EcdsaP521
+    //
+    pub fn generate_ecdsa_p521() -> PrivateKey
+        generate_ecdsa(.EcdsaP521)
     end
 
     /// A new RSA key with a modulus of `bits` bits, 2048 to 8192. A 2048-bit
@@ -289,7 +368,8 @@ impl Debug for PublicKey
 end
 
 /// `message` signed by `key` with its kind's usual scheme: `Ed25519`,
-/// `EcdsaSha256` (64 bytes, r and s) or `RsaPkcs1Sha256`. An Ed25519 or
+/// `EcdsaSha256`, `EcdsaSha384` or `EcdsaSha512` (r and s) for its curve, or
+/// `RsaPkcs1Sha256`. An Ed25519 or
 /// PKCS #1 v1.5 signature of the same message is the same every time; an
 /// ECDSA one differs each time, and each verifies.
 //! import std::hex
@@ -305,7 +385,7 @@ end
 //! ) == "92a009a9f0d4cab8720e820b5f642540a2b27b5416503f8fb3762223ebdb69da085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00"
 //
 pub fn sign(key: PrivateKey, message: Bytes) -> Bytes
-    host.sign(key.der, scheme_number(usual_scheme(key.kind)), message)
+    host.sign(key.der, scheme_code(usual_scheme(key.kind)), message)
 end
 
 /// `message` signed by `key` with `scheme`, or an `Err` when `scheme` is
@@ -321,10 +401,10 @@ end
 //!     == Err("an ECDSA P-256 key does not sign with RsaPssSha256")
 //
 pub fn sign_with(key: PrivateKey, scheme: Scheme, message: Bytes) -> Result<Bytes, String>
-    if scheme_kind(scheme) == key.kind then
-        Ok(host.sign(key.der, scheme_number(scheme), message))
+    if Scheme.key_kind(scheme) == key.kind then
+        Ok(host.sign(key.der, scheme_code(scheme), message))
     else
-        Err("an ${key.kind} key does not sign with ${scheme_name(scheme)}")
+        Err("an ${key.kind} key does not sign with ${host.scheme_name(scheme_code(scheme))}")
     end
 end
 
@@ -347,7 +427,7 @@ end
 //! refute signatures.is_valid(key, String.to_bytes("x"), signature)
 //
 pub fn is_valid(key: PublicKey, message: Bytes, signature: Bytes) -> Bool
-    host.is_valid(key.der, scheme_number(usual_scheme(key.kind)), message, signature)
+    host.is_valid(key.der, scheme_code(usual_scheme(key.kind)), message, signature)
 end
 
 /// Whether `signature` is `message` signed by the private key of `key`
@@ -361,8 +441,85 @@ end
 //! refute signatures.is_valid_with(PrivateKey.public_key(key), Scheme.EcdsaSha256, message, signature)
 //
 pub fn is_valid_with(key: PublicKey, scheme: Scheme, message: Bytes, signature: Bytes) -> Bool
-    scheme_kind(scheme) == key.kind
-        and host.is_valid(key.der, scheme_number(scheme), message, signature)
+    host.is_valid(key.der, scheme_code(scheme), message, signature)
+end
+
+/// `plaintext` encrypted to `key`, an RSA public key, with `encryption`, and
+/// `label` bound to it: decrypting needs the same label. Each encryption
+/// of one message differs, and each decrypts. A key of another kind, or a
+/// message too long for the key and the hash, is an `Err`.
+//! import std::signatures.{self, Encryption, PrivateKey}
+//!
+//! private = PrivateKey.generate_rsa()!
+//! key = PrivateKey.public_key(private)
+//! secret = String.to_bytes("a key for std::cipher")
+//! label = String.to_bytes("order 7")
+//!
+//! sealed = signatures.encrypt(key, Encryption.RsaOaepSha256, secret, label)!
+//! assert signatures.decrypt(private, Encryption.RsaOaepSha256, sealed, label) == Ok(secret)
+//!
+//! assert signatures.encrypt(
+//!     key,
+//!     Encryption.RsaOaepSha512,
+//!     String.to_bytes(String.repeat("x", 200)),
+//!     label,
+//! ) == Err("RSA-OAEP with this key and RsaOaepSha512 encrypts at most 126 bytes, got 200")
+//
+pub fn encrypt(
+    key:        PublicKey,
+    encryption: Encryption,
+    plaintext:  Bytes,
+    label:      Bytes = Bytes.from_list([]),
+) -> Result<Bytes, String>
+    if key.kind != .Rsa then return Err("an ${key.kind} key does not encrypt")
+
+    host.encrypt(key.der, encryption_code(encryption), plaintext, label)
+end
+
+/// The plaintext `ciphertext` holds under `key`, an RSA private key, with
+/// `encryption` and `label`, as `encrypt` made it. Every way a ciphertext
+/// can fail to decrypt (another key, another hash or label, a changed
+/// byte) is the same `Err`, so the answer tells nothing about the key or
+/// the plaintext.
+//! import std::signatures.{self, Encryption, PrivateKey}
+//!
+//! private = PrivateKey.generate_rsa()!
+//!
+//! sealed = signatures.encrypt(
+//!     PrivateKey.public_key(private),
+//!     Encryption.RsaOaepSha384,
+//!     String.to_bytes("hi"),
+//!     String.to_bytes("a"),
+//! )!
+//!
+//! assert signatures.decrypt(private, Encryption.RsaOaepSha384, sealed, String.to_bytes("b"))
+//!     == Err("the ciphertext did not decrypt under this key")
+//!
+//! assert signatures.decrypt(private, Encryption.RsaOaepSha256, sealed, String.to_bytes("a"))
+//!     == Err("the ciphertext did not decrypt under this key")
+//
+pub fn decrypt(
+    key:        PrivateKey,
+    encryption: Encryption,
+    ciphertext: Bytes,
+    label:      Bytes = Bytes.from_list([]),
+) -> Result<Bytes, String>
+    if key.kind != .Rsa then return Err("an ${key.kind} key does not decrypt")
+
+    case host.decrypt(key.der, encryption_code(encryption), ciphertext, label)
+        Some(plaintext) -> Ok(plaintext)
+        None            -> Err("the ciphertext did not decrypt under this key")
+    end
+end
+
+/// An encryption as std/signatures/host numbers it: its position in
+/// `Encryption`.
+fn encryption_code(encryption: Encryption) -> Int64
+    case encryption
+        .RsaOaepSha256 -> 0
+        .RsaOaepSha384 -> 1
+        .RsaOaepSha512 -> 2
+    end
 end
 
 /// The scheme `sign` and `is_valid` use for a kind.
@@ -370,49 +527,55 @@ fn usual_scheme(kind: KeyKind) -> Scheme
     case kind
         .Ed25519   -> .Ed25519
         .EcdsaP256 -> .EcdsaSha256
+        .EcdsaP384 -> .EcdsaSha384
+        .EcdsaP521 -> .EcdsaSha512
         .Rsa       -> .RsaPkcs1Sha256
     end
 end
 
-/// The key kind a scheme signs with.
-fn scheme_kind(scheme: Scheme) -> KeyKind
-    case scheme
-        .Ed25519        -> .Ed25519
-        .EcdsaSha256    -> .EcdsaP256
-        .EcdsaSha256Der -> .EcdsaP256
-        .RsaPkcs1Sha256 -> .Rsa
-        .RsaPssSha256   -> .Rsa
-    end
-end
-
-/// A scheme as std/signatures/host numbers it.
-fn scheme_number(scheme: Scheme) -> Int64
+/// A scheme as std/signatures/host numbers it: its position in `Scheme`.
+fn scheme_code(scheme: Scheme) -> Int64
     case scheme
         .Ed25519        -> 0
         .EcdsaSha256    -> 1
-        .RsaPkcs1Sha256 -> 2
-        .RsaPssSha256   -> 3
-        .EcdsaSha256Der -> 4
+        .EcdsaSha256Der -> 2
+        .EcdsaSha384    -> 3
+        .EcdsaSha384Der -> 4
+        .EcdsaSha512    -> 5
+        .EcdsaSha512Der -> 6
+        .RsaPkcs1Sha256 -> 7
+        .RsaPkcs1Sha384 -> 8
+        .RsaPkcs1Sha512 -> 9
+        .RsaPssSha256   -> 10
+        .RsaPssSha384   -> 11
+        .RsaPssSha512   -> 12
     end
 end
 
-fn scheme_name(scheme: Scheme) -> String
-    case scheme
-        .Ed25519        -> "Ed25519"
-        .EcdsaSha256    -> "EcdsaSha256"
-        .EcdsaSha256Der -> "EcdsaSha256Der"
-        .RsaPkcs1Sha256 -> "RsaPkcs1Sha256"
-        .RsaPssSha256   -> "RsaPssSha256"
+/// A kind as std/signatures/host numbers it: its position in `KeyKind`.
+fn kind_code(kind: KeyKind) -> Int64
+    case kind
+        .Ed25519   -> 0
+        .EcdsaP256 -> 1
+        .EcdsaP384 -> 2
+        .EcdsaP521 -> 3
+        .Rsa       -> 4
     end
 end
 
-/// A kind as std/signatures/host numbers it.
+/// The kind std/signatures/host numbers `number`.
 fn kind_of(number: Int) -> KeyKind
     case number
         0 -> .Ed25519
         1 -> .EcdsaP256
+        2 -> .EcdsaP384
+        3 -> .EcdsaP521
         _ -> .Rsa
     end
+end
+
+fn generate_ecdsa(kind: KeyKind) -> PrivateKey
+    PrivateKey{kind:, der: host.generate_ecdsa(kind_code(kind))}
 end
 
 fn private(der: Bytes) -> Result<PrivateKey, String>

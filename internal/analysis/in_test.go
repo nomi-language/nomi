@@ -170,18 +170,20 @@ func TestIn_AnElementMissingTheImplsBoundIsOneError(t *testing.T) {
 	// a function has none.
 	const op = "struct P\n    f: (Int) -> Int\nend\n\n"
 	help := "`P` holds a function, an Iter or a handle to running state, which has no equality; write an `impl Equatable for P` block that leaves it out"
-	equatable := "no impl of `Equatable` for `P` (required via membership test `in`) | " + help
+	equatable := func(recv string) string {
+		return "no impl of `Equatable` for `P` (required via membership test `in`) | `" + recv + "`'s `Contains` impl requires `T: Equatable` | " + help
+	}
 	for name, tc := range map[string]struct {
 		src  string
 		want string
 		line int
 		col  int
 	}{
-		"a list":          {op + "fn f(p: P) -> Bool\n    p in [p]\nend", equatable, 6, 10},
-		"a vector":        {op + "fn f(p: P) -> Bool\n    p in Vector[p]\nend", equatable, 6, 10},
-		"a tuple element": {op + "fn f(p: P) -> Bool\n    (1, p) in [(1, p)]\nend", equatable, 6, 15},
+		"a list":          {op + "fn f(p: P) -> Bool\n    p in [p]\nend", equatable("List<T>"), 6, 10},
+		"a vector":        {op + "fn f(p: P) -> Bool\n    p in Vector[p]\nend", equatable("Vector<T>"), 6, 10},
+		"a tuple element": {op + "fn f(p: P) -> Bool\n    (1, p) in [(1, p)]\nend", equatable("List<T>"), 6, 15},
 		"the call it stands for": {op + "fn f(p: P) -> Bool\n    Contains.contains([p], p)\nend",
-			"no impl of `Equatable` for `P` (required via call site) | " + help, 6, 22},
+			"no impl of `Equatable` for `P` (required by the call `Contains.contains`) | `List<T>`'s `Contains` impl requires `T: Equatable` | " + help, 6, 22},
 		"a program's impl with a bound": {p + `struct Bag<T>
     items: List<T>
 end
@@ -194,7 +196,7 @@ end
 
 fn f(b: Bag<P>, p: P) -> Bool
     p in b
-end`, "no impl of `Comparable` for `P` (required via membership test `in`) | add `derive Comparable` to `P` or write an `impl Comparable for P` block", 16, 10},
+end`, "no impl of `Comparable` for `P` (required via membership test `in`) | `Bag<T>`'s `Contains` impl requires `T: Comparable` | add `derive Comparable` to `P` or write an `impl Comparable for P` block", 16, 10},
 	} {
 		fa, errs := checkSourceWithStdlib(tc.src + "\n")
 		errs = append(errs, analysis.FinalizeCoherence(fa)...)
@@ -242,6 +244,81 @@ func TestIn_AListOrVectorOfAStructWithNoImplsIsAccepted(t *testing.T) {
 		"a tuple element": p + "fn f(p: P) -> Bool\n    (1, p) in [(1, p)]\nend",
 		"the call":        p + "fn f(p: P) -> Bool\n    Contains.contains([p], p)\nend",
 		"List.contains":   p + "fn f(p: P) -> Bool\n    List.contains([p], p)\nend",
+	} {
+		if got := inErrors(t, src); len(got) != 0 {
+			t.Errorf("%s: unexpected errors:\n%s", name, strings.Join(got, "\n"))
+		}
+	}
+}
+
+// An element with no equality, a function, an Iter or a handle, or a
+// List, Option or tuple that holds one, is one error at the collection,
+// in the family `==` on it is: the element has no Equatable, and the help
+// names what it holds. List's impl of Equatable names no bound on its
+// element, so the impl tables alone admit a List of functions as an
+// element; the checker refuses it before the builder sees the test.
+func TestIn_AnElementWithNoEqualityIsOneError(t *testing.T) {
+	const inc = "fn inc(n: Int) -> Int\n    n + 1\nend\n\n"
+	fnHelp := "a function value has no equality"
+	holds := func(t string) string {
+		return "`" + t + "` holds `(Int) -> Int`, and a function value has no equality"
+	}
+	for name, tc := range map[string]struct {
+		src, want string
+		line, col int
+	}{
+		"a function in a list": {inc + "fn f() -> Bool\n    inc in [inc]\nend",
+			"no impl of `Equatable` for `(Int) -> Int` (required via membership test `in`) | " + fnHelp, 6, 12},
+		"a function in a vector": {inc + "fn f() -> Bool\n    inc in Vector[inc]\nend",
+			"no impl of `Equatable` for `(Int) -> Int` (required via membership test `in`) | " + fnHelp, 6, 12},
+		"a list of functions": {inc + "fn f() -> Bool\n    [inc] in [[inc]]\nend",
+			"no impl of `Equatable` for `List<(Int) -> Int>` (required via membership test `in`) | " + holds("List<(Int) -> Int>"), 6, 14},
+		"an option of a function": {inc + "fn f() -> Bool\n    Some(inc) in [Some(inc)]\nend",
+			"no impl of `Equatable` for `Option<(Int) -> Int>` (required via membership test `in`) | " + holds("Option<(Int) -> Int>"), 6, 18},
+		"a tuple holding a function": {inc + "fn f() -> Bool\n    (1, inc) in [(1, inc)]\nend",
+			"no impl of `Equatable` for `(Int, (Int) -> Int)` (required via membership test `in`) | " + holds("(Int, (Int) -> Int)"), 6, 17},
+		"an Iter": {"fn f(xs: List<Iter<Int>>, x: Iter<Int>) -> Bool\n    x in xs\nend",
+			"no impl of `Equatable` for `Iter<Int>` (required via membership test `in`) | an Iter has no equality", 2, 10},
+		"a handle": {"fn f(c: Context) -> Bool\n    c in [c]\nend",
+			"no impl of `Equatable` for `Context` (required via membership test `in`) | a handle to running state has no equality", 2, 10},
+	} {
+		fa, errs := checkSourceWithStdlib(tc.src + "\n")
+		errs = append(errs, analysis.FinalizeCoherence(fa)...)
+		var got []string
+		for _, e := range errs {
+			got = append(got, strings.Join(append([]string{e.Message}, e.Hints...), " | "))
+		}
+		if len(got) == 0 {
+			t.Errorf("%s: the front end accepts this; want %q", name, tc.want)
+			continue
+		}
+		if len(got) != 1 || got[0] != tc.want {
+			t.Errorf("%s: want the one error %q, got:\n%s", name, tc.want, strings.Join(got, "\n"))
+			continue
+		}
+		if errs[0].Line != tc.line || errs[0].Col != tc.col {
+			t.Errorf("%s: the error is at %d:%d, want %d:%d", name, errs[0].Line, errs[0].Col, tc.line, tc.col)
+		}
+	}
+}
+
+// A value held as an interface conjunction compares as `==` compares it,
+// by the value it holds (spec §5 *Equality bounds*), so it meets List's
+// and Vector's `T: Equatable` as a value held as one interface does.
+func TestIn_AConjunctionElementIsAccepted(t *testing.T) {
+	const decls = `interface Named
+    fn name(value: self) -> String
+end
+
+interface Tagged
+    fn tag(value: self) -> String
+end
+
+`
+	for name, src := range map[string]string{
+		"a list":        decls + "fn f(v: Named and Tagged) -> Bool\n    v in [v]\nend",
+		"a vector":      decls + "fn f(v: Named and Tagged) -> Bool\n    v in Vector[v]\nend",
+		"List.contains": decls + "fn f(v: Named and Tagged) -> Bool\n    List.contains([v], v)\nend",
 	} {
 		if got := inErrors(t, src); len(got) != 0 {
 			t.Errorf("%s: unexpected errors:\n%s", name, strings.Join(got, "\n"))

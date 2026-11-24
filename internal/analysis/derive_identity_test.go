@@ -2,6 +2,7 @@ package analysis_test
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
@@ -148,9 +149,11 @@ func expectDeriveClean(t *testing.T, errs []string) {
 }
 
 // derivesOnly requires errs to be exactly one diagnostic, at line:col,
-// saying want.
+// saying want. A diagnostic's related locations (its `note:` lines) are
+// part of it.
 func derivesOnly(t *testing.T, errs []string, line, col int, want string) {
 	t.Helper()
+	errs = slices.DeleteFunc(slices.Clone(errs), func(e string) bool { return strings.Contains(e, ": note: ") })
 	if len(errs) == 0 {
 		t.Fatalf("the program was accepted; want the error %q", want)
 	}
@@ -210,7 +213,8 @@ fn main() end
 }
 
 // A derive beside a hand-written impl of the same interface for the type
-// is the conflict, whichever spelling each names the interface by.
+// is the conflict, whichever spelling each names the interface by. It is
+// reported at the hand-written block's header.
 func TestDeriveIdentity_ADeriveBesideAHandWrittenImpl(t *testing.T) {
 	for _, c := range []struct{ name, imports, impl, derive string }{
 		{"same spelling", "import std::json.{Json, ToJson}", "ToJson", "ToJson"},
@@ -234,8 +238,8 @@ derive ` + c.derive + ` for User
 
 fn main() end
 `
-			line := strings.Count(src[:strings.Index(src, "    fn to_json")], "\n") + 1
-			derivesOnly(t, deriveCheck(t, src, nil), line, 8,
+			line := strings.Count(src[:strings.Index(src, "\nimpl ")], "\n") + 2
+			derivesOnly(t, deriveCheck(t, src, nil), line, 1,
 				"`derive ToJson for User` conflicts with a hand-written `impl ToJson for User` block — a derived impl is synthesized whole, so it cannot coexist with a manual impl; drop one")
 		})
 	}
@@ -253,7 +257,7 @@ end
 
 fn main() end
 `
-	derivesOnly(t, deriveCheck(t, src, nil), 8, 8,
+	derivesOnly(t, deriveCheck(t, src, nil), 7, 1,
 		"`derive Comparable for P` conflicts with a hand-written `impl Comparable for P` block — a derived impl is synthesized whole, so it cannot coexist with a manual impl; drop one")
 }
 

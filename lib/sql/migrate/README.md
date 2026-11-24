@@ -10,6 +10,10 @@ is fixed by a new migration.
 nomi add github.com/nomi-language/nomi/lib/sql/migrate
 ```
 
+A release `nomi` adds it with that command; before the first release, or with a
+`nomi` built from source, add it by its directory in a checkout of the
+repository: `nomi add ../nomi/lib/sql/migrate`.
+
 Then `nomi tool migrate up` applies a project's migrations from the
 command line ([The tool](#the-tool)), and `migrate.up` applies them from
 the program:
@@ -131,9 +135,8 @@ number, or when a migration has no leading number.
 
 ## Tests
 
-`nomi test lib/sql/migrate` runs each case on SQLite in memory and on a
+`nomi test` in this directory runs each case on SQLite in memory and on a
 database on `postgres.scratch()`'s throwaway server, and runs two processes
 at once against Postgres to check the lock. The Postgres cases need
 `initdb` and `postgres` on `PATH`. Without them they fail, since a Nomi
-test cannot skip itself; `TestLibModules` (`cmd/nomi`) skips this module
-instead.
+test cannot skip itself.

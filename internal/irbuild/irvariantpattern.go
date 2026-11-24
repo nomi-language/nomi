@@ -162,18 +162,12 @@ func (bl *irScalarBuilder) irSlotlessValue(at ast.Node, k kind) ir.Temp {
 	return c.Dst()
 }
 
-// variantPayload reads v's single payload off subj. A
-// zero-sized embedded marker has no slot and is reconstructed from its type.
+// variantPayload reads v's single payload off subj. A payload with no slot,
+// Unit or a marker, embedded or not, is made from its type.
 func (bl *irScalarBuilder) variantPayload(at ast.Node, subj ir.Temp, d *typeDef, v *variantDef) ir.Temp {
 	part := v.payloads[0]
-	if part.slot < 0 && v.kind != "embedded" && irSlotlessPayload(part.k) {
-		return bl.irSlotlessValue(at, part.k)
-	}
 	if part.slot < 0 {
-		c := ir.NewMarker(bl.g.irNodePos(at), bl.f.NewTemp(), bl.g.irTypeSym(v.embeds))
-		bl.b.Append(c)
-		bl.side(c.Dst(), irScalarSide{k: part.k})
-		return c.Dst()
+		return bl.irSlotlessValue(at, part.k)
 	}
 	var projection *ir.Proj
 	if v.kind == "embedded" {

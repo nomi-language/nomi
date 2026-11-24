@@ -68,7 +68,7 @@ so no two write one file. The migrations and the query files are the `.sql`
 files directly in their directories.
 
 The table is named by the key your `[dependencies]` gives sqlkit, `sqlkit`
-above. A project that names it `db = { module = ".../sqlkit", ... }` writes
+above. A project that names it `db = { repo = "...", subdir = "lib/sql/sqlkit", ... }` writes
 `[db.database.main]` and runs `nomi tool db generate`, and the generated
 code imports sqlkit's files through that name: `db::sqlkit`, which it uses
 as `sqlkit`, and `db::runtime`.
@@ -471,7 +471,8 @@ runs it needs a server and the variable too; with the variable unset,
 
 The generated code runs on a `Conn` from the
 [Postgres driver](../postgres), which a project adds with `nomi add
-github.com/nomi-language/nomi/lib/sql/postgres`, and the SQL it sends
+github.com/nomi-language/nomi/lib/sql/postgres` (before the first release,
+by its directory in a checkout), and the SQL it sends
 binds `$1`, `$2`, .... A test gets a fresh database from the driver's
 throwaway server, `postgres.connect(postgres.scratch()?)?`, and
 `sqlkit.migrate` builds the schema there as it does on SQLite.

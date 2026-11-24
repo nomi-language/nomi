@@ -300,7 +300,7 @@ func resolveTypeExprNode(te ast.TypeExpr, reg *TypeRegistry, typeParams map[stri
 				return tp, nil
 			}
 		}
-		return nil, TypeError{Line: n.Line, Col: n.Col, Message: "self is only valid in interface definitions"}
+		return nil, TypeError{Line: n.Line, Col: n.Col, Message: "`self` is a type only in an interface's signatures"}
 
 	case *ast.AnonStructType:
 		// Resolve each field's type recursively. Field names propagate as-is.

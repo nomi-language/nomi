@@ -79,13 +79,13 @@ end
 		want      []string
 	}{
 		{"a module-qualified call", showUser("    a\n    b\n", "", `    io.print(b.Show.show(u))`),
-			[]string{"no impl of `b.Show` for `User` (required via call site)", "write an `impl b.Show for User` block"}},
+			[]string{"no impl of `b.Show` for `User` (required by the call `b.Show.show`)", "write an `impl b.Show for User` block"}},
 		{"a bare call of a selectively imported interface", showUser("    a\n    b.{Show}\n", "", `    io.print(Show.show(u))`),
-			[]string{"no impl of `b.Show` for `User` (required via call site)", "write an `impl b.Show for User` block"}},
+			[]string{"no impl of `b.Show` for `User` (required by the call `Show.show`)", "write an `impl b.Show for User` block"}},
 		{"a bare call of the file's own interface", showUser("    a\n", "\ninterface Show\n    fn show(value: self) -> String\nend\n", `    io.print(Show.show(u))`),
-			[]string{"no impl of `Show` for `User` (required via call site)", "write an `impl Show for User` block"}},
+			[]string{"no impl of `Show` for `User` (required by the call `Show.show`)", "write an `impl Show for User` block"}},
 		{"a pipe", showUser("    a\n    b\n", "", `    io.print(u |> b.Show.show())`),
-			[]string{"no impl of `b.Show` for `User` (required via call site)"}},
+			[]string{"no impl of `b.Show` for `User` (required by the call `b.Show.show`)"}},
 		{"a call through a bound of another Show", showUser("    a\n    b\n", "\nfn render<T>(x: T) -> String where T: a.Show\n    b.Show.show(x)\nend\n", `    io.print(render(u))`),
 			[]string{"`x` is a `T`, and `render` does not require b.Show of `T`"}},
 		{"a bound", showUser("    a\n    b\n", "\nfn render<T>(x: T) -> String where T: b.Show\n    b.Show.show(x)\nend\n", `    io.print(render(u))`),
@@ -111,7 +111,7 @@ end
 fn main()
     io.print(ToJson.to_json(User{name: "ann"}))
 end
-`, []string{"no impl of `ToJson` for `User` (required via call site)", "write an `impl ToJson for User` block"}},
+`, []string{"no impl of `ToJson` for `User` (required by the call `ToJson.to_json`)", "write an `impl ToJson for User` block"}},
 		{"a bound of the file's own ToJson, with std's implemented", `import
     std::io
     std::json
@@ -161,7 +161,7 @@ fn main()
 
     io.print(Show.show(User{name: "ann"}))
 end
-`, []string{"no impl of `Show` for `User` (required via call site)", "`Show` is declared inside a body, where no impl can name it; declare it at module level to write an `impl Show for User` block"}},
+`, []string{"no impl of `Show` for `User` (required by the call `Show.show`)", "`Show` is declared inside a body, where no impl can name it; declare it at module level to write an `impl Show for User` block"}},
 		{"a body interface's bound", `import std::io
 
 interface Show
@@ -557,15 +557,15 @@ func TestMissingImpl_AGenericInterfaceHelpNamesItsParameters(t *testing.T) {
 		want      []string
 	}{
 		{"a call of one parameter", program("", genericInterfaces, "    dbg Scale.scale(Other{x: 1}, 2)\n"), nil,
-			[]string{"no impl of `Scale` for `Other` (required via call site) | write an `impl Scale<N> for Other` block"}},
+			[]string{"no impl of `Scale` for `Other` (required by the call `Scale.scale`) | write an `impl Scale<N> for Other` block"}},
 		{"a call of two parameters", program("", genericInterfaces, "    dbg Pair.pair(Other{x: 1}, 2)\n"), nil,
-			[]string{"no impl of `Pair` for `Other` (required via call site) | write an `impl Pair<A, B> for Other` block"}},
+			[]string{"no impl of `Pair` for `Other` (required by the call `Pair.pair`) | write an `impl Pair<A, B> for Other` block"}},
 		{"a call of one parameter through another file", program("import\n    scale\nend\n", "", "    dbg scale.Scale.scale(Other{x: 1}, 2)\n"),
 			map[string]string{"scale.nomi": genericInterfaces},
-			[]string{"no impl of `Scale` for `Other` (required via call site) | write an `impl Scale<N> for Other` block"}},
+			[]string{"no impl of `Scale` for `Other` (required by the call `scale.Scale.scale`) | write an `impl Scale<N> for Other` block"}},
 		{"a call of two parameters through another file", program("import\n    scale.{Pair}\nend\n", "", "    dbg Pair.pair(Other{x: 1}, 2)\n"),
 			map[string]string{"scale.nomi": genericInterfaces},
-			[]string{"no impl of `Pair` for `Other` (required via call site) | write an `impl Pair<A, B> for Other` block"}},
+			[]string{"no impl of `Pair` for `Other` (required by the call `Pair.pair`) | write an `impl Pair<A, B> for Other` block"}},
 		{"a bound", program("", genericInterfaces+twice, "    dbg twice(Other{x: 1})\n"), nil,
 			[]string{"Other does not implement Scale<Int> (required by `where T: Scale<Int>`) | write an `impl Scale<Int> for Other` block with `fn scale(x: Other, by: Int) -> Other`"}},
 		{"a bound through another file", program("import\n    scale.{Scale}\nend\n", twice, "    dbg twice(Other{x: 1})\n"),

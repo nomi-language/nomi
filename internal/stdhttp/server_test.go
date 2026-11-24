@@ -90,7 +90,7 @@ end
 func TestServer_AnswersWithAHandler(t *testing.T) {
 	got := run(t, serverProgram)
 	want := []string{
-		"200 hello Go-http-client/1.1",
+		"200 hello nomi",
 		"201 POST hi",
 		"200 data: one\ndata: two",
 		"200 True True",

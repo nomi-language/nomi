@@ -18,12 +18,13 @@
 //#
 //# `mail.smtp` is a mailer for any SMTP server: a provider's relay
 //# (Mailgun, Postmark, SES), a company relay, or a local catcher such as
-//# Mailpit. Boot code makes one:
+//# Mailpit. Boot code makes one, with the password in a std::secret
+//# `Secret`, which `Debug` and a log line show as `Secret(<hidden>)`:
 //#
 //# ```nomi
 //# mailer = mail.smtp(SmtpConfig{
 //#     host:        "smtp.mailgun.org",
-//#     credentials: Some(Credentials{username: login, password: secret}),
+//#     credentials: Some(Credentials{username: login, password: Secret.new(password)}),
 //# })
 //# ```
 //#
@@ -58,6 +59,7 @@ import
     option.Option.{self, None, Some}
     random
     results.Result.{self, Err, Ok}
+    secret.Secret
     strings.String
     tls.{self, ClientConfig}
     unit.Unit
@@ -399,10 +401,17 @@ end
 
 derive Equatable for Security
 
-/// A username and password for SMTP AUTH.
+/// A username and password for SMTP AUTH. The password is a `Secret`, so
+/// `Debug` shows `Secret(<hidden>)` in its place.
+//! import std::debug.Debug
+//!
+//! credentials = Credentials{username: "u", password: Secret.new("hunter2")}
+//!
+//! assert Debug.inspect(credentials) == "Credentials{username: \"u\", password: Secret(<hidden>)}"
+//
 pub struct Credentials
     username: String
-    password: String
+    password: Secret
 end
 
 /// Where an SMTP server is and how to reach it.
@@ -443,7 +452,7 @@ end
 //! }
 //!
 //! rejected = {..message, to: [Address.new("reject-me@example.com")?]}
-//! credentials = Credentials{username: "u", password: "p"}
+//! credentials = Credentials{username: "u", password: Secret.new("p")}
 //!
 //! answers = with_smtp_server(fn server ->
 //!     config = SmtpServer.config(server)
@@ -467,7 +476,11 @@ end
 //!
 //! wrong = with_smtp_server(starttls: True, credentials: Some(credentials), fn server ->
 //!     config = SmtpServer.config(server)
-//!     Mailer.send(smtp({..config, credentials: Some({..credentials, password: "x"})}), message)
+//!
+//!     Mailer.send(
+//!         smtp({..config, credentials: Some({..credentials, password: Secret.new("x")})}),
+//!         message,
+//!     )
 //! end)
 //!
 //! assert Err(Error.Rejected{command: "AUTH PLAIN", code: 535, reply: _}) = wrong
@@ -658,7 +671,7 @@ fn authenticate(
         |> Option.with_default([])
 
     user = String.to_bytes(credentials.username)
-    password = String.to_bytes(credentials.password)
+    password = String.to_bytes(Secret.expose(credentials.password))
 
     if Iter.contains(mechanisms, "PLAIN") then
         zero = Bytes.from_list([0])
@@ -1044,8 +1057,8 @@ end
 
 /// `text` as quoted-printable: printable ASCII as it is, every other byte
 /// of its UTF-8 as `=XX`, each line break as CRLF, whitespace that ends a
-/// line encoded, and no line longer than 76 characters. It is Go's
-/// `quotedprintable.Writer`.
+/// line encoded, and no line longer than 76 characters: a longer one is
+/// broken with `=` and a line break, which a reader removes (RFC 2045).
 //! assert quoted_printable("a=b ö") == "a=3Db =C3=B6"
 //! assert quoted_printable("end \nnext") == "end=20\r\nnext"
 //! assert quoted_printable(String.repeat("x", 80)) == "${String.repeat("x", 75)}=\r\nxxxxx"

@@ -1,9 +1,8 @@
 /.worktrees/
 /scratch
 
-# Local builds of the CLI and language server (`go build -o nomi ./cmd/nomi`).
+# The local build of the CLI (`go build -o nomi ./cmd/nomi`).
 /nomi
-/nomi-lsp
 
 # scripts/release.sh output: per-platform archives and their checksum manifest.
 /dist

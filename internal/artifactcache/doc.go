@@ -36,14 +36,23 @@
 //     std bundle, when a build writes its own entry.
 //   - artifacts/programs: internal/progcache, at most once an hour, when
 //     it writes a record.
+//   - artifacts/wasm: internal/stdwasm's compiled WebAssembly modules, at
+//     most once a day, when a module compiles.
 //   - builds/ (os.UserCacheDir()/nomi/builds, or NOMI_RUNNER_CACHE_ROOT):
 //     internal/runners' runner builds, whose eviction (internal/runners) adds this rule to its own,
 //     once a day or when the count is over its bound.
+//   - builds/nomi-vm: internal/runners' runners a release unpacks or
+//     downloads, one directory per release, at most once a day, when a
+//     release answers a runner.
 //   - ~/.cache/nomi/std (or NOMI_STD_CACHE_ROOT/std): internal/stdcache's
 //     std sources, once per language server.
+//   - modules/ (or NOMI_MODULE_CACHE): the repositories internal/modfetch
+//     extracts, each `<path>@<tag>` at any depth under its host, which a
+//     resolve that finds it marks used, at most once a day when a fetch
+//     runs (modcache.Prune, which uses Expired).
 //
 // A test process runs the same code over os.TempDir()/nomi-test-cache, and
 // internal/parser's tree-sitter tests keep a compiled grammar per checkout
-// under os.TempDir()/nomi-tree-sitter-lib by the same rule.
-// Go's module cache is not pruned by age: it is Go's.
+// under os.TempDir()/nomi-tree-sitter-lib by the same rule. A test's
+// module cache is the NOMI_MODULE_CACHE it sets.
 package artifactcache

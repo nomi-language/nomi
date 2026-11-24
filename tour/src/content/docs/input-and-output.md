@@ -1,6 +1,6 @@
 ---
 title: "Input & Output"
-description: "Print to standard output and standard error, read input, read the arguments and environment, exit with a status, and run other programs."
+description: "Print to standard output and standard error, read input, read the arguments and environment, exit with a status, run other programs, and read keys from the terminal."
 ---
 
 A program talks to the world outside it through [`std::io`](/reference/io/)
@@ -243,5 +243,29 @@ build step would. `process.spawn(command)` starts the program and returns
 it as a `Child`, whose input you write and whose output you read as it
 goes. `defer Child.kill(child)` on the next line kills it if it is still
 running when the function ends.
+
+## The terminal
+
+`io.is_terminal(.Stdout)` says whether a person is watching the output
+rather than a pipe or a file, which decides whether to draw a progress bar.
+[`std::terminal`](/reference/terminal/) has the rest for interactive
+programs: the window's size, a password read without echo, and raw mode, in
+which each key reaches the program as it is pressed:
+
+```nomi
+raw = terminal.raw_mode()?
+
+defer RawMode.restore(raw)
+
+case terminal.read_key()?
+    .Char('q') -> Ok(Unit)
+    key        -> handle(key)
+end
+```
+
+Raw mode is released as a file is, with `defer`, and the runtime also puts
+the terminal back when the program is interrupted, so a program stopped with
+Ctrl-C does not leave the shell broken. On this page and in a test nothing is
+a terminal, so `terminal.raw_mode()` is `Err(Error.NotATerminal)`.
 
 [Concurrency](/concurrency/) is next. It runs several tasks at once.

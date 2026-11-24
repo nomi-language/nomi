@@ -1,46 +1,83 @@
-//# State one task owns, changed by the messages it receives: the tour's
-//# counter server as a helper. `Actor.start(supervisor, state, handle)`
-//# starts a task under the supervisor that folds each message into its
-//# state with `handle`, one message at a time, so nothing else touches the
-//# state and no locks are needed. Its inbox holds 64 messages unless the
-//# call gives another size (`inbox: 256`).
+//# State one task owns, changed by the messages it receives.
+//# `Actor.start(supervisor, state, handle)` starts a task under the
+//# supervisor that folds each message into its state with `handle`, one
+//# message at a time, so nothing else touches the state and no locks are
+//# needed. Its inbox holds 64 messages unless the call gives another size
+//# (`inbox: 256`).
 //#
 //# `Actor.cast` sends a message and returns at once. `Actor.call` sends a
 //# message that carries a `Reply`, which the handler replies to with
 //# `Reply.send`, and waits for the reply up to a timeout, five seconds
-//# unless the call gives another (`timeout: Duration.seconds(1)`). A message type
-//# is an enum, and a variant that expects a reply holds the `Reply` for
-//# it, so each kind of call has its own reply type:
+//# unless the call gives another (`timeout: Duration.seconds(1)`). A
+//# message type is an enum, and a variant that expects a reply holds the
+//# `Reply` for it, so each kind of call has its own reply type. An account
+//# takes a deposit, a withdrawal it may refuse, and a question:
 //#
 //# ```nomi
-//# enum Counter
-//#     Add Int
-//#     Get {reply: Reply<Int>}
+//# enum Account
+//#     Deposit Int
+//#     Withdraw {amount: Int, reply: Reply<Bool>}
+//#     Balance {reply: Reply<Int>}
 //# end
 //#
-//# counter = Actor.start(App.workers, 0, fn count, message ->
+//# account = Actor.start(App.workers, 0, fn balance, message: Account ->
 //#     case message
-//#         .Add(n) ->
-//#             count + n
+//#         .Deposit(n) ->
+//#             balance + n
 //#
-//#         .Get{reply:} ->
-//#             Reply.send(reply, count)
-//#             count
+//#         .Withdraw{amount:, reply:} ->
+//#             Reply.send(reply, amount <= balance)
+//#             if amount <= balance then balance - amount else balance
+//#
+//#         .Balance{reply:} ->
+//#             Reply.send(reply, balance)
+//#             balance
 //#     end
 //# end)
 //#
-//# _ = Actor.cast(counter, .Add(2))
+//# _ = Actor.cast(account, .Deposit(50))
 //#
-//# n = Actor.call(counter, fn reply -> .Get{reply:})?
+//# paid = Actor.call(account, fn reply -> .Withdraw{amount: 20, reply:})?
+//#
+//# left = Actor.call(account, fn reply -> .Balance{reply:})?
 //# ```
 //#
 //# Messages are handled in the order they are sent. A handler that traps
 //# stops the task, and the supervisor's restart rule decides whether it
-//# starts again, from the initial state. `Actor.stop` closes the inbox: the
-//# task handles what is already queued and ends. Start an actor you stop
-//# under a `Restart.Transient` supervisor, which restarts it after a
-//# failure and lets a stop end it; `Restart.Permanent` would start it again
-//# on its closed inbox.
+//# starts again, from the initial state. A caller waiting on the message
+//# the handler trapped on gets `Err(Crashed)` at once, and the messages
+//# still queued wait for the task to start again. A handler that returns
+//# without calling `Reply.send` leaves its caller waiting until the
+//# timeout, and the caller gets `Err(TimedOut)`.
+//#
+//# `Actor.stop` closes the inbox: the task handles what is already queued
+//# and ends. Start an actor you stop under a `Restart.Transient`
+//# supervisor, which restarts it after a failure and lets a stop end it;
+//# `Restart.Permanent` would start it again on its closed inbox.
+//#
+//# ## Agents
+//#
+//# An `Agent` is an actor whose messages are functions on its state, for a
+//# value with no protocol of its own, such as a counter or a cache. It needs
+//# no message enum and no handler. `Agent.update` and `Agent.cast` change the
+//# state, `Agent.get` reads it, and `Agent.get_and_update` does both in one
+//# step:
+//#
+//# ```nomi
+//# ids = Agent.start(App.workers, 0)
+//#
+//# _ = Agent.update(ids, fn n -> n + 10)
+//#
+//# id = Agent.get_and_update(ids, fn n -> (n, n + 1))?
+//#
+//# next = Agent.get(ids, fn n -> n)?
+//# ```
+//#
+//# Use an `Agent` when every message is a change to one value. Use an
+//# `Actor` when its messages mean different things, or when the task does
+//# work between them. An agent starts, stops and crashes as an actor does:
+//# a change that traps answers its caller `Err(Crashed)`, and the agent
+//# starts again with the state it was started with, not the last one.
 
 import
     channels.{Channel, Receiver, Sender}
@@ -58,7 +95,14 @@ end
 
 /// A running actor that takes messages of type `M`.
 pub opaque struct Actor<M>
-    inbox: Channel<M>
+    inbox: Channel<Letter<M>>
+end
+
+// A message on an actor's inbox, with what tells its caller that the
+// handler trapped on it: a call's closes the reply, a cast's does nothing.
+struct Letter<M>
+    message: M
+    abandon: () -> Unit
 end
 
 /// The way back to a caller waiting in `Actor.call`: the handler answers
@@ -73,17 +117,21 @@ pub enum CallError
     TimedOut
     /// The actor has stopped, so the message was not delivered.
     Stopped
+    /// The handler trapped on the message, so no reply will come.
+    Crashed
 end
 
 derive Equatable for CallError
 
 impl Display for CallError
     //! assert "${CallError.TimedOut}" == "the actor did not answer in time"
+    //! assert "${CallError.Crashed}" == "the actor crashed handling the message"
     //
     fn to_string(error: CallError) -> String
         case error
             .TimedOut -> "the actor did not answer in time"
             .Stopped  -> "the actor has stopped"
+            .Crashed  -> "the actor crashed handling the message"
         end
     end
 end
@@ -100,7 +148,7 @@ impl Actor<M>
         inbox:      PositiveInt = 64,
         handle:     (S, M) -> S,
     ) -> Actor<M>
-        inbox = Channel.buffered<M>(inbox)
+        inbox = Channel.buffered<Letter<M>>(inbox)
         // The actor ends when the program starts shutting down, so the
         // drain need not wait out its grace period for an idle actor.
         Sender.close_on_drain(inbox.sender)
@@ -111,29 +159,37 @@ impl Actor<M>
     /// Sends `message` and returns once it is queued; `Err(Stopped)` when
     /// the actor has stopped.
     pub fn cast(actor: Actor<M>, message: M) -> Result<Unit, CallError>
-        Sender.send(actor.inbox.sender, message) |> Result.map_err(fn _ -> CallError.Stopped)
+        Sender.send(actor.inbox.sender, Letter{message:, abandon: fn -> Unit})
+        |> Result.map_err(fn _ -> CallError.Stopped)
     end
 
     /// Sends the message `message` builds around a fresh `Reply`, and waits
     /// up to `timeout`, five seconds unless the call says otherwise, for the
-    /// handler's `Reply.send`: `Err(TimedOut)` when no reply comes in time,
-    /// `Err(Stopped)` when the actor has stopped.
+    /// handler's `Reply.send`: `Err(Crashed)` as soon as the handler traps
+    /// on the message, `Err(TimedOut)` when no reply comes in time, and
+    /// `Err(Stopped)` when the actor has stopped. A handler that returns
+    /// without replying leaves the call waiting out its timeout.
     pub fn call<R>(
         actor:   Actor<M>,
         timeout: Duration = Duration.seconds(5),
         message: (Reply<R>) -> M,
     ) -> Result<R, CallError>
         answer = Channel.buffered<R>(1)
-        sent = Sender.send(actor.inbox.sender, message(Reply{sender: answer.sender}))
 
-        case sent
+        letter = Letter{
+            message: message(Reply{sender: answer.sender}),
+            abandon: fn -> Sender.close(answer.sender),
+        }
+
+        case Sender.send(actor.inbox.sender, letter)
             Err(_) ->
                 Err(CallError.Stopped)
 
             Ok(_) ->
+                // Only the handler's trap closes the reply channel.
                 case Receiver.receive_within(answer.receiver, timeout)
                     Ok(Some(value)) -> Ok(value)
-                    Ok(None)        -> Err(CallError.Stopped)
+                    Ok(None)        -> Err(CallError.Crashed)
                     Err(_)          -> Err(CallError.TimedOut)
                 end
         end
@@ -154,11 +210,112 @@ impl Reply<R>
     end
 end
 
-fn serve<S, M>(inbox: Receiver<M>, state: S, handle: (S, M) -> S) -> Unit
+/// A running agent that holds a value of type `T`: an actor whose
+/// messages are the changes to make to it.
+pub opaque struct Agent<T>
+    actor: Actor<(T) -> T>
+end
+
+impl Agent<T>
+    /// Starts an actor under `supervisor` that holds `state`, whose messages
+    /// are functions from the state to the next one. The inbox holds `inbox`
+    /// messages, 64 unless the call says otherwise; a call or cast waits
+    /// while it is full. Called during `boot`, where a program builds its
+    /// supervisors.
+    pub fn start(supervisor: Supervisor, state: T, inbox: PositiveInt = 64) -> Agent<T>
+        Agent{actor: Actor.start(supervisor, state, inbox, apply)}
+    end
+
+    /// Asks for the agent's state and returns what `read` makes of it. The
+    /// state is the one the agent holds when it takes the call, after every
+    /// change sent before it. `read` runs in the caller on the value the
+    /// agent answered with, since a value never changes, so a slow `read`
+    /// holds up no other caller. `Err(TimedOut)` when no answer comes
+    /// within `timeout`, five seconds unless the call says otherwise, and
+    /// `Err(Stopped)` when the agent has stopped.
+    pub fn get<R>(
+        agent:   Agent<T>,
+        timeout: Duration = Duration.seconds(5),
+        read:    (T) -> R,
+    ) -> Result<R, CallError>
+        exchange(agent, timeout, fn state -> (state, state)) |> Result.map(read)
+    end
+
+    /// Replaces the agent's state with `change` of it, and returns once
+    /// `change` has run. `change` runs in the agent, one change at a time,
+    /// each on the state the one before it left. A `change` that traps
+    /// crashes the agent: the call returns `Err(Crashed)` at once, and the
+    /// agent starts again, by its supervisor's restart rule, with the state
+    /// it was started with. `Err(TimedOut)` when `change` has not run within
+    /// `timeout`, five seconds unless the call says otherwise, and
+    /// `Err(Stopped)` when the agent has stopped.
+    pub fn update(
+        agent:   Agent<T>,
+        timeout: Duration = Duration.seconds(5),
+        change:  (T) -> T,
+    ) -> Result<Unit, CallError>
+        exchange(agent, timeout, fn state -> (Unit, change(state)))
+    end
+
+    /// Runs `change` on the agent's state in one step: the first part of its
+    /// result goes back to the caller and the second is the next state. For
+    /// taking the next id, or a value and its removal together. It runs in
+    /// the agent and fails as `Agent.update` does.
+    pub fn get_and_update<R>(
+        agent:   Agent<T>,
+        timeout: Duration = Duration.seconds(5),
+        change:  (T) -> (R, T),
+    ) -> Result<R, CallError>
+        exchange(agent, timeout, change)
+    end
+
+    /// Sends `change` and returns once it is queued, without waiting for it
+    /// to run; `Err(Stopped)` when the agent has stopped. It runs in the
+    /// agent after the changes sent before it. A `change` that traps crashes
+    /// the agent, which starts again with the state it was started with.
+    pub fn cast(agent: Agent<T>, change: (T) -> T) -> Result<Unit, CallError>
+        Actor.cast(agent.actor, change)
+    end
+
+    /// Closes the agent's inbox. The agent runs the changes already queued
+    /// and ends; a later call or cast returns `Err(Stopped)`.
+    pub fn stop(agent: Agent<T>) -> Unit
+        Actor.stop(agent.actor)
+    end
+end
+
+// An agent's handler: each message is the change to make.
+fn apply<T>(state: T, change: (T) -> T) -> T
+    change(state)
+end
+
+// Sends `change` to run in the agent, and waits for the part of its result
+// that goes back to the caller.
+fn exchange<T, R>(agent: Agent<T>, timeout: Duration, change: (T) -> (R, T)) -> Result<R, CallError>
+    Actor.call(agent.actor, timeout, fn reply -> answering(reply, change))
+end
+
+// The message a call sends: it runs `change`, replies with the first part
+// of its result and keeps the second as the state. The reply's type is
+// inside the closure, so every call's message is a `(T) -> T`.
+fn answering<T, R>(reply: Reply<R>, change: (T) -> (R, T)) -> (T) -> T
+    fn state ->
+        (answer, next) = change(state)
+        Reply.send(reply, answer)
+        next
+    end
+end
+
+fn serve<S, M>(inbox: Receiver<Letter<M>>, state: S, handle: (S, M) -> S) -> Unit
     _final = Iter.loop(state, fn current ->
         case Receiver.receive(inbox)
-            Some(message) -> handle(current, message)
-            None          -> break current
+            Some(Letter{message:, abandon:}) ->
+                // A trap in the handler ends the task; its caller hears now.
+                defer on error abandon()
+                handle(current, message)
+
+            None ->
+                break current
         end
     end)
 end

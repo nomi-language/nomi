@@ -99,6 +99,11 @@ fn discard_binding() -> Int
     0
 end
 
+fn discard_lambda(xs: List<Int>)
+    Iter.each(xs, fn x -> _ = add(x, 1))
+    //                    ^ comment
+end
+
 fn wildcard_binding(pair: (Int, Int)) -> Int
     (i, _) = pair
     //  ^ comment

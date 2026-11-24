@@ -335,12 +335,17 @@
 //     ResultOwnership (memoized in ownTable, each component of mutually
 //     recursive functions iterated to a fixpoint) tells the caller its
 //     result is fresh, so `s = step(s)` keeps s owned round a loop.
-//   - An `Iter.reduce` or `Iter.map_reduce` whose seed the activation
-//     owns and hands over (ir.Ownership.Folds) calls its lambda through
-//     invokeOwned with the accumulator's bits set, and sets them again for
-//     each answer the lambda's own ResultOwnership says is fresh under
-//     what it was given, so a fold threads one vector or struct through
-//     every step in place. Every other callback enters with an empty mask.
+//   - An `Iter.reduce` or `Iter.map_reduce` whose step is a lambda the
+//     function builds or a function it names (ir.Ownership.Folds) calls
+//     the step through invokeOwned with the accumulator's bits set when
+//     the activation owns and hands over the seed, and sets them for each
+//     answer the step's own ResultOwnership says is fresh under what it
+//     was given, so a fold threads one vector or struct through every step
+//     in place, from its second step when the seed was borrowed. Every
+//     other callback enters with an empty mask. A fold's steps share one
+//     register stack it holds for its run (iterCaller.holding), so the
+//     machine view a crossing in a step is handed (boundAt) is made once,
+//     and a push in a step costs what it costs in a tail call.
 //   - `Vector.set`, `Vector.push`, `Map.put`, `Map.remove`, `Set.insert`
 //     and `Set.remove` at a site whose receiver is owned and dies there
 //     bind an in-place form beside the intrinsic (hostCall.inPlace), which
@@ -349,7 +354,11 @@
 //     on each header, map root and node, so the operation writes the nodes
 //     its value's lineage stamped and copies any other once. A set, or a
 //     put over a key the map has, answers the operand's own box, so it
-//     allocates nothing. `Vector.set` answers an Option; the vector a `!` or
+//     allocates nothing. Where the activation does not own the receiver
+//     the operation copies it, and the copy is the activation's own
+//     (ir.Callees.Builds; a remove of a missing key answers its receiver
+//     and is the exception), so a borrowed collection is copied by its
+//     first update and written in place from then on. `Vector.set` answers an Option; the vector a `!` or
 //     a `Some` pattern reads out of it is owned as the Option is (ir package
 //     doc, "Updates written in place"), so the next set writes it too. The lookups (`Vector.get`, `Map.size`, the
 //     others in borrowingHosts) keep nothing of their operands, so they do
@@ -373,12 +382,28 @@
 // # Interface dispatch and boxes
 //
 // A dispatched call selects an impl body by the runtime type name of its
-// declared `self` operand (dispatch.go). A value whose runtime type names no
+// declared `self` operand (dispatch.go). The instances of a generic struct,
+// enum or distinct type share that name, so the descriptor a value is built
+// with also carries its type's ir.ValType.InstanceKey, its name and type
+// arguments (rt.TypeDesc.Inst, `main.Wrap<Int>`), and a dispatch, an erased
+// Display or Debug rendering, and a Map key's or Set element's Equatable
+// and Hashable select the body recorded under that key before the one
+// recorded under the name (implOf). A value whose runtime type names no
 // impl (a std container, a value widened into an `embeds` variant) is boxed
 // where it becomes an interface value (rt/boxed.go): the box names the
 // static type, dispatch selects by that name and opens the box for a body
 // that takes the concrete type, and hashing and rendering otherwise see
-// through it. A std type that is no container and enters std's `Display` or
+// through it. A rendering by shape (rt.DebugText, rt.DisplayShapeText)
+// asks its hook at each position of the value, and the hook (renderHook)
+// follows the operand's static ValType down the same steps, so a part
+// renders through the body the rendering names for its position's static
+// type, and by its run-time type only where the position states no
+// declared type: a value of an `embeds` enum renders through the enum's
+// impl where its position is the enum's. A container, tuple or record that
+// holds such a position enters std's Display or Debug boxed, and a declared
+// type whose Display or Debug is its shape and holds one names a thunk at
+// its type, so an interface value of either renders by its static type too
+// (irbuild's irShapeHoldsBoxedEnum, heldDebugImpls, irRecordDisplayImpls). A std type that is no container and enters std's `Display` or
 // `Debug` without its own erased rendering (`d: Display = 'c'`, a
 // `Duration`, a `Date`, a `Byte` as `Debug`) is boxed too: the `Display`
 // box names a thunk whose body is the direct call `Display.to_string(v)`,
@@ -470,8 +495,19 @@
 // every body only where the type does not bound what it holds (an
 // interface value, an erased position, a layout not stated, an Iter
 // rendered). A rendering's Debug bodies are the list the builder attached
-// to it, and an assertion's row reaches the hand-written Debug bodies of
-// the declared types its values are or hold, as a Display rendering does.
+// to it. A failed test's report renders a value through one function,
+// rowText, which runs the hand-written Debug body of each declared type
+// the value is or holds, found and called by renderHook as a Debug
+// rendering's held bodies are (a box selects the body by its name and
+// passes the value inside, and a host handle, a Regex, by its TypeName,
+// which is its type's symbol name): an assertion's `values:` rows, a
+// subtest's row,
+// and the `returned:` block of a case a `?` or its group's boot ended
+// early (returnedText, on a frame detached from the case's activation).
+// So an assertion reaches the hand-written Debug bodies of the declared
+// types its values are or hold, as a Display rendering does, and a `?` and
+// a boot's result those of the types their `Err` payload holds
+// (returnedHeld).
 // On a machine Extend extended (the REPL's) a rendering also reaches the
 // hand-written Debug body the machine holds for a type its list names no
 // body for, which a later input wrote (debugImplHook); the walk does not
@@ -500,8 +536,10 @@
 //
 // [Machine.ReachCase] is the walk from one test case that `nomi test` takes
 // before running it (casereach.go): what it reaches that the machine cannot
-// run, the effects its code can have in Effects' sense, and the code itself
-// as parts, each reached function by key with its sum without positions
+// run, the effects its code can have in Effects' sense, the seeded hashes
+// it can read (a case that reads one may answer otherwise in another
+// process, so CaseReach.Pure counts it with the effects), and the code
+// itself as parts, each reached function by key with its sum without positions
 // (ir.BodySum) and the lines of its assertions whose failure the program
 // reads as a value. vmhost's stored passes fingerprint a case by its parts.
 // Since the walk is a superset of what a run enters, a part a run could
@@ -530,7 +568,21 @@
 // interrupted and the evaluation's steps bound only the size of what it
 // builds, so the same walk reports each call into one apart from the
 // effects (`Effects.Unbounded`), and each of those callers refuses it with
-// its own message; no intrinsic is unbounded. Reading an app field, or
+// its own message; no intrinsic is unbounded. A pure crossing whose answer
+// is a hash keyed by the run's seed (rt's hashkey.go) is marked seeded:
+// `intrinsic.seeded` on `vm.hash_value`, and `Binding.Seeded`
+// (`stdlibadapters.Seeded`) on `strings.String.hash` and the other `.hash`
+// rows. The walk reports each call into one apart too (`Effects.Seeded`).
+// A rule, a typed literal's handler and a `check` refuse it, since the
+// compiler runs them once and their answer must hold in every run; an
+// editor's and a debugger's evaluation run it. Building a Map or a Set
+// reaches no seeded crossing: rt hashes a key in Go, and the walk reaches
+// only a key body the program wrote (keyOperands), as it reaches any call.
+// So a rule that keys a Map by a type whose hand-written Hashable reads a
+// String's hash is refused, and must be: such a hash decides which keys
+// share an entry where it disagrees with the type's `equal`, and a body
+// that can fail on the value it computes fails under some seeds only.
+// Reading an app field, or
 // replacing one with `with`, is no effect: the field is an input the
 // caller did not write. The walk reports each field read or replaced apart
 // (`Effects.AppFields`, appFieldOf, which EffectWalk.Uses spreads back
@@ -539,8 +591,9 @@
 // has none to read; a debugger's evaluation reads the app of the frame it
 // stopped in (rt.WithAppOf). A debug machine reads the
 // pure mark to run a pure crossing again in a replay instead of recording
-// it (debugtravel.go). TestPureCrossing_ReadsTheDeclarations and
-// TestUnboundedCrossing_ReadsTheDeclarations hold the lookups to the
+// it (debugtravel.go). TestPureCrossing_ReadsTheDeclarations,
+// TestUnboundedCrossing_ReadsTheDeclarations and
+// TestSeededCrossing_ReadsTheDeclarations hold the lookups to the
 // declarations.
 //
 // An editor's marks read the same test over an effect walk's edges

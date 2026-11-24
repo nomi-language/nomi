@@ -62,6 +62,11 @@ func TestServerOpensAProgramFromItsRecord(t *testing.T) {
 
 	second := NewServer()
 	second.lowering.delay = 10 * time.Millisecond
+	// The background pass over closed files checks each one against the
+	// others' interfaces once the server is quiet, about 10 ms after the
+	// entry publishes, and FilesBuilt counts those checks too. It is held
+	// so the count below is the open's alone.
+	second.closedDiags.running = true
 	c2 := startRPC(t, second, dir)
 	relowers := vmhost.StoredRelowersForTest()
 	c2.open(uri, text)

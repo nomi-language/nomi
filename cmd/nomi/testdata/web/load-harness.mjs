@@ -9,7 +9,7 @@
 // { undefined: true }), exports what exports() resolved with, and
 // afterClose the rejection of a call made after close().
 import { pathToFileURL } from "node:url";
-import "./browser.mjs";
+import { exitWhenDone } from "./browser.mjs";
 
 const spec = JSON.parse(process.argv[2]);
 const out = [];
@@ -51,4 +51,4 @@ for (const l of spec.loads) {
   out.push(result);
 }
 process.stdout.write(JSON.stringify(out));
-process.exit(0);
+exitWhenDone();

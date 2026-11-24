@@ -2,102 +2,133 @@ package main
 
 import (
 	"bytes"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
 	"strings"
 	"testing"
-	"time"
 
-	"golang.org/x/mod/module"
-	modzip "golang.org/x/mod/zip"
-
-	"github.com/nomi-language/nomi/internal/fileuri"
+	"github.com/nomi-language/nomi/internal/modfetch/modfetchtest"
 )
 
-// A pure-Nomi dependency is fetched through the module proxy with no Go
-// toolchain and no go.mod: `nomi add` names it in nomi.toml, downloads it
-// and locks it in nomi.lock, `nomi run` and `nomi check` use it by its
-// name, `--offline` refuses a cold module cache by naming the module, and
-// `nomi fetch` fills the cache so `--offline` works. The proxy is a
-// directory and PATH holds no `go`.
-func TestModules_APureNomiDependencyNeedsNoGo(t *testing.T) {
-	tmp := t.TempDir()
-	proxy := filepath.Join(tmp, "proxy")
-	publishFiles(t, proxy, "example.com/strings2", "v1.2.0", map[string]string{
-		"nomi.toml":     "[module]\nname = \"strings2\"\npath = \"example.com/strings2\"\n",
-		"strings2.nomi": "import strings2::twice\n\npub fn shout(s: String) -> String\n    twice.twice(String.uppercase(s))\nend\n",
-		"twice.nomi":    "pub fn twice(s: String) -> String\n    \"${s}${s}\"\nend\n",
-	})
-	app := filepath.Join(tmp, "app")
-	mustWrite(t, filepath.Join(app, "nomi.toml"), "[module]\nname = \"app\"\nentry_points = [\"main\"]\n")
-	mustWrite(t, filepath.Join(app, "main.nomi"), "import\n    std::io\n    strings2\nend\n\nfn main()\n    io.print(strings2.shout(\"hey\"))\nend\n")
+// moduleCLI runs bin, nomiBin unless a test sets it, with a server of
+// repositories standing for example.com and github.com
+// (NOMI_TEST_MODULE_HOSTS), a module cache of its own, and neither `go`
+// nor `git` on PATH, so no command reaches past the server.
+type moduleCLI struct {
+	t     *testing.T
+	bin   string
+	host  *modfetchtest.Server
+	cache string
+	env   []string
+}
 
-	emptyPath := filepath.Join(tmp, "bin")
-	if err := os.MkdirAll(emptyPath, 0o755); err != nil {
+func newModuleCLI(t *testing.T) *moduleCLI {
+	t.Helper()
+	tmp := t.TempDir()
+	host := modfetchtest.New(t)
+	cache := modfetchtest.CacheDir(t)
+	bin := filepath.Join(tmp, "bin")
+	if err := os.MkdirAll(bin, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	cache := filepath.Join(tmp, "modcache")
 	env := []string{
 		"HOME=" + filepath.Join(tmp, "home"),
-		"PATH=" + emptyPath,
+		"PATH=" + bin,
 		"NOMI_COLOR=never",
 		"NOMI_RUNNER_CACHE_ROOT=" + filepath.Join(tmp, "nomi-cache"),
-		"GOPROXY=" + fileuri.FromPath(proxy),
-		"GOSUMDB=off",
-		"GOMODCACHE=" + cache,
-		"GOFLAGS=-modcacherw",
+		"NOMI_TEST_MODULE_HOSTS=" + host.Env("example.com", "github.com"),
+		"NOMI_MODULE_CACHE=" + cache,
 	}
 	env = withUserDirs(env)
 	if p := os.Getenv("NOMI_STD_PATH"); p != "" {
 		env = append(env, "NOMI_STD_PATH="+p)
 	}
-	nomi := func(dir string, args ...string) (string, string, error) {
-		t.Helper()
-		cmd := exec.Command(nomiBin, args...)
-		cmd.Dir = dir
-		cmd.Env = env
-		var stdout, stderr bytes.Buffer
-		cmd.Stdout, cmd.Stderr = &stdout, &stderr
-		err := cmd.Run()
-		return strings.TrimSpace(stdout.String()), stderr.String(), err
-	}
-	must := func(args ...string) string {
-		t.Helper()
-		out, stderr, err := nomi(app, args...)
-		if err != nil {
-			t.Fatalf("nomi %s: %v\n%s\n%s", strings.Join(args, " "), err, out, stderr)
-		}
-		return out
-	}
+	return &moduleCLI{t: t, bin: nomiBin, host: host, cache: cache, env: env}
+}
 
-	// Offline with nothing cached: refused, naming the module.
-	_, stderr, err := nomi(app, "add", "--offline", "example.com/strings2@v1.2.0")
+// setEnv sets name to value in the environment c's commands run with.
+func (c *moduleCLI) setEnv(name, value string) {
+	for i, e := range c.env {
+		if strings.HasPrefix(e, name+"=") {
+			c.env[i] = name + "=" + value
+			return
+		}
+	}
+	c.env = append(c.env, name+"="+value)
+}
+
+func (c *moduleCLI) run(dir string, args ...string) (stdout, stderr string, err error) {
+	c.t.Helper()
+	cmd := exec.Command(c.bin, args...)
+	cmd.Dir = dir
+	cmd.Env = c.env
+	var out, errOut bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &out, &errOut
+	err = cmd.Run()
+	return strings.TrimSpace(out.String()), strings.TrimSpace(errOut.String()), err
+}
+
+func (c *moduleCLI) must(dir string, args ...string) string {
+	c.t.Helper()
+	out, stderr, err := c.run(dir, args...)
+	if err != nil {
+		c.t.Fatalf("nomi %s: %v\n%s\n%s", strings.Join(args, " "), err, out, stderr)
+	}
+	return out
+}
+
+func mustRead(t *testing.T, path string) string {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(data)
+}
+
+// A pure-Nomi dependency is fetched from its repository's host with no Go
+// toolchain, no git and no go.mod: `nomi add` names it in nomi.toml,
+// fetches it and locks it in nomi.lock, `nomi run` and `nomi check` use
+// it by its name, `--offline` refuses a cold module cache by naming the
+// module, `nomi fetch` fills the cache so `--offline` works, and a run
+// whose lock is current and whose module is cached asks the host nothing.
+func TestModules_APureNomiDependencyNeedsNoGo(t *testing.T) {
+	c := newModuleCLI(t)
+	c.host.Tag("example.com/strings2", "v1.2.0", map[string]string{
+		"nomi.toml":     "[module]\nname = \"strings2\"\n",
+		"strings2.nomi": "import strings2::twice\n\npub fn shout(s: String) -> String\n    twice.twice(String.uppercase(s))\nend\n",
+		"twice.nomi":    "pub fn twice(s: String) -> String\n    \"${s}${s}\"\nend\n",
+	})
+	app := filepath.Join(t.TempDir(), "app")
+	mustWrite(t, filepath.Join(app, "nomi.toml"), "[module]\nname = \"app\"\nentry_points = [\"main\"]\n")
+	mustWrite(t, filepath.Join(app, "main.nomi"), "import\n    std::io\n    strings2\nend\n\nfn main()\n    io.print(strings2.shout(\"hey\"))\nend\n")
+
+	// Offline with nothing cached: refused, naming the repository.
+	_, stderr, err := c.run(app, "add", "--offline", "example.com/strings2@v1.2.0")
 	if err == nil || !strings.Contains(stderr, "example.com/strings2") || !strings.Contains(stderr, "--offline") {
 		t.Fatalf("nomi add --offline with a cold cache: %v\n%s", err, stderr)
 	}
 
 	// The program already imports the module, so add also says what its own
 	// code reaches: nothing.
-	if out := must("add", "example.com/strings2"); out != "added strings2, example.com/strings2 v1.2.0 (import strings2)\n\nmodules\n  strings2\n    no effects" {
+	if out := c.must(app, "add", "example.com/strings2"); out != "added strings2, example.com/strings2 v1.2.0 (import strings2)\n\nmodules\n  strings2\n    no effects" {
 		t.Fatalf("nomi add printed %q", out)
 	}
-	if out := must("run", "main.nomi"); out != "HEYHEY" {
+	if out := c.must(app, "run", "main.nomi"); out != "HEYHEY" {
 		t.Fatalf("nomi run printed %q, want HEYHEY", out)
 	}
-	if out := must("check", "--offline", "main.nomi"); !strings.Contains(out, "ok") {
-		t.Fatalf("nomi check --offline printed %q", out)
+	before := c.host.Requests()
+	if out := c.must(app, "check", "main.nomi"); !strings.Contains(out, "ok") {
+		t.Fatalf("nomi check printed %q", out)
+	}
+	if n := c.host.Requests() - before; n != 0 {
+		t.Errorf("nomi check with a current lock and a warm cache made %d requests", n)
 	}
 
 	// Another machine: the project as committed, an empty module cache.
-	for i, e := range env {
-		if strings.HasPrefix(e, "GOMODCACHE=") {
-			env[i] = "GOMODCACHE=" + filepath.Join(tmp, "modcache2")
-		}
-	}
-	_, stderr, err = nomi(app, "run", "--offline", "main.nomi")
+	c.setEnv("NOMI_MODULE_CACHE", modfetchtest.CacheDir(t))
+	_, stderr, err = c.run(app, "run", "--offline", "main.nomi")
 	if err == nil {
 		t.Fatal("nomi run --offline with a cold module cache succeeded")
 	}
@@ -106,14 +137,14 @@ func TestModules_APureNomiDependencyNeedsNoGo(t *testing.T) {
 			t.Errorf("nomi run --offline with a cold cache does not say %q:\n%s", want, stderr)
 		}
 	}
-	if out := must("fetch"); !strings.Contains(out, "1 module in the module cache") {
+	if out := c.must(app, "fetch"); !strings.Contains(out, "1 module in the module cache") {
 		t.Fatalf("nomi fetch printed %q", out)
 	}
-	if out := must("run", "--offline", "main.nomi"); out != "HEYHEY" {
+	if out := c.must(app, "run", "--offline", "main.nomi"); out != "HEYHEY" {
 		t.Fatalf("nomi run --offline after nomi fetch printed %q", out)
 	}
 	// A program argument spelled --offline is the program's.
-	if out := must("run", "main.nomi", "--offline"); out != "HEYHEY" {
+	if out := c.must(app, "run", "main.nomi", "--offline"); out != "HEYHEY" {
 		t.Fatalf("nomi run main.nomi --offline printed %q", out)
 	}
 
@@ -122,79 +153,10 @@ func TestModules_APureNomiDependencyNeedsNoGo(t *testing.T) {
 	}
 
 	// No nomi.toml: nomi add says what to create.
-	bare := filepath.Join(tmp, "bare")
+	bare := filepath.Join(t.TempDir(), "bare")
 	mustWrite(t, filepath.Join(bare, "main.nomi"), "fn main() end\n")
-	_, stderr, err = nomi(bare, "add", "example.com/strings2")
+	_, stderr, err = c.run(bare, "add", "example.com/strings2")
 	if err == nil || !strings.Contains(stderr, "no nomi.toml") {
 		t.Fatalf("nomi add with no nomi.toml: %v\n%s", err, stderr)
 	}
 }
-
-// publishFiles writes path@version, holding files, to the file module proxy
-// at proxy.
-func publishFiles(t *testing.T, proxy, path, version string, files map[string]string) {
-	t.Helper()
-	names := make([]string, 0, len(files))
-	for name := range files {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	var zf []modzip.File
-	for _, name := range names {
-		zf = append(zf, memZipFile{name: name, data: []byte(files[name])})
-	}
-	var zipBuf bytes.Buffer
-	if err := modzip.Create(&zipBuf, module.Version{Path: path, Version: version}, zf); err != nil {
-		t.Fatal(err)
-	}
-	goMod := files["go.mod"]
-	if goMod == "" {
-		// The proxy serves a module with no go.mod a synthesized one.
-		goMod = "module " + path + "\n"
-	}
-	publishZip(t, proxy, path, version, goMod, zipBuf.Bytes())
-}
-
-// publishZip writes path@version to the file module proxy at proxy as a
-// proxy serves it: its zip, its go.mod and its info, and the version in
-// its list.
-func publishZip(t *testing.T, proxy, path, version, goMod string, zip []byte) {
-	t.Helper()
-	enc, err := module.EscapePath(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	dir := filepath.Join(proxy, filepath.FromSlash(enc), "@v")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	list, _ := os.ReadFile(filepath.Join(dir, "list"))
-	for name, data := range map[string][]byte{
-		"list":            append(list, []byte(version+"\n")...),
-		version + ".info": []byte(`{"Version":"` + version + `","Time":"2026-01-01T00:00:00Z"}`),
-		version + ".mod":  []byte(goMod),
-		version + ".zip":  zip,
-	} {
-		if err := os.WriteFile(filepath.Join(dir, name), data, 0o644); err != nil {
-			t.Fatal(err)
-		}
-	}
-}
-
-type memZipFile struct {
-	name string
-	data []byte
-}
-
-func (f memZipFile) Path() string                 { return f.name }
-func (f memZipFile) Lstat() (os.FileInfo, error)  { return memZipInfo(f), nil }
-func (f memZipFile) Open() (io.ReadCloser, error) { return io.NopCloser(bytes.NewReader(f.data)), nil }
-
-type memZipInfo memZipFile
-
-func (i memZipInfo) Name() string       { return filepath.Base(i.name) }
-func (i memZipInfo) Size() int64        { return int64(len(i.data)) }
-func (i memZipInfo) Mode() os.FileMode  { return 0o644 }
-func (i memZipInfo) ModTime() time.Time { return time.Time{} }
-func (i memZipInfo) IsDir() bool        { return false }
-func (i memZipInfo) Sys() any           { return nil }

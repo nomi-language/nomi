@@ -441,18 +441,18 @@ A `nomi.toml` makes a directory a module. The standard library is one module.
 
 A module lists the modules it uses in its `nomi.toml`'s `[dependencies]`
 table, one entry per dependency. The entry's key is the name your imports
-use. `nomi` writes the table, `nomi.lock` beside it, which locks each
-download's version and hash, and for a module with a path a one-line
-`go.mod`, so Go's module proxy can serve it. Commit all three. Published
-modules come through that proxy, but you don't need Go installed.
+use. `nomi` writes the table, and `nomi.lock` beside it, which locks the
+version and hash of each module it fetches. Commit both. A module is
+published by pushing a version tag, such as `v1.2.0`, to its git
+repository, and fetched from that repository's host.
 
-- `nomi new myproject` starts a project in a new directory, `nomi new github.com/you/myproject`
-  one others download by that path, and `nomi init` makes the current directory one.
-- `nomi add github.com/user/somelib` adds a dependency, downloading it and
-  locking it in `nomi.lock`. `nomi add ../shared` adds a module beside
-  yours by its directory.
+- `nomi new myproject` starts a project in a new directory, and `nomi init myproject`
+  makes the current directory one.
+- `nomi add github.com/user/somelib` fetches a dependency from its host,
+  locks it and writes `somelib = { repo = "github.com/user/somelib", version = "v1.2.0" }`.
+  `nomi add ../shared` adds a module beside yours by its directory.
 - `nomi remove` and `nomi update` take one out or move it to a newer
-  release, and `nomi fetch` downloads everything ahead of time.
+  release, and `nomi fetch` fetches everything ahead of time.
 
 The tooling reference's [Modules and dependencies](/tooling/modules-and-dependencies/)
 covers each command, versions and working offline.

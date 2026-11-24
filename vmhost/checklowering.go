@@ -50,7 +50,7 @@ type LoweringFound = analyzedlowering.Found
 // literals are checked and before the unsupported bodies are looked for)
 // and answers ctx's error as err.
 func CheckLowering(ctx context.Context, path, src string, opts ...Option) (found LoweringFound, err error) {
-	if _, _, ok := frontend.StdlibFile(path); ok {
+	if _, _, ok, refused := frontend.StdlibFile(path); ok || refused != nil {
 		return found, nil
 	}
 	cfg := newConfig(opts)
@@ -99,7 +99,7 @@ func offeredAnalyzed(path, src string, a *analyzedlowering.Analyzed) bool {
 	if a != nil && a.Stored != nil {
 		return true
 	}
-	if _, _, ok := frontend.StdlibFile(path); ok {
+	if _, _, ok, refused := frontend.StdlibFile(path); ok || refused != nil {
 		return true
 	}
 	cfg := newConfig(nil)
@@ -113,7 +113,7 @@ func offeredAnalyzed(path, src string, a *analyzedlowering.Analyzed) bool {
 // checkLoweringAnalyzed is analyzedlowering.Check: CheckLowering for a
 // file whose text src the language server has already analyzed as a.
 func checkLoweringAnalyzed(ctx context.Context, path, src string, a *analyzedlowering.Analyzed) (found LoweringFound, ok bool, err error) {
-	if _, _, ok := frontend.StdlibFile(path); ok {
+	if _, _, ok, refused := frontend.StdlibFile(path); ok || refused != nil {
 		return found, true, nil
 	}
 	cfg := newConfig(nil)

@@ -767,9 +767,11 @@ func skipEdits(p skipProject, r *rand.Rand) []skipEdit {
 
 // TestTestCommand_UnchangedTestsDoNotRun runs `nomi test` over one file
 // with the artifact cache: the second run skips the test with no effects
-// and runs the one that prints, `--all` runs both, `--changed` skips both
-// and loads nothing, answering the file from its passes record, and an edit
-// of the function the pure test calls runs it again.
+// and runs the one that prints and the one that reads a String's hash,
+// which the next process's seed may change, `--all` runs all three,
+// `--changed` skips all three and loads nothing, answering the file from
+// its passes record, and an edit of the function the pure test calls runs
+// it again.
 func TestTestCommand_UnchangedTestsDoNotRun(t *testing.T) {
 	if testing.Short() {
 		t.Skip("runs nomi; -short")
@@ -778,7 +780,8 @@ func TestTestCommand_UnchangedTestsDoNotRun(t *testing.T) {
 	cache := newCacheDir(t)
 	src := "import std::io\n\nfn double(n: Int) -> Int\n    n * 2\nend\n\n" +
 		"test \"pure\"\n    assert double(2) == 4\nend\n\n" +
-		"test \"prints\"\n    io.print(\"hi\")\n    assert double(3) == 6\nend\n"
+		"test \"prints\"\n    io.print(\"hi\")\n    assert double(3) == 6\nend\n\n" +
+		"test \"hashes\"\n    assert String.hash(\"a\") != String.hash(\"b\")\nend\n"
 	mustWrite(t, filepath.Join(dir, "t_test.nomi"), src)
 	for _, step := range []struct {
 		name string
@@ -787,11 +790,11 @@ func TestTestCommand_UnchangedTestsDoNotRun(t *testing.T) {
 		// answered says the file is answered from its passes record.
 		answered bool
 	}{
-		{"the first run", nil, []string{"ok t_test.nomi :: pure\n", "ok t_test.nomi :: prints\n  hi\n", "test result: ok. 2 passed, 0 failed\n"}, false},
-		{"the second run", nil, []string{"ok t_test.nomi :: pure (unchanged)\n", "ok t_test.nomi :: prints\n  hi\n", "test result: ok. 2 passed, 0 failed; 1 ran, 1 unchanged\n"}, false},
-		{"--all", []string{"--all"}, []string{"ok t_test.nomi :: pure\n", "ok t_test.nomi :: prints\n  hi\n", "test result: ok. 2 passed, 0 failed\n"}, false},
-		{"--changed", []string{"--changed"}, []string{"ok t_test.nomi :: pure (unchanged)\n", "ok t_test.nomi :: prints (unchanged)\n", "test result: ok. 2 passed, 0 failed; 0 ran, 2 unchanged\n"}, true},
-		{"an edit of double", nil, []string{"ok t_test.nomi :: pure\n", "ok t_test.nomi :: prints\n  hi\n", "test result: ok. 2 passed, 0 failed\n"}, false},
+		{"the first run", nil, []string{"ok t_test.nomi :: pure\n", "ok t_test.nomi :: prints\n  hi\n", "ok t_test.nomi :: hashes\n", "test result: ok. 3 passed, 0 failed\n"}, false},
+		{"the second run", nil, []string{"ok t_test.nomi :: pure (unchanged)\n", "ok t_test.nomi :: prints\n  hi\n", "ok t_test.nomi :: hashes\n", "test result: ok. 3 passed, 0 failed; 2 ran, 1 unchanged\n"}, false},
+		{"--all", []string{"--all"}, []string{"ok t_test.nomi :: pure\n", "ok t_test.nomi :: prints\n  hi\n", "ok t_test.nomi :: hashes\n", "test result: ok. 3 passed, 0 failed\n"}, false},
+		{"--changed", []string{"--changed"}, []string{"ok t_test.nomi :: pure (unchanged)\n", "ok t_test.nomi :: prints (unchanged)\n", "ok t_test.nomi :: hashes (unchanged)\n", "test result: ok. 3 passed, 0 failed; 0 ran, 3 unchanged\n"}, true},
+		{"an edit of double", nil, []string{"ok t_test.nomi :: pure\n", "ok t_test.nomi :: prints\n  hi\n", "ok t_test.nomi :: hashes\n", "test result: ok. 3 passed, 0 failed\n"}, false},
 	} {
 		if step.name == "an edit of double" {
 			mustWrite(t, filepath.Join(dir, "t_test.nomi"), strings.Replace(src, "n * 2", "n + n", 1))
@@ -803,7 +806,7 @@ func TestTestCommand_UnchangedTestsDoNotRun(t *testing.T) {
 			}
 		}
 		answered := slices.ContainsFunc(got.report, func(line string) bool {
-			return strings.HasSuffix(line, "(passes): answered from the record: 2 cases unchanged")
+			return strings.HasSuffix(line, "(passes): answered from the record: 3 cases unchanged")
 		})
 		if answered != step.answered {
 			t.Fatalf("after %s, the file was answered from its passes record: %v, want %v\n%s", step.name, answered, step.answered, strings.Join(got.report, "\n"))

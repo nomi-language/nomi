@@ -1,0 +1,463 @@
+//# Datagram sockets: UDP, and Unix datagram sockets. A datagram is sent
+//# whole and arrives whole or not at all, with no connection, so a
+//# `Socket` sends to any address and receives from any sender:
+//#
+//# ```nomi
+//# socket = udp.bind("127.0.0.1:0")?
+//#
+//# _ = Socket.send_to(socket, String.to_bytes("ping"), Address.Ip{host: "127.0.0.1", port: 8125})
+//#
+//# (data, from) = Socket.receive(socket)?
+//#
+//# Socket.close(socket)
+//# ```
+//#
+//# `udp.bind` makes a socket that receives what is sent to its address, as
+//# a server's does, and `udp.dial` one connected to a single peer, which
+//# `Socket.send` sends to; `udp.bind_unix` and `udp.dial_unix` do the same
+//# over a Unix socket's path, as syslog and systemd's notify socket take,
+//# and `udp.inherited_sockets` gives the sockets a service manager started
+//# the program with.
+//# `udp.serve` handles each datagram that arrives as a task of a
+//# supervisor. A socket's errors are std::net's `Error`.
+
+import
+    bool.Bool.{self, False, True}
+    bytes.Bytes
+    display.Display
+    equatable.Equatable
+    http::host as http_host
+    instant.Instant
+    int.Int
+    iter.Iter
+    lists.List
+    net.{self, Connection, Error}
+    option.Option.{self, None, Some}
+    results.Result.{self, Err, Ok}
+    strings.String
+    supervisors.Supervisor
+    unit.Unit
+end
+
+/// Where a datagram goes or comes from.
+pub enum Address
+    /// An IP address, or a name to resolve when sending, and a port.
+    Ip {host: String, port: Int}
+    /// A Unix socket's path; "" for a sender bound to none, which cannot
+    /// be answered.
+    Unix {path: String}
+end
+
+derive Equatable for Address
+
+impl Display for Address
+    //! assert "${Address.Ip{host: "::1", port: 53}}" == "[::1]:53"
+    //! assert "${Address.Unix{path: "/run/app.sock"}}" == "/run/app.sock"
+    //
+    fn to_string(address: Address) -> String
+        case address
+            .Ip{host:, port:} -> net.join_host_port(host, "${port}")
+            .Unix{path:}      -> path
+        end
+    end
+end
+
+impl Address
+    fn of_parts(parts: List<String>) -> Option<Address>
+        case parts
+            ["Ip", host, port] ->
+                Some(Address.Ip{host:, port: String.to_int(port) |> Option.with_default(0)})
+
+            ["Unix", path] ->
+                Some(Address.Unix{path:})
+
+            _ ->
+                None
+        end
+    end
+end
+
+/// A datagram socket. Close it with `Socket.close`. A bound socket stays
+/// open until it is closed or the program shuts down, which closes it as
+/// it closes a listener; a dialed one stops sending and receiving when the
+/// task that dialed it is cancelled, as a dialed `Connection` does.
+pub struct Socket
+    conn: Connection
+end
+
+impl Socket
+    /// Sends `data` as one datagram to `to`, an address of the socket's
+    /// own family. A UDP datagram longer than the path allows fails with
+    /// `Error.Other`.
+    //! socket = udp.bind("127.0.0.1:0")!
+    //! assert Socket.send_to(socket, String.to_bytes("hi"), Socket.local_address(socket)) == Ok(Unit)
+    //! assert Socket.receive(socket) |> Result.map(.first) == Ok(String.to_bytes("hi"))
+    //!
+    //! elsewhere = Socket.send_to(socket, String.to_bytes("hi"), Address.Unix{path: "/tmp/x.sock"})
+    //! assert Result.is_err(elsewhere)
+    //! Socket.close(socket)
+    //
+    pub fn send_to(socket: Socket, data: Bytes, to: Address) -> Result<Unit, Error>
+        (unix, address) =
+            case to
+                .Ip{host:, port:} -> (False, net.join_host_port(host, "${port}"))
+                .Unix{path:}      -> (True, path)
+            end
+
+        http_host.udp_send(handle(socket), data, unix, address) |> Result.map_err(Error.from_parts)
+    end
+
+    /// Sends `data` as one datagram to the peer a dialed socket is
+    /// connected to.
+    pub fn send(socket: Socket, data: Bytes) -> Result<Unit, Error>
+        http_host.udp_send(handle(socket), data, False, "") |> Result.map_err(Error.from_parts)
+    end
+
+    /// The next datagram, at most `max` bytes, and who sent it. A longer
+    /// one is `Error.Truncated`, and its bytes are dropped. `Error.Closed`
+    /// once the socket is closed or the calling task is stopped;
+    /// `Error.Timeout` past a read deadline.
+    //! socket = udp.bind("127.0.0.1:0")!
+    //! here = Socket.local_address(socket)
+    //! _ = Socket.send_to(socket, String.to_bytes("a longer datagram"), here)
+    //! assert Err(Error.Truncated{address: _, max: 4}) = Socket.receive(socket, max: 4)
+    //! Socket.close(socket)
+    //
+    pub fn receive(socket: Socket, max: Int = 65_535) -> Result<(Bytes, Address), Error>
+        (data, ok, parts) = http_host.udp_receive(handle(socket), max)
+
+        if ok then
+            Ok((data, Address.of_parts(parts) |> Option.with_default(Address.Unix{path: ""})))
+        else
+            Err(Error.from_parts(parts))
+        end
+    end
+
+    /// The address the socket is bound to, with the port the system picked
+    /// for port 0.
+    pub fn local_address(socket: Socket) -> Address
+        http_host.udp_address(handle(socket), False)
+        |> Address.of_parts()
+        |> Option.with_default(Address.Unix{path: ""})
+    end
+
+    /// The peer a dialed socket is connected to; `None` for a bound one.
+    pub fn remote_address(socket: Socket) -> Option<Address>
+        http_host.udp_address(handle(socket), True) |> Address.of_parts()
+    end
+
+    /// Closes the socket. A `receive` waiting in another task fails with
+    /// `Error.Closed`. Closing a socket `bind_unix` made removes its file.
+    pub fn close(socket: Socket) -> Unit
+        Connection.close(socket.conn)
+    end
+
+    /// Sends and receives past `at` fail with `Error.Timeout`; `None`
+    /// clears it.
+    pub fn set_deadline(socket: Socket, at: Option<Instant>) -> Unit
+        Connection.set_deadline(socket.conn, at)
+    end
+
+    pub fn set_read_deadline(socket: Socket, at: Option<Instant>) -> Unit
+        Connection.set_read_deadline(socket.conn, at)
+    end
+
+    pub fn set_write_deadline(socket: Socket, at: Option<Instant>) -> Unit
+        Connection.set_write_deadline(socket.conn, at)
+    end
+
+    /// Asks the system to hold up to `bytes` of datagrams that arrive
+    /// before they are received (`SO_RCVBUF`); the system may round or cap
+    /// it.
+    pub fn set_read_buffer(socket: Socket, bytes: Int) -> Result<Unit, Error>
+        Connection.set_read_buffer(socket.conn, bytes)
+    end
+
+    /// Asks the system to hold up to `bytes` of datagrams sent before they
+    /// leave (`SO_SNDBUF`).
+    pub fn set_write_buffer(socket: Socket, bytes: Int) -> Result<Unit, Error>
+        Connection.set_write_buffer(socket.conn, bytes)
+    end
+
+    /// How many bytes of datagrams the system holds before they are
+    /// received (`SO_RCVBUF`). It may differ from what `set_read_buffer`
+    /// asked: Linux doubles it.
+    //! socket = udp.bind("127.0.0.1:0")!
+    //! assert Socket.set_read_buffer(socket, 65_536) == Ok(Unit)
+    //! assert Socket.read_buffer(socket) |> Result.map(fn n -> n >= 65_536) == Ok(True)
+    //! assert Socket.write_buffer(socket) |> Result.map(fn n -> n > 0) == Ok(True)
+    //! Socket.close(socket)
+    //
+    pub fn read_buffer(socket: Socket) -> Result<Int, Error>
+        Connection.read_buffer(socket.conn)
+    end
+
+    /// How many bytes of datagrams sent the system holds before they leave
+    /// (`SO_SNDBUF`), as `read_buffer` reads.
+    pub fn write_buffer(socket: Socket) -> Result<Int, Error>
+        Connection.write_buffer(socket.conn)
+    end
+
+    /// Whether the socket may send to a broadcast address
+    /// (`SO_BROADCAST`). A UDP socket starts with it on.
+    //! socket = udp.bind("127.0.0.1:0")!
+    //! assert Socket.set_broadcast(socket, False) == Ok(Unit)
+    //! assert Socket.broadcast(socket) == Ok(False)
+    //! assert Socket.set_broadcast(socket, True) == Ok(Unit)
+    //! assert Socket.broadcast(socket) == Ok(True)
+    //! Socket.close(socket)
+    //
+    pub fn set_broadcast(socket: Socket, on: Bool) -> Result<Unit, Error>
+        set(socket, "broadcast", flag(on))
+    end
+
+    pub fn broadcast(socket: Socket) -> Result<Bool, Error>
+        option(socket, "broadcast") |> Result.map(fn v -> v != 0)
+    end
+
+    /// How many hops a unicast datagram may take: an IPv4 socket's TTL,
+    /// an IPv6 one's hop limit.
+    //! socket = udp.bind("127.0.0.1:0")!
+    //! assert Socket.set_ttl(socket, 7) == Ok(Unit)
+    //! assert Socket.ttl(socket) == Ok(7)
+    //! Socket.close(socket)
+    //
+    pub fn set_ttl(socket: Socket, hops: Int) -> Result<Unit, Error>
+        set(socket, "ttl", hops)
+    end
+
+    pub fn ttl(socket: Socket) -> Result<Int, Error>
+        option(socket, "ttl")
+    end
+
+    /// How many hops a multicast datagram may take; the system starts at 1,
+    /// the local network.
+    //! socket = udp.bind("127.0.0.1:0")!
+    //! assert Socket.set_multicast_ttl(socket, 4) == Ok(Unit)
+    //! assert Socket.multicast_ttl(socket) == Ok(4)
+    //! Socket.close(socket)
+    //
+    pub fn set_multicast_ttl(socket: Socket, hops: Int) -> Result<Unit, Error>
+        set(socket, "multicast_ttl", hops)
+    end
+
+    pub fn multicast_ttl(socket: Socket) -> Result<Int, Error>
+        option(socket, "multicast_ttl")
+    end
+
+    /// Whether the multicast datagrams the socket sends come back to the
+    /// sockets of this host that joined the group; the system starts with
+    /// it on.
+    //! socket = udp.bind("127.0.0.1:0")!
+    //! assert Socket.set_multicast_loopback(socket, False) == Ok(Unit)
+    //! assert Socket.multicast_loopback(socket) == Ok(False)
+    //! Socket.close(socket)
+    //
+    pub fn set_multicast_loopback(socket: Socket, on: Bool) -> Result<Unit, Error>
+        set(socket, "multicast_loopback", flag(on))
+    end
+
+    pub fn multicast_loopback(socket: Socket) -> Result<Bool, Error>
+        option(socket, "multicast_loopback") |> Result.map(fn v -> v != 0)
+    end
+
+    /// Sends the socket's multicast datagrams out of the network interface
+    /// named (`"en0"`), or the one the system picks for `None`, as it does
+    /// until this is set.
+    //! socket = udp.bind("127.0.0.1:0")!
+    //! assert Socket.set_multicast_interface(socket, None) == Ok(Unit)
+    //! assert Socket.set_multicast_interface(socket, Some("no-such-interface")) |> Result.is_err()
+    //! Socket.close(socket)
+    //
+    pub fn set_multicast_interface(
+        socket:         Socket,
+        interface_name: Option<String>,
+    ) -> Result<Unit, Error>
+        http_host.socket_multicast_interface(
+            handle(socket),
+            Option.with_default(interface_name, ""),
+        )
+        |> Result.map_err(Error.from_parts)
+    end
+
+    /// Receives the datagrams sent to the multicast `group`, such as
+    /// `224.0.0.251` for mDNS, on the network interface named (`"en0"`), or
+    /// on the one the system picks for `None`. Bind the group's port first,
+    /// with `reuse_address` when other programs on the host receive it too.
+    pub fn join_group(
+        socket:         Socket,
+        group:          String,
+        interface_name: Option<String> = None,
+    ) -> Result<Unit, Error>
+        http_host.socket_group(handle(socket), True, group, Option.with_default(interface_name, ""))
+        |> Result.map_err(Error.from_parts)
+    end
+
+    /// Stops receiving what is sent to `group` on the interface named.
+    pub fn leave_group(
+        socket:         Socket,
+        group:          String,
+        interface_name: Option<String> = None,
+    ) -> Result<Unit, Error>
+        http_host.socket_group(
+            handle(socket),
+            False,
+            group,
+            Option.with_default(interface_name, ""),
+        )
+        |> Result.map_err(Error.from_parts)
+    end
+end
+
+fn handle(socket: Socket) -> http_host.Conn
+    Connection.handle_of(socket.conn)
+end
+
+fn flag(on: Bool) -> Int
+    if on then 1 else 0
+end
+
+fn set(socket: Socket, name: String, value: Int) -> Result<Unit, Error>
+    http_host.socket_set(handle(socket), name, value) |> Result.map_err(Error.from_parts)
+end
+
+fn option(socket: Socket, name: String) -> Result<Int, Error>
+    http_host.socket_get(handle(socket), name) |> Result.map_err(Error.from_parts)
+end
+
+fn opened(handle: Result<http_host.Conn, List<String>>) -> Result<Socket, Error>
+    Ok(
+        Socket{
+            conn: Connection.of_handle(
+                handle
+                |> Result.map_err(Error.from_parts)?
+            ),
+        }
+    )
+end
+
+/// How `bind` and `bind_unix` bind.
+pub struct BindOptions
+    /// Sets `SO_REUSEADDR`, so other sockets on this host can bind the
+    /// same address, as receivers of one multicast group do.
+    reuse_address: Bool = False
+    /// Sets `SO_REUSEPORT`, so several sockets bind the same address and
+    /// the system spreads the datagrams among them. Windows has none:
+    /// asking there fails with `Error.Unsupported`.
+    reuse_port: Bool = False
+end
+
+/// A UDP socket bound to `address`, `host:port`; port 0 picks a free one.
+/// It receives what any sender sends there. An IPv4 host such as
+/// `0.0.0.0` makes an IPv4 socket and an IPv6 one such as `[::]` an IPv6
+/// socket; an empty host (`:5353`) both, with IPv6's options.
+pub fn bind(address: String, options: BindOptions = BindOptions{}) -> Result<Socket, Error>
+    opened(http_host.udp_bind("udp", address, options.reuse_address, options.reuse_port))
+end
+
+/// A UDP socket connected to `address`, `host:port`: `Socket.send` sends
+/// there, and it receives only what that peer sends.
+//! socket = udp.dial("127.0.0.1:9")!
+//! assert Socket.remote_address(socket) == Some(Address.Ip{host: "127.0.0.1", port: 9})
+//! Socket.close(socket)
+//
+pub fn dial(address: String) -> Result<Socket, Error>
+    opened(http_host.udp_dial("udp", address))
+end
+
+/// A Unix datagram socket bound to `path`, which must not exist yet.
+/// Closing it removes the file; a program that ends without closing it, as
+/// a crash does, leaves the file, and binding the path again fails with
+/// `Error.AddressInUse` until it is removed. On Linux a path that starts
+/// with `@` names an abstract socket, which has no file. Windows has no
+/// Unix datagram sockets: there it fails with `Error.Unsupported`.
+//! import std::fs
+//! import std::path
+//!
+//! dir = fs.make_temp_dir()!
+//! defer fs.remove_all_quietly(dir)
+//!
+//! a_path = path.join(dir, "a.sock")
+//! b_path = path.join(dir, "b.sock")
+//!
+//! case udp.bind_unix(a_path)
+//!     Ok(a) ->
+//!         b = udp.bind_unix(b_path)!
+//!         _ = Socket.send_to(a, String.to_bytes("ready"), Address.Unix{path: b_path})
+//!         assert Socket.receive(b) == Ok((String.to_bytes("ready"), Address.Unix{path: a_path}))
+//!         assert Err(Error.AddressInUse{address: b_path}) = udp.bind_unix(b_path)
+//!         Socket.close(a)
+//!         Socket.close(b)
+//!         assert fs.exists(b_path) == Ok(False)
+//!
+//!     Err(e) ->
+//!         assert e == Error.Unsupported{op: "bind", reason: "Windows has no Unix datagram sockets"}
+//! end
+//
+pub fn bind_unix(path: String, options: BindOptions = BindOptions{}) -> Result<Socket, Error>
+    opened(http_host.udp_bind("unixgram", path, options.reuse_address, options.reuse_port))
+end
+
+/// A Unix datagram socket connected to the one at `path`, as a program
+/// writes to syslog's `/dev/log` or systemd's `NOTIFY_SOCKET`. It is bound
+/// to no path, so the peer cannot answer it; bind one with `bind_unix` for
+/// that.
+pub fn dial_unix(path: String) -> Result<Socket, Error>
+    opened(http_host.udp_dial("unixgram", path))
+end
+
+/// The datagram sockets a service manager started the program with, in the
+/// order it passed them, with `name` only those named so, as
+/// `net.inherited_listeners` reads them: an empty list when none were
+/// passed, and always on Windows. Each is taken once for the process, so
+/// every call returns the same sockets. A bound socket's drain closes one,
+/// and a Unix socket's file stays when it closes.
+//! assert udp.inherited_sockets() |> Result.map(List.length) == Ok(0)
+//
+pub fn inherited_sockets(name: Option<String> = None) -> Result<List<Socket>, Error>
+    http_host.inherited_sockets(name)
+    |> Result.map(fn handles ->
+        handles |> Iter.map(fn h -> Socket{conn: Connection.of_handle(h)}) |> Iter.to_list()
+    end)
+    |> Result.map_err(Error.from_parts)
+end
+
+/// Handles each datagram `socket` receives, at most `max` bytes, with
+/// `handler`, each as a task of `supervisor`; a handler answers with
+/// `Socket.send_to` to the address it is given. A datagram longer than
+/// `max` is dropped. Returns when the socket is closed, a read deadline
+/// passes or the calling task is stopped, as at shutdown, after closing the
+/// socket.
+pub fn serve(
+    socket:     Socket,
+    handler:    (Bytes, Address) -> Unit,
+    supervisor: Supervisor,
+    max:        Int = 65_535,
+) -> Unit
+    defer Socket.close(socket)
+    receive_each(socket, handler, supervisor, max)
+end
+
+fn receive_each(
+    socket:     Socket,
+    handler:    (Bytes, Address) -> Unit,
+    supervisor: Supervisor,
+    max:        Int,
+) -> Unit
+    case Socket.receive(socket, max:)
+        Ok((data, from)) ->
+            _ = Supervisor.spawn(supervisor, fn -> handler(data, from))
+            receive_each(socket, handler, supervisor, max)
+
+        // A datagram too long, or (on Windows) the report that an earlier
+        // datagram found no receiver: the socket still receives.
+        Err(.Truncated{address: _, max: _}) ->
+            receive_each(socket, handler, supervisor, max)
+
+        Err(.Reset{address: _}) ->
+            receive_each(socket, handler, supervisor, max)
+
+        Err(_) ->
+            Unit
+    end
+end

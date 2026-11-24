@@ -281,16 +281,6 @@ type instance struct {
 	failed *trap
 }
 
-// stopping reports whether the task fr runs on is stopping: it was
-// cancelled, its deadline passed, or its context ended otherwise (a test
-// case's time ran out).
-func stopping(fr *rt.Frame) bool {
-	if fr.Stopping() {
-		return true
-	}
-	return fr != nil && fr.Context() != nil && fr.Context().Err() != nil
-}
-
 // serve answers import i over stack, with mem the calling instance's
 // memory (nil while the start function runs on an engine that has none to
 // give yet): it calls the Nomi function the instance was given for it, and
@@ -304,7 +294,7 @@ func (inst *instance) serve(i int, mem engineMemory, stack []uint64) bool {
 	imp := inst.module.info.imports[i]
 	full := imp.module + "." + imp.name
 	fr := inst.fr
-	if stopping(fr) {
+	if fr.Ended() {
 		if answer := inst.stopping[i]; answer != nil {
 			copy(stack, answer)
 			return true

@@ -1,0 +1,594 @@
+//# The terminal a program runs in: its size, whether colour suits it, a
+//# password read without echo, raw mode, and the keys read in raw mode.
+//# Whether a standard stream is a terminal at all is std::io's
+//# `io.is_terminal`.
+//#
+//# ```nomi
+//# raw = terminal.raw_mode()?
+//#
+//# defer RawMode.restore(raw)
+//#
+//# case terminal.read_key()?
+//#     .Char('q') -> io.write("bye\r\n")
+//#     .Up        -> io.write("up\r\n")
+//#     key        -> io.write("${Debug.inspect(key)}\r\n")
+//# end
+//# ```
+//#
+//# Raw mode is a resource: `terminal.raw_mode` returns a `RawMode`, which
+//# the program releases with a deferred `RawMode.restore` on the next line,
+//# as it closes a file. The restore runs when the block ends, traps or its
+//# task is stopped, and the checker refuses a program that never releases
+//# it. When the program is interrupted (Ctrl-C with `keep_signals`, or a
+//# signal from outside) or ends while raw mode is still held, the runtime
+//# restores the terminal before the process exits, so a program stopped in
+//# raw mode does not leave the shell's terminal broken.
+//#
+//# Where standard input is no terminal (a pipe, a file, `io.capture`, a
+//# test, a browser, a WASI module), raw mode, keys and passwords are
+//# `Err(Error.NotATerminal)`, `terminal.size` is `None` and
+//# `terminal.supports_color` is `False`, so one program builds for every
+//# target and answers there at run time. A password is never read from a
+//# pipe.
+//#
+//# std gives the device facts and no styling: a library builds ANSI escape
+//# strings from them.
+
+import
+    bool.Bool.{self, False, True}
+    bytes.Bytes
+    code_points.Codepoint
+    display.Display
+    duration.Duration
+    equatable.Equatable
+    int.{Int, PositiveInt}
+    io.{self, Stream}
+    iter.Iter
+    lists.List
+    option.Option.{self, None, Some}
+    resources.Release
+    results.Result.{self, Err, Ok}
+    secret.Secret
+    strings.String
+    terminal::host
+    unit.Unit
+end
+
+/// Why a terminal operation failed.
+pub enum Error
+    /// Standard input is not a terminal: a pipe, a file, `io.capture`, a
+    /// test, a browser or a WASI module.
+    NotATerminal
+    /// The system has a terminal this build cannot change the mode of.
+    Unsupported {reason: String}
+    /// Standard input ended, as when the terminal hangs up.
+    EndOfInput
+    /// Reading or changing the terminal failed.
+    Io io.Error
+end
+
+derive Equatable for Error
+
+impl Display for Error
+    //! assert "${Error.NotATerminal}" == "standard input is not a terminal"
+    //! assert "${Error.Io(io.Error.TimedOut)}" == "timed out"
+    //
+    fn to_string(e: Error) -> String
+        case e
+            .NotATerminal         -> "standard input is not a terminal"
+            .Unsupported{reason:} -> reason
+            .EndOfInput           -> "standard input ended"
+            .Io(failure)          -> "${failure}"
+        end
+    end
+end
+
+fn error_of(failure: io.Error) -> Error
+    case failure
+        io.Error.Unsupported{operation:, target:} ->
+            Error.Unsupported{reason: "${operation} is not supported on ${target}"}
+
+        _ ->
+            Error.Io(failure)
+    end
+end
+
+/// A terminal's size in character cells.
+pub struct Size
+    /// How many characters fit on a line.
+    columns: PositiveInt
+    /// How many lines fit on the screen.
+    rows: PositiveInt
+end
+
+derive Equatable for Size
+
+/// The size of the terminal standard output is, or `None` when it is not
+/// one. A program that lays out a table or wraps text asks it each time it
+/// draws, since the user may resize the window. A program that redraws when
+/// the window is resized receives std::signals' `Signal.WindowChange` and
+/// asks again at each arrival. Windows sends no such signal.
+///
+/// ```nomi
+/// width = terminal.size() |> Option.map(.columns) |> Option.with_default(80)
+/// ```
+//! import std::terminal
+//!
+//! assert terminal.size() == None
+//
+pub fn size() -> Option<Size>
+    size_of(.Stdout)
+end
+
+/// The size of the terminal `stream` is, or `None` when it is not one.
+//! import std::terminal
+//!
+//! assert terminal.size_of(.Stderr) == None
+//
+pub fn size_of(stream: Stream) -> Option<Size>
+    (columns, rows) = host.size(Stream.descriptor(stream))
+    Some(Size{columns: PositiveInt.try_from(columns)?, rows: PositiveInt.try_from(rows)?})
+end
+
+/// Whether to write colour to `stream`. The environment decides first, by
+/// the rule the runtime's own output follows: `NOMI_COLOR` (`always` or
+/// `never`), then `NO_COLOR` set or `TERM=dumb` (no colour), then
+/// `CLICOLOR_FORCE` set (colour). Otherwise colour suits a terminal and
+/// nothing else. A stream inside `io.capture` or a test, or in a browser,
+/// never gets colour. The variables are read from the process's
+/// environment, not from `Startup.env`, so the answer agrees with `dbg`'s
+/// and the test report's colour.
+///
+/// ```nomi
+/// label =
+///     if terminal.supports_color(.Stderr) then
+///         "\u{1b}[31merror\u{1b}[0m"
+///     else
+///         "error"
+///     end
+/// ```
+//! import std::terminal
+//!
+//! assert terminal.supports_color(.Stdout) == False
+//
+pub fn supports_color(stream: Stream) -> Bool
+    host.supports_color(Stream.descriptor(stream))
+end
+
+/// Writes `prompt` to standard error and reads a line from the terminal
+/// with echo off, so what the user types is not shown, then turns echo back
+/// on, whether the read returns, its task is stopped or the program is
+/// interrupted. The line comes back as a `Secret`, which never prints.
+/// Where standard input is not a terminal it is `Err(Error.NotATerminal)`:
+/// it never reads a password from a pipe.
+///
+/// ```nomi
+/// password = terminal.read_password(prompt: "password: ")?
+/// ```
+//! import std::terminal.{self, Error}
+//!
+//! assert terminal.read_password(prompt: "password: ") == Err(Error.NotATerminal)
+//
+pub fn read_password(prompt: String = "") -> Result<Secret, Error>
+    if not io.is_terminal(.Stdin) then return Err(.NotATerminal)
+
+    case host.read_password(prompt)
+        Ok(Some(text)) -> Ok(Secret.new(text))
+        Ok(None)       -> Err(.EndOfInput)
+        Err(failure)   -> Err(error_of(failure))
+    end
+end
+
+/// Standard input's terminal in raw mode, from `terminal.raw_mode`, until
+/// `RawMode.restore` puts back the mode it found.
+pub opaque type RawMode Int
+
+impl RawMode
+    /// Puts the terminal back in the mode `terminal.raw_mode` found it in.
+    /// Defer it on the line after `raw_mode`. A second restore does
+    /// nothing.
+    pub fn restore(RawMode(token)) -> Unit
+        host.leave_raw(token)
+    end
+end
+
+impl Release for RawMode
+    fn release(raw: RawMode)
+        RawMode.restore(raw)
+    end
+end
+
+/// Puts standard input's terminal in raw mode: what the user types is not
+/// shown, each key reaches the program as it is pressed rather than when
+/// Enter is, and Ctrl-C, Ctrl-Z and Ctrl-\ arrive as keys instead of
+/// signals. Output is written as it is, so a line ends with `"\r\n"`.
+/// Release it with `defer RawMode.restore(raw)` on the next line.
+///
+/// `keep_signals` leaves the signal keys on, so Ctrl-C still interrupts the
+/// program. `keep_output_processing` leaves the terminal turning `"\n"` into
+/// `"\r\n"`, as cbreak mode does; on Windows output is processed either
+/// way.
+///
+/// Raw mode may nest: each restore puts back the mode its own `raw_mode`
+/// found. `Err(Error.NotATerminal)` where standard input is not a terminal.
+///
+/// ```nomi
+/// raw = terminal.raw_mode(keep_signals: True)?
+///
+/// defer RawMode.restore(raw)
+/// ```
+//! import std::terminal.{self, Error}
+//!
+//! assert Err(Error.NotATerminal) = terminal.raw_mode()
+//
+pub fn raw_mode(
+    keep_signals:           Bool = False,
+    keep_output_processing: Bool = False,
+) -> Result<RawMode, Error>
+    if not io.is_terminal(.Stdin) then return Err(.NotATerminal)
+
+    case host.enter_raw(keep_signals, keep_output_processing)
+        Ok(token)    -> Ok(RawMode(token))
+        Err(failure) -> Err(error_of(failure))
+    end
+end
+
+/// A key the user pressed, as `terminal.read_key` reads it. A key with a
+/// modifier the variants do not name (Ctrl-Up, Shift-Tab) is `Unknown`
+/// with its bytes.
+pub enum Key
+    /// A character, typed alone or with Shift.
+    Char Codepoint
+    /// Enter or Return.
+    Enter
+    Tab
+    /// Backspace, which terminals send as 127 or as Ctrl-H.
+    Backspace
+    /// Escape pressed alone.
+    Escape
+    Up
+    Down
+    Left
+    Right
+    Home
+    End
+    PageUp
+    PageDown
+    Delete
+    Insert
+    /// A function key, `F(1)` through `F(12)`.
+    F Int
+    /// A letter or one of `@[\]^_` with Ctrl: `Ctrl('c')`, and `Ctrl(' ')`
+    /// for Ctrl-Space. Ctrl-H, Ctrl-I, Ctrl-J and Ctrl-M are `Backspace`,
+    /// `Tab` and `Enter`, since a terminal sends them as those keys.
+    Ctrl Codepoint
+    /// A character with Alt (Option on a Mac set to send Esc+).
+    Alt Codepoint
+    /// A sequence of bytes no other variant names.
+    Unknown Bytes
+end
+
+derive Equatable for Key
+
+/// The next key the user presses, waiting as long as it takes. Read keys in
+/// raw mode (`terminal.raw_mode`); outside it the terminal hands keys over
+/// only when Enter is pressed. A key's bytes are read as they arrive, and
+/// an Escape is told from the start of a longer sequence by waiting 50
+/// milliseconds for the rest. `Err(Error.NotATerminal)` where standard input
+/// is not a terminal, and `Err(Error.EndOfInput)` once it ends.
+///
+/// ```nomi
+/// case terminal.read_key()?
+///     .Char(c) -> io.write("typed ${c}\r\n")
+///     .Escape  -> io.write("escape\r\n")
+///     _        -> Unit
+/// end
+/// ```
+//! import std::terminal.{self, Error}
+//!
+//! assert terminal.read_key() == Err(Error.NotATerminal)
+//
+pub fn read_key() -> Result<Key, Error>
+    case next_key(-1)?
+        Some(key) -> Ok(key)
+        None      -> Err(.EndOfInput)
+    end
+end
+
+/// The next key the user presses within `wait`, or `None` when none is
+/// pressed by then. A wait of zero or less answers a key already pressed.
+/// It is `terminal.read_key` otherwise.
+///
+/// ```nomi
+/// case terminal.read_key_within(Duration.milliseconds(100))?
+///     Some(key) -> handle(key)
+///     None      -> redraw()
+/// end
+/// ```
+//! import std::terminal.{self, Error}
+//!
+//! assert terminal.read_key_within(Duration.milliseconds(10)) == Err(Error.NotATerminal)
+//
+pub fn read_key_within(wait: Duration) -> Result<Option<Key>, Error>
+    next_key(Int.max(Duration.as_nanos(wait), 0))
+end
+
+/// How long a key's later bytes may take to arrive: 50 milliseconds.
+once sequence_wait: Int = Duration.as_nanos(Duration.milliseconds(50))
+
+/// The next key, its first byte waiting at most `wait` nanoseconds (as
+/// long as it takes when negative), or `None` when none came in time.
+fn next_key(wait: Int) -> Result<Option<Key>, Error>
+    if not io.is_terminal(.Stdin) then return Err(.NotATerminal)
+
+    case next_byte(wait)?
+        Some(b) -> Ok(Some(rest_of_key([b])?))
+        None    -> Ok(None)
+    end
+end
+
+/// The key `data` starts, reading its later bytes as they arrive.
+fn rest_of_key(data: List<Int>) -> Result<Key, Error>
+    case decode(data, ended: False)
+        Some(key) ->
+            Ok(key)
+
+        None ->
+            case next_byte(sequence_wait)?
+                Some(b) ->
+                    rest_of_key(data + [b])
+
+                None ->
+                    Ok(
+                        decode(data, ended: True)
+                        |> Option.with_default(Key.Unknown(bytes_of(data)))
+                    )
+            end
+    end
+end
+
+/// The next byte of standard input within `wait` nanoseconds, or `None`.
+fn next_byte(wait: Int) -> Result<Option<Int>, Error>
+    case host.read_byte(wait)
+        Ok(b) when b >= 0  -> Ok(Some(b))
+        Ok(b) when b == -1 -> Ok(None)
+        Ok(_)              -> Err(.EndOfInput)
+        Err(failure)       -> Err(error_of(failure))
+    end
+end
+
+/// The key the bytes `data` hold, or `None` while they are the start of a
+/// longer sequence and more may come. With `ended`, no more bytes will join
+/// them, and they are a key however they end: a lone Escape, `Alt('[')`
+/// for an Escape and `[`, `Unknown` for a sequence cut short.
+//! assert decode([97], ended: False) == Some(Key.Char('a'))
+//! assert decode([0xC3], ended: False) == None
+//! assert decode([0xC3, 0xA9], ended: False) == Some(Key.Char(Int.to_codepoint(0xE9)!))
+//! assert decode([0xE2, 0x82, 0xAC], ended: False) == Some(Key.Char(Int.to_codepoint(0x20AC)!))
+//! assert decode([0xC3], ended: True) == Some(Key.Unknown(Bytes.from_list([0xC3])))
+//! assert decode([0xFF], ended: False) == Some(Key.Unknown(Bytes.from_list([0xFF])))
+//!
+//! assert decode([13], ended: False) == Some(Key.Enter)
+//! assert decode([10], ended: False) == Some(Key.Enter)
+//! assert decode([9], ended: False) == Some(Key.Tab)
+//! assert decode([127], ended: False) == Some(Key.Backspace)
+//! assert decode([8], ended: False) == Some(Key.Backspace)
+//! assert decode([3], ended: False) == Some(Key.Ctrl('c'))
+//! assert decode([0], ended: False) == Some(Key.Ctrl(' '))
+//! assert decode([28], ended: False) == Some(Key.Ctrl('\\'))
+//! assert decode([31], ended: False) == Some(Key.Ctrl('_'))
+//!
+//! assert decode([27], ended: False) == None
+//! assert decode([27], ended: True) == Some(Key.Escape)
+//! assert decode([27, 97], ended: False) == Some(Key.Alt('a'))
+//! assert decode([27, 0xC3, 0xA9], ended: False) == Some(Key.Alt(Int.to_codepoint(0xE9)!))
+//! assert decode([27, 127], ended: False) == Some(Key.Unknown(Bytes.from_list([27, 127])))
+//!
+//! assert decode([27, 91], ended: False) == None
+//! assert decode([27, 91], ended: True) == Some(Key.Alt('['))
+//! assert decode([27, 91, 65], ended: False) == Some(Key.Up)
+//! assert decode([27, 91, 66], ended: False) == Some(Key.Down)
+//! assert decode([27, 91, 67], ended: False) == Some(Key.Right)
+//! assert decode([27, 91, 68], ended: False) == Some(Key.Left)
+//! assert decode([27, 91, 72], ended: False) == Some(Key.Home)
+//! assert decode([27, 91, 70], ended: False) == Some(Key.End)
+//!
+//! assert decode([27, 91, 49, 59, 53, 65], ended: False)
+//!     == Some(Key.Unknown(Bytes.from_list([27, 91, 49, 59, 53, 65])))
+//!
+//! assert decode([27, 91, 90], ended: False) == Some(Key.Unknown(Bytes.from_list([27, 91, 90])))
+//!
+//! assert decode([27, 91, 51], ended: False) == None
+//! assert decode([27, 91, 51, 126], ended: False) == Some(Key.Delete)
+//! assert decode([27, 91, 50, 126], ended: False) == Some(Key.Insert)
+//! assert decode([27, 91, 49, 126], ended: False) == Some(Key.Home)
+//! assert decode([27, 91, 52, 126], ended: False) == Some(Key.End)
+//! assert decode([27, 91, 53, 126], ended: False) == Some(Key.PageUp)
+//! assert decode([27, 91, 54, 126], ended: False) == Some(Key.PageDown)
+//! assert decode([27, 91, 49, 53, 126], ended: False) == Some(Key.F(5))
+//! assert decode([27, 91, 50, 52, 126], ended: False) == Some(Key.F(12))
+//!
+//! assert decode([27, 91, 57, 57, 126], ended: False)
+//!     == Some(Key.Unknown(Bytes.from_list([27, 91, 57, 57, 126])))
+//!
+//! assert decode([27, 91, 51], ended: True) == Some(Key.Unknown(Bytes.from_list([27, 91, 51])))
+//!
+//! assert decode([27, 79], ended: False) == None
+//! assert decode([27, 79], ended: True) == Some(Key.Alt('O'))
+//! assert decode([27, 79, 80], ended: False) == Some(Key.F(1))
+//! assert decode([27, 79, 83], ended: False) == Some(Key.F(4))
+//! assert decode([27, 79, 65], ended: False) == Some(Key.Up)
+//! assert decode([27, 79, 72], ended: False) == Some(Key.Home)
+//
+fn decode(data: List<Int>, ended: Bool) -> Option<Key>
+    case data
+        [] ->
+            None
+
+        [27] ->
+            if ended then Some(.Escape) else None
+
+        [27, 91, ..rest] ->
+            control_sequence(rest, data, ended)
+
+        [27, 79] ->
+            if ended then Some(.Alt('O')) else None
+
+        [27, 79, final] ->
+            Some(
+                final_key(final)
+                |> Option.with_default(unknown(data))
+            )
+
+        [27, ..rest] ->
+            alt(rest, data, ended)
+
+        [b] when b < 32 ->
+            Some(control(b))
+
+        [127] ->
+            Some(.Backspace)
+
+        [b, ..] ->
+            text(data, b, ended)
+    end
+end
+
+/// The key an Escape and `rest` make: Alt with the character `rest` is, or
+/// `Unknown` for any other key.
+fn alt(rest: List<Int>, data: List<Int>, ended: Bool) -> Option<Key>
+    case decode(rest, ended)
+        Some(.Char(c)) -> Some(.Alt(c))
+        Some(_)        -> Some(unknown(data))
+        None           -> None
+    end
+end
+
+/// The key a control sequence (Escape, `[`, then `rest`) is: parameter
+/// bytes, then one final byte from `@` to `~`.
+fn control_sequence(rest: List<Int>, data: List<Int>, ended: Bool) -> Option<Key>
+    case Iter.last(rest)
+        None ->
+            if ended then Some(.Alt('[')) else None
+
+        Some(last) when last >= 0x40 and last <= 0x7E ->
+            parameters = List.slice(rest, 0, List.length(rest) - 1)
+
+            Some(
+                sequence_key(text_of(parameters), last)
+                |> Option.with_default(unknown(data))
+            )
+
+        Some(last) when last >= 0x20 and last <= 0x3F and not ended and List.length(rest) < 16 ->
+            None
+
+        _ ->
+            Some(unknown(data))
+    end
+end
+
+/// The key a control sequence with `parameters` and the final byte
+/// `final` names, or `None`.
+fn sequence_key(parameters: String, final: Int) -> Option<Key>
+    if final == 0x7E then
+        case parameters
+            "1"  -> Some(.Home)
+            "2"  -> Some(.Insert)
+            "3"  -> Some(.Delete)
+            "4"  -> Some(.End)
+            "5"  -> Some(.PageUp)
+            "6"  -> Some(.PageDown)
+            "7"  -> Some(.Home)
+            "8"  -> Some(.End)
+            "11" -> Some(.F(1))
+            "12" -> Some(.F(2))
+            "13" -> Some(.F(3))
+            "14" -> Some(.F(4))
+            "15" -> Some(.F(5))
+            "17" -> Some(.F(6))
+            "18" -> Some(.F(7))
+            "19" -> Some(.F(8))
+            "20" -> Some(.F(9))
+            "21" -> Some(.F(10))
+            "23" -> Some(.F(11))
+            "24" -> Some(.F(12))
+            _    -> None
+        end
+    else if parameters == "" or parameters == "1" then
+        final_key(final)
+    else
+        None
+    end
+end
+
+/// The key a sequence's final letter names with no modifier: the arrows,
+/// Home and End, and F1 through F4.
+fn final_key(final: Int) -> Option<Key>
+    case Int.to_codepoint(final)
+        Some('A') -> Some(.Up)
+        Some('B') -> Some(.Down)
+        Some('C') -> Some(.Right)
+        Some('D') -> Some(.Left)
+        Some('H') -> Some(.Home)
+        Some('F') -> Some(.End)
+        Some('P') -> Some(.F(1))
+        Some('Q') -> Some(.F(2))
+        Some('R') -> Some(.F(3))
+        Some('S') -> Some(.F(4))
+        _         -> None
+    end
+end
+
+/// The key a control byte, below 32, is.
+fn control(b: Int) -> Key
+    case b
+        0             -> .Ctrl(' ')
+        8             -> .Backspace
+        9             -> .Tab
+        10            -> .Enter
+        13            -> .Enter
+        27            -> .Escape
+        n when n < 27 -> .Ctrl(Int.to_codepoint(n + 96)!)
+        n             -> .Ctrl(Int.to_codepoint(n + 64)!)
+    end
+end
+
+/// The character `data` holds in UTF-8, starting with `lead`: `None` while
+/// more of it may come, `Unknown` for bytes that are not UTF-8.
+fn text(data: List<Int>, lead: Int, ended: Bool) -> Option<Key>
+    if utf8_length(lead) > List.length(data) and not ended then
+        None
+    else
+        case Bytes.code_point_at(bytes_of(data), 0)
+            Some((c, size)) when size == List.length(data) -> Some(.Char(c))
+            _ -> Some(unknown(data))
+        end
+    end
+end
+
+/// How many bytes the UTF-8 character `lead` starts takes, or 0 for a byte
+/// no character starts with.
+fn utf8_length(lead: Int) -> Int
+    case lead
+        n when n < 0x80                -> 1
+        n when n >= 0xC2 and n <= 0xDF -> 2
+        n when n >= 0xE0 and n <= 0xEF -> 3
+        n when n >= 0xF0 and n <= 0xF4 -> 4
+        _                              -> 0
+    end
+end
+
+fn unknown(data: List<Int>) -> Key
+    Key.Unknown(bytes_of(data))
+end
+
+fn bytes_of(data: List<Int>) -> Bytes
+    data
+    |> Iter.map(fn n -> Int.to_byte(n)!)
+    |> Iter.to_list()
+    |> Bytes.from_list()
+end
+
+fn text_of(data: List<Int>) -> String
+    bytes_of(data) |> Bytes.to_string_lossy()
+end

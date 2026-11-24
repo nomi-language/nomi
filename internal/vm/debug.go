@@ -915,12 +915,12 @@ func debugMayCall(in ir.Instr) bool {
 }
 
 // debugActivation runs an activation activateSlot opened, linking it into
-// its thread: a pooled stack belongs to the goroutine calling from Go, whose
-// thread the debugger looks up.
-func (m *Machine) debugActivation(fr *frame, pooled bool) error {
+// its thread: a stack whose first activation arrived from Go belongs to the
+// goroutine calling from Go, whose thread the debugger looks up.
+func (m *Machine) debugActivation(fr *frame, fromGo bool) error {
 	stk := fr.stk
 	via := ""
-	if pooled {
+	if fromGo {
 		th := m.dbg.enter(fr.runtime)
 		stk.thread = th
 		via = m.dvia

@@ -93,7 +93,10 @@ dbg line 13: leap + Years(1) = 2025-02-28
 An [`Instant`](/reference/instant/) is a point in time, stored as
 nanoseconds since the Unix epoch. It has no calendar and no time zone.
 [`Instant.now()`](/reference/instant/#instantnow) returns one. Store an
-`Instant` when you need a moment that doesn't depend on any zone.
+`Instant` when you need a moment that doesn't depend on any zone. To
+measure how long something takes, read [`Monotonic.now()`](/reference/instant/#monotonicnow)
+instead: `Monotonic.elapsed(started)` stays right when the system clock is
+set while the work runs.
 
 A [`Duration`](/reference/duration/) is an exact number of nanoseconds. You
 add it to an instant, subtract it from one, get it back from
@@ -133,11 +136,11 @@ run.
 An `Instant` and a `Duration` are counts of any size, so
 [`Instant.from_seconds`](/reference/instant/#instantfrom_seconds) takes any
 timestamp, and `Instant + Duration` and the difference of two instants
-never overflow. Go's clock counts the years 1677 to 2262, and a function
-that hands an `Instant` to Go says what one outside them means: a deadline
-past 2262 never comes. The calendar types have no range either: a
-year is an `Int` of any size, and one outside 0000 to 9999 is written with a
-sign and at least six digits, as in `Date"+010000-01-01"`.
+never overflow. Deadlines and the timestamps std writes out count only the
+years 1677 to 2262, and each function that takes one says what an `Instant`
+outside them means: a deadline past 2262 never comes. The calendar types have
+no range either: a year is an `Int` of any size, and one outside 0000 to 9999
+is written with a sign and at least six digits, as in `Date"+010000-01-01"`.
 
 ## Equality compares moments
 

@@ -5,7 +5,9 @@ import (
 	"context"
 	"errors"
 	"io"
+	"os"
 	"strings"
+	"time"
 	"unicode/utf8"
 )
 
@@ -38,11 +40,15 @@ type Input struct {
 	end error
 	// src answers the next chunk of the source.
 	src func(ctx context.Context) ([]byte, error)
+	// file is the source when it is a file, for a question about its
+	// device (StandardFile), or nil.
+	file *os.File
 }
 
 // NewInput wraps r as a program's input.
 func NewInput(r io.Reader) *Input {
 	in := &Input{lock: make(chan struct{}, 1)}
+	in.file, _ = r.(*os.File)
 	switch r.(type) {
 	case *strings.Reader, *bytes.Reader:
 		// Data in memory never blocks, so it is read where it is asked for.
@@ -147,16 +153,31 @@ func (in *Input) release() { <-in.lock }
 
 // fill reads the next chunk into buf, or records the end. A cancelled wait
 // raises fr's cancellation with buf as it was. The lock is held.
-func (in *Input) fill(fr *Frame) {
+func (in *Input) fill(fr *Frame) { in.fillWithin(fr, -1) }
+
+// fillWithin is fill waiting at most within, or as long as it takes when
+// within is negative. It reports false when nothing arrived in time; what
+// arrives later is the next fill's. The lock is held.
+func (in *Input) fillWithin(fr *Frame, within time.Duration) bool {
 	ctx := ctxOf(fr)
-	chunk, err := in.src(ctx)
-	if err != nil && ctx.Err() != nil && errors.Is(err, ctx.Err()) {
-		raiseCanceled(fr)
+	wait := ctx
+	if within >= 0 {
+		var cancel context.CancelFunc
+		wait, cancel = context.WithTimeout(ctx, within)
+		defer cancel()
+	}
+	chunk, err := in.src(wait)
+	if err != nil && wait.Err() != nil && errors.Is(err, wait.Err()) {
+		if ctx.Err() != nil {
+			raiseCanceled(fr)
+		}
+		return false
 	}
 	in.buf = append(in.buf, chunk...)
 	if err != nil {
 		in.end = err
 	}
+	return true
 }
 
 // failure is the io.Error for the source's end, or nil at its end of input.
@@ -217,6 +238,34 @@ func (in *Input) readSome(fr *Frame, max int64) Result[Option[Bytes], IOError] {
 	out := Bytes(in.buf[:n])
 	in.buf = in.buf[n:]
 	return Ok[Option[Bytes], IOError](Some(out))
+}
+
+// StdinReadByte is the next byte of the frame's standard input, read from
+// the buffer `io.read_line` reads, for std::terminal's keys: the byte, -1
+// when none arrived within `within` (a negative within waits as long as it
+// takes), or -2 at the end of the input. A frame with no input is at its
+// end. Inside `io.capture` it reads the capture's input.
+func StdinReadByte(fr *Frame, within time.Duration) Result[int64, IOError] {
+	in, replay := stdinInput(fr)
+	if replay != nil || in == nil {
+		return Ok[int64, IOError](-2)
+	}
+	in.acquire(fr)
+	defer in.release()
+	for len(in.buf) == 0 {
+		if in.end != nil {
+			if f := in.failure("read"); f != nil {
+				return Err[int64](*f)
+			}
+			return Ok[int64, IOError](-2)
+		}
+		if !in.fillWithin(fr, within) {
+			return Ok[int64, IOError](-1)
+		}
+	}
+	b := in.buf[0]
+	in.buf = in.buf[1:]
+	return Ok[int64, IOError](int64(b))
 }
 
 // lineRead is a line read from standard input as `io.read_line` answers it:

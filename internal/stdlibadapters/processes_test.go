@@ -51,7 +51,10 @@ func TestRtFuncs_ProcessesAndTheFake(t *testing.T) {
 	faked := rt.EnterProcesses(host, fake)
 
 	env := rt.MapOf(rt.Hash, rt.Equal, []rt.MapEntry[any, any]{{Key: "LC_ALL", Val: "C"}})
-	sorter := ok(faked, "process/host.start", "sort", rtList("-r"), env, false, "logs", int64(3), empty, int64(3), int64(3))
+	sorter := ok(faked, "process/host.start", "sort", rtList("-r"), env, false, "logs", int64(3), empty, int64(3), int64(3), false)
+	if got := call(faked, "process/host.child_id", sorter).(int64); got != 1 {
+		t.Errorf("the fake's first child has id %d, want 1", got)
+	}
 	ok(faked, "io.Writer.write_text", call(faked, "process/host.child_stdin", sorter), "b\na\n")
 	if got := text(ok(faked, "process/host.wait", sorter)); got != `[Int(0), Int(0)]` {
 		t.Errorf("wait answered %s", got)
@@ -63,18 +66,27 @@ func TestRtFuncs_ProcessesAndTheFake(t *testing.T) {
 		t.Errorf("the piped stderr read %s", got)
 	}
 	call(faked, "process/host.kill", sorter)
+	if got := text(call(faked, "process/host.signal", sorter, "SIGTERM", false)); got != `results.Result/4.Err{0=io.Error/4.Other{code=String("ESRCH"), operation=String("process.signal"), path=String("sort")}}` {
+		t.Errorf("a signal to a fake child, which has ended, answered %s", got)
+	}
+	if got := text(call(faked, "process/host.signal", sorter, "SIGTERM", true)); got != `results.Result/4.Err{0=io.Error/4.Unsupported{operation=String("process.signal_group"), target=String("a child not started with new_group")}}` {
+		t.Errorf("a group signal to a child started without a group answered %s", got)
+	}
+	if got := call(host, "process/host.id").(int64); got < 1 {
+		t.Errorf("process/host.id answered %d", got)
+	}
 
-	maker := ok(faked, "process/host.start", "make", rtList("all"), noEnv, false, "", int64(0), empty, int64(2), int64(2))
+	maker := ok(faked, "process/host.start", "make", rtList("all"), noEnv, false, "", int64(0), empty, int64(2), int64(2), false)
 	if got := text(ok(faked, "process/host.wait", maker)); got != `[Int(0), Int(2)]` {
 		t.Errorf("wait answered %s", got)
 	}
 	if got := text(call(faked, "process/host.captured", maker, int64(2))); got != `Bytes("no rule\n")` {
 		t.Errorf("captured stderr is %s", got)
 	}
-	if got := text(call(faked, "process/host.start", "deploy", rtList(), noEnv, false, "", int64(0), empty, int64(2), int64(2))); got != `results.Result/4.Err{0=io.Error/4.PermissionDenied{path=String("deploy")}}` {
+	if got := text(call(faked, "process/host.start", "deploy", rtList(), noEnv, false, "", int64(0), empty, int64(2), int64(2), false)); got != `results.Result/4.Err{0=io.Error/4.PermissionDenied{path=String("deploy")}}` {
 		t.Errorf("a refused start answered %s", got)
 	}
-	if got := text(call(faked, "process/host.start", "make", rtList("clean"), noEnv, false, "", int64(0), empty, int64(2), int64(2))); got != `results.Result/4.Err{0=io.Error/4.NotFound{path=String("make")}}` {
+	if got := text(call(faked, "process/host.start", "make", rtList("clean"), noEnv, false, "", int64(0), empty, int64(2), int64(2), false)); got != `results.Result/4.Err{0=io.Error/4.NotFound{path=String("make")}}` {
 		t.Errorf("an unanswered start answered %s", got)
 	}
 
@@ -94,7 +106,7 @@ func TestRtFuncs_ProcessesAndTheFake(t *testing.T) {
 		t.Errorf("fake_input is %s", got)
 	}
 
-	if got := text(call(host, "process/host.start", "nomi-no-such-program", rtList(), noEnv, false, "", int64(0), empty, int64(2), int64(2))); got != `results.Result/4.Err{0=io.Error/4.NotFound{path=String("nomi-no-such-program")}}` {
+	if got := text(call(host, "process/host.start", "nomi-no-such-program", rtList(), noEnv, false, "", int64(0), empty, int64(2), int64(2), false)); got != `results.Result/4.Err{0=io.Error/4.NotFound{path=String("nomi-no-such-program")}}` {
 		t.Errorf("a missing program answered %s", got)
 	}
 }

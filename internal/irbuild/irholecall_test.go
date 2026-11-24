@@ -22,9 +22,9 @@ end
 // at Int, which meets it (internal/analysis/closed_vars.go):
 // `Option.to_string(None)` demands Display of its T through the derived impl,
 // as `Display.to_string(Err("x"))` and an interpolated `Ok(3)` do of the
-// other side. So the instance is built at Int, the Some arm's
-// `Display.to_string(payload)` dispatches to Int's impl, and the program
-// runs; no instance holds a Unit that a bound would have to answer.
+// other side. A derived Display writes no function: the machine renders
+// each value by its shape, and no function is built at a Unit that a bound
+// would have to answer.
 func TestIRHoleCall_ABoundedOpenTypeIsClosedAtAnImplementingType(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "main.nomi")
 	if err := os.WriteFile(path, []byte(irHoleDisplaySource), 0600); err != nil {
@@ -45,8 +45,8 @@ func TestIRHoleCall_ABoundedOpenTypeIsClosedAtAnImplementingType(t *testing.T) {
 		}
 	}
 	all := strings.Join(names, " ")
-	if !strings.Contains(all, "Display.to_string for Option<Int>") || strings.Contains(all, "Option<Unit>") {
-		t.Fatalf("Option.to_string(None) is not instantiated at Int alone: %q", names)
+	if strings.Contains(all, "Option<Unit>") {
+		t.Fatalf("Option.to_string(None) builds a function at Unit: %q", names)
 	}
 	verifyLambdaProgram(t, irHoleDisplaySource, "None\nSome(4)\nErr(x)\nOk(3)\n")
 }
@@ -72,13 +72,13 @@ end
 		t.Fatal("the front end now ADMITS a Hashable call on a function type, so a checker-solved " +
 			"type with no impl can reach the builder")
 	}
-	// The derived `impl Hashable for Option<T>` carries `where T: Hashable`,
-	// and the bound check at the call names it.
-	if !strings.Contains(err.Error(), "(Int) -> Int does not implement Hashable (required by `where T: Hashable`)") {
+	// The derived `impl Hashable for Option<T>` writes no function, so the
+	// call is checked as `Hashable.hash(x)` is, and names the call.
+	if !strings.Contains(err.Error(), "Option<(Int) -> Int> does not implement Hashable (required by `Option.hash`)") {
 		t.Fatalf("rejected for another reason, so the wall is not the one this test names: %v", err)
 	}
 	// It points at the call, and says why a function cannot meet it.
-	if !strings.Contains(err.Error(), "main.nomi:5:12:") || !strings.Contains(err.Error(), "a function value has no equality") {
+	if !strings.Contains(err.Error(), "main.nomi:5:23:") || !strings.Contains(err.Error(), "a function value has no equality") {
 		t.Fatalf("the bound error lost its position or its help: %v", err)
 	}
 }

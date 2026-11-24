@@ -195,6 +195,9 @@ var opaqueSpecs = []opaqueSpec{
 	// functions take the text; std/collation's Nomi bodies wrap and unwrap
 	// it. See rt/collation.go.
 	{origin: "std/collation", nomi: "Collator", form: formOpaque, inner: kindString, decl: "String", goType: reflect.TypeFor[rt.Collator]()},
+	// std/instant's monotonic reading. Last, since stdenum.go pins rows
+	// above it by index.
+	{origin: "std/instant", nomi: "Monotonic", form: formOpaque, inner: kindInt, decl: "Int", goType: reflect.TypeFor[rt.Monotonic]()},
 }
 
 // opaqueDefs is the process-wide *typeDef per spec, keyed by spec index.

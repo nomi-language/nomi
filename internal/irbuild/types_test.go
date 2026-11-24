@@ -55,11 +55,18 @@ func TestEnumSlotsDedupByGoTypeNotLayout(t *testing.T) {
 			why:   "no payload, so nothing but the tag",
 		},
 		{
-			name:  "a zero-sized payload gets no slot",
-			src:   "struct Nothing end\n\nenum Option0\n  Absent\n  embeds Nothing\nend\n",
+			name:  "a marker or Unit payload gets no slot",
+			src:   "type Nothing\n\nenum Option0\n  Absent\n  embeds Nothing\n  Pinged Unit\n  Marked {m: Nothing}\nend\n",
 			enum:  "Option0",
 			slots: nil,
-			why:   "a zero-sized value carries no information to store",
+			why:   "a read makes the one value from its type (irSlotlessPayload)",
+		},
+		{
+			name:  "a field-less struct payload has a slot",
+			src:   "struct Nothing end\n\nenum Option0\n  Absent\n  embeds Nothing\n  Held {n: Nothing}\nend\n",
+			enum:  "Option0",
+			slots: []string{"Nothing"},
+			why:   "only Unit and a marker are slotless; the retention walk and every read hold that one rule",
 		},
 		// Function types. A tag alone cannot be the dedup key when one tag
 		// covers many Go types: every function type shares

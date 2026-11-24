@@ -10,6 +10,7 @@ import
     std::instant.Instant
     std::net
     std::process.{self, Child, Command}
+    std::secret.Secret
     std::storage.Store
     std::storage::testing
     std::timer
@@ -40,8 +41,11 @@ pub fn start() -> Result<Minio, String>
 
     config = Config{
         endpoint:,
-        bucket:      "nomi-test",
-        credentials: Credentials{access_key: "nomi-test", secret_key: "nomi-test-secret"},
+        bucket: "nomi-test",
+        credentials: Credentials{
+            access_key: "nomi-test",
+            secret_key: Secret.new("nomi-test-secret"),
+        },
     }
 
     data = "${fs.temp_dir()}/nomi-minio-${port}"

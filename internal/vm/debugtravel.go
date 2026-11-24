@@ -660,7 +660,7 @@ func (d *Debugger) cross(fr *frame, name string, pure bool, args []any, call fun
 		return v, err
 	}
 	if th.entered.Load() != before {
-		d.turnOff(name + " called back into Nomi from Go, which a replay cannot answer from a recording")
+		d.turnOff(name + " called back into Nomi code, which a replay cannot answer from a recording")
 		return v, err
 	}
 	d.mu.Lock()
@@ -779,7 +779,7 @@ func (d *Debugger) travelThreadLocked(id int) (*thread, *Pass, error) {
 	th := d.threadByID(id)
 	if th == nil || th.at == nil {
 		if th != nil && th.calling != nil {
-			return nil, nil, errors.New("this thread is inside a call into Go (waiting for input), which cannot be " +
+			return nil, nil, errors.New("this thread is inside a call into the runtime (waiting for input), which cannot be " +
 				"unwound; step back once it stops at a statement")
 		}
 		return nil, nil, errors.New("thread " + strconv.Itoa(id) + " is not stopped")

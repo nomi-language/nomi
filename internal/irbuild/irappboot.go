@@ -116,6 +116,11 @@ func (g *gen) irErases(want, have kind, haveType analysis.Type) (erases bool) {
 	if irConjKind(want) {
 		return !irExistentialKind(have) && g.conjErases(want, have, haveType)
 	}
+	if irExistentialKind(want) && (irStdDisplayExistential(want) || isStdDebug(want.iface)) && irShapeHoldsBoxedEnum(have) {
+		// A container, tuple or record holding an `embeds` enum's values
+		// enters std's Display or Debug boxed (irStdBoxPlan).
+		return false
+	}
 	if irStdDisplayExistential(want) && (irDisplayErasedScalar(have) || g.irDisplayErasedNamed(want, have)) {
 		// A value held as std Display's existential: the erased rendering
 		// answers a scalar's own Display text and calls a declared type's
@@ -126,7 +131,7 @@ func (g *gen) irErases(want, have kind, haveType analysis.Type) (erases bool) {
 		// A list, vector or map (`a: Display = [1, 2]`): its Display text is
 		// its shape around each element's Display text, which the erased
 		// rendering answers structurally, each element of a declared type
-		// through its own retained impl (vm.displayStructural).
+		// through its own retained impl (vm.displayShape).
 		return true
 	}
 	if irStdDisplayExistential(want) && g.irDisplayInstanceContainer(have, haveType) {
@@ -199,8 +204,9 @@ func irDispatchEnum(d *typeDef) bool {
 	return true
 }
 
-// irDisplayErasedContainer reports whether have is a list, vector or map
-// whose every element (and key) enters Display's existential want itself
+// irDisplayErasedContainer reports whether have is a list, vector, map,
+// tuple, anonymous record, Option or Result whose every part enters
+// Display's existential want itself
 // (irErases), so the erased rendering can answer it structurally.
 func (g *gen) irDisplayErasedContainer(want, have kind) bool {
 	var parts []kind
@@ -213,6 +219,14 @@ func (g *gen) irDisplayErasedContainer(want, have kind) bool {
 		// A tuple or an anonymous record renders as its shape around each
 		// part's Display text, as `"${t}"` renders it.
 		parts = have.comp.parts
+	case have.tag == tagNamed && have.def != nil && have.def.preludeOf != nil && have.def.isEnum:
+		// An Option or a Result, whose Display is derived: its shape
+		// around its payload's Display text.
+		_, ps, container := stdRecvParts(have)
+		if !container {
+			return false
+		}
+		parts = ps
 	default:
 		elem, vector := vectorElem(have)
 		if !vector {
@@ -426,10 +440,11 @@ func (g *gen) irRecordImpls() {
 		}
 		for _, m := range iface.order {
 			it := d.items[m.name]
-			if it == nil && d.iface == nil && typ != nil && stdProgInheritsDefault(m) {
-				// A std interface's default the block does not write
-				// (`ToJson.to_json_field`): the thunk that instantiates
-				// it at the receiver (stdProgThunk).
+			if it == nil && d.iface == nil && typ != nil && g.stdProgThunked(iface, m, d.recvType) {
+				// A std interface's function the block does not write, a
+				// default (`ToJson.to_json_field`) or one the receiver
+				// answers by its shape (a derived `Hashable.hash`): the
+				// thunk of the direct call at the receiver (stdProgThunk).
 				method := g.irIfaceMethodSym(iface, m)
 				if method == nil {
 					continue
@@ -478,8 +493,9 @@ func (g *gen) irRecordImpls() {
 }
 
 // irBuildStdDefaultThunks builds, for each of this unit's blocks of a std
-// interface, the thunk of each Nomi default the block does not write
-// (stdProgThunk), which irRecordImpls records as its dispatch entry. It
+// interface, the thunk of each function the block does not write and
+// answers through one (stdProgThunked), which irRecordImpls records as its
+// dispatch entry. It
 // runs before the program's std instances are collected, since a thunk
 // instantiates the default.
 func (g *gen) irBuildStdDefaultThunks() {
@@ -493,7 +509,7 @@ func (g *gen) irBuildStdDefaultThunks() {
 			continue
 		}
 		for _, m := range iface.order {
-			if d.items[m.name] == nil && stdProgInheritsDefault(m) {
+			if d.items[m.name] == nil && g.stdProgThunked(iface, m, d.recvType) {
 				g.stdProgThunk(iface, m, d.recv, d.recvType, typ.Name())
 			}
 		}
@@ -594,6 +610,16 @@ func (g *gen) irRecordDisplayImpls() {
 		}
 		it := d.items["to_string"]
 		if it == nil {
+			// A derived Display, which renders by its shape. Erased, a
+			// value of a type that holds a position an `embeds` enum fills
+			// renders through the thunk whose body is `Display.to_string`
+			// at the type, whose rendering knows each position's static
+			// type, as the machine's walk from the value does not.
+			if !irBoxedEnum(d.recv) && irHoldsBoxedEnum(d.recv) {
+				if fn := g.stdRenderThunk(stdDisplay, "to_string", d.recv, d.recvType); fn != nil {
+					g.irMod.ImplementDisplay(g.irImplTypeSym(d.recv), fn)
+				}
+			}
 			continue
 		}
 		fn := g.irImplSym(it)
@@ -605,11 +631,10 @@ func (g *gen) irRecordDisplayImpls() {
 }
 
 // irRecordRowDebugImpls records every retained HAND-WRITTEN `impl Debug` body
-// of a user's declared, non-generic type (ir.Module.ImplementRowDebug), which
-// an assertion's `values:` rows render such a value through. A derived or
-// name-only Debug is synthesized and not recorded, and neither is a std
-// type's: those values keep their structural row (a Decimal reads `1.50`, not
-// Debug's `1.50d`).
+// of a program's declared, non-generic type (ir.Module.ImplementRowDebug),
+// which an assertion's `values:` rows render such a value through. A derived
+// or name-only Debug is synthesized and not recorded. A std module records
+// its own where it is lowered (irRecordStdWritten).
 func (g *gen) irRecordRowDebugImpls() {
 	if g.stdModule != "" {
 		return
@@ -633,8 +658,11 @@ func (g *gen) irRecordRowDebugImpls() {
 
 // irRecordKeyImpls records every retained HAND-WRITTEN `impl Equatable` and
 // `impl Hashable` body of a declared record type of this unit, a generic
-// instance's among them (ir.Module.ImplementEquatable). A Map key, a Set
-// element and `==` over a container answer through them at any depth. A
+// instance's among them under its instance key (irImplTypeSym), so two
+// instances' bodies stay apart (ir.Module.ImplementEquatable). A Map key, a
+// Set element and `==` over a container answer through them at any depth,
+// selecting a body by the value's instance key and then its type name (the
+// VM's implOf). A
 // derived impl is structural, which is what the machine answers without an
 // entry, so it is not recorded.
 //
@@ -663,7 +691,7 @@ func (g *gen) irRecordKeyImpls() {
 			if g.irMod.FuncFor(fn) == nil {
 				continue
 			}
-			entries = append(entries, entry{g.irTypeSym(recv.def), fn})
+			entries = append(entries, entry{g.irImplTypeSym(recv), fn})
 		}
 		sort.Slice(entries, func(i, j int) bool { return entries[i].typ.Name() < entries[j].typ.Name() })
 		for _, e := range entries {

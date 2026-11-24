@@ -5,7 +5,7 @@ Neovim support for Nomi. Requires Neovim 0.11 or newer.
 | Feature | Needs |
 |---|---|
 | `.nomi`, or an extensionless file whose `#!` line names `nomi` → `nomi` filetype | plain Neovim (`ftdetect/nomi.lua`, `lua/nomi/filetype.lua`) |
-| `nomi-lsp` client: diagnostics, hover, go-to-definition, formatting | plain Neovim (`lsp/nomi.lua`, enabled by `plugin/nomi.lua`) |
+| `nomi lsp` client: diagnostics, hover, go-to-definition, formatting | plain Neovim (`lsp/nomi.lua`, enabled by `plugin/nomi.lua`) |
 | The same client in a module's `nomi.toml` and its phrase catalogs, the TOML files under its `[i18n].catalogs` directory, and in no other TOML buffer (`lua/nomi/catalogs.lua`) | plain Neovim |
 | Tree-sitter highlighting, including typed-literal injections | plain Neovim plus the compiled `nomi` parser |
 | Dimmed `//!` attached tests, the one under the cursor shown normally (`lua/nomi/attached_tests.lua`) | plain Neovim plus the parser |
@@ -28,33 +28,29 @@ installs them. Without one, the literal stays a plain string.
 
 ## Install
 
-From the repository root, install `nomi` and the language server `nomi-lsp`
-and put them on `PATH` (the plugin also finds `nomi-lsp` in `$GOBIN` or
-`~/go/bin`; the test commands run `nomi`):
-
-```sh
-go install ./cmd/nomi ./cmd/nomi-lsp
-```
+Install `nomi` and put it on `PATH` ([install](../../docs/install.md)). The
+plugin starts the language server as `nomi lsp`, and the test commands and
+the debugger run `nomi` too.
 
 ### Package directory (recommended)
 
-This needs `make`, `python3` and a C compiler (`cc`). From the repository
-root:
+This needs a C compiler (`cc`, or the one `$CC` names):
 
 ```sh
-make install-nvim
+nomi editor install nvim
 ```
 
-This regenerates the queries, copies this directory to
-`${XDG_DATA_HOME:-~/.local/share}/nvim/site/pack/nomi/start/nomi`, and compiles
-`tree-sitter-nomi/src/*.c` into `parser/nomi.so` inside it with
-`cc -shared -fPIC -O2`. Neovim loads everything under `pack/*/start` on
-startup. Re-run it after a grammar or query change. Remove the directory to
-uninstall.
+This writes the plugin `nomi` carries to
+`${XDG_DATA_HOME:-~/.local/share}/nvim/site/pack/nomi/start/nomi`
+(`%LocalAppData%\nvim-data\site\...` on Windows), and compiles the
+grammar's C into `parser/nomi.so` inside it with `cc -shared -fPIC -O2`.
+Neovim loads everything under `pack/*/start` on startup. Run it again after
+updating `nomi`. `nomi editor uninstall nvim` removes it. From a checkout,
+`make install-nvim` regenerates the queries and runs it from the checkout.
 
 ### lazy.nvim, from a local checkout
 
-Use this under lazy.nvim (including LazyVim) rather than `make install-nvim`:
+Use this under lazy.nvim (including LazyVim) rather than `nomi editor install nvim`:
 lazy.nvim resets `packpath` by default, so a copy under `pack/*/start` never
 loads.
 
@@ -75,7 +71,7 @@ merge into `main` changes the grammar or the editor files.
   name = 'nvim-nomi',
   lazy = false,
   init = function()
-    -- vim.g.nomi_lsp = false -- uncomment to skip starting nomi-lsp
+    -- vim.g.nomi_lsp = false -- uncomment to skip starting nomi lsp
   end,
 }
 ```
@@ -101,7 +97,7 @@ project root (the nearest `nomi.toml`, else `.git`):
 | | `:NomiDebug break <function>` | toggle a function breakpoint (`:NomiDebug break` lists them) |
 | `<leader>cx` | `:NomiRun` | `nomi run <file>` |
 
-`nomi-lsp` also serves code lenses (Run test, Run group, Run attached test,
+The language server also serves code lenses (Run test, Run group, Run attached test,
 and Run above `fn main`, each with a Debug lens beside it), and the plugin
 defines their commands, so `vim.lsp.codelens.run()` on a lens's line runs it
 in the same terminal, or starts the debugger on it.
@@ -248,7 +244,7 @@ frame's variables from `nomi dap`, so it needs nothing Nomi-specific.
 
 - **Turn off the LSP client:** set `vim.g.nomi_lsp = false` before the plugin
   loads.
-- **Change the LSP client:** `vim.lsp.config('nomi', { cmd = { '/path/to/nomi-lsp' } })`.
+- **Change the LSP client:** `vim.lsp.config('nomi', { cmd = { '/path/to/nomi', 'lsp' } })`.
   The root is the nearest directory with `nomi.toml`, then the nearest `.git`.
   A TOML buffer gets the client only when it is a `nomi.toml`, whose root is
   its directory, or a catalog: under the directory the nearest `nomi.toml`
@@ -258,7 +254,7 @@ frame's variables from `nomi dap`, so it needs nothing Nomi-specific.
 
 ### Inlay hints
 
-`nomi-lsp` serves three kinds of inlay hint, each with its own server
+The language server serves three kinds of inlay hint, each with its own server
 setting:
 
 | Setting | Default | Shows |
@@ -313,9 +309,9 @@ vim.api.nvim_set_hl(0, 'NomiAttachedTest', { fg = '#5c6370', italic = true, noco
 ```
 
 It is drawn at priority 130: above tree-sitter (100) and LSP semantic tokens
-(125 to 127), so `nomi-lsp`'s tokens do not undo it, and below diagnostics
+(125 to 127), so the language server's tokens do not undo it, and below diagnostics
 (150), so a diagnostic's underline in an attached test is drawn at full
-strength. `nomi-lsp` marks tokens on attached-test lines with the
+strength. The language server marks tokens on attached-test lines with the
 `attachedTest` modifier; the plugin leaves `@lsp.mod.attachedTest.nomi`
 undefined, because it dims those lines itself.
 
@@ -330,7 +326,7 @@ Run `:redraw!` after changing one at runtime.
 
 ### Code that has effects
 
-`nomi-lsp` marks a call that has effects (it reads a file, prints, uses
+The language server marks a call that has effects (it reads a file, prints, uses
 the network), a function that can, and that function's name where it is
 declared, with the `effect` modifier, once its background
 check of the program finishes. The plugin makes them bold through

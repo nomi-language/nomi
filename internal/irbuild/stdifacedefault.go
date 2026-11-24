@@ -146,7 +146,7 @@ func newStdIfaceDefault(module string, decl *ast.InterfaceDef, im *ast.Interface
 // to recv: the interface is g's own declaration of it, which the body's
 // bare calls name. It reports false when g declares no such interface.
 func (g *gen) bindStdIfaceDefaultSelf(f *stdFunc, recv kind) bool {
-	d := g.ifacesByDecl[stdInterfaceDecl(g.fa, f.iface)]
+	d := g.ifaceOfDecl(stdInterfaceDecl(g.fa, f.iface))
 	if d == nil {
 		return false
 	}

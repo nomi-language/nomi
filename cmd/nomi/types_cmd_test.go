@@ -53,9 +53,8 @@ func TestTypesCommand_WritesTheFixturesDeclarations(t *testing.T) {
 
 	// The output is a valid TypeScript module, when a tsc is at hand.
 	if tsc, err := exec.LookPath("tsc"); err == nil {
-		got, err := exec.Command(tsc, "--noEmit", "--strict", out).CombinedOutput()
-		if err != nil {
-			t.Errorf("tsc --strict: %v\n%s", err, got)
+		if got := runNode(t, os.Environ(), "", "", tsc, "--noEmit", "--strict", out); got.exit != 0 {
+			t.Errorf("tsc --strict: exit %d\n%s", got.exit, got.transcript())
 		}
 	} else {
 		t.Log("no tsc on PATH: the output is not type-checked")

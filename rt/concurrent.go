@@ -383,6 +383,9 @@ func TaskSpawn[T any](fr *Frame, body func(*Frame) T) Task[T] {
 //  4. `wg.Done()`, which is what `ScopeExit` waits for. Outermost, so the block
 //     cannot proceed until every step above has run.
 //
+// Between the last two, taskEnded takes the task off the live count
+// (runtimecounts.go), so a block that has exited counts none of its tasks.
+//
 // # The body's frame
 //
 // A fresh Frame over the task's context, not the scope's, so `Task.cancel` on
@@ -407,8 +410,10 @@ func spawnScopeTask[T any](fr *Frame, s *Scope, sem chan struct{}, body func(*Fr
 	ctx, cancel := context.WithCancel(s.ctx)
 	t := &task[T]{done: make(chan struct{}), cancel: cancel}
 	s.wg.Add(1)
+	taskBegan()
 	go func() {
 		defer s.wg.Done()
+		defer taskEnded()
 		defer cancel()
 		defer close(t.done)
 		defer func() {

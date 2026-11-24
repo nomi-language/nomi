@@ -27,17 +27,16 @@ var (
 	// `[]*ast.Ident{...}`) and a copy of a node through a pointer
 	// (`call := *t`). A type with no entry is held at 0.
 	maxASTConstructionSites = map[string]int{
-		"Binary":             8,
+		"Binary":             6,
 		"Block":              5,
-		"Call":               46,
+		"Call":               45,
 		"CaseBranch":         2,
 		"EnumPattern":        2,
 		"ExprStmt":           3,
-		"FieldAccess":        18,
+		"FieldAccess":        17,
 		"FuncDef":            9,
-		"Ident":              25,
+		"Ident":              24,
 		"If":                 2,
-		"IntLit":             1,
 		"Lambda":             5,
 		"ListLit":            6,
 		"ListPattern":        2,
@@ -53,7 +52,7 @@ var (
 		"StructLit":          4,
 		"StructPattern":      1,
 		"TupleLit":           2,
-		"TypeIdent":          23,
+		"TypeIdent":          22,
 		"Unary":              1,
 	}
 	// maxUncarriedCallLiterals is how many of the `ast.Call` literals sit in

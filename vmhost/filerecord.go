@@ -129,7 +129,7 @@ type keptFile struct {
 	Advice Diagnostics
 }
 
-const fileRecordMagic = "NOMIFILES8"
+const fileRecordMagic = "NOMIFILES9"
 
 func (r *fileRecord) encode() []byte {
 	var b bytes.Buffer
@@ -449,9 +449,9 @@ func (c *Cache) relink(cfg config) (p *Program, ok bool) {
 			return nil, false
 		}
 	}
-	// The files to check again: the changed and added ones, the files that
-	// import a file whose interface changed, and the files that can see an
-	// impl that came, went or changed (the relevant impl set).
+	// The files to check again: the changed and added ones, and the files
+	// whose checks read a file whose interface changed or see an impl that
+	// came, went or changed (analysis.ProgramInterfaces.Readers).
 	recheck := map[string]bool{}
 	for _, key := range append(append([]string(nil), changedKeys...), addedKeys...) {
 		recheck[key] = true
@@ -461,11 +461,6 @@ func (c *Cache) relink(cfg config) (p *Program, ok bool) {
 		ifaceKeys = append(ifaceKeys, key)
 	}
 	sort.Strings(ifaceKeys)
-	for key := range pi.Importers(ifaceKeys) {
-		if reach[key] {
-			recheck[key] = true
-		}
-	}
 	implsChanged := len(addedKeys) > 0 || len(removedKeys) > 0
 	var headers []analysis.ImplHeader
 	for _, key := range ifaceKeys {
@@ -474,20 +469,14 @@ func (c *Cache) relink(cfg config) (p *Program, ok bool) {
 			now = pi.ImplHeadersOf(key)
 		}
 		was := rec.Files[key].Iface.Headers
-		if !sameHeaderFiles(was, now) {
+		if !analysis.SameImplHeaders(was, now) {
 			implsChanged = true
 			headers = append(append(headers, was...), now...)
 		}
 	}
-	if len(headers) > 0 {
-		for key := range reach {
-			visible := pi.ImportClosure(key)
-			for _, h := range headers {
-				if seesHeader(h, visible) {
-					recheck[key] = true
-					break
-				}
-			}
+	for key := range pi.Readers(ifaceKeys, headers) {
+		if reach[key] {
+			recheck[key] = true
 		}
 	}
 	// Only sources the program does not load went: a relink has no file
@@ -762,31 +751,6 @@ func chooseAskers(dropped map[string][]string, decl string, byPath map[string]st
 		askers[chosen][decl] = true
 		recheck[chosen] = true
 		asked[link] = true
-	}
-	return true
-}
-
-// sameHeaderFiles reports whether two lists of a file's impl headers name
-// the same files, impl by impl, whatever their ordinals.
-func sameHeaderFiles(a, b []analysis.ImplHeader) bool {
-	key := func(hs []analysis.ImplHeader) []string {
-		out := make([]string, len(hs))
-		for i, h := range hs {
-			out[i] = strings.Join(h.Files, "\x00")
-		}
-		sort.Strings(out)
-		return out
-	}
-	return slices.Equal(key(a), key(b))
-}
-
-// seesHeader reports whether a check that reads the files in visible sees
-// the impl h heads: every project file its header names is among them.
-func seesHeader(h analysis.ImplHeader, visible map[string]bool) bool {
-	for _, k := range h.Files {
-		if !visible[k] {
-			return false
-		}
 	}
 	return true
 }

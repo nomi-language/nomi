@@ -91,7 +91,10 @@ func (c *checker) checkExistentialDemand(it Type, ifaceName string, rec Recordin
 	pos := rec.Pos
 	subject, verb := "this value", "is"
 	var param string
-	if arg, ok := c.demandSubject(matches); ok {
+	if rec.Derive != nil {
+		// A derive's part (checkDerivedParts), whose type holds it.
+		subject, verb = rec.Derive.partSubject(), "holds"
+	} else if arg, ok := c.demandSubject(matches); ok {
 		pos.Line, pos.Col = exprStartLineCol(arg)
 		if text, ok := exprPathText(arg); ok {
 			subject = "`" + text + "`"
@@ -125,6 +128,14 @@ func (c *checker) checkExistentialDemand(it Type, ifaceName string, rec Recordin
 		return
 	}
 	help := c.existentialDemandHelp(it, ifaceName, param, rec.Kind == RecordingKindOrderingOperator || rec.Kind == RecordingKindOperator || ifaceName == "Comparable")
+	if rec.Derive != nil {
+		// A field takes no type parameter. It can name the interface in
+		// place of it, save Comparable, which no interface value meets.
+		help = fmt.Sprintf("write an `impl %s for %s` by hand", ifaceName, rec.Derive.TypeName)
+		if ifaceName != "Comparable" {
+			help = fmt.Sprintf("type the field with `%s` in place of `%s`, or %s", shown, it.String(), help)
+		}
+	}
 	if rec.Kind == RecordingKindTypedLiteralSlot {
 		// A slot cannot introduce a type parameter.
 		help = fmt.Sprintf("a slot's value must have a type that implements %s", ifaceName)

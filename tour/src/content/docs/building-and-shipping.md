@@ -18,7 +18,7 @@ $ nomi build app.nomi --target linux/amd64   # for another platform
 
 `nomi build` writes one executable file. It needs nothing else installed to
 run, because it holds both your program and the [Nomi VM](/introduction/#the-nomi-vm)
-that runs it. `--target` builds for another platform, the way Go does.
+that runs it. `--target` builds for another platform.
 [Executables](/tooling/building/#executables) lists what `nomi build`
 refuses and where it finds the VM for each target.
 

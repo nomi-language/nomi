@@ -1,9 +1,27 @@
+//# Points in time. An `Instant` is a moment on the wall clock, the count a
+//# Unix timestamp gives, and `Instant.now` reads it. A `Monotonic` is a
+//# reading of a clock that only moves forward, for measuring how long
+//# something took: `Monotonic.elapsed(started)` is right even when the wall
+//# clock is set while the work runs, which `Instant.now() - started` is
+//# not.
+//#
+//# ```nomi
+//# started = Monotonic.now()
+//#
+//# run_batch()
+//#
+//# took = Monotonic.elapsed(started)
+//# ```
+
 import
     add.Add
     bool.Bool
+    comparable.Comparable
+    debug.Debug
     duration.Duration
     equatable.Equatable
     int.Int
+    strings.String
     subtract.Subtract
 end
 
@@ -18,10 +36,10 @@ end
 /// same nanosecond.
 ///
 /// The count is an `Int` of any size, as a `Duration`'s is, so every one
-/// of these functions returns for every value and none can fail. Go
-/// counts a time in a signed 64-bit number of nanoseconds, the years 1677
-/// to 2262. A std function that hands an Instant to Go says what one
-/// outside those years means there: a deadline past 2262 never comes, and
+/// of these functions returns for every value and none can fail. Timers
+/// and timestamps count in a signed 64-bit number of nanoseconds, the
+/// years 1677 to 2262. A std function that passes an Instant to one says
+/// what one outside those years means: a deadline past 2262 never comes, and
 /// a timestamp written out is clamped to the nearest end or refused.
 //! start = Instant.from_seconds(1_700_000_000)
 //! later = start + Duration.minutes(90)
@@ -36,13 +54,9 @@ impl Instant
     /// The time now, read from the system clock at nanosecond precision.
     /// `Instant.to_seconds(Instant.now())` is the Unix timestamp in whole
     /// seconds. The system clock can be set back, so a later call may
-    /// return an earlier Instant.
-    ///
-    /// Subtract an earlier reading to time a step:
-    ///
-    /// ```nomi
-    /// took = Instant.now() - started
-    /// ```
+    /// return an earlier Instant. To measure how long something took, use
+    /// `Monotonic.now` and `Monotonic.elapsed`, which no setting of the
+    /// clock moves.
     pub host fn now() -> Instant
 
     /// The Instant `n` whole seconds after the Unix epoch, before it for a
@@ -142,5 +156,110 @@ impl Subtract<Instant, Duration> for Instant
     //
     fn subtract(lhs: Instant, rhs: Instant) -> Duration
         Instant.between(rhs, lhs)
+    end
+end
+
+/// A reading of the monotonic clock: a clock that only moves forward, at
+/// the rate of real time, and that setting the wall clock does not move.
+/// It is the clock to measure elapsed time with, for a timeout, a rate
+/// limit or a benchmark. `Monotonic.now` reads it, and
+/// `Monotonic.elapsed` is the `Duration` since an earlier reading.
+///
+/// A reading counts from a point the process chose when it started, so it
+/// means nothing outside the process, and it is no date: there is no way
+/// to make an `Instant` from one or one from an `Instant`, and no
+/// `Display`. Its `Debug` shows the time since that point
+/// (`Monotonic(+1m30s)`). Two readings compare with `<` and `==`, and `+`
+/// and `-` move one by a `Duration`, for a deadline:
+///
+/// ```nomi
+/// deadline = Monotonic.now() + Duration.seconds(5)
+///
+/// if Monotonic.now() >= deadline then give_up()
+/// ```
+///
+/// In a test under `clock Clock.Virtual`, the clock is the test's virtual
+/// one: after `timer.sleep(Duration.seconds(5))`, `Monotonic.elapsed` of a
+/// reading taken before it is exactly five seconds.
+//! started = Monotonic.now()
+//! later = Monotonic.now()
+//!
+//! assert started <= later
+//! assert Monotonic.elapsed(started) >= Duration.seconds(0)
+//! assert Monotonic.between(started, later) == later - started
+//
+pub opaque type Monotonic Int
+
+impl Monotonic
+    /// The monotonic clock now. A later call never returns an earlier
+    /// reading.
+    pub host fn now() -> Monotonic
+
+    /// The Duration from `since` to now: `Monotonic.now() - since`. It is
+    /// zero or more for a reading this process took earlier.
+    //! started = Monotonic.now()
+    //! assert Monotonic.elapsed(started) >= Duration.seconds(0)
+    //
+    pub fn elapsed(since: Monotonic) -> Duration
+        Monotonic.between(since, Monotonic.now())
+    end
+
+    /// The Duration from `earlier` to `later`, which is `later - earlier`.
+    /// It is negative when `later` is the earlier of the two.
+    //! start = Monotonic.now()
+    //! later = start + Duration.seconds(5)
+    //!
+    //! assert Monotonic.between(start, later) == Duration.seconds(5)
+    //! assert Monotonic.between(later, start) == Duration.seconds(-5)
+    //
+    pub fn between(Monotonic(earlier), Monotonic(later)) -> Duration
+        Duration.nanoseconds(later - earlier)
+    end
+end
+
+derive Equatable for Monotonic
+derive Comparable for Monotonic
+
+impl Debug for Monotonic
+    /// `Monotonic(+<duration>)`: the time since the point the process
+    /// counts its readings from, in `Duration`'s form, and no date.
+    //! assert Monotonic.inspect(Monotonic(90_000_000_000)) == "Monotonic(+1m30s)"
+    //! assert Monotonic.inspect(Monotonic(-5_000_000_000)) == "Monotonic(-5s)"
+    //
+    fn inspect(Monotonic(nanos)) -> String
+        sign = if nanos < 0 then "" else "+"
+        "Monotonic(${sign}${Duration.nanoseconds(nanos)})"
+    end
+end
+
+impl Add<Duration, Monotonic> for Monotonic
+    /// `reading + duration`: the reading that long after `reading`, or
+    /// before it for a negative Duration.
+    //! start = Monotonic.now()
+    //! assert (start + Duration.seconds(5)) - start == Duration.seconds(5)
+    //
+    fn add(Monotonic(nanos), rhs: Duration) -> Monotonic
+        Monotonic(nanos + Duration.as_nanos(rhs))
+    end
+end
+
+impl Subtract<Duration, Monotonic> for Monotonic
+    /// `reading - duration`: the reading that long before `reading`.
+    //! start = Monotonic.now()
+    //! assert start - (start - Duration.seconds(5)) == Duration.seconds(5)
+    //
+    fn subtract(Monotonic(nanos), rhs: Duration) -> Monotonic
+        Monotonic(nanos - Duration.as_nanos(rhs))
+    end
+end
+
+impl Subtract<Monotonic, Duration> for Monotonic
+    /// `a - b`: the Duration from `b` to `a`, which is
+    /// `Monotonic.between(b, a)`. It is negative when `a` is before `b`.
+    //! start = Monotonic.now()
+    //! assert (start + Duration.seconds(2)) - start == Duration.seconds(2)
+    //
+    fn subtract(lhs: Monotonic, rhs: Monotonic) -> Duration
+        Monotonic.between(rhs, lhs)
     end
 end

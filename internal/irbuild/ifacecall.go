@@ -21,10 +21,10 @@ import (
 //     call's record carried onto it. `a == b` and `Equatable.equal(a, b)`
 //     end in one arm. Any other impl is the call of it the record names,
 //     which the routes after the switch plan (recordedCallPlan).
-//   - by shape: Equatable's as `==` by shape (equality), Hashable's as a
-//     tuple's or a record's mix (tupleHashCall) or the hash a Map key of
-//     the type takes (irHashValueHost), Comparable's as a tuple's
-//     lexicographic compare (tupleCompareCall).
+//   - by shape: Equatable's as `==` by shape (equality), Hashable's as the
+//     hash a Map key of the type takes (irHashValueHost), a tuple's and a
+//     record's too, Comparable's as a tuple's lexicographic compare
+//     (tupleCompareCall).
 //   - by dispatch: Equatable's as `==` over two interface values
 //     (equality), Hashable's as the Map key hash of the held value, or,
 //     on a value held as std's Hashable itself, the dispatched call the
@@ -83,6 +83,13 @@ func (bl *irScalarBuilder) interfaceCall(t *ast.Call) (v ir.Temp, k kind, mobile
 	}
 	switch c.Form {
 	case analysis.OperatorByImpl:
+		if oi.iface == stdHashable {
+			if !bl.g.hashByMachine(c, bl.g.firstOperandType(t)) {
+				return ir.NoTemp, kindInvalid, false, false, false
+			}
+			v, ok = bl.hashValue(t)
+			return v, kindInt, false, ok, true
+		}
 		use := operatorUseOfCall(oi.iface, c, bl.g.firstOperandType(t))
 		if oi.family == "" || bl.g.machineRouteOf(use) == routeUnset {
 			return ir.NoTemp, kindInvalid, false, false, false
@@ -95,9 +102,6 @@ func (bl *irScalarBuilder) interfaceCall(t *ast.Call) (v ir.Temp, k kind, mobile
 			v, k, mobile, ok = bl.asOperator(t, oi, &analysis.OperatorUse{Form: c.Form})
 			return v, k, mobile, ok, true
 		case stdHashable:
-			if v, k, mobile, ok, handled := bl.tupleHashCall(t); handled {
-				return v, k, mobile, ok, true
-			}
 			v, ok = bl.hashValue(t)
 			return v, kindInt, false, ok, true
 		case stdComparable:
@@ -210,19 +214,42 @@ func operatorArity(t *ast.Call, args irQualArgs, n int) {
 // value structurally. Two values `==` calls equal hash alike.
 const irHashValueHost = "vm.hash_value"
 
-// hashValue lowers t, a call of `Hashable.hash(x)` answered by shape or by
-// dispatch, as the irHashValueHost call over its one operand.
+// hashByMachine reports whether c, the record of a call of `Hashable.hash`
+// on a value of checker type recv, is answered by the machine's hash of
+// the value (irHashValueHost): by its shape (a tuple, a record, a derived
+// Hashable), or by a std impl whose machineImpls row is routeStructural
+// (List's, Map's, Set's and Vector's, whose `host fn` no host table binds).
+func (g *gen) hashByMachine(c analysis.Callee, recv analysis.Type) bool {
+	switch c.Form {
+	case analysis.OperatorStructural:
+		return true
+	case analysis.OperatorByImpl:
+		return g.machineRouteOf(operatorUseOfCall(stdHashable, c, recv)) == routeStructural
+	}
+	return false
+}
+
+// hashValue lowers t, a call of `Hashable.hash(x)` answered by the
+// machine's hash (hashByMachine) or by dispatch, as the irHashValueHost
+// call over its one operand.
 func (bl *irScalarBuilder) hashValue(t *ast.Call) (ir.Temp, bool) {
 	args := bl.qualCallArgs(t)
 	if !args.ok {
 		return ir.NoTemp, false
 	}
 	operatorArity(t, args, 1)
+	return bl.hashValueOf(t, args.temps[0]), true
+}
+
+// hashValueOf is the irHashValueHost call over subj, the lowered operand
+// of t: what hashValue lowers t to, and a box's thunk of a type hashed by
+// its shape (stdProgThunk).
+func (bl *irScalarBuilder) hashValueOf(t *ast.Call, subj ir.Temp) ir.Temp {
 	pos := bl.g.irNodePos(t)
-	c := ir.NewHostCall(pos, bl.f.NewTemp(), irCallSite(t), bl.g.irCalleeSym(irHashValueHost, irHashValueHost), args.temps[0])
+	c := ir.NewHostCall(pos, bl.f.NewTemp(), irCallSite(t), bl.g.irCalleeSym(irHashValueHost, irHashValueHost), subj)
 	bl.b.Append(c)
 	bl.side(c.Dst(), irScalarSide{k: kindInt})
-	return c.Dst(), true
+	return c.Dst()
 }
 
 // qualCallArgs lowers the operands of the qualified call t

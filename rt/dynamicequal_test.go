@@ -19,7 +19,7 @@ func TestDynamicEquality(t *testing.T) {
 		{"string", "a", "a"},
 		{"int widths", int8(1), int64(1)},
 		{"unsigned and signed", uint32(7), int(7)},
-		{"uint64 past int64", uint64(math.MaxUint64), uint(math.MaxUint64)},
+		{"uint64 and uint at uint's largest", uint64(math.MaxUint), uint(math.MaxUint)},
 		{"float widths", float32(0.5), 0.5},
 		{"negative zero", 0.0, math.Copysign(0, -1)},
 		{"array", []any{int64(1), "x", nil}, []any{1, "x", nil}},

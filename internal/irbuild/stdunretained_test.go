@@ -13,7 +13,9 @@ import (
 // that reaches it is BLOCKED.
 //
 // Every Nomi-bodied monomorphic std function the cache did not retain must
-// be one a program builds, and must build.
+// be one a program builds, and must build, unless every call of it lowers
+// to an operation of the machine (StdLowersToMachine: `Iter.from` is
+// ir.IterFrom), so no program runs its body.
 func TestStdBodiesTheCacheDeclinesAreBuiltPerProgram(t *testing.T) {
 	idx := stdlibLowering()
 	s := newStdInstances(idx, newDeclineCensus(DeclineHooks{}))
@@ -30,7 +32,7 @@ func TestStdBodiesTheCacheDeclinesAreBuiltPerProgram(t *testing.T) {
 	for _, name := range names {
 		f := idx.byKey[name]
 		if f == nil || f.why != "" || f.rtCall != "" || f.decl == nil || f.decl.Body == nil ||
-			len(f.decl.TypeParams) > 0 || len(f.decl.Decorators) > 0 {
+			len(f.decl.TypeParams) > 0 || len(f.decl.Decorators) > 0 || StdLowersToMachine(f.id) {
 			continue
 		}
 		checked[name] = true

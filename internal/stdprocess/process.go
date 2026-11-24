@@ -35,12 +35,20 @@ type spec struct {
 	stdin    int64
 	input    rt.Reader
 	out, err int64
+	// newGroup starts the child as the leader of a process group of its
+	// own (group_unix.go, group_windows.go).
+	newGroup bool
 }
 
 // child is a started process, real or the fake's. A real child's state
 // lives on its process; a fake one is finished when it starts.
 type child struct {
 	program string
+	// id is the operating system's process id, or the fake's position of
+	// the call, from 1.
+	id int64
+	// group is set when the child leads a process group of its own.
+	group bool
 
 	stdin          rt.Writer
 	stdout, stderr rt.Reader
@@ -65,12 +73,12 @@ type child struct {
 // the modes given. A fake the frame carries answers it instead of the
 // operating system. A program that cannot be started is an io.Error.
 func Start(fr *rt.Frame, program string, args *rt.List[string], env rt.Map[string, string], clearEnv bool, dir string,
-	stdin int64, input rt.Reader, out, errs int64) rt.Result[rt.ChildProcess, rt.IOError] {
+	stdin int64, input rt.Reader, out, errs int64, newGroup bool) rt.Result[rt.ChildProcess, rt.IOError] {
 	if stdin < stdinNull || stdin > stdinPipe || out < outNull || out > outPipe || errs < outNull || errs > outPipe {
 		rt.Trap("process: a stream mode is out of range")
 	}
 	s := spec{program: program, env: rt.MapEntries(env), clearEnv: clearEnv, dir: dir,
-		stdin: stdin, input: input, out: out, err: errs}
+		stdin: stdin, input: input, out: out, err: errs, newGroup: newGroup}
 	for l := args; l != nil; l = l.Tail {
 		s.args = append(s.args, l.Head)
 	}
@@ -172,6 +180,45 @@ func Kill(c rt.ChildProcess) rt.Unit {
 		ch.proc.kill(ch)
 	}
 	return rt.Unit{}
+}
+
+// ID is std/process/host's `id`: this process's id. A js/wasm or wasip1
+// module, which has none, answers 1.
+func ID() int64 { return processID() }
+
+// ChildID is std/process/host's `child_id`: the child's process id, which
+// stays its own until it is waited for. A fake child's is the position of
+// its call, from 1.
+func ChildID(c rt.ChildProcess) int64 { return childOf(c).id }
+
+// Signal is std/process/host's `signal`: sends the signal POSIX names
+// `name` (`SIGTERM`) to the child, or to every process in the group it
+// leads when group is set. A child that has ended, the fake's included,
+// which ends as it starts, answers `Other` with code ESRCH, no such
+// process; a group signal to a child not started with `new_group` answers
+// Unsupported, since its group is the program's own.
+func Signal(c rt.ChildProcess, name string, group bool) rt.Result[rt.Unit, rt.IOError] {
+	ch := childOf(c)
+	op := "process.signal"
+	if group {
+		op = "process.signal_group"
+	}
+	if group && !ch.group {
+		return rt.Err[rt.Unit](rt.IOError{Tag: rt.TagIOUnsupported, Operation: op, Target: "a child not started with new_group"})
+	}
+	if ch.proc == nil {
+		return rt.Err[rt.Unit](ended(op, ch.program))
+	}
+	if e := ch.proc.signal(ch, op, name, group); e != nil {
+		return rt.Err[rt.Unit](*e)
+	}
+	return rt.Ok[rt.Unit, rt.IOError](rt.Unit{})
+}
+
+// ended is the io.Error for a signal to a child that has ended: ESRCH,
+// no such process.
+func ended(op, program string) rt.IOError {
+	return rt.IOError{Tag: rt.TagIOOther, Operation: op, Path: program, Code: "ESRCH"}
 }
 
 // frameOutput is the program's standard output (or error) as an

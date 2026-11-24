@@ -147,9 +147,15 @@ func (l vmRetainedList) committed(t *testing.T) []string {
 // readings to.
 func (l vmRetainedList) ranCount(t *testing.T) int {
 	t.Helper()
+	return l.classCount(t, "ran")
+}
+
+// classCount is how many functions the committed list records in class.
+func (l vmRetainedList) classCount(t *testing.T, class string) int {
+	t.Helper()
 	n := 0
 	for _, line := range l.committed(t) {
-		if strings.HasSuffix(line, "\tran") {
+		if strings.HasSuffix(line, "\t"+class) {
 			n++
 		}
 	}

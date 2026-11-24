@@ -9,7 +9,7 @@ export async function run(): Promise<void> {
   const steps: [string, () => Promise<void>][] = [
     ["a .nomi file opens as Nomi and activates the extension", activates],
     ["the commands are registered", commandsRegistered],
-    ["nomi-lsp reports a type error", languageServerDiagnoses],
+    ["nomi lsp reports a type error", languageServerDiagnoses],
     ["the outline lists the file's declarations and tests", documentSymbols],
     ["Nomi: Test at Cursor runs only the test under the cursor", testAtCursor],
     ["Nomi: Test File runs every test in the file", testFile],
@@ -88,7 +88,7 @@ async function documentSymbols(): Promise<void> {
   );
 }
 
-// nomi-lsp puts a lens above each test; running one runs only that test.
+// The language server puts a lens above each test; running one runs only that test.
 async function codeLenses(): Promise<void> {
   const editor = await open("sample_test.nomi");
   const lenses = await vscode.commands.executeCommand<vscode.CodeLens[]>(

@@ -96,12 +96,21 @@ var contextCheckedRows = map[string]bool{
 	"io.File.read_at": true, "io.File.write": true, "io.File.write_at": true, "io.File.seek": true,
 	"io.File.position": true, "io.File.size": true, "io.File.truncate": true, "io.File.close": true,
 	"io.File.sync": true, "io.File.sync_data": true, "fs/host.lock": true, "fs/host.sync_dir": true,
+	"fs/host.set_times": true, "fs/host.touch": true, "fs/host.create_link": true, "fs/host.set_owner": true,
+	"fs/host.disk_usage": true, "fs/host.owner_name": true,
+	// The terminal a standard stream is, off a terminal:
+	// TestRtFuncs_TerminalRowsOffATerminal. On one: cmd/nomi's
+	// TestTerminal_OnAPseudoTerminal.
+	"io.stream_is_terminal": true, "terminal/host.size": true, "terminal/host.supports_color": true,
+	"terminal/host.read_password": true, "terminal/host.enter_raw": true, "terminal/host.leave_raw": true,
+	"terminal/host.read_byte": true,
 	// Starting programs and the fake: TestRtFuncs_ProcessesAndTheFake.
 	"process/host.start": true, "process/host.child_stdin": true, "process/host.child_stdout": true,
 	"process/host.child_stderr": true, "process/host.wait": true, "process/host.captured": true,
 	"process/host.kill": true, "process/host.new_fake": true, "process/host.fake_answer": true,
 	"process/host.fake_refuse": true, "process/host.fake_calls": true, "process/host.fake_command": true,
 	"process/host.fake_dir": true, "process/host.fake_env": true, "process/host.fake_input": true,
+	"process/host.child_id": true, "process/host.signal": true, "process/host.id": true,
 }
 
 // TestRtFuncs_ReadLineReadsTheFramesInput: `io.read_line` answers each line of
@@ -242,7 +251,7 @@ func TestRtFuncs_NewRowsReproduceTheirRecordedOutcomes(t *testing.T) {
 	}
 	// The files std/fs's rows read, list, move and remove. Each case
 	// works on paths of its own, since the cases run in key order.
-	for name, data := range map[string]string{"sub/a.txt": "a", "sub/b.txt": "bb", "full/x": "x", "ren-a.txt": "r", "dated.txt": "1234567", "mode.txt": "m"} {
+	for name, data := range map[string]string{"sub/a.txt": "a", "sub/b.txt": "bb", "full/x": "x", "ren-a.txt": "r", "mode.txt": "m"} {
 		p := filepath.Join(dir, name)
 		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 			t.Fatal(err)
@@ -250,13 +259,6 @@ func TestRtFuncs_NewRowsReproduceTheirRecordedOutcomes(t *testing.T) {
 		if err := os.WriteFile(p, []byte(data), 0o644); err != nil {
 			t.Fatal(err)
 		}
-	}
-	dated := filepath.Join(dir, "dated.txt")
-	if err := os.Chmod(dated, 0o640); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Chtimes(dated, time.Unix(1700000000, 0), time.Unix(1700000000, 0)); err != nil {
-		t.Fatal(err)
 	}
 	in := func(name string) string { return filepath.Join(dir, name) }
 	iv := func(n int64) any { return n }
@@ -294,14 +296,14 @@ func TestRtFuncs_NewRowsReproduceTheirRecordedOutcomes(t *testing.T) {
 		"fs/host.remove_all": {{sv(in("full"))}, {sv(in("none"))}},
 		"fs/host.rename":     {{sv(in("ren-a.txt")), sv(in("ren-b.txt"))}, {sv(in("none")), sv(in("x"))}, {sv(existing), sv(in("no/dir/x"))}},
 		"fs/host.copy":       {{sv(existing), sv(in("copy.txt"))}, {sv(in("none")), sv(in("x"))}, {sv(dir), sv(in("x"))}},
-		"fs/host.metadata":   {{sv(dated)}, {sv(in("none"))}},
+		"fs/host.metadata":   {{sv(in("none"))}},
 		// Cases run in key order: create_symlink makes the link read_link
 		// reads. A link's own modification time is not set here, so
 		// link_metadata's Ok case is a file's.
 		"fs/host.create_symlink": {{sv(in("link-a")), sv("in.txt")}, {sv(in("link-a")), sv("x")}, {sv(in("no/l")), sv("x")}, {sv(in("l")), sv("")}},
-		"fs/host.link_metadata":  {{sv(dated)}, {sv(in("none"))}},
+		"fs/host.link_metadata":  {{sv(in("none"))}},
 		"fs/host.read_link":      {{sv(in("link-a"))}, {sv(existing)}, {sv(in("none"))}},
-		"fs/host.set_mode":       {{sv(in("mode.txt")), iv(0o600)}, {sv(in("mode.txt")), iv(0o1000)}, {sv(in("mode.txt")), iv(-1)}, {sv(in("none")), iv(0o600)}},
+		"fs/host.set_mode":       {{sv(in("mode.txt")), iv(0o600)}, {sv(in("mode.txt")), iv(0o10000)}, {sv(in("mode.txt")), iv(-1)}, {sv(in("none")), iv(0o600)}},
 	}
 	// A Json tree is the one the json.Json.decode adapter builds (held to the
 	// recorded hosts' outcomes in the RtFuncs suite), rebuilt as another

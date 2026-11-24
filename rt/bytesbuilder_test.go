@@ -204,11 +204,33 @@ func TestBytes_Searches(t *testing.T) {
 			t.Errorf("%s = %v, want %d", what, got, want)
 		}
 	}
-	check("index_of", BytesIndexOf(data, "\r\n", SmallInt(0)), 2)
-	check("index_of from 3", BytesIndexOf(data, "\r\n", SmallInt(3)), 5)
-	check("index_of from past", BytesIndexOf(data, "\r\n", SmallInt(99)), -1)
-	check("index_of empty", BytesIndexOf(data, "", SmallInt(4)), 4)
-	check("index_of_byte", BytesIndexOfByte(data, 'c', SmallInt(-5)), 4)
+	check("index_of", BytesIndexOf(data, "\r\n", SmallInt(0), SmallInt(99)), 2)
+	check("index_of from 3", BytesIndexOf(data, "\r\n", SmallInt(3), SmallInt(99)), 5)
+	check("index_of from past", BytesIndexOf(data, "\r\n", SmallInt(99), SmallInt(99)), -1)
+	check("index_of empty", BytesIndexOf(data, "", SmallInt(4), SmallInt(99)), 4)
+	check("index_of_byte", BytesIndexOfByte(data, 'c', SmallInt(-5), SmallInt(99)), 4)
+	check("index_of across stop", BytesIndexOf(data, "\r\n", SmallInt(0), SmallInt(3)), -1)
+	check("index_of ending at stop", BytesIndexOf(data, "\r\n", SmallInt(0), SmallInt(4)), 2)
+	check("index_of stop before from", BytesIndexOf(data, "", SmallInt(4), SmallInt(1)), 4)
+	check("index_of_byte before stop", BytesIndexOfByte(data, 'c', SmallInt(0), SmallInt(4)), -1)
+	for _, c := range []struct {
+		b         Byte
+		n         Int
+		left, rgt Byte
+	}{
+		{0b1000_0001, SmallInt(0), 0b1000_0001, 0b1000_0001},
+		{0b1000_0001, SmallInt(1), 0b0000_0010, 0b0100_0000},
+		{0b1111_1111, SmallInt(7), 0b1000_0000, 0b0000_0001},
+		{0b1111_1111, SmallInt(8), 0, 0},
+		{0b1111_1111, IntOf((*BigInt)(new(big.Int).Lsh(big.NewInt(1), 70))), 0, 0},
+	} {
+		if got := ByteShiftLeft(c.b, c.n); got != c.left {
+			t.Errorf("ByteShiftLeft(%08b, %s) = %08b, want %08b", c.b, c.n, got, c.left)
+		}
+		if got := ByteShiftRight(c.b, c.n); got != c.rgt {
+			t.Errorf("ByteShiftRight(%08b, %s) = %08b, want %08b", c.b, c.n, got, c.rgt)
+		}
+	}
 	check("last_index_of", BytesLastIndexOf(data, "\r\n"), 5)
 	check("last_index_of_byte", BytesLastIndexOfByte(data, 'a'), 0)
 	check("last_index_of_byte missing", BytesLastIndexOfByte(data, 'z'), -1)

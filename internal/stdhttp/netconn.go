@@ -2,10 +2,17 @@ package stdhttp
 
 import (
 	"context"
+	"crypto"
+	_ "crypto/sha256" // the hashes tls-server-end-point names
+	_ "crypto/sha512"
 	"crypto/tls"
+	"crypto/x509"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
+	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -17,21 +24,35 @@ import (
 	"github.com/nomi-language/nomi/rt"
 )
 
-// std/net's Go side: TCP connections and listeners, and TLS over them. A
+// std/net's and std/udp's Go side: TCP and Unix stream connections and
+// listeners, TLS over them, and datagram sockets (datagram.go). A
 // connection is read and written through one Reader and one Writer, made
-// when it opens. Its reads and writes stop when the task that opened or
-// accepted it is cancelled (the frame's context sets a past deadline), so a
-// cancelled task never stays blocked on the network. An Err is a net.Error
-// or tls.Error variant's name and its fields.
+// when it opens. Its reads and writes stop when the task that opened it is
+// cancelled (the frame's context sets a past deadline), so a cancelled task
+// never stays blocked on the network. An Err is a net.Error or tls.Error
+// variant's name and its fields.
 
 func asError[T any](err error, target *T) bool { return errors.As(err, target) }
 
-// conn is what std/http/host's `Conn` wraps.
+// conn is what std/http/host's `Conn` wraps: a stream connection or a
+// datagram socket.
 type conn struct {
 	c    net.Conn
 	r    rt.Reader
 	w    rt.Writer
 	stop func() bool
+	// release runs when the socket closes, or is nil: a bound datagram
+	// socket's drain hook comes off and its Unix socket file goes.
+	release func()
+
+	// readDeadline is the read deadline the program set (ConnDeadline),
+	// which a receive stopped with its task gives back to the socket.
+	mu           sync.Mutex
+	readDeadline time.Time
+
+	// tlsServer is whether c is the server side of a TLS connection, which
+	// its channel binding's certificate is (TLSServerEndPoint).
+	tlsServer bool
 }
 
 func connOf(c rt.NetConn) *conn {
@@ -50,19 +71,40 @@ func frameContext(fr *rt.Frame) context.Context {
 }
 
 // newConn wraps c, its reads and writes stopped when ctx ends.
-func newConn(ctx context.Context, c net.Conn) rt.NetConn {
+func newConn(ctx context.Context, c net.Conn) rt.NetConn { return rt.NewNetConn(connWith(ctx, c)) }
+
+func connWith(ctx context.Context, c net.Conn) *conn {
 	x := &conn{c: c}
-	x.r = rt.NewReader(rt.ReadSource{Name: "<connection>", R: c, Fail: connFailure})
-	x.w = rt.NewWriter(rt.WriteSink{Name: "<connection>", W: c, Unbuffered: true, Fail: connFailure})
-	x.stop = context.AfterFunc(ctx, func() { _ = c.SetDeadline(time.Unix(1, 0)) })
-	return rt.NewNetConn(x)
+	x.r = rt.NewReader(rt.ReadSource{Name: "<connection>", R: c, Fail: streamFailure("<connection>")})
+	x.w = rt.NewWriter(rt.WriteSink{Name: "<connection>", W: c, Unbuffered: true, Fail: streamFailure("<connection>")})
+	x.stop = context.AfterFunc(ctx, func() {
+		x.mu.Lock()
+		x.readDeadline = time.Unix(1, 0)
+		x.mu.Unlock()
+		_ = c.SetDeadline(time.Unix(1, 0))
+	})
+	return x
 }
 
-// connFailure is the io.Error a connection's read or write answers for err,
-// as a file's or a process's stream does: a read past the deadline
-// `set_read_deadline` set is `TimedOut`.
-func connFailure(op string, err error) rt.IOError {
-	return stdio.Classify(op, "<connection>", err)
+// streamFailure is the io.Error a read or write of the stream named name
+// answers for err, for every stream this package makes: a connection, a
+// request or response body, a chunked body, a multipart part. The errors
+// of net/http and net, which internal/stdio does not link, are named
+// here: a body the server discarded and closed, a hijacked response and a
+// closed connection are `Closed`, and a chunk size line too long to read
+// is `Corrupt`. Every other error is a file's or a process's stream's, as
+// stdio.Classify sorts it: a read past the deadline `set_read_deadline`
+// set is `TimedOut`.
+func streamFailure(name string) func(op string, err error) rt.IOError {
+	return func(op string, err error) rt.IOError {
+		switch {
+		case errors.Is(err, http.ErrBodyReadAfterClose), errors.Is(err, http.ErrHijacked), errors.Is(err, net.ErrClosed):
+			return rt.IOError{Tag: rt.TagIOClosed}
+		case errors.Is(err, http.ErrLineTooLong):
+			return rt.IOError{Tag: rt.TagIOCorrupt, Path: name, Reason: "a chunk size line is too long"}
+		}
+		return stdio.Classify(op, name, err)
+	}
 }
 
 // netErr is err, from operation op on address, as a net.Error variant's
@@ -77,7 +119,10 @@ func netErr(op, address string, err error) *rt.List[string] {
 	var addr *net.AddrError
 	var parse *net.ParseError
 	var timeout interface{ Timeout() bool }
+	var lacks unsupported
 	switch errno := stdio.Errno(err); {
+	case errors.As(err, &lacks):
+		return listOf([]string{"Unsupported", op, string(lacks)})
 	case errors.As(err, &dns):
 		return listOf([]string{"Dns", dns.Name, dns.Err, dns.Server, strconv.FormatBool(dns.IsNotFound), strconv.FormatBool(dns.IsTimeout)})
 	case errors.As(err, &addr):
@@ -107,14 +152,17 @@ func isTLSError(err error) bool {
 	return errors.As(err, &alert) || errors.As(err, &verify) || errors.As(err, &record)
 }
 
-func dialer(timeout, keepAlive int64, local string) (*net.Dialer, []string) {
+// dialer is a net.Dialer on network ("tcp", "unix", "udp", "unixgram")
+// from the local address local ("" for any), setting SO_REUSEADDR and
+// SO_REUSEPORT before it binds when asked.
+func dialer(network string, timeout, keepAlive int64, local string, reuseAddress, reusePort bool) (*net.Dialer, []string) {
 	if !hasSockets {
 		return nil, strsOf(netErr("dial", local, errors.New(noSocketsMessage)))
 	}
 	osreach.Note("connect")
-	d := &net.Dialer{Timeout: dur(timeout), KeepAlive: dur(keepAlive)}
+	d := &net.Dialer{Timeout: dur(timeout), KeepAlive: dur(keepAlive), Control: bindControl(reuseAddress, reusePort)}
 	if local != "" {
-		a, err := net.ResolveTCPAddr("tcp", local)
+		a, err := resolveAddr(network, local)
 		if err != nil {
 			return nil, strsOf(netErr("dial", local, err))
 		}
@@ -123,16 +171,31 @@ func dialer(timeout, keepAlive int64, local string) (*net.Dialer, []string) {
 	return d, nil
 }
 
+// resolveAddr is address on network: a path for a Unix network, else
+// host:port with the host resolved.
+func resolveAddr(network, address string) (net.Addr, error) {
+	switch network {
+	case "unix", "unixgram":
+		return &net.UnixAddr{Name: address, Net: network}, nil
+	case "udp", "udp4", "udp6":
+		return net.ResolveUDPAddr(network, address)
+	}
+	return net.ResolveTCPAddr(network, address)
+}
+
 // keepAliveConfig is Go's KeepAliveConfig for std/net's KeepAlive: a
 // duration in nanoseconds, a count, 0 for Go's default.
 func keepAliveConfig(enabled bool, idle, interval, count int64) net.KeepAliveConfig {
 	return net.KeepAliveConfig{Enable: enabled, Idle: dur(idle), Interval: dur(interval), Count: int(count)}
 }
 
-// DialWith is `std::http::host.dial_with`: Dial with every option std/net's
-// DialOptions has.
+// DialWith is `std::http::host.dial_with`: a stream connection on network
+// ("tcp", or "unix" for a Unix socket's path) with every option std/net's
+// DialOptions has. A Unix dial reads the timeout, the local address and
+// the reuse options; Go's dialer reads the rest only for TCP.
 func DialWith(
 	fr *rt.Frame,
+	network string,
 	address string,
 	timeoutArg rt.Int,
 	local string,
@@ -140,6 +203,7 @@ func DialWith(
 	kaEnabled bool,
 	kaIdleArg, kaIntervalArg, kaCountArg rt.Int,
 	multipath bool,
+	reuseAddress, reusePort bool,
 ) rt.Result[rt.NetConn, *rt.List[string]] {
 	timeout := timeoutArg.Saturated()
 	fallback := fallbackArg.Saturated()
@@ -149,7 +213,7 @@ func DialWith(
 	if !hasSockets {
 		return rt.Err[rt.NetConn](netErr("dial", address, errors.New(noSocketsMessage)))
 	}
-	d, fail := dialer(timeout, 0, local)
+	d, fail := dialer(network, timeout, 0, local, reuseAddress, reusePort)
 	if fail != nil {
 		return rt.Err[rt.NetConn](listOf(fail))
 	}
@@ -160,16 +224,18 @@ func DialWith(
 	}
 	d.SetMultipathTCP(multipath)
 	ctx := frameContext(fr)
-	c, err := d.DialContext(ctx, "tcp", address)
+	c, err := d.DialContext(ctx, network, address)
 	if err != nil {
 		return rt.Err[rt.NetConn](netErr("dial", address, err))
 	}
 	return rt.Ok[rt.NetConn, *rt.List[string]](newConn(ctx, c))
 }
 
-// ListenWith is `std::http::host.net_listen_with`: NetListen with std/net's
-// ListenOptions.
-func ListenWith(fr *rt.Frame, address string, kaEnabled bool, kaIdleArg, kaIntervalArg, kaCountArg rt.Int, multipath bool) rt.Result[rt.NetListener, *rt.List[string]] {
+// ListenWith is `std::http::host.net_listen_with`: a listener on network
+// ("tcp", or "unix" for a Unix socket's path) with std/net's
+// ListenOptions. A Unix listener removes its socket file when it closes,
+// as Go's does; a Linux abstract name (`@...`) has no file.
+func ListenWith(fr *rt.Frame, network, address string, kaEnabled bool, kaIdleArg, kaIntervalArg, kaCountArg rt.Int, multipath, reuseAddress, reusePort bool) rt.Result[rt.NetListener, *rt.List[string]] {
 	kaIdle := kaIdleArg.Saturated()
 	kaInterval := kaIntervalArg.Saturated()
 	kaCount := kaCountArg.Saturated()
@@ -177,12 +243,15 @@ func ListenWith(fr *rt.Frame, address string, kaEnabled bool, kaIdleArg, kaInter
 		return rt.Err[rt.NetListener](netErr("listen", address, errors.New(noSocketsMessage)))
 	}
 	osreach.Note("listen")
-	lc := &net.ListenConfig{KeepAliveConfig: keepAliveConfig(kaEnabled, kaIdle, kaInterval, kaCount)}
+	lc := &net.ListenConfig{
+		KeepAliveConfig: keepAliveConfig(kaEnabled, kaIdle, kaInterval, kaCount),
+		Control:         bindControl(reuseAddress, reusePort),
+	}
 	if !kaEnabled {
 		lc.KeepAlive = -1
 	}
 	lc.SetMultipathTCP(multipath)
-	ln, err := lc.Listen(frameContext(fr), "tcp", address)
+	ln, err := lc.Listen(frameContext(fr), network, address)
 	if err != nil {
 		return rt.Err[rt.NetListener](netErr("listen", address, err))
 	}
@@ -190,21 +259,15 @@ func ListenWith(fr *rt.Frame, address string, kaEnabled bool, kaIdleArg, kaInter
 }
 
 func tcpOf(c rt.NetConn) *net.TCPConn {
-	switch x := connOf(c).c.(type) {
-	case *net.TCPConn:
-		return x
-	case *tls.Conn:
-		t, _ := x.NetConn().(*net.TCPConn)
-		return t
-	}
-	return nil
+	t, _ := socketOf(c).(*net.TCPConn)
+	return t
 }
 
 // ConnCloseRead is `std::http::host.conn_close_read`: shuts the receiving half of
-// a TCP connection.
+// a TCP or Unix connection.
 func ConnCloseRead(c rt.NetConn) rt.Unit {
-	if t := tcpOf(c); t != nil {
-		_ = t.CloseRead()
+	if h, ok := socketOf(c).(interface{ CloseRead() error }); ok {
+		_ = h.CloseRead()
 	}
 	return rt.Unit{}
 }
@@ -353,7 +416,7 @@ func TLSDial(fr *rt.Frame, address string, timeoutArg, keepAliveArg rt.Int, loca
 	if !hasSockets {
 		return rt.Err[rt.NetConn](netErr("dial", address, errors.New(noSocketsMessage)))
 	}
-	d, fail := dialer(timeout, keepAlive, local)
+	d, fail := dialer("tcp", timeout, keepAlive, local, false, false)
 	if fail != nil {
 		return rt.Err[rt.NetConn](listOf(fail))
 	}
@@ -379,18 +442,18 @@ func TLSDial(fr *rt.Frame, address string, timeoutArg, keepAliveArg rt.Int, loca
 // (STARTTLS), its handshake finished before it answers.
 func TLSClient(fr *rt.Frame, c rt.NetConn, cfg rt.TLSConfig) rt.Result[rt.NetConn, *rt.List[string]] {
 	conf := confOf(cfg)
-	return handshake(fr, conf, tls.Client(connOf(c).c, conf.c))
+	return handshake(fr, conf, tls.Client(connOf(c).c, conf.c), false)
 }
 
 // TLSServer is `std::http::host.tls_server`: the server side of TLSClient.
 func TLSServer(fr *rt.Frame, c rt.NetConn, cfg rt.TLSConfig) rt.Result[rt.NetConn, *rt.List[string]] {
 	conf := confOf(cfg)
-	return handshake(fr, conf, tls.Server(connOf(c).c, conf.c))
+	return handshake(fr, conf, tls.Server(connOf(c).c, conf.c), true)
 }
 
 // handshake runs t's handshake while the calling task serves the
-// configuration's hooks.
-func handshake(fr *rt.Frame, conf *tlsConf, t *tls.Conn) rt.Result[rt.NetConn, *rt.List[string]] {
+// configuration's hooks. server is whether t is the server side.
+func handshake(fr *rt.Frame, conf *tlsConf, t *tls.Conn, server bool) rt.Result[rt.NetConn, *rt.List[string]] {
 	ctx := frameContext(fr)
 	if conf.b == nil {
 		conf.b = newBroker()
@@ -405,7 +468,9 @@ func handshake(fr *rt.Frame, conf *tlsConf, t *tls.Conn) rt.Result[rt.NetConn, *
 	if err != nil {
 		return rt.Err[rt.NetConn](listOf(tlsErrorParts(err)))
 	}
-	return rt.Ok[rt.NetConn, *rt.List[string]](newConn(ctx, t))
+	x := connWith(ctx, t)
+	x.tlsServer = server
+	return rt.Ok[rt.NetConn, *rt.List[string]](rt.NewNetConn(x))
 }
 
 // ConnReader is `std::http::host.conn_reader`: the connection's Reader.
@@ -420,26 +485,27 @@ func ConnClose(c rt.NetConn) rt.Unit {
 	x := connOf(c)
 	x.stop()
 	_ = x.c.Close()
+	if x.release != nil {
+		x.release()
+	}
 	return rt.Unit{}
 }
 
 // ConnCloseWrite is `std::http::host.conn_close_write`: shuts the sending half,
 // so the peer reads the end of its input, when the connection has halves.
 func ConnCloseWrite(c rt.NetConn) rt.Unit {
-	switch x := connOf(c).c.(type) {
-	case *net.TCPConn:
-		_ = x.CloseWrite()
-	case *tls.Conn:
-		_ = x.CloseWrite()
+	if h, ok := connOf(c).c.(interface{ CloseWrite() error }); ok {
+		_ = h.CloseWrite()
 	}
 	return rt.Unit{}
 }
 
-// ConnLocal is `std::http::host.conn_local`: the local address.
-func ConnLocal(c rt.NetConn) string { return connOf(c).c.LocalAddr().String() }
+// ConnLocal is `std::http::host.conn_local`: the local address, or a Unix
+// socket's path, "" for an unbound one.
+func ConnLocal(c rt.NetConn) string { return addrString(connOf(c).c.LocalAddr()) }
 
 // ConnRemote is `std::http::host.conn_remote`: the peer's address.
-func ConnRemote(c rt.NetConn) string { return connOf(c).c.RemoteAddr().String() }
+func ConnRemote(c rt.NetConn) string { return addrString(connOf(c).c.RemoteAddr()) }
 
 // ConnDeadline is `std::http::host.conn_deadline`: which is 0 for both reads and
 // writes, 1 for reads, 2 for writes; at is Unix nanoseconds, or 0 for none.
@@ -450,14 +516,19 @@ func ConnDeadline(c rt.NetConn, whichArg, atArg rt.Int) rt.Unit {
 	if at != 0 {
 		t = time.Unix(0, at)
 	}
-	x := connOf(c).c
+	x := connOf(c)
+	if which != 2 {
+		x.mu.Lock()
+		x.readDeadline = t
+		x.mu.Unlock()
+	}
 	switch which {
 	case 1:
-		_ = x.SetReadDeadline(t)
+		_ = x.c.SetReadDeadline(t)
 	case 2:
-		_ = x.SetWriteDeadline(t)
+		_ = x.c.SetWriteDeadline(t)
 	default:
-		_ = x.SetDeadline(t)
+		_ = x.c.SetDeadline(t)
 	}
 	return rt.Unit{}
 }
@@ -470,6 +541,81 @@ func TLSStateParts(c rt.NetConn) rt.Option[*rt.List[*rt.List[string]]] {
 		return rt.None[*rt.List[*rt.List[string]]]()
 	}
 	return rt.Some(stateParts(t.ConnectionState()))
+}
+
+// TLSExportKeyingMaterial is `std::http::host.tls_export_keying_material`:
+// length bytes of keying material exported from the connection's TLS
+// session under label and, when hasContext, context (RFC 5705, and RFC
+// 8446 section 7.5 for TLS 1.3), Go's ConnectionState.ExportKeyingMaterial;
+// or why not: the connection is not TLS, or Go refuses the label or the
+// length.
+func TLSExportKeyingMaterial(c rt.NetConn, label string, context rt.Bytes, hasContext bool, length rt.Int) rt.Result[rt.Bytes, string] {
+	t, ok := connOf(c).c.(*tls.Conn)
+	if !ok {
+		return rt.Err[rt.Bytes]("the connection is not TLS")
+	}
+	n := length.Saturated()
+	if n > maxExported {
+		return rt.Err[rt.Bytes](fmt.Sprintf("at most %d bytes of keying material are exported, got %s", maxExported, length))
+	}
+	var ctx []byte
+	if hasContext {
+		ctx = append([]byte{}, context...)
+	}
+	state := t.ConnectionState()
+	out, err := state.ExportKeyingMaterial(label, ctx, int(n))
+	if err != nil {
+		return rt.Err[rt.Bytes](err.Error())
+	}
+	return rt.Ok[rt.Bytes, string](rt.Bytes(out))
+}
+
+// maxExported bounds what TLSExportKeyingMaterial answers: TLS 1.3's
+// exporter gives at most 255 hashes' worth, and no protocol asks for more
+// than a few hundred bytes.
+const maxExported = 1 << 16
+
+// TLSServerEndPoint is `std::http::host.tls_server_end_point`: the
+// `tls-server-end-point` channel binding of RFC 5929, the hash of the
+// server's certificate (the peer's on a client, this side's on a server)
+// by the hash its signature algorithm names, SHA-256 for MD5 and SHA-1; or
+// why there is none: the connection is not TLS, the server presented no
+// certificate, or its signature names no hash (Ed25519).
+func TLSServerEndPoint(c rt.NetConn) rt.Result[rt.Bytes, string] {
+	x := connOf(c)
+	t, ok := x.c.(*tls.Conn)
+	if !ok {
+		return rt.Err[rt.Bytes]("the connection is not TLS")
+	}
+	state := t.ConnectionState()
+	var raw []byte
+	switch {
+	case x.tlsServer && len(state.LocalCertificate) > 0:
+		raw = state.LocalCertificate[0]
+	case !x.tlsServer && len(state.PeerCertificates) > 0:
+		raw = state.PeerCertificates[0].Raw
+	default:
+		return rt.Err[rt.Bytes]("the server presented no certificate")
+	}
+	cert, err := x509.ParseCertificate(raw)
+	if err != nil {
+		return rt.Err[rt.Bytes](err.Error())
+	}
+	var h crypto.Hash
+	switch cert.SignatureAlgorithm {
+	case x509.MD5WithRSA, x509.SHA1WithRSA, x509.ECDSAWithSHA1, x509.DSAWithSHA1,
+		x509.SHA256WithRSA, x509.ECDSAWithSHA256, x509.SHA256WithRSAPSS, x509.DSAWithSHA256:
+		h = crypto.SHA256
+	case x509.SHA384WithRSA, x509.ECDSAWithSHA384, x509.SHA384WithRSAPSS:
+		h = crypto.SHA384
+	case x509.SHA512WithRSA, x509.ECDSAWithSHA512, x509.SHA512WithRSAPSS:
+		h = crypto.SHA512
+	default:
+		return rt.Err[rt.Bytes](fmt.Sprintf("the server's certificate is signed with %s, which names no hash for tls-server-end-point", cert.SignatureAlgorithm))
+	}
+	d := h.New()
+	d.Write(raw)
+	return rt.Ok[rt.Bytes, string](rt.Bytes(d.Sum(nil)))
 }
 
 // TLSVerifyHostname is `std::http::host.tls_verify_hostname`: Go's
@@ -570,6 +716,26 @@ func (x *netListener) close() {
 	})
 }
 
+// A netListener is a net.Listener over the connections its goroutine
+// accepts, so an HTTP server serves on a std::net Listener (`Server.listener`)
+// as `Listener.accept` does. Closing it takes its drain hook off.
+func (x *netListener) Accept() (net.Conn, error) {
+	select {
+	case c := <-x.conns:
+		return c, nil
+	case <-x.closed:
+		return nil, net.ErrClosed
+	}
+}
+
+func (x *netListener) Close() error {
+	x.unhook()
+	x.close()
+	return nil
+}
+
+func (x *netListener) Addr() net.Addr { return x.ln.Addr() }
+
 // NetListenerAddress is `std::http::host.net_listener_address`.
 func NetListenerAddress(l rt.NetListener) string { return netListenerOf(l).ln.Addr().String() }
 
@@ -586,7 +752,7 @@ func NetAccept(fr *rt.Frame, l rt.NetListener) rt.Result[rt.NetConn, *rt.List[st
 			// the accepting task; a failed one closes the connection, and
 			// the accept waits for the next.
 			t := tls.Server(c, v.tls.c)
-			r := handshake(fr, v.tls, t)
+			r := handshake(fr, v.tls, t, true)
 			if r.Tag != rt.TagOk {
 				_ = c.Close()
 				return NetAccept(fr, l)
@@ -629,10 +795,141 @@ func NetListenerDeadline(l rt.NetListener, atArg rt.Int) rt.Unit {
 
 // NetListenerClose is `std::http::host.net_listener_close`.
 func NetListenerClose(l rt.NetListener) rt.Unit {
-	x := netListenerOf(l)
-	x.unhook()
-	x.close()
+	_ = netListenerOf(l).Close()
 	return rt.Unit{}
+}
+
+// The sockets a service manager starts the process with (stdhttp package
+// doc, "TLS and sockets"). A descriptor that is neither a stream listener
+// nor a datagram socket is left open and unlisted.
+
+// listenFDsStart is the first descriptor the protocol passes.
+const listenFDsStart = 3
+
+// inheritedSocket is one passed descriptor and the name LISTEN_FDNAMES
+// gives it: a listener, a datagram socket, or a file held open, being
+// neither.
+type inheritedSocket struct {
+	name     string
+	listener *rt.NetListener
+	socket   *rt.NetConn
+	file     *os.File
+}
+
+var inherited struct {
+	once    sync.Once
+	sockets []inheritedSocket
+	err     error
+}
+
+// inheritedSockets is every socket the process was started with, wrapped
+// on the first call.
+func inheritedSockets() ([]inheritedSocket, error) {
+	inherited.once.Do(func() {
+		if runtime.GOOS == "windows" {
+			return
+		}
+		var names []string
+		if names, inherited.err = listenFDNames(os.Getenv, os.Getpid()); inherited.err != nil {
+			return
+		}
+		for i, name := range names {
+			inherited.sockets = append(inherited.sockets, wrapInherited(os.NewFile(uintptr(listenFDsStart+i), name), name))
+		}
+	})
+	return inherited.sockets, inherited.err
+}
+
+// listenFDNames is the name of each descriptor the environment getenv
+// reads passes to the process pid: none when LISTEN_PID is unset or names
+// another process, and "unknown" for each when LISTEN_FDNAMES is unset or
+// empty, as systemd's sd_listen_fds_with_names answers.
+func listenFDNames(getenv func(string) string, pid int) ([]string, error) {
+	listenPID := getenv("LISTEN_PID")
+	if listenPID == "" {
+		return nil, nil
+	}
+	p, err := strconv.Atoi(listenPID)
+	if err != nil {
+		return nil, errors.New("LISTEN_PID is not a process id: " + listenPID)
+	}
+	if p != pid {
+		return nil, nil
+	}
+	n, err := strconv.Atoi(getenv("LISTEN_FDS"))
+	if err != nil || n < 0 {
+		return nil, errors.New("LISTEN_FDS is not a count: " + getenv("LISTEN_FDS"))
+	}
+	names := make([]string, n)
+	for i := range names {
+		names[i] = "unknown"
+	}
+	if given := getenv("LISTEN_FDNAMES"); given != "" {
+		parts := strings.Split(given, ":")
+		if len(parts) != n {
+			return nil, errors.New("LISTEN_FDNAMES names " + strconv.Itoa(len(parts)) + " descriptors and LISTEN_FDS passes " + strconv.Itoa(n))
+		}
+		names = parts
+	}
+	return names, nil
+}
+
+// wrapInherited is the socket f holds: a stream listener, a datagram
+// socket, or f itself, held open, for anything else. A Unix datagram
+// socket reads to net.FileListener as a Unix listener, so the network its
+// address names decides.
+func wrapInherited(f *os.File, name string) inheritedSocket {
+	s := inheritedSocket{name: name}
+	if ln, err := net.FileListener(f); err == nil {
+		if network := ln.Addr().Network(); network == "tcp" || network == "unix" {
+			_ = f.Close()
+			l := rt.NewNetListener(&listenerView{netListener: serveListener(ln)})
+			s.listener = &l
+			return s
+		}
+		_ = ln.Close()
+	}
+	if pc, err := net.FilePacketConn(f); err == nil {
+		_ = f.Close()
+		c := rt.NewNetConn(boundSocket(pc.(net.Conn), ""))
+		s.socket = &c
+		return s
+	}
+	s.file = f
+	return s
+}
+
+// inheritedOf is each inherited socket that pick answers, among those
+// named name, or every one for None.
+func inheritedOf[T any](name rt.Option[string], pick func(inheritedSocket) *T) rt.Result[*rt.List[T], *rt.List[string]] {
+	if !hasSockets {
+		return rt.Err[*rt.List[T]](netErr("inherit", "", errors.New(noSocketsMessage)))
+	}
+	osreach.Note("listen")
+	all, err := inheritedSockets()
+	if err != nil {
+		return rt.Err[*rt.List[T]](listOf([]string{"Other", "inherit", "LISTEN_FDS", err.Error()}))
+	}
+	var out *rt.List[T]
+	for i := len(all) - 1; i >= 0; i-- {
+		if v := pick(all[i]); v != nil && (name.Tag != rt.TagSome || all[i].name == name.Some) {
+			out = rt.Cons(*v, out)
+		}
+	}
+	return rt.Ok[*rt.List[T], *rt.List[string]](out)
+}
+
+// InheritedListeners is `std::http::host.inherited_listeners`: the
+// listening stream sockets the process was started with, in the order
+// passed, those named name alone when it is given.
+func InheritedListeners(name rt.Option[string]) rt.Result[*rt.List[rt.NetListener], *rt.List[string]] {
+	return inheritedOf(name, func(s inheritedSocket) *rt.NetListener { return s.listener })
+}
+
+// InheritedSockets is `std::http::host.inherited_sockets`: the datagram
+// sockets the process was started with, as InheritedListeners.
+func InheritedSockets(name rt.Option[string]) rt.Result[*rt.List[rt.NetConn], *rt.List[string]] {
+	return inheritedOf(name, func(s inheritedSocket) *rt.NetConn { return s.socket })
 }
 
 // WithTLS is `std::http::host.with_tls`: a client sharing c's options whose

@@ -751,8 +751,10 @@ func (fr *frame) deliver(t ir.Temp) {
 // test case's own body, whose `?` propagation leaves the activation as a
 // *tryReturn instead of becoming its result. caller is the depth of the
 // activation that called it. stk is the caller's register stack when the
-// call is made from a bytecode activation on this goroutine, or nil for a
-// call that arrives from Go.
+// call is made from a bytecode activation on this goroutine, nil for a call
+// that arrives from Go, or an empty stack a Go driver holds across the
+// calls it makes in a row (iterCaller.holding). An activation that is the
+// first on its stack arrived from Go.
 func (m *Machine) activate(f *ir.Func, args, caps []any, runtime *rt.Frame, testBody bool, caller int, stk *regStack) (any, error) {
 	return m.activateSlot(m.slotFor(f), args, caps, runtime, testBody, caller, stk)
 }
@@ -788,6 +790,7 @@ func (m *Machine) activateOwned(slot *fnSlot, args, caps []any, runtime *rt.Fram
 	if pooled {
 		stk = getStack()
 	}
+	fromGo := stk.nf == 0
 	c := m.codeOf(slot)
 	if c.boot {
 		runtime = rt.EnterBoot(runtime)
@@ -810,9 +813,9 @@ func (m *Machine) activateOwned(slot *fnSlot, args, caps []any, runtime *rt.Fram
 		err = fr.bad
 		stk.pop(fr)
 	case m.dbg != nil:
-		err = m.debugActivation(fr, pooled)
+		err = m.debugActivation(fr, fromGo)
 	case m.prof != nil:
-		err = m.profActivation(fr, pooled)
+		err = m.profActivation(fr, fromGo)
 	default:
 		err = m.exec(fr)
 	}
@@ -835,9 +838,6 @@ func (m *Machine) exec(fr *frame) error {
 			return m.execDebug(fr, "")
 		}
 		return m.execProfiled(fr)
-	}
-	if debugProbeOn {
-		return m.execProbed(fr)
 	}
 	err := m.runBody(fr)
 	fr.stk.pop(fr)

@@ -143,8 +143,8 @@ type FileDecls struct {
 	TypeMethods map[string]map[string]*Symbol
 	// ImplBlockReceiver records, for each impl-block item FuncDef this file
 	// declares, the receiver type base name taken from the BLOCK HEADER (not
-	// the first parameter). Coherence (detectImplCollisions /
-	// detectOrphanImpls) keys interface-impl methods on the receiver; for
+	// the first parameter). The orphan rule (detectOrphanImpls) keys
+	// interface-impl methods on the receiver; for
 	// block forms the first parameter is the concrete receiver type.
 	// Bodyless marker impls have no function item at all, so
 	// funcDefReceiverBaseName can't recover it — this override map supplies
@@ -495,8 +495,10 @@ type FileBodies struct {
 	// methods by their receiver type.
 	//
 	// Each Recording carries the source Pos of the demand site, a
-	// RecordingKind that classifies the site (plain call, typed-literal
-	// slot, generic where bound check, derive synth, …), and — when the
+	// RecordingKind that classifies the site (an argument, an
+	// interpolation, a typed literal's slot, a where bound, a derive, …),
+	// what the site names (Callee, Param, Tag), the impl bound that asked
+	// it of a part (Bound), and — when the
 	// recording was triggered by `@derive Iface` walking a component
 	// type — a DeriveCtx with the @derive decorator's position and the
 	// offending field's name+position. The recording list is preserved

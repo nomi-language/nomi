@@ -11,11 +11,13 @@ const (
 	// DisplayScalar is an Int, a Float, a Bool or a Decimal, which the
 	// machine renders in place; std's impl for each is that rendering.
 	DisplayScalar
-	// DisplayStructural is a value no part of which has an impl of its
-	// own: a tuple, an anonymous struct, a List, a Map or a Vector of Int,
-	// Float, Bool and String at any depth, or a collection whose element
-	// type is a closed variable (an empty one). The machine's structural
-	// text is its Display text.
+	// DisplayStructural is a value that renders by its shape, as the
+	// literal that builds it: a tuple, an anonymous struct, a List, a Map
+	// or a Vector of Int, Float, Bool and String at any depth, a
+	// collection whose element type is a closed variable (an empty one),
+	// and a declared type whose Display is derived (derivesByShape), each
+	// of whose parts renders as a hole of the part's type records
+	// (DisplayOf).
 	DisplayStructural
 	// DisplayParts is a tuple or an anonymous struct with a part that is
 	// not structural: each part renders by its own record (Parts), and
@@ -23,7 +25,7 @@ const (
 	DisplayParts
 	// DisplayImpl is a value of a declared type, or of a std container
 	// with a part that is not structural: it renders through the
-	// type's `impl Display` (Method), written, derived or std's.
+	// type's `impl Display` (Method), written or std's.
 	DisplayImpl
 	// DisplayInterface is an interface value: it renders through the impl
 	// of the value it holds, which the running program finds.
@@ -44,7 +46,7 @@ type DisplayRender struct {
 	// Type is the value's type, with every closed variable its closed type.
 	Type Type
 	// Method is, for DisplayImpl, the impl's `to_string`: a function of
-	// an impl block, a derive's synthesized one or a `host fn`. Nil when
+	// an impl block or a `host fn`. Nil when
 	// no single impl is the type's (a std generic container whose impl
 	// the index does not hold by receiver).
 	Method ast.ImplMethodDecl
@@ -236,8 +238,14 @@ func (fa *FileAnalysis) displayRenderOf(t Type, depth int) *DisplayRender {
 		r.Form = DisplayStructural
 		return r
 	}
+	b := fa.implBlockOf(resolveTypeVar(t), "Display")
+	if b != nil && derivesByShape(b) {
+		// A derived Display: the type renders by its shape.
+		r.Form = DisplayStructural
+		return r
+	}
 	r.Form = DisplayImpl
-	if m := fa.implMethodFor(resolveTypeVar(t), "Display", "to_string"); m != nil {
+	if m := implBlockMethod(b, "to_string"); m != nil {
 		r.Method = m
 		r.File, _ = fa.Program().ImplMethodFile(m)
 	}

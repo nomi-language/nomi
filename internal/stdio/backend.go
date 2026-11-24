@@ -1,6 +1,7 @@
 package stdio
 
 import (
+	"io/fs"
 	"strings"
 	"time"
 
@@ -43,15 +44,73 @@ type DirEntry struct {
 	Kind Kind
 }
 
-// Info is what a metadata crossing answers.
+// Info is what a metadata crossing answers. The fields after Mode are what
+// a file system may not keep: each is its zero value (nil, 0, the zero
+// time) when it keeps none, and std/fs answers it as None.
 type Info struct {
 	Kind Kind
 	Size int64
 	// Modified is the modification time as the file system gives it. It
 	// becomes an Instant only where it crosses to std/fs (infoList),
-	// exactly, whatever its year (rt.InstantFromTime).
+	// exactly, whatever its year (rt.InstantFromTime). So does each time
+	// below.
 	Modified time.Time
-	Mode     int64
+	// Mode is the permission bits with the setuid, setgid and sticky bits
+	// as Unix numbers them (ModeBits).
+	Mode int64
+	// Accessed is the last read, Changed the last change to the contents
+	// or the metadata (a status change), Created the birth.
+	Accessed, Changed, Created time.Time
+	// Links is how many names the file has.
+	Links uint64
+	// ID is the device and the file's number on it, which every name of
+	// one file shares.
+	ID *FileID
+	// Owner is the numeric user and group that own the file.
+	Owner *Owner
+}
+
+// FileID is a file's identity: its device and its number there.
+type FileID struct{ Device, Inode uint64 }
+
+// Owner is the numeric user and group that own a file.
+type Owner struct{ User, Group uint64 }
+
+// DiskUsage is what `fs.disk_usage` answers, in bytes: the size of the file
+// system, what is free on it, and what of that this program's user may
+// use.
+type DiskUsage struct{ Total, Free, Available uint64 }
+
+// ModeBits is m's permission bits, with its setuid, setgid and sticky bits
+// as Unix numbers them (0o4000, 0o2000, 0o1000): what `Metadata.mode`
+// holds.
+func ModeBits(m fs.FileMode) int64 {
+	bits := int64(m.Perm())
+	if m&fs.ModeSetuid != 0 {
+		bits |= 0o4000
+	}
+	if m&fs.ModeSetgid != 0 {
+		bits |= 0o2000
+	}
+	if m&fs.ModeSticky != 0 {
+		bits |= 0o1000
+	}
+	return bits
+}
+
+// FileMode is the Go mode of bits as ModeBits writes them.
+func FileMode(bits int64) fs.FileMode {
+	m := fs.FileMode(bits) & fs.ModePerm
+	if bits&0o4000 != 0 {
+		m |= fs.ModeSetuid
+	}
+	if bits&0o2000 != 0 {
+		m |= fs.ModeSetgid
+	}
+	if bits&0o1000 != 0 {
+		m |= fs.ModeSticky
+	}
+	return m
 }
 
 // Access is std/fs's `Access`, as `fs.open_file`'s crossing carries it:
@@ -107,6 +166,22 @@ type Backend interface {
 	// Chmod sets the permission bits of what path names, following
 	// symlinks.
 	Chmod(path string, mode int64) *rt.IOError
+	// Chtimes sets the modification and access times of what path names,
+	// following symlinks. A nil time is left as it is.
+	Chtimes(path string, modified, accessed *time.Time) *rt.IOError
+	// Link makes path a second name of the file at target (a hard link),
+	// following no symlink at target. A directory at target is
+	// PermissionDenied naming it.
+	Link(path, target string) *rt.IOError
+	// Chown sets the numeric owner of what path names, following a symlink
+	// when follow is set.
+	Chown(path string, user, group uint64, follow bool) *rt.IOError
+	// DiskUsage is the size, free space and space available of the file
+	// system path is on.
+	DiskUsage(path string) (DiskUsage, *rt.IOError)
+	// OwnerName is the name of the user, or the group when group is set,
+	// whose number is id, when the system knows it.
+	OwnerName(id uint64, group bool) (string, bool)
 	// Within is a file system that reaches only what is under dir (a
 	// `Dir`'s), and the function that releases it. A relative path is under dir, an absolute
 	// one must be, and a path that leaves it, by `..` or by a symlink, is
@@ -158,6 +233,12 @@ func escapes(path string) *rt.IOError {
 // whose confinement it would leave.
 func withinTempDir() *rt.IOError {
 	return &rt.IOError{Tag: rt.TagIOUnsupported, Operation: "fs.make_temp_dir", Target: "fs.within"}
+}
+
+// unsupported is the error for an operation the target the program runs
+// on cannot do.
+func unsupported(operation, target string) *rt.IOError {
+	return &rt.IOError{Tag: rt.TagIOUnsupported, Operation: operation, Target: target}
 }
 
 // noTempDirTarget is what a WASI module with no directory to make a

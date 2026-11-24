@@ -241,28 +241,35 @@ func TestChannelHalvesAreTwoTypesOverOneObject(t *testing.T) {
 	// A row whose owner disagrees with std's impl receiver would lower a call
 	// against the wrong half.
 	lib := std.Load()
-	decls := map[string]bool{}
-	for _, n := range lib.Nodes["channels"] {
-		ib, isImpl := n.(*ast.ImplBlock)
-		if !isImpl {
-			continue
-		}
-		recv := analysis.TypeExprBaseName(ib.Receiver)
-		for _, item := range ib.Items {
-			ef, isExtern := item.(*ast.ExternFunc)
-			if !isExtern {
+	declared := func(module string) map[string]bool {
+		decls := map[string]bool{}
+		for _, n := range lib.Nodes[module] {
+			ib, isImpl := n.(*ast.ImplBlock)
+			if !isImpl {
 				continue
 			}
-			decls[recv+"."+ef.Name] = true
+			recv := analysis.TypeExprBaseName(ib.Receiver)
+			for _, item := range ib.Items {
+				ef, isExtern := item.(*ast.ExternFunc)
+				if !isExtern {
+					continue
+				}
+				decls[recv+"."+ef.Name] = true
+			}
 		}
+		if len(decls) == 0 {
+			t.Fatalf("read no host fn declarations out of std/%s; the assertions below would be vacuous", module)
+		}
+		return decls
 	}
-	if len(decls) == 0 {
-		t.Fatal("read no host fn declarations out of std/channels; the assertions below would be vacuous")
-	}
-	for key := range channelFuncs {
-		if !decls[key] {
-			t.Errorf("channelFuncs lowers %q and std/channels declares no such function on that owner; "+
-				"std declares %v", key, sortedKeys(decls))
+	for key, fn := range channelFuncs {
+		module := "channels"
+		if fn.module != "" {
+			module = strings.TrimPrefix(fn.module, "std/")
+		}
+		if decls := declared(module); !decls[key] {
+			t.Errorf("channelFuncs lowers %q and std/%s declares no such function on that owner; "+
+				"std declares %v", key, module, sortedKeys(decls))
 		}
 	}
 }
@@ -301,9 +308,15 @@ func TestStdGenHostChannelsAreAllGeneric(t *testing.T) {
 			}
 		}
 	}
-	if seen != len(channelFuncs) {
-		t.Errorf("std/channels declares %d host fns and channelFuncs has %d rows; "+
-			"an undeclared row lowers nothing and an unlowered declaration should be a named refusal", seen, len(channelFuncs))
+	rows := 0
+	for _, fn := range channelFuncs {
+		if fn.module == "" {
+			rows++
+		}
+	}
+	if seen != rows {
+		t.Errorf("std/channels declares %d host fns and channelFuncs has %d rows for it; "+
+			"an undeclared row lowers nothing and an unlowered declaration should be a named refusal", seen, rows)
 	}
 }
 

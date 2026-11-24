@@ -39,7 +39,7 @@ func toolPath(dir, module, name string) (path, root string, err error) {
 		return "", "", err
 	}
 	if modRoot == "" {
-		return "", "", fmt.Errorf("no module %s: it is neither this module nor a dependency its nomi.toml names; add it with `nomi add <module path>`, or `nomi add <directory>` for one on disk", module)
+		return "", "", fmt.Errorf("no module %s: it is neither this module nor a dependency its nomi.toml names; add it with `nomi add <repository>`, or `nomi add <directory>` for one on disk", module)
 	}
 	path = filepath.Join(modRoot, "tools", filepath.FromSlash(name)+".nomi")
 	if _, err := os.Stat(path); err != nil {
@@ -61,10 +61,9 @@ func runTool(args []string) error {
 	if err != nil {
 		return err
 	}
-	// A dependency's tool runs in this project's build, as `go run` of a
-	// dependency's command does: its modules are the ones this project's
-	// go.mod lists, at the versions it lists, and the go.mod at the tool's
-	// own root, whose replaces are its checkout's, is not read.
+	// A dependency's tool runs in this project's build: its modules are the
+	// ones this project's nomi.toml and nomi.lock select, and the nomi.toml
+	// at the tool's own root is not read as the main module's.
 	if err := os.Setenv(modcache.MainModuleEnv, root); err != nil {
 		return err
 	}

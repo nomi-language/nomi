@@ -85,7 +85,7 @@ func (d *Debugger) Scope(frameID int) (*Scope, error) {
 	}
 	ref := d.frames[frameID-1]
 	if ref.via || ref.fr == nil || ref.fr.c == nil || ref.fr.c.dbg == nil {
-		return nil, errors.New("this frame is a call into Go, which has no variables to evaluate in")
+		return nil, errors.New("this frame is a host function's call, which has no variables to evaluate in")
 	}
 	s := &Scope{Pos: ref.pos, Func: frameName(ref.fr.fn), Vars: visibleVars(ref.fr, ref.pos, ref.point), m: ref.m, d: d, app: ref.fr.runtime}
 	if ref.th != nil && ref.th.pass != nil {

@@ -18,14 +18,14 @@ and its forks:
   of `"bold"` for another look. A theme that already makes every function
   name bold shows no mark at a declaration; the hover there still says
   `Has effects`.
-- The language server, `nomi-lsp`: diagnostics, hover, completion,
+- The language server, `nomi lsp`: diagnostics, hover, completion,
   go-to-definition, formatting and the rest of what it serves.
-- `nomi.toml`: the client attaches `nomi-lsp` to every `nomi.toml`, for
+- `nomi.toml`: the client attaches the language server to every `nomi.toml`, for
   the errors `nomi check` reports there, as you type, and completion of std
   module names and module paths in its `[effects]` lists. A quick fix
   on a call the lists do not allow edits it. The file keeps VS Code's TOML
   highlighting.
-- Phrase catalogs: the client also attaches `nomi-lsp` to each module's
+- Phrase catalogs: the client also attaches the language server to each module's
   catalogs, the TOML files under the directory its `nomi.toml` names in
   `[i18n].catalogs` (`locales/` unless it names another), for their
   diagnostics, completion of phrase names, parameters and variant keys,
@@ -41,7 +41,7 @@ and its forks:
   failures (an assertion, a trap, a test stopped by its time limit) appear
   in the Problems panel at their lines, through the extension's `$nomi-test`
   problem matcher.
-- Code lenses from `nomi-lsp`: **Run test**, **Run group** and **Run attached
+- Code lenses from the language server: **Run test**, **Run group** and **Run attached
   test** above each `test`, `group` and `//!` test (the lens command
   `nomi.runTest`, which runs `nomi test <file> --line N`), and **Run** above
   `fn main` (`nomi.runMain`, which runs `nomi run <file>`), in the same task
@@ -58,27 +58,29 @@ and its forks:
   The attached test under the cursor, or any a selection touches, is drawn
   normally.
 
-It is not on the Marketplace or Open VSX. Build it from a checkout.
+It is not on the Marketplace or Open VSX. A release `nomi` carries it.
 
 ## Install
 
-Install `nomi` and `nomi-lsp` first ([docs/install.md](../../docs/install.md)),
-for example from the repository root:
+Install `nomi` first ([docs/install.md](../../docs/install.md)). A release
+`nomi` installs the extension it carries with `code --install-extension`:
 
 ```sh
-go install ./cmd/nomi ./cmd/nomi-lsp
+nomi editor install vscode
 ```
 
-Then, with Node 22+ and npm, from the repository root:
+A `nomi` built from source carries no extension, since it is built with
+Node. With Node 22+ and npm, from the repository root:
 
 ```sh
 make install-vscode
 ```
 
 That runs `npm ci` and `vsce package` in `editors/vscode/`, which writes
-`editors/vscode/nomi.vsix`, and installs it with `code --install-extension`.
-`make build-vscode` only builds the `.vsix`; install it in a fork with that
-editor's "Install from VSIX..." command.
+`editors/vscode/nomi.vsix`, and installs it with `nomi editor install
+vscode`. `make build-vscode` only builds the `.vsix`; install it in a fork
+with that editor's "Install from VSIX..." command. `nomi editor uninstall
+vscode` removes it.
 
 ## Debugging
 
@@ -143,7 +145,7 @@ While paused:
   next statement and the debug console says so.
 - Each variable carries where it is bound (`declarationLocationReference`),
   but VS Code (1.140) offers no command that opens it.
-- Values appear beside the code (inline values, from `nomi-lsp`).
+- Values appear beside the code (inline values, from the language server).
 - Task threads are named by their spawn site, and Pause works while the
   program waits for input.
 
@@ -151,8 +153,7 @@ While paused:
 
 | Setting | Default | What it is |
 |---|---|---|
-| `nomi.path` | `nomi` | The CLI the run, test and debug commands invoke. |
-| `nomi.lsp.path` | `nomi-lsp` | The language server. Changing it restarts the server. |
+| `nomi.path` | `nomi` | The CLI that runs the language server (`nomi lsp`) and that the run, test and debug commands invoke. Changing it restarts the server. |
 | `nomi.attachedTests.dim` | `true` | Draw `//!` attached tests dimmed. |
 | `nomi.attachedTests.revealUnderCursor` | `true` | Draw the attached test under the cursor normally. Off, it is dimmed too. |
 | `nomi.attachedTests.style` | `"comment"` | `"comment"` draws a dimmed test in one muted colour (the theme's `editorCodeLens.foreground`; an extension cannot read the theme's comment colour); `"opacity"` keeps its syntax colours at reduced opacity. |
@@ -162,7 +163,7 @@ The attached-test settings take effect as soon as they change.
 
 A bare name is looked up on `PATH`, then in `$GOBIN`, `$GOPATH/bin` and
 `~/go/bin`, because VS Code started from the Dock or a desktop launcher often
-has a `PATH` without Go's install directory. If `nomi-lsp` is not found, the
+has a `PATH` without Go's install directory. If `nomi` is not found, the
 extension says so and links to the install guide; highlighting and the
 commands still work. The run and test commands go through your shell, so
 `nomi` there resolves on your shell's `PATH`.
@@ -208,9 +209,9 @@ What the tests cover:
   attached tests, `todo`, `.field` and `.Variant`, numbers, operators). A line
   `// <~~~~---- scope` asserts `scope` on the previous code line, starting at
   column 4 (the number of `~`) for 4 characters (the number of `-`).
-- `test/smoke/`: builds `nomi` and `nomi-lsp` from this checkout, downloads
+- `test/smoke/`: builds `nomi` from this checkout, downloads
   VS Code into `.vscode-test/` (once; about 900 MB unpacked on macOS), and checks in its
-  extension host that a `.nomi` file activates the extension, `nomi-lsp`
+  extension host that a `.nomi` file activates the extension, `nomi lsp`
   reports a type error, the outline lists the file's declarations, Test at
   Cursor and Test File run the right tests, each test's code lens runs it, a
   Debug test lens starts `nomi dap` and stops at the test's failed assertion,

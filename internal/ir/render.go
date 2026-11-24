@@ -14,17 +14,18 @@ package ir
 // The disagreements are observable in the output, which is what makes the
 // discriminator load-bearing rather than a taxonomy:
 //
-//	a Decimal        Row `1.50`        Display `1.50`   Debug `1.50d`
-//	a Dynamic        Row `<dynamic: string>`            Debug `"hello"`
+//	a Decimal        Row `1.50d`       Display `1.50`   Debug `1.50d`
 //	a String         Row `"f.txt"`     Display `f.txt`  Debug `"f.txt"`
 //	a struct         Row SORTED fields          Debug DECLARATION order
-//	a record         Row Inspect leaves         Debug Debug leaves (both NAME sort)
+//	a host value     Row `<Handle>`             Debug `Handle`, with no
+//	                                            written `impl Debug`
 //	a hand impl      Row HONOURS a user's       Debug HONOURS it
 //	                 (Module.ImplementRowDebug)
 //	a derived impl   Row IGNORES it             Debug HONOURS it
 //
-// `internal/irbuild/debuginspect.go` records the Decimal row. Getting
-// any of these wrong produces a silent wrong string: a passing
+// A row's leaves are Debug's: a Decimal and a Dynamic read as their written
+// `impl Debug` renders them, at any depth (spec §17 *Failure reports*).
+// Getting any of these wrong produces a silent wrong string: a passing
 // assertion renders no operand, so only a deliberately failing fixture sees
 // one.
 //
@@ -47,7 +48,7 @@ package ir
 //
 // What is below this node is which function spells a discipline at a kind,
 // and that function's body. The VM renders by walking its own values (rt.RowText,
-// rt.DisplayText, rt.DebugText). So the discipline is above the line and the
+// rt.DisplayShapeText, rt.DebugText). So the discipline is above the line and the
 // renderer is below it, as iteration's push protocol and a call's calling
 // convention are below theirs.
 
@@ -56,8 +57,9 @@ type RenderKind uint8
 
 const (
 	// RenderRow is the assertion report's `values:` row: `rt.RowText`,
-	// a STRUCTURAL walk with no dispatch in it. A user's `impl Display` or
-	// `impl Debug` does not change a failure report.
+	// a STRUCTURAL walk whose leaves are Debug's. A user's `impl Display`
+	// does not change a failure report, and a hand-written `impl Debug`
+	// does, through the impls the module names (Module.ImplementRowDebug).
 	//
 	// The largest population.
 	RenderRow RenderKind = iota + 1
@@ -92,21 +94,26 @@ type Render struct {
 	dst   Temp
 	src   Temp
 	kind  RenderKind
-	impls []DebugImpl
+	impls []PartImpl
 	// erased marks a Display rendering of an existential: its operand is any
 	// value the program's Display impls cover, so the consumer selects the
 	// value's own impl by its runtime type. See NewRenderDisplayErased.
 	erased bool
 }
 
-// DebugImpl names the Debug implementation a Debug rendering calls for values
-// of one nominal type nested in its operand. Type is the type's runtime
-// identity, the name construction stamps on its values. Inst is the
-// instance's ValType.InstanceKey for a generic type and empty otherwise: two
-// instances of one generic type (`Box<Bool>`, `Box<String>`) share Type, and
-// each value's descriptor carries the key its construction's type gave it, so
-// the consumer selects the body by both.
-type DebugImpl struct {
+// PartImpl names the implementation a Debug or Display rendering calls for
+// values of one nominal type nested in its operand. Type is the type's
+// identity, the name construction stamps on its values and its ValType's
+// Sym names. Inst is the instance's ValType.InstanceKey for a generic type
+// and empty otherwise: two instances of one generic type (`Box<Bool>`,
+// `Box<String>`) share Type. The consumer selects the body by the static
+// type of the part's position, read from the operand's ValType as the
+// rendering descends (a value of an `embeds` enum is the embedded value at
+// run time, and only its position says it is the enum's), and where the
+// position states no declared type, by the value's descriptor, which
+// carries both. A box names the static type it was made at, and a
+// PartImpl of a box's name takes the value inside.
+type PartImpl struct {
 	Type string
 	Inst string
 	Fn   *Symbol
@@ -117,9 +124,20 @@ func NewRenderRow(pos Pos, dst, src Temp) *Render {
 	return newRender(pos, dst, src, RenderRow, "ir.NewRenderRow")
 }
 
-// NewRenderDisplay renders src through its `impl Display`.
+// NewRenderDisplay renders src by its shape: a scalar as its text, a
+// tuple, an anonymous record, a collection and a declared type whose
+// Display is derived as the literal that builds it, each part by its own
+// Display.
 func NewRenderDisplay(pos Pos, dst, src Temp) *Render {
 	return newRender(pos, dst, src, RenderDisplay, "ir.NewRenderDisplay")
+}
+
+// NewRenderDisplayWith is NewRenderDisplay calling the named impls for the
+// nominal values nested in src.
+func NewRenderDisplayWith(pos Pos, dst, src Temp, impls []PartImpl) *Render {
+	r := newRender(pos, dst, src, RenderDisplay, "ir.NewRenderDisplayWith")
+	r.impls = append([]PartImpl(nil), impls...)
+	return r
 }
 
 // NewRenderDisplayErased renders src, a `Display` existential, through the
@@ -143,14 +161,15 @@ func NewRenderDebug(pos Pos, dst, src Temp) *Render {
 
 // NewRenderDebugWith renders src through Debug, calling the named impls for
 // the nominal values nested in it.
-func NewRenderDebugWith(pos Pos, dst, src Temp, impls []DebugImpl) *Render {
+func NewRenderDebugWith(pos Pos, dst, src Temp, impls []PartImpl) *Render {
 	r := newRender(pos, dst, src, RenderDebug, "ir.NewRenderDebugWith")
-	r.impls = append([]DebugImpl(nil), impls...)
+	r.impls = append([]PartImpl(nil), impls...)
 	return r
 }
 
-// DebugImpls are the nominal Debug implementations this rendering calls.
-func (r *Render) DebugImpls() []DebugImpl { return r.impls }
+// PartImpls are the implementations this rendering calls for the nominal
+// values nested in its operand.
+func (r *Render) PartImpls() []PartImpl { return r.impls }
 
 func newRender(pos Pos, dst, src Temp, kind RenderKind, who string) *Render {
 	requirePos(pos, who)

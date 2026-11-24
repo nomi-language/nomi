@@ -350,7 +350,7 @@ impl Display for List<T> where T: Display
     end
 end
 
-impl Debug for List<T>
+impl Debug for List<T> where T: Debug
     fn inspect(value: List<T>) -> String
         body =
             value
@@ -362,21 +362,17 @@ impl Debug for List<T>
 end
 
 impl Equatable for List<T>
-    // Structural equality via the built-in `==` (recursive, element-wise). Lets a
-    // record with a List field `derive Equatable`.
-    fn equal(a: List<T>, b: List<T>) -> Bool
-        a == b
-    end
+    /// Whether the two lists hold equal elements in the same order. The
+    /// machine compares them element by element, so the elements need
+    /// equality of their own.
+    host fn equal(a: List<T>, b: List<T>) -> Bool
 end
 
 impl Hashable for List<T> where T: Hashable
-    // FNV-style fold; agrees with `==` (equal lists hash equally) and requires the
-    // element type to be Hashable. The arithmetic wraps: hashes are modular.
-    fn hash(list: List<T>) -> Int
-        Iter.reduce(list, 17, fn acc, x ->
-            Int.wrapping_add(Int.wrapping_mul(acc, 31), Hashable.hash(x))
-        end)
-    end
+    /// The hash a Map key of this type takes: the elements' hashes folded
+    /// in order, so `[1, 2]` and `[2, 1]` hash apart. It is keyed by the
+    /// run, so it may differ between runs.
+    host fn hash(list: List<T>) -> Int
 end
 
 impl Comparable for List<T> where T: Comparable

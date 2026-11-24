@@ -815,7 +815,7 @@ test('a module with locales has its catalogs under the directory [i18n] names', 
   eq(catalogs.dir('[i18n]\ncatalogs = "locales"\n'), nil, 'no locales')
 end)
 
-test('nomi-lsp attaches to a module\'s nomi.toml and catalogs and to no other TOML file', function()
+test('nomi lsp attaches to a module\'s nomi.toml and catalogs and to no other TOML file', function()
   local shop = dir .. '/shop'
   vim.fn.mkdir(shop .. '/locales/pl', 'p')
   vim.fn.mkdir(shop .. '/config', 'p')
@@ -825,6 +825,7 @@ test('nomi-lsp attaches to a module\'s nomi.toml and catalogs and to no other TO
   vim.fn.writefile({ '[cart_items]' }, catalog)
   vim.fn.writefile({ 'a = 1' }, other)
   local config = dofile(plugin .. '/lsp/nomi.lua')
+  eq(config.cmd, { 'nomi', 'lsp' }, 'the server command')
   check(vim.tbl_contains(config.filetypes, 'toml'), 'the config does not name toml')
   local function root_of(path, filetype)
     vim.cmd('edit ' .. vim.fn.fnameescape(path))

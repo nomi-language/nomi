@@ -454,8 +454,9 @@ func TestOperatorForm_InterfaceValueAndConcreteValueDispatch(t *testing.T) {
 
 // A comparison between an embedded type's value and the enum that embeds
 // it is answered at the enum, on either side, since the narrower value
-// widens into it: `c == s` and `s != c` both record Shape's derived
-// Equatable, as the builder compares the two as Shapes.
+// widens into it: `c == s` and `s != c` both record Shape's Equatable, as
+// the builder compares the two as Shapes. The impls are written, since a
+// derived one writes no function and is answered by shape.
 func TestOperatorForm_AnEmbeddedValueComparesAtItsEnum(t *testing.T) {
 	fa, errs := checkEntry(t, `struct Circle
     radius: Float
@@ -466,9 +467,9 @@ enum Shape
     Point
 end
 
-derive Equatable for Circle
+// Circle's Equatable is written below.
 
-derive Equatable for Shape
+// Shape's Equatable is written below.
 
 fn left(c: Circle, s: Shape) -> Bool
     c == s
@@ -481,6 +482,18 @@ end
 fn both(a: Circle, b: Circle) -> Bool
     a == b
 end
+
+impl Equatable for Circle
+    fn equal(a: Circle, b: Circle) -> Bool
+        a.radius == b.radius
+    end
+end
+
+impl Equatable for Shape
+    fn equal(a: Shape, b: Shape) -> Bool
+        Debug.inspect(a) == Debug.inspect(b)
+    end
+end
 `)
 	if len(errs) > 0 {
 		t.Fatalf("the checker rejects this source: %v", errs)
@@ -488,6 +501,10 @@ end
 	at := map[string]string{}
 	for n, use := range fa.Operators {
 		b, ok := n.(*ast.Binary)
+		if ok && b.Line > 24 {
+			// The impls' own comparisons.
+			continue
+		}
 		if !ok || use == nil || use.Form != analysis.OperatorByImpl || use.Impl == nil {
 			t.Fatalf("%v: %+v, want OperatorByImpl", n, use)
 		}

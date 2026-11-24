@@ -1,5 +1,5 @@
 // The browser globals harness.mjs and load-harness.mjs give nomi.js under
-// Node.
+// Node, and the way both end.
 //
 // Node has no browser Worker, so this defines one over worker_threads that
 // starts worker-shim.mjs, which gives the worker's copy of nomi.js a
@@ -45,3 +45,16 @@ globalThis.fetch = async (url) => {
   const data = await readFile(fileURLToPath(u));
   return new Response(data, { headers: { "content-type": contentType } });
 };
+
+/**
+ * exitWhenDone ends a harness: Node ends on its own once nothing is
+ * pending, and process.exit runs only when something still is a second
+ * later (a main-thread run that timed out keeps its timers). process.exit
+ * can hang for good: it stops V8's platform threads without tearing the
+ * isolate down, so a background compile waiting on a garbage collection
+ * never returns, and the join waits for it. Node 24 did that about once in
+ * 200 runs of harness.mjs.
+ */
+export function exitWhenDone() {
+  setTimeout(() => process.exit(0), 1000).unref();
+}

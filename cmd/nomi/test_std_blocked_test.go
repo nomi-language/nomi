@@ -54,10 +54,16 @@ func TestTestCommand_StdCaseBlockedInAnotherStdFileNamesThatFile(t *testing.T) {
 		t.Fatalf("nomi test with a blocked case exited 0:\n%s", plain)
 	}
 	want := fmt.Sprintf("BLOCKED std/timer.nomi :: sleep //! test lines %d-%d %s: %s\n"+
-		"  %s: help: this is a gap in Nomi, not a mistake in your code; please report it at https://github.com/nomi-language/nomi/issues\n"+
-		"test result: BLOCKED. 0 passed, 0 failed, 1 blocked\n", promptLine, promptLine+1, at, message, at)
-	if plain != want {
-		t.Fatalf("nomi test std/timer.nomi printed:\n%s\nwant:\n%s", plain, want)
+		"  %s: help: this is a gap in Nomi, not a mistake in your code; please report it at https://github.com/nomi-language/nomi/issues\n",
+		promptLine, promptLine+1, at, message, at)
+	// The file's other prompts pass and print between the blocked case and
+	// the result line, which counts them: the blocked case is the first
+	// thing printed, it is the only one blocked, and none fails.
+	lines := strings.Split(strings.TrimRight(plain, "\n"), "\n")
+	result := lines[len(lines)-1]
+	if !strings.HasPrefix(plain, want) || !strings.HasPrefix(result, "test result: BLOCKED. ") ||
+		!strings.HasSuffix(result, " passed, 0 failed, 1 blocked") || strings.Count(plain, "BLOCKED std/") != 1 {
+		t.Fatalf("nomi test std/timer.nomi printed:\n%s\nwant it to start with:\n%sand end with a result line of one blocked case and none failed", plain, want)
 	}
 
 	check, err := runNomi(t, t.TempDir(), "check", "std/timer.nomi")

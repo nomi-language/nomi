@@ -24,9 +24,10 @@ import int.Int
 /// end
 /// ```
 ///
-/// `derive Hashable` synthesizes a structural hash for structs (mixing all
-/// field hashes), enums (mixing the variant tag and payload), and distinct
-/// types (delegating to the inner value).
+/// `derive Hashable` writes no function: a value hashes by its shape, as a
+/// `Map` key of its type does, each part through its own impl. Which Int it
+/// gives is not specified. Equal values hash alike: a type with a written
+/// `Equatable` and a derived `Hashable` hashes all its values alike.
 pub interface Hashable
     fn hash(value: self) -> Int
 end

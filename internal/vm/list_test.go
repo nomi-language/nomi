@@ -46,11 +46,17 @@ func TestListConstructionSharesTailAndChecksItsShape(t *testing.T) {
 	}
 }
 
+// TestListDebugUsesElementDebugRatherThanInspect: an ir.Render at
+// RenderDebug renders by Debug, the list and each element, and not by the
+// assertion row's renderer (rt.RowText), which is one call away in the
+// package this machine renders with and gives a wrong string with no
+// error. The witness is a value whose row and Debug differ
+// (internal/ir/render.go records which).
 func TestListDebugUsesElementDebugRatherThanInspect(t *testing.T) {
 	pos := ir.At("list.nomi", 1, 1)
 	fn := ir.NewFunc(pos, "render")
 	list := fn.AddParam(ir.NewSymbol("list"), ir.ValContainer)
-	fn.SetType(list, ir.NewListType(ir.DecimalType))
+	fn.SetType(list, ir.NewListType(ir.NewStructType(ir.NewSymbol("shapes.Point"))))
 	block := fn.NewBlock(pos, "entry")
 	result := fn.NewTemp()
 	block.Append(ir.NewRenderDebug(pos, result, list))
@@ -60,18 +66,19 @@ func TestListDebugUsesElementDebugRatherThanInspect(t *testing.T) {
 	if err := ir.LintModule(mod); err != nil {
 		t.Fatal(err)
 	}
-	// A Decimal element separates the two: its Debug is `1.50d` and its row
-	// `1.50`. A String would not, since both write its literal.
-	dec, err := rt.ParseDecimal("1.50")
-	if err != nil {
-		t.Fatal(err)
-	}
-	input := rtList(dec)
+	// A struct declared with its fields out of name order separates the
+	// two, both for the list and for its element: its Debug keeps the
+	// declaration order, `Point{y: 2, x: 1}`, and its row sorts the fields
+	// by name. A String or a Decimal would not, since a row's leaves are
+	// Debug's.
+	point := rt.NewStructDesc("shapes.Point", []rt.FieldSpec{{Name: "y", Type: rt.SlotInt}, {Name: "x", Type: rt.SlotInt}}).
+		Make(int64(2), int64(1))
+	input := rtList(point)
 	got, err := vm.New(mod, io.Discard).Run("render", input)
 	if err != nil {
 		t.Fatal(err)
 	}
-	const want = "[1.50d]"
+	const want = "[Point{y: 2, x: 1}]"
 	if got != want {
 		t.Fatalf("Debug = %q, want %q", got, want)
 	}

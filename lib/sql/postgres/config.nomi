@@ -7,10 +7,14 @@
 //# `sslrootcert`, `sslcert`, `sslkey`, `connect_timeout`, and the pool's
 //# `pool_max_conns`, `pool_max_conn_lifetime` and `pool_max_conn_idle_time`
 //# (a duration such as `30m`). Any other key is a setting the server
-//# applies to each connection, as `application_name` or `search_path`.
+//# applies to each connection, as `application_name` or `search_path`. A
+//# `host` that starts with `/` is a directory, and the server is reached
+//# over the Unix socket in it, `<host>/.s.PGSQL.<port>`, as libpq does
+//# (`postgres:///app?host=/var/run/postgresql`), with no TLS.
 
 import
     std::duration.Duration
+    std::secret.Secret
     std::url.{Query, Url}
 end
 
@@ -33,12 +37,26 @@ end
 
 derive Equatable for SslMode
 
-/// A connection's settings, from a connection string.
+/// A connection's settings, from a connection string. The password is a
+/// `Secret`, so `Debug` shows `Secret(<hidden>)` in its place.
+//! import std::assertions.AssertionFailure
+//! import std::testing
+//!
+//! c = parse("postgres://ann:pencil@db/shop")!
+//!
+//! assert String.contains(Debug.inspect(c), "password: Some(Secret(<hidden>))")
+//! refute String.contains(Debug.inspect(c), "pencil")
+//!
+//! assert Err(failure) = testing.check([c] == [])
+//! report = AssertionFailure.format(failure)
+//! assert String.contains(report, "password: Some(Secret(<hidden>))")
+//! refute String.contains(report, "pencil")
+//
 pub struct Config
     host:     String = "localhost"
     port:     Int = 5432
     user:     String = "postgres"
-    password: Option<String> = None
+    password: Option<Secret> = None
     database: String = ""
     ssl_mode: SslMode = SslMode.Prefer
     /// The PEM file of the roots a server's certificate is checked against;
@@ -62,12 +80,25 @@ end
 derive Equatable for Config
 
 impl Config
-    /// `host:port`, as std::net dials it.
+    /// Whether the host is a directory, as libpq reads one that starts
+    /// with `/`: the server is reached over the Unix socket in it.
+    //! assert Config.is_socket(parse("postgres:///app?host=/var/run/postgresql")!)
+    //! refute Config.is_socket(Config{host: "db"})
+    //
+    pub fn is_socket(config: Config) -> Bool
+        String.starts_with(config.host, "/")
+    end
+
+    /// `host:port`, as std::net dials it, or the path of the Unix socket
+    /// in a directory host, `<host>/.s.PGSQL.<port>`, as libpq names it.
     //! assert Config.address(Config{host: "db", port: 6432}) == "db:6432"
     //! assert Config.address(Config{host: "::1"}) == "[::1]:5432"
+    //! assert Config.address(Config{host: "/tmp"}) == "/tmp/.s.PGSQL.5432"
     //
     pub fn address(config: Config) -> String
-        if String.contains(config.host, ":") then
+        if Config.is_socket(config) then
+            "${String.strip_suffix(config.host, "/") |> Option.with_default(config.host)}/.s.PGSQL.${config.port}"
+        else if String.contains(config.host, ":") then
             "[${config.host}]:${config.port}"
         else
             "${config.host}:${config.port}"
@@ -112,7 +143,7 @@ end
 /// none.
 //! c = parse("postgres://ann:s%40cret@db.example.com:6432/shop?sslmode=require&application_name=web")!
 //! assert c.host == "db.example.com" and c.port == 6432
-//! assert c.user == "ann" and c.password == Some("s@cret") and c.database == "shop"
+//! assert c.user == "ann" and c.password == Some(Secret.new("s@cret")) and c.database == "shop"
 //! assert c.ssl_mode == SslMode.Require
 //! assert c.settings == [("application_name", "web")]
 //!
@@ -163,7 +194,7 @@ fn from_url(text: String) -> Result<Config, String>
                         {..with_port, user: user.name}
                     end
 
-                {..named, password: user.password}
+                {..named, password: Option.map(user.password, Secret.new)}
 
             None ->
                 with_port
@@ -196,7 +227,7 @@ fn set(config: Config, key: String, value: String) -> Result<Config, String>
             Ok({..config, user: value})
 
         "password" ->
-            Ok({..config, password: Some(value)})
+            Ok({..config, password: Some(Secret.new(value))})
 
         "dbname" ->
             Ok({..config, database: value})

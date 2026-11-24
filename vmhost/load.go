@@ -262,7 +262,8 @@ func (c *config) frontendConfig() (frontend.Config, error) {
 			return keys[key] || (c.session != nil && sessionKey(key)) || c.loaderHosts
 		},
 		HostTypesAreHandles: true,
-		UnmetHint:           "answer them from a host table passed with vmhost.WithHosts.",
+		UnmetHint: "`nomi` answers only the standard library's `host` declarations; " +
+			"a Go program that embeds Nomi answers its own from a host table passed with vmhost.WithHosts.",
 		AllowUnusedImports:  c.session != nil,
 		AllowUnusedBindings: c.allowUnusedBindings,
 		StandaloneEntry:     c.standalone,
@@ -499,7 +500,9 @@ func Check(path string, opts ...Option) error {
 	}
 	hasTests, _ := frontend.FileDeclaresTests(abs)
 	mode := frontend.Mode{Tests: hasTests}
-	if module, root, ok := frontend.StdlibFile(abs); ok {
+	if module, root, ok, err := frontend.StdlibFile(abs); err != nil {
+		return err
+	} else if ok {
 		data, err := os.ReadFile(abs)
 		if err != nil {
 			return err
@@ -562,10 +565,14 @@ func checkedProgram(cfg config, abs string) (*Program, error) {
 // module: an edit to two stdlib files, or to one another module calls, needs a
 // rebuilt nomi to be tested together.
 func LoadStdlib(path string) (*Program, error) {
-	module := irbuild.StdlibTestModule(path)
-	if module == "" {
+	key, _, ok, err := frontend.StdlibFile(path)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
 		return nil, fmt.Errorf("%s is not a stdlib module", path)
 	}
+	module := strings.TrimPrefix(key, "std/")
 	src, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err

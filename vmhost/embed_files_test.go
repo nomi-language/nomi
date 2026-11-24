@@ -250,3 +250,41 @@ end
 		t.Fatalf("Stat through DiskFiles answered %+v, %v", info, err)
 	}
 }
+
+// fs.set_mode reaches an embedder's FileSystem with the setuid, setgid and
+// sticky bits as an fs.FileMode, and its Stat hands them back to
+// Metadata.mode.
+func TestEmbedFiles_SetModeCarriesTheHighBits(t *testing.T) {
+	src := `import
+    std::fs
+    std::io
+end
+
+fn main() -> Result<Unit, io.Error>
+    fs.write_text("run.sh", "")?
+    fs.set_mode("run.sh", 0o4755)?
+    io.print((fs.metadata("run.sh")?).mode == 0o4755)
+    fs.create_dir("shared")?
+    fs.set_mode("shared", 0o3777)?
+    io.print((fs.metadata("shared")?).mode == 0o3777)
+    Ok(Unit)
+end
+`
+	memory := vmhost.NewMemoryFiles(nil)
+	logged := &loggedFiles{inner: memory}
+	p, err := vmhost.LoadSource("main", src, vmhost.WithFileSystem(logged))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	if err := p.Run(context.Background(), &out, nil, false); err != nil {
+		t.Fatalf("run: %v\n%s", err, out.String())
+	}
+	if out.String() != "True\nTrue\n" {
+		t.Fatalf("output %q, want the modes read back as set", out.String())
+	}
+	info, err := logged.Stat("run.sh")
+	if err != nil || info.Mode != fs.ModeSetuid|0o755 {
+		t.Fatalf("Stat(run.sh) answered mode %v, %v; want %v", info.Mode, err, fs.ModeSetuid|0o755)
+	}
+}

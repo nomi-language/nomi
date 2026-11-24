@@ -20,13 +20,7 @@ var maxSigPositionRefusals = map[string]int{
 	// (programStdModules). Its types are the program's, and a program's gen
 	// lowers the function with its own kinds, so the shared row is never
 	// lowered.
-	"program-std module": 2187,
-	// `Iter<T>`: a sequence has a kind only inside a program (stdProgSigWhy).
-	"iter": 12,
-	// A std interface held as a value that has no rt table (`ToJson`,
-	// `PluralOperand`), which a program holds through its own def
-	// (stdProgSigWhy).
-	"interface value": 2,
+	"program-std module": 2057,
 }
 
 // TestStdSignaturePositionsProject holds every parameter and written result
@@ -156,6 +150,16 @@ func sharedRefusalCause(rec analysis.Type) string {
 	case *analysis.InterfaceType:
 		if ty.Name == "Iter" && ty.Origin == "std/iter" {
 			return "iter"
+		}
+		if cause := parts(ty.TypeArgs...); cause != "" {
+			return cause
+		}
+		if len(ty.TypeArgs) > 0 {
+			return "generic std interface instance"
+		}
+		// An interface the registry did not admit names its reason.
+		if why := stdTypeWhy(stdTypeKey{origin: ty.Origin, name: ty.Name}); why != "" {
+			return "interface value: " + why
 		}
 		return "interface value"
 	case *analysis.ConjunctionType:

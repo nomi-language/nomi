@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/nomi-language/nomi/internal/ast"
 )
@@ -716,9 +717,56 @@ func embedPatternProblem(text string) (msg, hint string) {
 		}
 	}
 	if _, err := path.Match(text, ""); err != nil {
-		return fmt.Sprintf("the `embed` pattern `%s` is not a valid pattern: a `[` is not closed, or a `\\` ends it", text), ""
+		return fmt.Sprintf("the `embed` pattern `%s` is not a valid pattern: %s", text, malformedClass(text)), ""
 	}
 	return "", ""
+}
+
+// malformedClass says what is wrong with the first malformed `[...]` class
+// in text, which path.Match refused. text holds no `\`, which is refused
+// before it, so a class is all path.Match can refuse: one its `]` does not
+// close, an empty one (`[]`, `[^]`), or one where a `-` does not join two
+// characters (`[a-]`, `[-a]`). A `]` right after `[` or `[^` cannot be a
+// member, since without `\` nothing escapes it.
+func malformedClass(text string) string {
+	for i := 0; i < len(text); i++ {
+		if text[i] != '[' {
+			continue
+		}
+		j := i + 1
+		if j < len(text) && text[j] == '^' {
+			j++
+		}
+		if j < len(text) && text[j] == ']' {
+			return fmt.Sprintf("the class `%s` is empty", text[i:j+1])
+		}
+		for {
+			if j >= len(text) {
+				return "a `[` has no `]` to close its class"
+			}
+			if text[j] == ']' {
+				break
+			}
+			if text[j] == '-' {
+				return "a `-` in a class does not join two characters into a range"
+			}
+			_, n := utf8.DecodeRuneInString(text[j:])
+			j += n
+			if j < len(text) && text[j] == '-' {
+				j++
+				if j >= len(text) {
+					return "a `[` has no `]` to close its class"
+				}
+				if text[j] == ']' || text[j] == '-' {
+					return "a `-` in a class does not join two characters into a range"
+				}
+				_, n := utf8.DecodeRuneInString(text[j:])
+				j += n
+			}
+		}
+		i = j
+	}
+	return "it is malformed"
 }
 
 // checkEmbed reports what is wrong with the `embed` o expands, and

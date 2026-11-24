@@ -46,8 +46,11 @@ import (
 //
 // A program with no `concurrent` block has a root context that is never
 // cancelled, so the ctx arm never fires and a blocked send in a
-// single-goroutine program hangs, detected by Go's scheduler ("all goroutines
-// are asleep - deadlock!").
+// single-goroutine program hangs. Nothing reports it: Go's own check ("all
+// goroutines are asleep") does not fire in a program that holds a timer, a
+// signal handler or a network poller, which every Nomi program does, and rt
+// keeps no account of which tasks could still run
+// (docs/feature-status.md, "Known quirks and open defects").
 //
 // This surface raises no fault: `Channel.select` takes a NonEmptyList of
 // arms, and a second `Sender.close` does nothing.

@@ -1,7 +1,7 @@
 {
   "name": "nomi",
   "displayName": "Nomi",
-  "description": "Nomi language support: highlighting, the nomi-lsp language server, run and test commands, and the debugger.",
+  "description": "Nomi language support: highlighting, the language server, run and test commands, and the debugger.",
   "version": "0.1.0",
   "publisher": "nomi-language",
   "license": "(MIT OR Apache-2.0)",
@@ -287,13 +287,7 @@
           "type": "string",
           "default": "nomi",
           "scope": "machine-overridable",
-          "description": "The nomi CLI that the run, test and debug commands invoke (debugging runs `nomi dap`): a name looked up on PATH, or an absolute path."
-        },
-        "nomi.lsp.path": {
-          "type": "string",
-          "default": "nomi-lsp",
-          "scope": "machine-overridable",
-          "description": "The language server to launch: a name looked up on PATH, or an absolute path."
+          "description": "The nomi CLI that the language server (`nomi lsp`) and the run, test and debug commands (debugging runs `nomi dap`) start: a name looked up on PATH, or an absolute path."
         },
         "nomi.attachedTests.dim": {
           "type": "boolean",

@@ -40,7 +40,7 @@ func irSupervisorKind(k kind) bool {
 // (rt/network.go), or std/csv/host's Records and std/xml/host's Tokens,
 // the readers std/csv and std/xml hold (rt/formats.go), or std/wasm/host's
 // Compiled, Live and Memory (rt/wasm.go), or std/bytes's Builder
-// (rt/bytesbuilder.go).
+// (rt/bytesbuilder.go) or std/hash's Hasher (rt/hasher.go).
 func irStreamKind(k kind) bool {
 	if k.tag != tagNamed {
 		return false
@@ -64,7 +64,7 @@ var irStreamKinds = sync.OnceValue(func() []kind {
 		stdHostOriginKind("std/csv/host", "Records"), stdHostOriginKind("std/xml/host", "Tokens"),
 		stdHostOriginKind("std/wasm/host", "Compiled"), stdHostOriginKind("std/wasm/host", "Live"),
 		stdHostOriginKind("std/wasm/host", "Memory"),
-		stdHostOriginKind("std/bytes", "Builder"),
+		stdHostOriginKind("std/bytes", "Builder"), stdHostOriginKind("std/hash", "Hasher"),
 	}
 })
 
@@ -182,9 +182,10 @@ func irSlotSignature(kinds, params []kind, result kind) bool {
 	return true
 }
 
-// stdShortCall lowers `Owner.method(args)` when it writes a prefix of a
-// defaulted std function's parameters and the declaring module retained its
-// body and default accessors for the VM. The function is the one the call's
+// stdShortCall lowers `Owner.method(args)` when it leaves some of a
+// defaulted std function's parameters out, by writing fewer arguments or
+// by naming the ones it writes, and the declaring module retained its body
+// and default accessors for the VM. The function is the one the call's
 // record names (stdShortCallee), however the call spells its owner. handled
 // is false when the call is not that shape, so the caller's ordinary routes
 // answer it.
@@ -217,15 +218,15 @@ func (bl *irScalarBuilder) stdShortCall(t *ast.Call) (ir.Temp, kind, bool, bool,
 	return v, k, mobile, ok, true
 }
 
-// stdShortCalleeLowered reports whether a std module's short positional
-// call of another module's function names a body and default accessors that
-// module has already lowered. A module lowered later builds them then, so
-// the call declines through the ordinary routes, as it did before they
-// existed.
+// stdShortCalleeLowered reports whether a std module's call of another
+// module's function that leaves parameters to their defaults, positional
+// (`Reader.chunks(r)`) or named (`Bytes.index_of(b, n, from: i)`, which
+// leaves `stop` out), names a body and default accessors that module has
+// already lowered. The call fills the omitted slots from those accessors
+// in its plan's order (stdShortCallPlanFor), wherever they fall. A module
+// lowered later builds them then, so the call declines through the
+// ordinary routes.
 func (bl *irScalarBuilder) stdShortCalleeLowered(t *ast.Call) bool {
-	if namedArgNode(t.Args) != nil {
-		return false
-	}
 	f := bl.stdShortCallee(t)
 	if f == nil || !f.lowerable() || f.pkg == bl.g.pkg {
 		return false

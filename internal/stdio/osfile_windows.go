@@ -31,10 +31,17 @@ func osFile(f *os.File, writable bool) (sync func(bool) error, lock func(rt.Lock
 	return sync, lock, func() {}
 }
 
+// kernel32's procedures this package calls, through the syscall package
+// rather than golang.org/x/sys/windows, which imports net: the lean runner
+// links this package and none of net (cmd/nomi-vm's
+// TestLeanVMImportsNoFamilyCode).
 var (
-	kernel32         = syscall.NewLazyDLL("kernel32.dll")
-	procLockFileEx   = kernel32.NewProc("LockFileEx")
-	procUnlockFileEx = kernel32.NewProc("UnlockFileEx")
+	kernel32                      = syscall.NewLazyDLL("kernel32.dll")
+	procLockFileEx                = kernel32.NewProc("LockFileEx")
+	procUnlockFileEx              = kernel32.NewProc("UnlockFileEx")
+	procGetFinalPathNameByHandleW = kernel32.NewProc("GetFinalPathNameByHandleW")
+	procGetVolumePathNameW        = kernel32.NewProc("GetVolumePathNameW")
+	procGetDiskFreeSpaceExW       = kernel32.NewProc("GetDiskFreeSpaceExW")
 )
 
 const (

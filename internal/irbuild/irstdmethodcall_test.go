@@ -103,3 +103,34 @@ fn main()
 end
 `, "\"2023-11-14T22:13:20.25Z\"\n")
 }
+
+// A std body that names an argument and leaves another module's default
+// out goes through the same accessors as one that writes a prefix:
+// std/bytes/cursor's `Cursor.read_until` writes `Bytes.index_of(c.data,
+// delimiter, from: c.position)`, which leaves `stop` to `length(data)`. It
+// declined before ("a named argument"), so every program that read a
+// Cursor up to a delimiter was BLOCKED.
+func TestIRStdMethodCall_StdBodyNamesAnArgumentAndLeavesOutAnotherModulesDefault(t *testing.T) {
+	verifyLambdaProgram(t, `import
+    std::io
+    std::bytes::cursor.Cursor
+end
+
+fn main()
+    c = Cursor.new(String.to_bytes("ab\r\ncd\r\n"))
+    crlf = String.to_bytes("\r\n")
+    case Cursor.read_until(c, crlf)
+        Some((line, rest)) ->
+            io.print(Bytes.to_string(line))
+            io.print(Cursor.remaining(rest))
+        None -> io.print("none")
+    end
+    case Cursor.read_until_byte(Cursor.new(Bytes.from_list([117, 0, 7])), 0)
+        Some((name, rest)) ->
+            io.print(Bytes.to_list(name))
+            io.print(Cursor.remaining(rest))
+        None -> io.print("none")
+    end
+end
+`, "Ok(ab)\n4\n[117]\n1\n")
+}

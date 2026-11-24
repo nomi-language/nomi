@@ -1,7 +1,6 @@
 [module]
 name = "migrate"
-path = "github.com/nomi-language/nomi/lib/sql/migrate"
 
 [dependencies]
-postgres = { module = "github.com/nomi-language/nomi/lib/sql/postgres", version = "v0.0.0-20261102000000-000000000000", dir = "../postgres" }
-sqlite = { module = "github.com/nomi-language/nomi/lib/sql/sqlite", version = "v0.0.0-20261026231947-3434642c92e9", dir = "../sqlite" }
+postgres = { dir = "../postgres" }
+sqlite = { dir = "../sqlite" }

@@ -66,7 +66,7 @@ func imageFixture() (ir.Image, map[string]any) {
 	lb2.Append(ir.NewFuncValue(at(12, 4), self, lambda))
 	lb2.SetTerm(ir.NewReturnUnit(at(12, 9)))
 	mb.Append(ir.NewMakeRecord(at(13, 1), main.NewTemp(), []string{}, nil))
-	mb.Append(ir.NewRenderDebugWith(at(13, 2), main.NewTemp(), one, []ir.DebugImpl{}))
+	mb.Append(ir.NewRenderDebugWith(at(13, 2), main.NewTemp(), one, []ir.PartImpl{}))
 	mb.Append(ir.NewRunDefer(at(13, 3), 1))
 	mb.SetFault(at(13, 4), 0)
 	mb.SetTerm(ir.NewReturnUnit(at(14, 1)))
@@ -192,7 +192,7 @@ func TestImage_RoundTripKeepsEveryFieldAndIdentity(t *testing.T) {
 	origInstrs := im.Modules[0].Funcs()[0].Blocks()[0].Instrs()
 	for i, in := range main.Blocks()[0].Instrs() {
 		if r, ok := in.(*ir.Render); ok {
-			if (r.DebugImpls() == nil) != (origInstrs[i].(*ir.Render).DebugImpls() == nil) {
+			if (r.PartImpls() == nil) != (origInstrs[i].(*ir.Render).PartImpls() == nil) {
 				t.Fatal("a Debug impl list changed between nil and empty")
 			}
 		}

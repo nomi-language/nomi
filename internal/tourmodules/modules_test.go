@@ -42,7 +42,7 @@ end
 func TestSourceAttachesTheModulesABlockImports(t *testing.T) {
 	src := tourmodules.Source(firstQuery)
 	if !strings.Contains(src, "// FILE: main.nomi\n") || !strings.Contains(src, "// FILE: "+tourmodules.ModulesDir+"/sqlite/sqlite.nomi\n") ||
-		!strings.Contains(src, "sqlite = { module = \"github.com/nomi-language/nomi/lib/sql/sqlite\", version = \"v0.0.0\", dir = \"./"+tourmodules.ModulesDir+"/sqlite\" }\n") ||
+		!strings.Contains(src, "sqlite = { dir = \"./"+tourmodules.ModulesDir+"/sqlite\" }\n") ||
 		strings.Contains(src, "sqlite_test.nomi") {
 		t.Fatalf("the source with its modules:\n%s", src)
 	}
@@ -56,25 +56,27 @@ func TestSourceAttachesTheModulesABlockImports(t *testing.T) {
 }
 
 // TestModulesAreTheirManifests holds each of tourmodules.Modules to the
-// nomi.toml in its directory: its path, and the tour modules that file
-// names, which Source attaches with it.
+// nomi.toml in its directory: its name, and the tour modules that file
+// names by their directories, which Source attaches with it.
 func TestModulesAreTheirManifests(t *testing.T) {
 	for _, m := range tourmodules.Modules {
-		mf, err := modcache.ReadModuleFile(filepath.Join(root, m.Dir))
+		dir := filepath.Join(root, m.Dir)
+		mf, err := modcache.ReadModuleFile(dir)
 		if err != nil || mf == nil {
 			t.Fatalf("%s/nomi.toml: %v", m.Dir, err)
 		}
-		if mf.Path != m.Path {
-			t.Errorf("%s/nomi.toml is module %s; tourmodules.Modules says %s", m.Dir, mf.Path, m.Path)
+		if mf.Name != m.Name {
+			t.Errorf("%s/nomi.toml is module %s; tourmodules.Modules says %s", m.Dir, mf.Name, m.Name)
 		}
 		var requires []string
 		for _, r := range mf.Requires {
 			for _, other := range tourmodules.Modules {
-				if r.Module == other.Path {
+				if r.Dir != "" && r.LocalDir(dir) == filepath.Join(root, other.Dir) {
 					requires = append(requires, other.Name)
 				}
 			}
 		}
+
 		if strings.Join(requires, " ") != strings.Join(m.Requires, " ") {
 			t.Errorf("%s/nomi.toml names the tour modules %q; tourmodules.Modules says %q", m.Dir, requires, m.Requires)
 		}

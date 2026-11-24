@@ -3,6 +3,8 @@ package analysis_test
 import (
 	"strings"
 	"testing"
+
+	"github.com/nomi-language/nomi/internal/ast"
 )
 
 // A pipe stage is a call (pipe_stage_call.go). Each bare stage below passed
@@ -157,6 +159,47 @@ func TestPipeStage_GroupedDbgIsRejected(t *testing.T) {
 		}
 		if !strings.Contains(diagText(errs[0]), "write `|> dbg` to print the piped value") {
 			t.Errorf("%s: the error has no hint: %s", stmt, diagText(errs[0]))
+		}
+	}
+}
+
+// A stage that calls an interface's method is the direct call at the
+// piped value's type: `it |> Iter.to_list()` where a List<Int> is expected
+// is a List<NonNegativeInt>, as `Iter.to_list(it)` is, and converts at the
+// return. The stage was typed List<Int>, solved from the expected type,
+// and the editor's pipe hint for it was lost.
+func TestPipeStage_InterfaceMethodHasTheDirectCallsType(t *testing.T) {
+	src := `fn piped(xs: List<String>) -> List<Int>
+    xs |> Iter.map(String.length) |> Iter.to_list()
+end
+
+fn direct(xs: List<String>) -> List<Int>
+    Iter.to_list(Iter.map(xs, String.length))
+end
+`
+	fa, nodes, errs := checkSourceAsWrittenWithStdlib(src)
+	if len(errs) != 0 {
+		t.Fatalf("errors: %v", errs)
+	}
+	got := map[int]string{}
+	for _, n := range nodes {
+		ast.Inspect(n, func(x ast.Node) bool {
+			switch v := x.(type) {
+			case *ast.Binary:
+				if v.Op == "|>" && v.Line == 2 && v.Col == 35 {
+					got[2] = fa.ExprTypes[v].String()
+				}
+			case *ast.Call:
+				if v.Line == 6 && v.Col == 17 {
+					got[6] = fa.ExprTypes[v].String()
+				}
+			}
+			return true
+		})
+	}
+	for _, line := range []int{2, 6} {
+		if got[line] != "List<NonNegativeInt>" {
+			t.Errorf("line %d: the call is typed %q, want List<NonNegativeInt>", line, got[line])
 		}
 	}
 }

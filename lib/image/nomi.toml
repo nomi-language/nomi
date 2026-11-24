@@ -1,6 +1,5 @@
 [module]
 name = "image"
-path = "github.com/nomi-language/nomi/lib/image"
 
 # The module's public functions have no effects: each call runs its engine
 # in a fresh WebAssembly instance with no imports (wasm.run), which acts on

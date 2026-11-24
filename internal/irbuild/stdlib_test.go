@@ -153,6 +153,14 @@ func TestEveryScalarHostFnIsBoundOrDeclared(t *testing.T) {
 			"as `Iter.each_while` over it (irqualcall.go); TestRunCommand_EachWhileRunsDirectly",
 		"iter.from_each": "file-private to std/iter, and its one caller `Iter.from` lowers to the VM's " +
 			"ir.IterFrom driver (iriterbody.go), so no program reaches the crossing",
+
+		// Hosts over an `Iter`, which count here because a sequence over a
+		// shared kind projects with no gen. Each call is lowered by a route of
+		// its own, never through a registry row.
+		"io.Reader.from_chunks": "lowered by call's Reader arm (irreader.go, readerFromChunks), which drives " +
+			"the Iter into the reader",
+		"io.Reader.from_text_chunks": "lowered by call's Reader arm (irreader.go, readerFromChunks); see io.Reader.from_chunks",
+		"strings.String.join":        "lowered as `Iter.join` over its source (stdroutes.go's routeStringJoin, iriterbody.go)",
 	}
 
 	idx := stdlibLowering()
@@ -399,8 +407,9 @@ func TestStdlibIndexKeysCarryTheirReceiver(t *testing.T) {
 		"channels.Sender.send":  "Sender",
 		"tasks.Task.spawn":      "Task",
 		"random.Generator.int":  "Generator",
-		// A QUALIFIED receiver.
-		"json.Json.Case.to_string": "Json.Case",
+		// A QUALIFIED receiver, of a written impl: a derived one writes
+		// no function to file.
+		"json.Json.ShapeError.to_string": "Json.ShapeError",
 		// Three impls of one interface method, which a receiverless key would
 		// merge into one `json.to_json` entry.
 		"json.List.to_json":   "List",
@@ -765,11 +774,6 @@ func TestStdlibRefusalNamesAreDistinct(t *testing.T) {
 		"stdlib function without a body",
 		"stdlib function reaching the front end",
 		"stdlib generic function",
-		// A monomorphic function whose signature has a kind only inside a
-		// program: an Iter (`Reader.lines`) or a std interface held as a
-		// value (`String.split(s, separator: Matcher)`). A program builds it
-		// for itself, as it builds a generic one.
-		"stdlib function whose signature has a kind only in a program",
 		// A `host fn` carrying a declared parameter default. Kept apart from
 		// `stdlib host function` because the two are not the same amount of
 		// work in the same direction: that one is waiting on an rt symbol, and

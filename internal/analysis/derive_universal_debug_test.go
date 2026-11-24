@@ -258,14 +258,14 @@ derive Debug for NonZeroCount
 	nodes, _ = LowerDerives(nodes) // stamps the synthetic @derive Debug decorator
 	out := SynthesizeUniversalDebug(nodes)
 
-	if got := countDebugImpls(out, "NonZeroCount"); got != 1 {
-		t.Fatalf("NonZeroCount: explicit @derive Debug — expected exactly 1 impl, got %d", got)
+	// The derive's block is the one Debug block, and it writes no function:
+	// the type renders by its shape, not as the name-only `<opaque
+	// NonZeroCount>`.
+	if got := countSynthDebugImpls(out, "NonZeroCount"); got != 1 {
+		t.Fatalf("NonZeroCount: explicit derive Debug — expected exactly 1 Debug block, got %d", got)
 	}
-	fn := debugImplForType(out, "NonZeroCount")
-	// The derived structural body for a distinct type unwraps + interpolates,
-	// so it is NOT a bare name-only StringLit "<opaque NonZeroCount>".
-	if val, ok := debugBodyIsNameOnly(fn); ok && val == "<opaque NonZeroCount>" {
-		t.Error("NonZeroCount: explicit @derive Debug regressed to name-only `<opaque NonZeroCount>`")
+	if fn := debugImplForType(out, "NonZeroCount"); fn != nil {
+		t.Errorf("NonZeroCount: the derived Debug block writes `fn inspect`, want no function")
 	}
 }
 

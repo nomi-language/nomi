@@ -56,46 +56,29 @@ func (m *Machine) addImpls(mod *ir.Module) {
 	}
 }
 
-// rowText is how v reads in an assertion's `values:` row: rt.RowText, with a
-// value whose type has a hand-written `impl Debug` rendered by that impl at
-// any depth, as `dbg` renders it.
+// rowText is how v reads in a failed test's report, an assertion's `values:`
+// row, a subtest's row and what ended a case early (returnedText):
+// rt.RowText, with a value whose type has a hand-written `impl Debug`
+// rendered by that impl at any depth, as `dbg` renders it. The impl is
+// found and called as a Debug rendering's held impl is (renderHook): a box
+// selects the impl recorded under its name and the impl receives the value
+// inside. The impl runs as a callee of fr.
 func (m *Machine) rowText(fr *frame, v any) (string, error) {
 	if len(m.rowDebugs) == 0 {
 		return rt.RowText(v), nil
 	}
-	return rt.RowTextWith(v, func(x any) (string, bool, error) {
-		rec, isRecord := x.(*rt.Record)
-		if !isRecord || rec == nil {
-			return "", false, nil
-		}
-		sym := m.rowDebugs[rec.Desc.Name]
-		if sym == nil {
-			return "", false, nil
-		}
-		fn, err := m.resolveFunc(sym, fr.fn.Name())
-		if err != nil {
-			return "", true, err
-		}
-		out, err := m.callFrom(fr, fn, []any{x})
-		if err != nil {
-			return "", true, err
-		}
-		text, ok := out.(string)
-		if !ok {
-			return "", true, fmt.Errorf("Debug impl %s returned %T, not a String", sym.Name(), out)
-		}
-		return text, true, nil
-	})
+	return rt.RowTextWith(v, m.renderHook(fr, nil, m.rowDebugs, nil))
 }
 
 // displayErased renders a Display existential's value through its own impl:
 // a declared type's retained body by the type name the value carries (a
 // record's descriptor, a host handle's TypeName, rt.BytesTypeName for a
 // Bytes), or a scalar's text, which is what each scalar's Display impl
-// answers. Any other
-// value is refused: rt.DisplayText's structural text for it is not what its
-// Display impl answers (`Bytes` reads `Bytes(2)`, a list renders its
-// elements through Display).
+// answers. A declared type with no retained body is one whose Display is
+// derived, which renders by its shape, and so do a tuple, an anonymous
+// record and a container (displayShape). Any other value is refused:
+// rt.DisplayShapeText's text for it is not what its Display impl
+// answers (`Bytes` reads `Bytes(2)`).
 func (m *Machine) displayErased(fr *frame, v any) (string, error) {
 	if r, boxed := v.(*rt.Record); boxed && r != nil && r.Desc.Kind == rt.KindBoxed {
 		// A box names the static type it was held at: an `embeds` enum's
@@ -108,24 +91,21 @@ func (m *Machine) displayErased(fr *frame, v any) (string, error) {
 	}
 	switch x := v.(type) {
 	case int64, *rt.BigInt, float64, bool, string, rt.Decimal, rt.Byte:
-		return rt.DisplayText(x), nil
+		return rt.DisplayShapeText(x, nil)
 	case *rt.Record:
 		switch x.Desc.Kind {
 		case rt.KindStruct, rt.KindEnum, rt.KindDistinct:
-			sym := implOf(m.displays, x)
-			if sym == nil {
-				break
+			if sym := implOf(m.displays, x); sym != nil {
+				return m.displayCall(fr, sym, v)
 			}
-			return m.displayCall(fr, sym, v)
+			return m.displayShape(fr, v, nil, nil)
 		case rt.KindTuple, rt.KindAnon:
-			return m.displayStructural(fr, v)
+			return m.displayShape(fr, v, nil, nil)
 		}
 		return "", fmt.Errorf("vm: %s: Display over an existential holding %s, and this program's modules did not "+
 			"retain its Display implementation", fr.fn.Name(), x.Desc.Name)
 	case *list, rt.Vector[any], vmap:
-		// A container the builder erased only when its Display text is
-		// structural (irStructuralDisplayKind).
-		return m.displayStructural(fr, v)
+		return m.displayShape(fr, v, nil, nil)
 	case rt.Bytes:
 		// A std type whose value is not a record names its impl by the
 		// type it always is.
@@ -165,36 +145,17 @@ func (m *Machine) displayCall(fr *frame, sym *ir.Symbol, v any) (string, error) 
 	return text, nil
 }
 
-// displayStructural is Display over a value whose type the builder rendered
-// structurally (a tuple, an anonymous record, a container): its shape by
-// rt.DisplayTextWith, and each nested value by Display — a declared type
-// through its retained `impl Display`, anything else structurally again. A
-// String inside a tuple is its text, not its literal.
-func (m *Machine) displayStructural(fr *frame, v any) (string, error) {
-	var failed error
-	var elem func(any) string
-	elem = func(x any) string {
-		if failed != nil {
-			return ""
-		}
-		through := false
-		switch y := x.(type) {
-		case *rt.Record:
-			through = implOf(m.displays, y) != nil
-		case rt.Bytes, rt.HostHandle:
-			through = true
-		}
-		if through {
-			s, err := m.displayErased(fr, x)
-			if err != nil {
-				failed = err
-			}
-			return s
-		}
-		return rt.DisplayTextWith(x, elem)
-	}
-	s := rt.DisplayTextWith(v, elem)
-	return s, failed
+// displayShape is Display over a value the machine renders by its shape
+// (rt.DisplayShapeText): a tuple, an anonymous record, a container, and a
+// declared type whose Display is derived. A String inside is its text, not
+// its literal. A nested value renders through the body impls names for the
+// static type of its position below static (renderHook), the one the
+// builder read from the record of the part's Display, else through the
+// body the machine holds for its type (displays), as an interface value's
+// held value does, else by its shape again. static is nil for a value whose
+// static type the machine does not know (an interface value's).
+func (m *Machine) displayShape(fr *frame, v any, impls []ir.PartImpl, static *ir.ValType) (string, error) {
+	return rt.DisplayShapeText(v, m.renderHook(fr, impls, m.displays, static))
 }
 
 // implOf is the body a table of impls keyed by type name holds for record

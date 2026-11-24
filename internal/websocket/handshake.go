@@ -34,6 +34,8 @@ type Request struct {
 	Header http.Header
 	// Protocols are the subprotocols offered, in order of preference.
 	Protocols []string
+	// Compress offers permessage-deflate (DeflateOffer).
+	Compress bool
 }
 
 // Client runs the opening handshake over nc as a client and returns the
@@ -56,6 +58,9 @@ func Client(ctx context.Context, nc net.Conn, req Request, opts Options) (*Conn,
 	h.Set("Sec-WebSocket-Version", "13")
 	if len(req.Protocols) > 0 {
 		h.Set("Sec-WebSocket-Protocol", strings.Join(req.Protocols, ", "))
+	}
+	if req.Compress {
+		h.Set("Sec-WebSocket-Extensions", DeflateOffer)
 	}
 	target := req.Target
 	if target == "" {
@@ -95,8 +100,15 @@ func Client(ctx context.Context, nc net.Conn, req Request, opts Options) (*Conn,
 	if resp.Header.Get("Sec-WebSocket-Accept") != AcceptKey(key) {
 		return refuse("the response's Sec-WebSocket-Accept does not match the key")
 	}
-	if ext := resp.Header.Get("Sec-WebSocket-Extensions"); ext != "" {
-		return refuse("the server chose an extension that was not offered: " + ext)
+	opts.Deflate = false
+	if ext := resp.Header.Values("Sec-WebSocket-Extensions"); len(ext) > 0 {
+		if !req.Compress {
+			return refuse("the server chose an extension that was not offered: " + strings.Join(ext, ", "))
+		}
+		if err := checkDeflateResponse(ext); err != nil {
+			return refuse(err.Error())
+		}
+		opts.Deflate = true
 	}
 	if chosen := resp.Header.Get("Sec-WebSocket-Protocol"); chosen != "" {
 		offered := false

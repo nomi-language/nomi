@@ -16,7 +16,12 @@ import (
 // them (checkImplInstantiations). A call picks one statically, from the
 // types of its arguments: every call form, `String.contains(s, x)`,
 // `Contains.contains(s, x)`, a pipe stage, an operator and a bound a generic
-// call solves, asks selectImpl. A type argument no parameter names is chosen
+// call solves, asks selectImpl, and so does a `?` that converts its error
+// (applyTryFrom). Two impls are one instantiation when their type arguments
+// are identical (sameTypeArgs), as coherence decides it, so `From<Circle>`
+// and `From<Shape>` for a Shape that embeds Circle are two candidates. An
+// argument that fits several takes the most specific (mostSpecificImpl): a
+// Circle takes From<Circle>. A type argument no parameter names is chosen
 // by the type the call's result is expected to have, as any generic call's
 // result-only type parameter is. When neither chooses one impl the call is an
 // error that names the candidates. The chosen impl's function is recorded on
@@ -68,7 +73,7 @@ func (fa *FileAnalysis) implCandidates(concrete Type, iface, origin string) []im
 		}
 		dup := false
 		for _, o := range out {
-			if typesAllEqual(o.args, args) {
+			if sameTypeArgs(o.args, args) {
 				dup = true
 				break
 			}
@@ -107,22 +112,24 @@ func distinctImpls(infos []*ImplTypeArgs) []*ImplTypeArgs {
 	return out
 }
 
-// candidateLabel renders a candidate's type arguments as the error text
-// names them: `Regex`, or `Days, Day` for two.
-func candidateLabel(args []Type) string {
-	parts := make([]string, len(args))
-	for i, a := range args {
-		parts[i] = a.String()
+// candidateList names each candidate by its type arguments, as the error
+// text does: `Regex`, or `Days, Day` for two, and renders also, the other
+// types the message names. All are rendered together (distinctTypeTexts),
+// so two that print alike are qualified by their files: `a.Error` and
+// `b.Error`.
+func candidateList(cands []implCandidate, also ...Type) (string, []string) {
+	var all []Type
+	for _, cand := range cands {
+		all = append(all, cand.args...)
 	}
-	return strings.Join(parts, ", ")
-}
-
-func candidateList(cands []implCandidate) string {
+	texts := distinctTypeTexts("", append(all, also...), nil)
 	labels := make([]string, len(cands))
+	at := 0
 	for i, cand := range cands {
-		labels[i] = "`" + candidateLabel(cand.args) + "`"
+		labels[i] = "`" + strings.Join(texts[at:at+len(cand.args)], ", ") + "`"
+		at += len(cand.args)
 	}
-	return quotedAnd(labels)
+	return quotedAnd(labels), texts[at:]
 }
 
 // quotedAnd joins already quoted items: `a`, `a and b`, `a, b and c`.
@@ -276,6 +283,10 @@ func (c *checker) selectImpl(cands []implCandidate, iface *InterfaceType, m *Met
 	if len(fits) < 2 {
 		return out
 	}
+	if best := c.mostSpecificImpl(fits, iface, m, self, argTys); best != nil {
+		out.chosen = best
+		return out
+	}
 	out.byResult = true
 	if expected == nil || containsTypeVar(expected) {
 		return out
@@ -293,6 +304,49 @@ func (c *checker) selectImpl(cands []implCandidate, iface *InterfaceType, m *Met
 	return out
 }
 
+// mostSpecificImpl is the one of fits, the candidates every argument fits,
+// whose parameters at the written arguments each fit into every other
+// candidate's and not the other way round: with `impl From<Circle>` and
+// `impl From<Shape>` for a Shape that embeds Circle, a Circle argument
+// fits both, and From<Circle> is the more specific. Nil when no one
+// candidate is.
+func (c *checker) mostSpecificImpl(fits []implCandidate, iface *InterfaceType, m *MethodSig, self Type, argTys []Type) *implCandidate {
+	sigs := make([]*FuncType, len(fits))
+	for i, cand := range fits {
+		sigs[i] = candidateSig(iface, m, cand.args, self)
+	}
+	// asSpecific reports whether each of a's parameters at a written
+	// argument fits into b's.
+	asSpecific := func(a, b *FuncType) bool {
+		for i, at := range argTys {
+			if at == nil || i >= len(a.Params) || i >= len(b.Params) {
+				continue
+			}
+			if !c.fitsInto(b.Params[i], a.Params[i]) {
+				return false
+			}
+		}
+		return true
+	}
+	var best *implCandidate
+	for i := range fits {
+		most := true
+		for j := range fits {
+			if i != j && (!asSpecific(sigs[i], sigs[j]) || asSpecific(sigs[j], sigs[i])) {
+				most = false
+				break
+			}
+		}
+		if most {
+			if best != nil {
+				return nil
+			}
+			best = &fits[i]
+		}
+	}
+	return best
+}
+
 // distinguishedByParams reports whether two of cands take different
 // parameter types, so an argument could choose between them.
 func distinguishedByParams(cands []implCandidate, iface *InterfaceType, m *MethodSig, self Type) bool {
@@ -302,7 +356,7 @@ func distinguishedByParams(cands []implCandidate, iface *InterfaceType, m *Metho
 	first := candidateSig(iface, m, cands[0].args, self)
 	for _, cand := range cands[1:] {
 		sig := candidateSig(iface, m, cand.args, self)
-		if !typesAllEqual(first.Params, sig.Params) {
+		if !sameTypeArgs(first.Params, sig.Params) {
 			return true
 		}
 	}
@@ -313,7 +367,8 @@ func distinguishedByParams(cands []implCandidate, iface *InterfaceType, m *Metho
 // type do not choose one of several impls. callee names the interface
 // function called (implCalleeLabel).
 func ambiguousImplMessage(callee string, recv Type, cands []implCandidate, byParams bool) string {
-	head := fmt.Sprintf("%s for `%s` has impls at %s", callee, recv, candidateList(cands))
+	list, _ := candidateList(cands)
+	head := fmt.Sprintf("%s for `%s` has impls at %s", callee, recv, list)
 	if byParams {
 		return head + "; the argument's type does not choose one: annotate it"
 	}
@@ -322,14 +377,19 @@ func ambiguousImplMessage(callee string, recv Type, cands []implCandidate, byPar
 
 // noImplMessage is the error at a call none of several impls takes.
 func noImplMessage(callee string, recv Type, cands []implCandidate, argTys []Type, recvAt int) string {
-	var got []string
+	var args []Type
 	for i, at := range argTys {
 		if at == nil || i == recvAt {
 			continue
 		}
-		got = append(got, "`"+at.String()+"`")
+		args = append(args, at)
 	}
-	head := fmt.Sprintf("%s for `%s` has impls at %s", callee, recv, candidateList(cands))
+	list, argTexts := candidateList(cands, args...)
+	got := make([]string, len(argTexts))
+	for i, text := range argTexts {
+		got[i] = "`" + text + "`"
+	}
+	head := fmt.Sprintf("%s for `%s` has impls at %s", callee, recv, list)
 	if len(got) == 0 {
 		return head + ", and none takes these arguments"
 	}
@@ -375,7 +435,7 @@ func (c *checker) multiImplCallee(fn ast.Node) (iface *InterfaceType, m *MethodS
 	}
 	var found *InterfaceType
 	var foundSig *MethodSig
-	for _, id := range c.interfacesImplementedBy(recvName, c.receiverOriginForReceiver(fa.Object, recvName)) {
+	for _, id := range c.fa.interfacesImplementedBy(recvName, c.receiverOriginForReceiver(fa.Object, recvName)) {
 		it := c.implementedInterface(recvName, id)
 		if pi, pm, picked := pick(it); picked {
 			if found != nil {
@@ -615,7 +675,7 @@ func (c *checker) recordSelectedImpl(n *ast.Call, sel *implCallSelection) {
 	if !ok || fa.Field == nil || sel == nil || sel.chosen == nil {
 		return
 	}
-	c.recordBoundConformance(sel.recv, sel.iface.Name, sel.iface.Origin, c.recPos(n.Line, n.Col), RecordingKindCallSite)
+	c.recordBoundConformance(sel.recv, sel.iface.Name, sel.iface.Origin, c.callSiteOf(n, n.Line, n.Col))
 	pos := Pos{Line: fa.Field.Line, Col: fa.Field.Col}
 	existing := c.fa.References[pos]
 	if existing == nil {
@@ -709,7 +769,7 @@ func (c *checker) checkImplInstantiations(n *ast.ImplBlock) {
 			receiversDiffer(own, info) {
 			continue
 		}
-		if typesAllEqual(info.Args, own.Args) {
+		if sameTypeArgs(info.Args, own.Args) {
 			// The same arguments: this block seen twice, or the duplicate
 			// the collision check reports.
 			continue
@@ -719,7 +779,7 @@ func (c *checker) checkImplInstantiations(n *ast.ImplBlock) {
 		}
 		seen := false
 		for _, o := range others {
-			if typesAllEqual(o.Args, info.Args) {
+			if sameTypeArgs(o.Args, info.Args) {
 				seen = true
 				break
 			}

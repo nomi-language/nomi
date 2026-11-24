@@ -76,7 +76,8 @@ func (c *checker) namedType(ref typeNameRef) (string, Type, bool) {
 	case SymbolType:
 		if sym.Type == TypeTrue || sym.Type == TypeFalse || sym.Type == TypeUnit {
 			// std's host singletons: `True` and `False`, which Bool
-			// embeds, and `Unit`. Each is its own one value.
+			// embeds and whose names are Bool's variants as values
+			// (checkTypeIdent), and `Unit`, its own one value.
 			return "", nil, false
 		}
 		if dt, ok := sym.Type.(*DistinctType); ok && dt.Inner == nil {

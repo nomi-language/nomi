@@ -57,7 +57,7 @@ fn main()
   io.inspect(Vector.get(Vector[1.5d, 2.5d], 1))
 end
 `, "[1.5d, 2.50d, 10d]\nSome(2.5d)\n"},
-		{"Hashable.hash on a tuple is the derive mix", `import std::io
+		{"Hashable.hash on a tuple is the hash its Map key takes", `import std::io
 
 struct H
   k: Int
@@ -77,12 +77,13 @@ end
 derive Hashable for E
 
 fn main()
-  io.print(Hashable.hash((1, 2)))
-  io.print(Hashable.hash((1, 2, 3)))
-  io.print(Hashable.hash((H{k: 2, note: "x"}, 3)))
-  io.print(Hashable.hash(E.Pair((1, 2))) == Hashable.hash((1, 2)))
+  io.print(Hashable.hash((1, 2)) == Hashable.hash((1, 2)))
+  io.print(Hashable.hash((1, 2)) == Hashable.hash((2, 1)))
+  io.print(Hashable.hash((H{k: 2, note: "x"}, 3)) == Hashable.hash((H{k: 2, note: "y"}, 3)))
+  io.print(Hashable.hash(E.Pair((1, 2))) == Hashable.hash(E.Pair((1, 2))))
+  io.print(Map.get({(H{k: 2, note: "x"}, 3) => "found"}, (H{k: 2, note: "x"}, 3)))
 end
-`, "33\n1026\n62003\nTrue\n"},
+`, "True\nFalse\nTrue\nTrue\nSome(found)\n"},
 		{"a struct-shaped variant's positional binding is its record", `import std::io
 
 enum Wrap

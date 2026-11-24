@@ -1,7 +1,6 @@
 package rt
 
 import (
-	"math/bits"
 	"strings"
 	"sync/atomic"
 	"unicode/utf8"
@@ -212,9 +211,9 @@ func graphemesOf(s string) *graphemeIndex {
 	if len(s) < graphemeIndexMin {
 		return buildGraphemeIndex(s)
 	}
-	data := uintptr(unsafe.Pointer(unsafe.StringData(s)))
-	h := (data>>4 ^ uintptr(len(s))) * 0x9E3779B97F4A7C15
-	slot := &graphemeIndexes[h>>(bits.UintSize-graphemeSlotBits)]
+	data := uint64(uintptr(unsafe.Pointer(unsafe.StringData(s))))
+	h := (data>>4 ^ uint64(len(s))) * 0x9E3779B97F4A7C15
+	slot := &graphemeIndexes[h>>(64-graphemeSlotBits)]
 	if ix := slot.Load(); ix != nil && len(ix.s) == len(s) && unsafe.StringData(ix.s) == unsafe.StringData(s) {
 		return ix
 	}

@@ -3,8 +3,11 @@ package stdlibbindings
 import (
 	"github.com/nomi-language/nomi/internal/cldrdata"
 	"github.com/nomi-language/nomi/internal/stdcalendar"
+	"github.com/nomi-language/nomi/internal/stdcipher"
+	"github.com/nomi-language/nomi/internal/stdcompress"
 	"github.com/nomi-language/nomi/internal/stdcsv"
 	"github.com/nomi-language/nomi/internal/stdformat"
+	"github.com/nomi-language/nomi/internal/stdhash"
 	"github.com/nomi-language/nomi/internal/stdhttp"
 	"github.com/nomi-language/nomi/internal/stdio"
 	"github.com/nomi-language/nomi/internal/stdlocale"
@@ -15,6 +18,8 @@ import (
 	"github.com/nomi-language/nomi/internal/stdrandom"
 	"github.com/nomi-language/nomi/internal/stdregex"
 	"github.com/nomi-language/nomi/internal/stdstrings"
+	"github.com/nomi-language/nomi/internal/stdsystem"
+	"github.com/nomi-language/nomi/internal/stdterminal"
 	"github.com/nomi-language/nomi/internal/stdtoml"
 	"github.com/nomi-language/nomi/internal/stdwasm"
 	"github.com/nomi-language/nomi/internal/stdxml"
@@ -57,15 +62,27 @@ type Binding struct {
 	// operand's value grows, rather than its size: `strings.String.repeat`
 	// (its count), `decimal.Decimal.divide`, `round`, `round_exact`, `sqrt`
 	// and `sqrt_exact` (their scale), `decimal.Decimal.pow` (its exponent),
-	// `hash.pbkdf2_sha256` (its iterations), `http/host.gunzip` (what the
-	// data expands to), and `wasm/host.compile` and `wasm/host.run` (what
-	// the module's code does). A call into Go is not interrupted, and an
+	// `hash.pbkdf2_sha256` (its iterations), `hash.shake128`, `shake256`
+	// and `bytes.Bytes.fill` (the length asked for), `compress/host.decode`
+	// and `decode_at` (the limit the data may expand to), and
+	// `wasm/host.compile` and `wasm/host.run` (what the module's code
+	// does). A call into Go is not interrupted, and an
 	// evaluation's steps bound only the size of what it builds, so an
 	// evaluation that must end (a refinement rule, a typed literal's
 	// handler, a `check`, an editor's or a debugger's evaluation) refuses a
 	// call into one, as unbounded and not as an effect. Only a Pure row sets
 	// it (TestEveryUnboundedRowIsPure).
 	Unbounded bool
+	// Seeded marks a Pure function whose answer is a hash keyed by the
+	// run's hash seed (rt's hashkey.go), so the same operands give a
+	// different answer in another run: `strings.String.hash`,
+	// `bytes.Bytes.hash`, `decimal.Decimal.hash` and
+	// `dynamic.Dynamic.hash`. A call to one is no effect. An evaluation
+	// whose answer the compiler keeps for the program's runs (a refinement
+	// rule, a typed literal's handler, a `check`) refuses a call into one,
+	// since its answer could differ when the program runs. Only a Pure row
+	// sets it (TestEverySeededRowIsPure).
+	Seeded bool
 	// Held marks a function that acts only through a value its operand
 	// already holds (a Reader, a Writer, a File, a connection, a request,
 	// a process, a fake, a token reader), whose effect an effects list
@@ -113,12 +130,16 @@ const ClassNetwork = "network"
 
 // ClassConnect is the effect class of a function that opens a
 // connection or asks a name resolver itself, below HTTP: std/net's dial
-// and lookups, std/tls's dial. A js/wasm or wasip1 module lacks it, since
-// a browser offers a program only fetch.
+// and lookups, std/tls's dial, std/udp's dial. A Unix socket's dial is
+// one too: it is the same call to the system, and no target that lacks
+// network sockets has Unix ones. A js/wasm or wasip1 module lacks it,
+// since a browser offers a program only fetch.
 const ClassConnect = "connect"
 
 // ClassListen is the effect class of a function that accepts network
-// connections, as a server does. A js/wasm or wasip1 module lacks it.
+// connections or receives datagrams sent to an address it binds, as a
+// server does: std/net's listen, std/udp's bind, on IP or a Unix
+// socket's path. A js/wasm or wasip1 module lacks it.
 const ClassListen = "listen"
 
 // Classes is the effect class of every host function that has one, by
@@ -141,6 +162,9 @@ func Pure() map[string]bool { return marked(func(b Binding) bool { return b.Pure
 // Unbounded is the key of every host function whose row is marked
 // Unbounded.
 func Unbounded() map[string]bool { return marked(func(b Binding) bool { return b.Unbounded }) }
+
+// Seeded is the key of every host function whose row is marked Seeded.
+func Seeded() map[string]bool { return marked(func(b Binding) bool { return b.Seeded }) }
 
 // Held is the key of every host function whose row is marked Held.
 func Held() map[string]bool { return marked(func(b Binding) bool { return b.Held }) }
@@ -319,6 +343,43 @@ func Funcs() []Binding {
 		{Name: "passwords/host.bcrypt_hash", Fn: stdpasswords.BcryptHash, World: Inside},
 		{Name: "passwords/host.bcrypt_verify", Fn: stdpasswords.BcryptVerify, Pure: true, Unbounded: true},
 		{Name: "passwords/host.bcrypt_cost", Fn: stdpasswords.BcryptCost, Pure: true},
+		// std/cipher draws a seal's random nonce with random.secure_bytes,
+		// so the AEAD rows compute from their operands alone. A new
+		// key-exchange key reads the system's entropy: Outside.
+		{Name: "cipher/host.seal", Fn: stdcipher.Seal, Pure: true},
+		{Name: "cipher/host.open", Fn: stdcipher.Open, Pure: true},
+		{Name: "cipher/host.aes_ctr", Fn: stdcipher.AESCTR, Pure: true},
+		{Name: "key_exchange/host.generate", Fn: stdcipher.Generate, World: Outside},
+		{Name: "key_exchange/host.private_is_valid", Fn: stdcipher.PrivateIsValid, Pure: true},
+		{Name: "key_exchange/host.public_is_valid", Fn: stdcipher.PublicIsValid, Pure: true},
+		{Name: "key_exchange/host.public_of", Fn: stdcipher.PublicOf, Pure: true},
+		{Name: "key_exchange/host.shared_secret", Fn: stdcipher.SharedSecret, Pure: true},
+		// std/system reads facts of the machine and the process when it is
+		// called, which the compiler's machine would answer differently:
+		// Outside, with no class, since every target answers each, if only
+		// with Unsupported (internal/stdsystem's package doc).
+		{Name: "system/host.os", Fn: stdsystem.OS, World: Outside},
+		{Name: "system/host.arch", Fn: stdsystem.Arch, World: Outside},
+		{Name: "system/host.cpu_count", Fn: stdsystem.CPUCount, World: Outside},
+		{Name: "system/host.hostname", Fn: stdsystem.Hostname, World: Outside},
+		{Name: "system/host.executable", Fn: stdsystem.Executable, World: Outside},
+		{Name: "system/host.home_dir", Fn: stdsystem.HomeDir, World: Outside},
+		{Name: "system/host.cache_dir", Fn: stdsystem.CacheDir, World: Outside},
+		{Name: "system/host.config_dir", Fn: stdsystem.ConfigDir, World: Outside},
+		{Name: "system/host.data_dir", Fn: stdsystem.DataDir, World: Outside},
+		{Name: "system/host.user", Fn: stdsystem.User, World: Outside},
+		{Name: "system/host.memory", Fn: stdsystem.Memory, World: Outside},
+		{Name: "system/host.runtime", Fn: stdsystem.Runtime, World: Outside},
+		// A whole-value decode costs what its limit lets the data expand to, a
+		// value: Unbounded. An encode costs what its data's size does. The
+		// streams act through the Reader or Writer they wrap: Held.
+		{Name: "compress/host.encode", Fn: stdcompress.Encode, Pure: true},
+		{Name: "compress/host.decode", Fn: stdcompress.Decode, Pure: true, Unbounded: true},
+		{Name: "compress/host.gzip_header", Fn: stdcompress.GzipHeader, Pure: true},
+		{Name: "compress/host.decode_at", Fn: stdcompress.DecodeAt, Pure: true, Unbounded: true},
+		{Name: "compress/host.reader", Fn: stdcompress.Reader, World: Inside, Held: true},
+		{Name: "compress/host.writer", Fn: stdcompress.Writer, World: Inside, Held: true},
+		{Name: "compress/host.encoding_reader", Fn: stdcompress.EncodingReader, World: Inside, Held: true},
 		{Name: "strings.capture_groups", Fn: stdstrings.HostCaptures, Pure: true},
 		{Name: "strings.capture_groups_all", Fn: stdstrings.HostCapturesAll, Pure: true},
 		{Name: "String.capitalize", Fn: stdstrings.HostCapitalize, Pure: true},
@@ -400,28 +461,40 @@ func RtFuncs() []Binding {
 		{Name: "strings.String.is_lower", Fn: rt.StringIsLower, Pure: true},
 		{Name: "strings.String.replace_in", Fn: rt.StringReplaceIn, Pure: true},
 		{Name: "strings.String.trim", Fn: rt.StringTrim, Pure: true},
-		{Name: "strings.String.hash", Fn: rt.StringHash, Pure: true},
+		{Name: "strings.String.hash", Fn: rt.StringHash, Pure: true, Seeded: true},
 		{Name: "strings.string_compare", Fn: rt.StringCompare, Pure: true},
 		{Name: "strings.String.to_int", Fn: rt.StringToInt, Pure: true},
 		{Name: "strings.String.split_in", Fn: rt.StringSplitIn, Pure: true},
 		{Name: "strings.String.words", Fn: rt.StringWords, Pure: true},
+		{Name: "strings.String.word_segments", Fn: rt.StringWordSegments, Pure: true},
+		{Name: "strings.String.sentences", Fn: rt.StringSentences, Pure: true},
+		{Name: "strings.String.display_width", Fn: rt.StringDisplayWidth, Pure: true},
+		// A wrap costs what its text's size does, whatever the width.
+		{Name: "strings.String.wrap", Fn: rt.StringWrap, Pure: true},
 		{Name: "strings.String.lines", Fn: rt.StringLines, Pure: true},
 		{Name: "strings.String.length", Fn: rt.StringLength, Pure: true},
 		{Name: "strings.String.slice", Fn: rt.StringSlice, Pure: true},
 		{Name: "strings.String.reverse", Fn: rt.StringReverse, Pure: true},
 		{Name: "int.Int.to_byte", Fn: rt.IntToByte, Pure: true},
 		{Name: "bytes.Byte.to_int", Fn: rt.ByteToInt, Pure: true},
+		{Name: "bytes.Byte.wrapping_shift_left", Fn: rt.ByteShiftLeft, Pure: true},
+		{Name: "bytes.Byte.wrapping_shift_right", Fn: rt.ByteShiftRight, Pure: true},
 		{Name: "bytes.Bytes.length", Fn: rt.BytesLength, Pure: true},
-		{Name: "hash.sha256", Fn: rt.SHA256, Pure: true},
-		{Name: "hash.sha512", Fn: rt.SHA512, Pure: true},
-		{Name: "hash.md5", Fn: rt.MD5, Pure: true},
-		{Name: "hash.sha1", Fn: rt.SHA1, Pure: true},
-		{Name: "hash.hmac_sha256", Fn: rt.HMACSHA256, Pure: true},
-		{Name: "hash.hmac_sha512", Fn: rt.HMACSHA512, Pure: true},
+		{Name: "hash.digest_by", Fn: stdhash.Digest, Pure: true},
+		{Name: "hash.hmac_by", Fn: stdhash.HMAC, Pure: true},
+		{Name: "hash.hasher_new", Fn: stdhash.HasherNew, Pure: true},
+		{Name: "hash.hasher_new_hmac", Fn: stdhash.HasherNewHMAC, Pure: true},
+		{Name: "hash.Hasher.update", Fn: stdhash.HasherUpdate, Pure: true},
+		{Name: "hash.Hasher.finish", Fn: stdhash.HasherFinish, Pure: true},
+		{Name: "hash.shake128", Fn: stdhash.Shake128, Pure: true, Unbounded: true},
+		{Name: "hash.shake256", Fn: stdhash.Shake256, Pure: true, Unbounded: true},
 		{Name: "hash.equal_in_constant_time", Fn: rt.EqualInConstantTime, Pure: true},
 		{Name: "hash.pbkdf2_sha256", Fn: rt.PBKDF2SHA256, Pure: true, Unbounded: true},
+		{Name: "hash.hkdf_by", Fn: stdhash.HKDF, Pure: true},
+		{Name: "hash.hkdf_extract_by", Fn: stdhash.HKDFExtract, Pure: true},
+		{Name: "hash.hkdf_expand_by", Fn: stdhash.HKDFExpand, Pure: true},
 		{Name: "signatures/host.generate_ed25519", Fn: stdhttp.SigGenerateEd25519, World: Outside},
-		{Name: "signatures/host.generate_p256", Fn: stdhttp.SigGenerateP256, World: Outside},
+		{Name: "signatures/host.generate_ecdsa", Fn: stdhttp.SigGenerateECDSA, World: Outside},
 		{Name: "signatures/host.generate_rsa", Fn: stdhttp.SigGenerateRSA, World: Outside},
 		{Name: "signatures/host.private_from_der", Fn: stdhttp.SigPrivateFromDER, Pure: true},
 		{Name: "signatures/host.private_from_pem", Fn: stdhttp.SigPrivateFromPEM, Pure: true},
@@ -438,14 +511,21 @@ func RtFuncs() []Binding {
 		{Name: "signatures/host.ed25519_public_bytes", Fn: stdhttp.SigEd25519PublicBytes, Pure: true},
 		{Name: "signatures/host.sign", Fn: stdhttp.SigSign, World: Inside},
 		{Name: "signatures/host.is_valid", Fn: stdhttp.SigIsValid, Pure: true},
-		{Name: "http/host.seal", Fn: rt.Seal, World: Inside},
-		{Name: "http/host.open_sealed", Fn: rt.Open, Pure: true},
+		{Name: "signatures/host.scheme_name", Fn: stdhttp.SigSchemeName, Pure: true},
+		// OAEP draws a random seed for a result whose meaning does not
+		// depend on it, as signing draws a nonce: Inside.
+		{Name: "signatures/host.encrypt", Fn: stdhttp.SigEncrypt, World: Inside},
+		{Name: "signatures/host.decrypt", Fn: stdhttp.SigDecrypt, Pure: true},
+		{Name: "signatures/host.scheme_kind", Fn: stdhttp.SigSchemeKind, Pure: true},
 		{Name: "base64.standard", Fn: rt.Base64Encode, Pure: true},
 		{Name: "base64.decode", Fn: rt.Base64Decode, Pure: true},
 		{Name: "base64.url_safe", Fn: rt.Base64URLEncode, Pure: true},
 		{Name: "base64.decode_url", Fn: rt.Base64URLDecode, Pure: true},
+		{Name: "base64.decode_bytes", Fn: rt.Base64DecodeBytes, Pure: true},
+		{Name: "base64.decode_url_bytes", Fn: rt.Base64URLDecodeBytes, Pure: true},
 		{Name: "hex.encode", Fn: rt.HexEncode, Pure: true},
 		{Name: "hex.decode", Fn: rt.HexDecode, Pure: true},
+		{Name: "hex.decode_bytes", Fn: rt.HexDecodeBytes, Pure: true},
 		{Name: "html/host.escape", Fn: rt.HTMLEscape, Pure: true},
 		{Name: "html/host.filter_url", Fn: rt.HTMLFilterURL, Pure: true},
 		{Name: "html/host.escape_url_path", Fn: rt.HTMLEscapeURLPath, Pure: true},
@@ -479,7 +559,7 @@ func RtFuncs() []Binding {
 		{Name: "bytes.Bytes.slice", Fn: rt.BytesSlice, Pure: true},
 		{Name: "bytes.Bytes.concat", Fn: rt.BytesConcat, Pure: true},
 		{Name: "bytes.Bytes.to_string", Fn: rt.BytesToString, Pure: true},
-		{Name: "bytes.Bytes.hash", Fn: rt.BytesHash, Pure: true},
+		{Name: "bytes.Bytes.hash", Fn: rt.BytesHash, Pure: true, Seeded: true},
 		{Name: "bytes.Bytes.contains", Fn: rt.BytesContains, Pure: true},
 		{Name: "bytes.bytes_compare", Fn: rt.BytesCompare, Pure: true},
 		{Name: "strings.String.to_bytes", Fn: rt.StringToBytes, Pure: true},
@@ -519,10 +599,11 @@ func RtFuncs() []Binding {
 		{Name: "float.Float.atan2", Fn: rt.FloatAtan2, Pure: true},
 		{Name: "decimal.Decimal.to_string", Fn: rt.DecimalToString, Pure: true},
 		{Name: "decimal.Decimal.equal", Fn: rt.EqDecimal, Pure: true},
-		{Name: "decimal.Decimal.hash", Fn: rt.DecimalHash, Pure: true},
+		{Name: "decimal.Decimal.hash", Fn: rt.DecimalHash, Pure: true, Seeded: true},
 		{Name: "decimal.Decimal.compare", Fn: rt.DecimalCompare, Pure: true},
 		{Name: "duration.render_nanos", Fn: rt.DurationNanosToString, Pure: true},
 		{Name: "instant.Instant.now", Fn: rt.InstantNow, World: Outside},
+		{Name: "instant.Monotonic.now", Fn: rt.MonotonicNow, World: Outside},
 		{Name: "int.Int.to_codepoint", Fn: rt.IntToCodepoint, Pure: true},
 		{Name: "code_points.Codepoint.to_string", Fn: rt.CodepointToString, Pure: true},
 		{Name: "code_points.Codepoint.is_letter", Fn: rt.CodepointIsLetter, Pure: true},
@@ -579,7 +660,7 @@ func RtFuncs() []Binding {
 		{Name: "dynamic.Dynamic.as_list", Fn: rt.DynamicAsList, Pure: true},
 		{Name: "dynamic.Dynamic.as_dict", Fn: rt.DynamicAsDict, Pure: true},
 		{Name: "dynamic.Dynamic.is_null", Fn: rt.DynamicIsNull, Pure: true},
-		{Name: "dynamic.Dynamic.hash", Fn: rt.DynamicHashInt, Pure: true},
+		{Name: "dynamic.Dynamic.hash", Fn: rt.DynamicHashInt, Pure: true, Seeded: true},
 		{Name: "dynamic.Dynamic.has", Fn: rt.DynamicHas, Pure: true},
 		{Name: "dynamic.Dynamic.inspect", Fn: rt.DynamicInspect, Pure: true},
 		{Name: "json.Json.to_dynamic", Fn: rt.JsonToDynamic, Pure: true},
@@ -587,6 +668,10 @@ func RtFuncs() []Binding {
 		{Name: "io.standard_input", Fn: rt.IOStdin, World: Outside},
 		{Name: "io.standard_output", Fn: rt.IOStdout, World: Outside},
 		{Name: "io.standard_error", Fn: rt.IOStderr, World: Outside},
+		// Whether a standard stream is a terminal: rt knows the stream's
+		// file, and internal/stdterminal asks golang.org/x/term, which rt
+		// may not import.
+		{Name: "io.stream_is_terminal", Fn: stdterminal.IsTerminal, World: Outside},
 		{Name: "io.Reader.read_line", Fn: rt.ReaderReadLine, World: Inside, Held: true},
 		{Name: "io.read_up_to", Fn: rt.ReaderRead, World: Inside, Held: true},
 		{Name: "io.Reader.read_all", Fn: rt.ReaderReadAll, World: Inside, Held: true},
@@ -630,6 +715,12 @@ func RtFuncs() []Binding {
 		{Name: "fs/host.create_symlink", Fn: stdio.CreateSymlink, World: Inside, Held: true},
 		{Name: "fs/host.read_link", Fn: stdio.ReadLink, World: Inside, Held: true},
 		{Name: "fs/host.set_mode", Fn: stdio.SetMode, World: Inside, Held: true},
+		{Name: "fs/host.set_times", Fn: stdio.SetTimes, World: Inside, Held: true},
+		{Name: "fs/host.touch", Fn: stdio.Touch, World: Inside, Held: true},
+		{Name: "fs/host.create_link", Fn: stdio.CreateLink, World: Inside, Held: true},
+		{Name: "fs/host.set_owner", Fn: stdio.SetOwner, World: Inside, Held: true},
+		{Name: "fs/host.disk_usage", Fn: stdio.DiskUsageOf, World: Inside, Held: true},
+		{Name: "fs/host.owner_name", Fn: stdio.OwnerName, World: Inside, Held: true},
 		{Name: "fs/host.open_file", Fn: stdio.OpenFile, World: Inside, Held: true},
 		{Name: "fs/host.within", Fn: stdio.Within, World: Inside, Held: true},
 		{Name: "fs/host.release", Fn: stdio.Release, World: Inside, Held: true},
@@ -701,6 +792,17 @@ func RtFuncs() []Binding {
 		{Name: "http/host.conn_linger", Fn: stdhttp.ConnLinger, World: Inside, Held: true},
 		{Name: "http/host.conn_keep_alive", Fn: stdhttp.ConnKeepAlive, World: Inside, Held: true},
 		{Name: "http/host.conn_multipath", Fn: stdhttp.ConnMultipath, World: Inside, Held: true},
+		{Name: "http/host.socket_set", Fn: stdhttp.SocketSet, World: Inside, Held: true},
+		{Name: "http/host.socket_get", Fn: stdhttp.SocketGet, World: Inside, Held: true},
+		{Name: "http/host.socket_group", Fn: stdhttp.SocketGroup, World: Inside, Held: true},
+		{Name: "http/host.socket_multicast_interface", Fn: stdhttp.SocketMulticastInterface, World: Inside, Held: true},
+		{Name: "http/host.udp_bind", Fn: stdhttp.UDPBind, Class: ClassListen, World: Outside},
+		{Name: "http/host.udp_dial", Fn: stdhttp.UDPDial, Class: ClassConnect, World: Outside},
+		{Name: "http/host.inherited_listeners", Fn: stdhttp.InheritedListeners, Class: ClassListen, World: Outside},
+		{Name: "http/host.inherited_sockets", Fn: stdhttp.InheritedSockets, Class: ClassListen, World: Outside},
+		{Name: "http/host.udp_receive", Fn: stdhttp.UDPReceive, World: Inside, Held: true},
+		{Name: "http/host.udp_send", Fn: stdhttp.UDPSend, World: Inside, Held: true},
+		{Name: "http/host.udp_address", Fn: stdhttp.UDPAddress, World: Inside, Held: true},
 		{Name: "http/host.tls_dial", Fn: stdhttp.TLSDial, Class: ClassConnect, World: Outside},
 		{Name: "http/host.tls_client", Fn: stdhttp.TLSClient, World: Inside, Held: true},
 		{Name: "http/host.tls_server", Fn: stdhttp.TLSServer, World: Inside, Held: true},
@@ -730,10 +832,6 @@ func RtFuncs() []Binding {
 		{Name: "http/host.wire_response", Fn: stdhttp.WireResponse, World: Inside, Held: true},
 		{Name: "http/host.chunked_reader", Fn: stdhttp.ChunkedReader, World: Inside, Held: true},
 		{Name: "http/host.chunked_writer", Fn: stdhttp.ChunkedWriter, World: Inside, Held: true},
-		{Name: "http/host.gzip_bytes", Fn: stdhttp.GzipBytes, Pure: true},
-		{Name: "http/host.gunzip", Fn: stdhttp.Gunzip, Pure: true, Unbounded: true},
-		{Name: "http/host.gzip_writer", Fn: stdhttp.GzipWriter, World: Inside, Held: true},
-		{Name: "http/host.gzip_reader", Fn: stdhttp.GzipReader, World: Inside, Held: true},
 		{Name: "http/host.multipart_reader", Fn: stdhttp.MultipartReader, World: Inside, Held: true},
 		{Name: "http/host.next_part", Fn: stdhttp.NextPart, World: Inside, Held: true},
 		{Name: "http/host.part_headers", Fn: stdhttp.PartHeaders, World: Inside, Held: true},
@@ -744,6 +842,7 @@ func RtFuncs() []Binding {
 		{Name: "http/host.close_connections", Fn: stdhttp.CloseConnections, World: Inside, Held: true},
 		{Name: "http/host.ws_accept_key", Fn: stdhttp.WsAcceptKey, Pure: true},
 		{Name: "http/host.ws_valid_key", Fn: stdhttp.WsValidKey, Pure: true},
+		{Name: "http/host.ws_deflate_response", Fn: stdhttp.WsDeflateResponse, Pure: true},
 		{Name: "http/host.ws_open", Fn: stdhttp.WsOpen, World: Inside, Held: true},
 		{Name: "http/host.ws_connect", Fn: stdhttp.WsConnect, World: Outside},
 		{Name: "http/host.ws_protocol", Fn: stdhttp.WsProtocol, World: Inside, Held: true},
@@ -754,6 +853,8 @@ func RtFuncs() []Binding {
 		{Name: "http/host.ws_close", Fn: stdhttp.WsClose, World: Inside, Held: true},
 		{Name: "http/host.ws_pipe", Fn: stdhttp.WsPipe, World: Inside},
 		{Name: "http/host.tls_verify_hostname", Fn: stdhttp.TLSVerifyHostname, World: Inside, Held: true},
+		{Name: "http/host.tls_export_keying_material", Fn: stdhttp.TLSExportKeyingMaterial, World: Inside, Held: true},
+		{Name: "http/host.tls_server_end_point", Fn: stdhttp.TLSServerEndPoint, World: Inside, Held: true},
 		{Name: "http/host.net_listen_with", Fn: stdhttp.ListenWith, Class: ClassListen, World: Outside},
 		{Name: "http/host.net_listener_deadline", Fn: stdhttp.NetListenerDeadline, World: Inside, Held: true},
 		{Name: "http/host.tls_listen", Fn: stdhttp.TLSListen, Class: ClassListen, World: Outside},
@@ -799,6 +900,16 @@ func RtFuncs() []Binding {
 		{Name: "http/host.jar_cookies", Fn: stdhttp.JarCookies, World: Inside, Held: true},
 		{Name: "http/host.jar_set", Fn: stdhttp.JarSet, World: Inside, Held: true},
 		{Name: "http/host.with_jar", Fn: stdhttp.WithJar, World: Inside, Held: true},
+		// std/terminal's crossings read or change the terminal outside the
+		// machine. Every target has them: where there is no terminal they
+		// answer that there is none, as `io.read_line` answers the end of
+		// the input.
+		{Name: "terminal/host.size", Fn: stdterminal.Size, World: Outside},
+		{Name: "terminal/host.supports_color", Fn: stdterminal.SupportsColor, World: Outside},
+		{Name: "terminal/host.read_password", Fn: stdterminal.ReadPassword, World: Outside},
+		{Name: "terminal/host.enter_raw", Fn: stdterminal.EnterRaw, World: Outside},
+		{Name: "terminal/host.leave_raw", Fn: stdterminal.LeaveRaw, World: Outside},
+		{Name: "terminal/host.read_byte", Fn: stdterminal.ReadByte, World: Outside},
 		{Name: "process/host.start", Fn: stdprocess.Start, Class: ClassProcesses, World: Outside},
 		{Name: "process/host.child_stdin", Fn: stdprocess.Stdin, World: Inside, Held: true},
 		{Name: "process/host.child_stdout", Fn: stdprocess.Stdout, World: Inside, Held: true},
@@ -806,6 +917,12 @@ func RtFuncs() []Binding {
 		{Name: "process/host.wait", Fn: stdprocess.Wait, World: Inside, Held: true},
 		{Name: "process/host.captured", Fn: stdprocess.Captured, World: Inside, Held: true},
 		{Name: "process/host.kill", Fn: stdprocess.Kill, World: Inside, Held: true},
+		// Signalling and the child's id act through the Child the program
+		// holds. This process's own id is read from outside the machine, as
+		// std/system's facts are, and every target answers it: no class.
+		{Name: "process/host.child_id", Fn: stdprocess.ChildID, World: Inside, Held: true},
+		{Name: "process/host.signal", Fn: stdprocess.Signal, World: Inside, Held: true},
+		{Name: "process/host.id", Fn: stdprocess.ID, World: Outside},
 		{Name: "process/host.new_fake", Fn: stdprocess.NewFake, World: Inside},
 		{Name: "process/host.fake_answer", Fn: stdprocess.FakeAnswer, World: Inside, Held: true},
 		{Name: "process/host.fake_refuse", Fn: stdprocess.FakeRefuse, World: Inside, Held: true},
@@ -861,6 +978,8 @@ func RtFuncs() []Binding {
 		{Name: "bytes.Bytes.last_index_of_byte", Fn: rt.BytesLastIndexOfByte, Pure: true},
 		{Name: "bytes.index_of_any_from", Fn: rt.BytesIndexOfAny, Pure: true},
 		{Name: "bytes.Bytes.last_index_of_any", Fn: rt.BytesLastIndexOfAny, Pure: true},
+		{Name: "bytes.index_of_none_from", Fn: rt.BytesIndexOfNone, Pure: true},
+		{Name: "bytes.Bytes.last_index_of_none", Fn: rt.BytesLastIndexOfNone, Pure: true},
 		{Name: "bytes.Bytes.contains_bytes", Fn: rt.BytesContainsBytes, Pure: true},
 		{Name: "bytes.Bytes.starts_with", Fn: rt.BytesStartsWith, Pure: true},
 		{Name: "bytes.Bytes.ends_with", Fn: rt.BytesEndsWith, Pure: true},
@@ -886,6 +1005,18 @@ func RtFuncs() []Binding {
 		{Name: "bytes.Bytes.float64_le_at", Fn: rt.BytesFloat64LEAt, Pure: true},
 		{Name: "bytes.Bytes.uvarint_at", Fn: rt.BytesUvarintAt, Pure: true},
 		{Name: "bytes.Bytes.varint_at", Fn: rt.BytesVarintAt, Pure: true},
+		{Name: "bytes.Bytes.xor", Fn: rt.BytesXor, Pure: true},
+		{Name: "bytes.Bytes.xor_repeating", Fn: rt.BytesXorRepeating, Pure: true},
+		{Name: "bytes.Bytes.fill", Fn: rt.BytesFill, Pure: true, Unbounded: true},
+		{Name: "bytes.Bytes.reverse", Fn: rt.BytesReverse, Pure: true},
+		{Name: "bytes.Bytes.code_point_at", Fn: rt.BytesCodePointAt, Pure: true},
+		{Name: "checksum.crc32_update", Fn: rt.Crc32Update, Pure: true},
+		{Name: "checksum.crc32c_update", Fn: rt.Crc32cUpdate, Pure: true},
+		{Name: "checksum.crc64_iso_update", Fn: rt.Crc64IsoUpdate, Pure: true},
+		{Name: "checksum.crc64_ecma_update", Fn: rt.Crc64EcmaUpdate, Pure: true},
+		{Name: "checksum.adler32_update", Fn: rt.Adler32Update, Pure: true},
+		{Name: "checksum.fnv1a_32_update", Fn: rt.Fnv1a32Update, Pure: true},
+		{Name: "checksum.fnv1a_64_update", Fn: rt.Fnv1a64Update, Pure: true},
 		{Name: "bytes.builder_new", Fn: rt.BytesBuilderNew, Pure: true},
 		{Name: "bytes.Builder.length", Fn: rt.BytesBuilderLength, Pure: true},
 		{Name: "bytes.Builder.to_bytes", Fn: rt.BytesBuilderToBytes, Pure: true},

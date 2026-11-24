@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"net/http"
 	"net/http/httptrace"
@@ -18,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/nomi-language/nomi/internal/buildversion"
 	"github.com/nomi-language/nomi/rt"
 )
 
@@ -44,6 +46,8 @@ func dur(ns int64) time.Duration { return time.Duration(ns) }
 // NewClient is `std::http::host.new_client`. A duration or count of 0 is Go's
 // default (none); redirects is -1 for never following one, else the most
 // it follows. proxy is 0 for the environment's, 1 for none, 2 for proxyURL.
+// A unixSocket path, "" for none, is where every connection goes: the
+// URL's host is then only the Host header, and no proxy is used.
 //
 // protocols is HTTP/1, HTTP/2 and unencrypted HTTP/2, used when
 // hasProtocols; http2 and http2Flags are an Http2Options' parts
@@ -53,6 +57,7 @@ func dur(ns int64) time.Duration { return time.Duration(ns) }
 func NewClient(
 	timeoutArg, redirectsArg, proxyArg rt.Int,
 	proxyURL string,
+	unixSocket string,
 	tlsHandshakeTimeoutArg rt.Int,
 	keepAlives, compression bool,
 	maxIdleArg, maxIdlePerHostArg, maxPerHostArg, idleTimeoutArg, responseHeaderTimeoutArg, expectContinueTimeoutArg, maxResponseHeaderBytesArg, writeBufferSizeArg, readBufferSizeArg rt.Int,
@@ -106,12 +111,7 @@ func NewClient(
 		countError = onCountError
 	}
 	tr.HTTP2 = http2Config(http2, http2Flags, countError, b)
-	if proxyHeaders != nil {
-		tr.ProxyConnectHeader = http.Header{}
-		for l := proxyHeaders; l != nil && l.Tail != nil; l = l.Tail.Tail {
-			tr.ProxyConnectHeader.Add(l.Head, l.Tail.Head)
-		}
-	}
+	tr.ProxyConnectHeader = withUserAgent(header(proxyHeaders))
 	if hasOnProxyConnect {
 		tr.OnProxyConnectResponse = func(ctx context.Context, proxyURL *url.URL, _ *http.Request, res *http.Response) error {
 			reason := ""
@@ -137,6 +137,10 @@ func NewClient(
 		tr.Proxy = http.ProxyURL(u)
 	}
 	browserTransport(tr)
+	if unixSocket != "" {
+		tr.Proxy = nil
+		tr.DialContext = unixDial(unixSocket)
+	}
 	c := &http.Client{Transport: tr, Timeout: dur(timeout)}
 	switch {
 	case redirects < 0:
@@ -155,9 +159,47 @@ func NewClient(
 
 var defaultClient = sync.OnceValue(func() rt.HTTPClient {
 	n := rt.SmallInt
-	return NewClient(n(0), n(10), n(0), "", n(int64(10*time.Second)), true, true, n(100), n(2), n(0), n(int64(90*time.Second)), n(0), n(int64(time.Second)), n(0), n(0), n(0), true,
+	return NewClient(n(0), n(10), n(0), "", "", n(int64(10*time.Second)), true, true, n(100), n(2), n(0), n(int64(90*time.Second)), n(0), n(int64(time.Second)), n(0), n(0), n(0), true,
 		nil, false, nil, nil, nil, nil, false, nil, false)
 })
+
+// unixDial is a transport's dial function that connects to the Unix
+// socket at path whatever address a request names.
+func unixDial(path string) func(context.Context, string, string) (net.Conn, error) {
+	return func(ctx context.Context, _, _ string) (net.Conn, error) {
+		if !hasSockets {
+			return nil, errors.New(noSocketsMessage)
+		}
+		d := &net.Dialer{Timeout: 30 * time.Second}
+		return d.DialContext(ctx, "unix", path)
+	}
+}
+
+// userAgent is the User-Agent a request the program sends carries when
+// its headers name none: `nomi/<version>` from a binary built as a release
+// (buildversion.Release), plain `nomi` from any other. Go's client would
+// send its own name.
+var userAgent = sync.OnceValue(func() string { return userAgentOf(buildversion.Release()) })
+
+// userAgentOf is the User-Agent of a build whose release tag is tag, or
+// plain `nomi` for no tag. A product token's version has no `v`
+// (`nomi/0.5.0` for the tag v0.5.0), as other clients write theirs.
+func userAgentOf(tag string) string {
+	if tag == "" {
+		return "nomi"
+	}
+	return "nomi/" + strings.TrimPrefix(tag, "v")
+}
+
+// withUserAgent gives h, the headers of a request the program sends,
+// userAgent when they name no User-Agent, and returns it. A User-Agent of
+// "" stays: Go's writers, HTTP/1 and HTTP/2, then send none.
+func withUserAgent(h http.Header) http.Header {
+	if _, ok := h["User-Agent"]; !ok {
+		h["User-Agent"] = []string{userAgent()}
+	}
+	return h
+}
 
 // DefaultClient is `std::http::host.default_client`: one client for the process,
 // with std/http's default options, as Go's DefaultClient is one.
@@ -248,8 +290,9 @@ func Send(
 	if bodyKind == bodyBytes {
 		req.GetBody = func() (io.ReadCloser, error) { return io.NopCloser(bytes.NewReader([]byte(data))), nil }
 	}
-	for l := headers; l != nil && l.Tail != nil; l = l.Tail.Tail {
-		req.Header.Add(l.Head, l.Tail.Head)
+	req.Header = header(headers)
+	if !fetchNamesTheAgent {
+		withUserAgent(req.Header)
 	}
 	if contentLength >= 0 {
 		req.ContentLength = contentLength
@@ -261,10 +304,7 @@ func Send(
 	}
 	req.Close = closes
 	if trailers != nil {
-		req.Trailer = http.Header{}
-		for l := trailers; l != nil && l.Tail != nil; l = l.Tail.Tail {
-			req.Trailer.Add(l.Head, l.Tail.Head)
-		}
+		req.Trailer = header(trailers)
 	}
 	cl := clientOf(c)
 	var resp *http.Response
@@ -284,20 +324,30 @@ func Send(
 	ex := &exchange{resp: resp}
 	if !stream {
 		defer resp.Body.Close()
-		r := io.Reader(resp.Body)
-		if maxBody >= 0 {
-			r = io.LimitReader(resp.Body, maxBody+1)
-		}
-		b, err := io.ReadAll(r)
+		b, tooLarge, err := readAtMost(resp.Body, maxBody)
 		if err != nil {
 			return fail(errorParts(ctx, req, err)...)
 		}
-		if maxBody >= 0 && int64(len(b)) > maxBody {
+		if tooLarge {
 			return fail("BodyTooLarge", fmt.Sprint(maxBody))
 		}
 		ex.body, ex.read = b, true
 	}
 	return rt.Ok[rt.HTTPExchange, *rt.List[string]](rt.NewHTTPExchange(ex))
+}
+
+// readAtMost reads body to its end, or, when max is not negative, to max
+// bytes and one more, which is too large. It never asks body for more, so
+// a response Go's transport decodes, a gzip body of a few kilobytes that
+// expands to gigabytes, is decoded no further than that. A max past what
+// int64 counts, saturated, is no limit.
+func readAtMost(body io.Reader, max int64) ([]byte, bool, error) {
+	if max < 0 || max == math.MaxInt64 {
+		b, err := io.ReadAll(body)
+		return b, false, err
+	}
+	b, err := io.ReadAll(io.LimitReader(body, max+1))
+	return b, err == nil && int64(len(b)) > max, err
 }
 
 // errorParts names the http.Error variant a failed request is, and its
@@ -376,7 +426,7 @@ func BodyReader(e rt.HTTPExchange) rt.Reader {
 	if ex.read {
 		return rt.NewReader(rt.ReadSource{Name: "<response>", R: bytes.NewReader(ex.body)})
 	}
-	return rt.NewReader(rt.ReadSource{Name: "<response>", R: ex.resp.Body, Close: ex.resp.Body.Close})
+	return rt.NewReader(rt.ReadSource{Name: "<response>", R: ex.resp.Body, Close: ex.resp.Body.Close, Fail: streamFailure("<response>")})
 }
 
 // CloseBody is `std::http::host.close_body`.

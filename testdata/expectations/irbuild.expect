@@ -11,9 +11,9 @@
 # T <transcript line>, verbatim
 population irbuild
 what one record per program an internal/irbuild test compares the VM against, keyed <entry>@<sha256(its files, .nomi files as tokens)[:16]>, run as the command that owns it would run it. <dir> is the program's directory. A temp program carries its files as source; a repository program's entry is its path from the worktree root.
-records 379
+records 381
 declared-cases 0
-failing 84
+failing 86
 C assert_subject_test.nomi@cbda3e84c0be00e0
 E 1
 N 0
@@ -1021,7 +1021,7 @@ T
 C control_test.nomi@8793e47d54f1510e
 E 1
 N 0
-H 7b737a4b721f474087a7d3508b2f622bc13b3d7a70ee447150437238298a8a10
+H ab2ffc38b40483d18c24d5fdaf00e03372f1a88633ebfbde540ed6cea153d4ee
 S -- control_test.nomi 429 --
 S struct Duration
 S     ms: Int
@@ -1050,7 +1050,7 @@ T   line 15: assertion failed
 T     assert Duration.as_millis(d) == 999
 T     values:
 T       d
-T         = Duration(1000000000)
+T         = 1s
 T       Duration.as_millis(d)
 T         = 1000
 T ok <dir>/control_test.nomi :: the module-level name outside the block
@@ -1416,7 +1416,7 @@ T
 C control_test.nomi@de91421c50d56f47
 E 1
 N 0
-H 9df82e32d8b8e995c20e487a7f1cee612f7eb5b6bed0d12fc9af444d13cef4ba
+H f0d9ef8d31455385fd4f04313a20795c7177c7458e4c23f95dfbddb0c466a711
 S -- control_test.nomi 235 --
 S import std::calendar.Date
 S
@@ -1439,7 +1439,7 @@ T   line 12: assertion failed
 T     assert Date.to_string(d) == "2026-05-05"
 T     values:
 T       d
-T         = Date{day: 4, month: 5, year: 2026}
+T         = 2026-05-04
 T       Date.to_string(d)
 T         = "2026-05-04"
 T test result: FAILED. 1 passed, 1 failed
@@ -2112,9 +2112,9 @@ T   line 11: `NonZeroInt.try_from(zero())` found nothing
 T test result: FAILED. 0 passed, 1 failed
 T
 C group_test.nomi@0c05a911d4606d0a
-E 0
+E 1
 N 0
-H ce3c5c5db875733f7a8e6d65d188599feb85ec376f89ebcaf542412274688302
+H 6b7edc1e0fc12e6d819817ace3b76240bed27c6287fcc649b7d6642cfd3b54ea
 S -- group_test.nomi 893 --
 S import
 S   std::instant.Instant
@@ -2160,9 +2160,13 @@ S   end
 S end
 S
 S
-T ok <dir>/group_test.nomi :: virtual clock / a short-circuit cancels its siblings
-T ok <dir>/group_test.nomi :: virtual clock / time passes in the bubble
-T test result: ok. 2 passed, 0 failed
+T FAIL <dir>/group_test.nomi
+T error: Task bound to 'long' is never awaited or cancelled: line 26 copies it to `_l`, which neither awaits nor cancels it; pass it to `Task.await`, `Task.await_all`, `Task.outcome` or `Task.cancel`
+T   --> <dir>/group_test.nomi:25:7
+T    |
+T 25 |       long = Task.spawn(fn -> long_sleep())
+T    |       ^^^^
+T test result: FAILED. 0 passed, 1 failed
 T
 C group_test.nomi@0ce4ca007fba0a22
 E 0
@@ -2493,6 +2497,59 @@ S
 T ok <dir>/group_test.nomi :: spawn over a called supervisor / both tasks report
 T test result: ok. 1 passed, 0 failed
 T
+C group_test.nomi@ae26860590b98fb9
+E 0
+N 0
+H ce3c5c5db875733f7a8e6d65d188599feb85ec376f89ebcaf542412274688302
+S -- group_test.nomi 955 --
+S import
+S   std::instant.Instant
+S   std::duration.Duration
+S   std::tasks.Task
+S   std::testing.Clock
+S   std::timer
+S end
+S
+S fn long_sleep() -> Unit
+S   timer.sleep(Duration.seconds(5))
+S end
+S
+S fn short_fail() -> Result<Int, String>
+S   Err("boom")
+S end
+S
+S group "virtual clock"
+S   clock Clock.Virtual
+S
+S   test "a short-circuit cancels its siblings"
+S     before = Instant.now()
+S
+S     outcome = concurrent
+S       short = Task.spawn(fn -> short_fail())
+S       long = Task.spawn(fn -> long_sleep())
+S       _l = fn -> Task.outcome(long) // never called: the task stays unawaited
+S       Ok(Task.await(short)?)
+S     end
+S
+S     elapsed = Instant.to_seconds(Instant.now()) - Instant.to_seconds(before)
+S     failed: Result<Int, String> = Err("boom")
+S
+S     assert outcome == failed
+S     assert elapsed == 0
+S   end
+S
+S   test "time passes in the bubble"
+S     before = Instant.now()
+S     timer.sleep(Duration.seconds(7))
+S     assert Instant.to_seconds(Instant.now()) - Instant.to_seconds(before) == 7
+S   end
+S end
+S
+S
+T ok <dir>/group_test.nomi :: virtual clock / a short-circuit cancels its siblings
+T ok <dir>/group_test.nomi :: virtual clock / time passes in the bubble
+T test result: ok. 2 passed, 0 failed
+T
 C group_test.nomi@bcd4d4a2bd8b8c03
 E 0
 N 0
@@ -2548,7 +2605,7 @@ T
 C group_test.nomi@c2513f46f6d279a1
 E 1
 N 0
-H 2e7cbd02625b424f2f68da1c20fb11a74804c9ebb4ccb0a218f8a5d705114678
+H ccc7d6450908189c1fc87bc6481d33b75cc441131ad7c95a145397dda5c94688
 S -- group_test.nomi 1162 --
 S import
 S   std::channels.{Channel, Receiver, Sender}
@@ -2628,9 +2685,9 @@ T   line 42: assertion failed
 T     assert d == Duration.seconds(1)
 T     values:
 T       d
-T         = Duration(2000000000)
+T         = 2s
 T       Duration.seconds(1)
-T         = Duration(1000000000)
+T         = 1s
 T ok <dir>/group_test.nomi :: channel equality / a closed channel answers None
 T test result: FAILED. 2 passed, 4 failed
 T
@@ -4276,10 +4333,10 @@ T       r
 T         = Rev{alpha: 2, zeta: 1}
 T test result: FAILED. 1 passed, 1 failed
 T
-C internal/irbuild/testdata/decimal.nomi@68a2f79123c0996c
+C internal/irbuild/testdata/decimal.nomi@d94d10747abde016
 E 1
 N 0
-H d31b156b6528c8fca0b4dcb1973b37804a8b623447926626d62de8a1c9484375
+H 46052556b3ad3bf78a2b9346a6a302cae9e4218688f292b954924c8a173a8f87
 T ok <dir>/decimal.nomi :: literals keep their scale and render it
 T ok <dir>/decimal.nomi :: arithmetic is exact, which is what a Float cannot be
 T ok <dir>/decimal.nomi :: equality is scale-insensitive while scale is significant
@@ -4298,9 +4355,9 @@ T   line 248: assertion failed
 T     assert left == right
 T     values:
 T       left
-T         = 1.50
+T         = 1.50d
 T       right
-T         = 2.25
+T         = 2.25d
 T test result: FAILED. 13 passed, 1 failed
 T
 C internal/irbuild/testdata/decimal_keys.nomi@c394cda5d86f9d25
@@ -6555,23 +6612,22 @@ T ok <dir>/prelude_fn.nomi :: Result.to_option discards the error value
 T ok <dir>/prelude_fn.nomi :: the two conversions round-trip
 T test result: ok. 19 passed, 0 failed
 T
-C internal/irbuild/testdata/prelude_hash.nomi@c12c73054bc24493
+C internal/irbuild/testdata/prelude_hash.nomi@0fba824f05751eca
 E 0
 N 0
-H 95330062bc199c94cf15d56ef8ff031eaaa9dc96e073c4d0fb66856367152be3
-T some int:     4
-T some str:     16077166718034104
-T ok int:       4
-T ok str:       16077166718034104
-T none:         1
-T err str:      16077166718034135
-T err wrap:     -9223372036854775778
-T some written: 999
-T err written:  1030
-T some derived: 65
-T err derived:  96
-T piped some:   7
-T piped none:   1
+H 15f42d356f78e55daf1db015a9346af5eded53b119bc73e8dc614322a1d8276a
+T some int:     True
+T some other:   False
+T ok str:       True
+T ok vs err:    False
+T none:         True
+T err big:      True
+T some written: True
+T err written:  True
+T some derived: True
+T err derived:  False
+T piped some:   True
+T piped none:   True
 T agree:        True
 T differ:       False
 T
@@ -7265,7 +7321,7 @@ T
 C internal/irbuild/testdata/stdlib_scalars.nomi@7fc53d231aa489bf
 E 0
 N 0
-H 91554bad6a9848c7d83dbea0b9dd18a36d458285e52420ffd9a95b2ccff5c065
+H f03c9a6016933171c0d1945e3669a37bee3e09b1eae27142498685e2531ea614
 T contains: True
 T starts: True
 T ends: True
@@ -7274,7 +7330,7 @@ T lower: café
 T replace: a-b-c
 T repeat: ababab
 T trim: [hi]
-T hash: 4330232734815573556
+T hash: 1941316362980361442
 T to_float: -7.0
 T wrap: -9223372036854775808
 T and: 8
@@ -9432,7 +9488,7 @@ T
 C pattern_test.nomi@2ad7d37acadb272d
 E 1
 N 0
-H a6caf6dd877ca4da8185e5f9386557197647d3d718a0ed5ebbe3ec47765ac0bb
+H 88e21e53d1e5d024958736c08166252b81ce312fcba6cfe68d46f2428b883c94
 S -- pattern_test.nomi 1280 --
 S import
 S   std::duration.Duration
@@ -9498,22 +9554,13 @@ S   end
 S end
 S
 S
-T ok <dir>/pattern_test.nomi :: sibling cancellation under a virtual clock / a short-circuit cancels its siblings instead of waiting for them
-T FAIL <dir>/pattern_test.nomi :: sibling cancellation under a virtual clock / a failing pattern over a concurrent block shows its definition
-T   line 47: pattern did not match
-T     assert Ok(n) = outcome
-T     defined as:
-T       concurrent
-T           short = Task.spawn(fn -> short_fail())
-T           Ok(Task.await(short)?)
-T       end
-T     actual: Err("boom")
-T ok <dir>/pattern_test.nomi :: sibling cancellation under a virtual clock / a tuple pattern binds both parts
-T FAIL <dir>/pattern_test.nomi :: sibling cancellation under a virtual clock / a list pattern that does not match shows the whole list
-T   line 59: pattern did not match
-T     assert [a, b] = ["one"]
-T     actual: ["one"]
-T test result: FAILED. 2 passed, 2 failed
+T FAIL <dir>/pattern_test.nomi
+T error: Task bound to 'long' is never awaited or cancelled: line 30 copies it to `_l`, which neither awaits nor cancels it; pass it to `Task.await`, `Task.await_all`, `Task.outcome` or `Task.cancel`
+T   --> <dir>/pattern_test.nomi:29:7
+T    |
+T 29 |       long = Task.spawn(fn -> long_sleep())
+T    |       ^^^^
+T test result: FAILED. 0 passed, 1 failed
 T
 C pattern_test.nomi@6f5dc6719913f2cb
 E 1
@@ -9546,6 +9593,92 @@ T   line 16: pattern did not match
 T     assert Some(Shape.Circle(r)) = pick(0)
 T     actual: Some(Dot)
 T test result: FAILED. 1 passed, 1 failed
+T
+C pattern_test.nomi@888e891179518094
+E 1
+N 0
+H a6caf6dd877ca4da8185e5f9386557197647d3d718a0ed5ebbe3ec47765ac0bb
+S -- pattern_test.nomi 1342 --
+S import
+S   std::duration.Duration
+S   std::instant.Instant
+S   std::tasks.Task
+S   std::testing.Clock
+S   std::timer
+S end
+S
+S fn long_sleep() -> Unit
+S   timer.sleep(Duration.seconds(5))
+S end
+S
+S fn short_fail() -> Result<Int, String>
+S   Err("boom")
+S end
+S
+S fn pair_of() -> (Int, String)
+S   (1, "one")
+S end
+S
+S group "sibling cancellation under a virtual clock"
+S   clock Clock.Virtual
+S
+S   test "a short-circuit cancels its siblings instead of waiting for them"
+S     before = Instant.now()
+S
+S     outcome = concurrent
+S       short = Task.spawn(fn -> short_fail())
+S       long = Task.spawn(fn -> long_sleep())
+S       _l = fn -> Task.outcome(long) // never called: the task stays unawaited
+S       Ok(Task.await(short)?)
+S     end
+S
+S     elapsed = Instant.to_seconds(Instant.now()) - Instant.to_seconds(before)
+S
+S     assert Err(e) = outcome
+S     assert e == "boom"
+S     assert elapsed == 0
+S   end
+S
+S   test "a failing pattern over a concurrent block shows its definition"
+S     outcome = concurrent
+S       short = Task.spawn(fn -> short_fail())
+S       Ok(Task.await(short)?)
+S     end
+S
+S     assert Ok(n) = outcome
+S     assert n == 1
+S   end
+S
+S   test "a tuple pattern binds both parts"
+S     pair = pair_of()
+S     assert (n, word) = pair
+S     assert n == 1
+S     assert word == "one"
+S   end
+S
+S   test "a list pattern that does not match shows the whole list"
+S     assert [a, b] = ["one"]
+S     assert a == b
+S   end
+S end
+S
+S
+T ok <dir>/pattern_test.nomi :: sibling cancellation under a virtual clock / a short-circuit cancels its siblings instead of waiting for them
+T FAIL <dir>/pattern_test.nomi :: sibling cancellation under a virtual clock / a failing pattern over a concurrent block shows its definition
+T   line 47: pattern did not match
+T     assert Ok(n) = outcome
+T     defined as:
+T       concurrent
+T           short = Task.spawn(fn -> short_fail())
+T           Ok(Task.await(short)?)
+T       end
+T     actual: Err("boom")
+T ok <dir>/pattern_test.nomi :: sibling cancellation under a virtual clock / a tuple pattern binds both parts
+T FAIL <dir>/pattern_test.nomi :: sibling cancellation under a virtual clock / a list pattern that does not match shows the whole list
+T   line 59: pattern did not match
+T     assert [a, b] = ["one"]
+T     actual: ["one"]
+T test result: FAILED. 2 passed, 2 failed
 T
 C pattern_test.nomi@bd76f7be07419d50
 E 1
@@ -9827,7 +9960,7 @@ H 35acb010380e426fc3b27cc2e71d0bbda566f541b00832d9e8a3a77839c69ee2
 T ok <dir>/generics_test.nomi :: generic structs enums interfaces and functions preserve types
 T test result: ok. 1 passed, 0 failed
 T
-C tests/11-interfaces-and-impls/interface_defaults/interface_defaults_test.nomi@fe195bf478e3b5ba
+C tests/11-interfaces-and-impls/interface_defaults/interface_defaults_test.nomi@249ff7b0af8a0d7d
 E 0
 N 0
 H 06b4791bfbd074593fb0d61aa7018e23008fe76120aeb437fb42ab7dc805b2ec

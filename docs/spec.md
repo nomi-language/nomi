@@ -466,7 +466,7 @@ and no `\'`.
 `${expr}` interpolates the value of `expr`, which runs when the string is
 built. Interpolation calls `Display.to_string` on the value, so its type must
 implement `Display` (§12); `"${Unit}"` is
-`` no impl of `Display` for `Unit` (required via call site) ``. A `$` not
+`` no impl of `Display` for `Unit` (required to interpolate it) ``. A `$` not
 followed by `{` is text (`$5`, `$$`), and `$${n}` is a `$` followed by an
 interpolation. `#`, `#{` and braces are text.
 
@@ -985,7 +985,13 @@ and `Float`.
   `==`, `Comparable`, `Hashable` and patterns compare by value, so
   `1.50d == 1.5d` and the two are one map key.
 
-**`Bool`** is the enum of `True` and `False`.
+**`Bool`** is the enum of `True` and `False`. std::bool declares `True` and
+`False` as types of their own that `Bool` embeds; imported by those names
+(`import std::bool.{False, True}`), each is still `Bool`'s variant as a
+value, as it is through `std::bool.Bool.{False, True}` and the prelude.
+Written as any enum's variant is, `Bool.True` and `Bool.False` (or
+`bool.Bool.True` through the module) are the same values, in an
+expression and in a pattern.
 
 **`Unit`** is the type of a function with no meaningful result, and has one
 value, `Unit`. A function with no `->` result returns `Unit`. `Unit` works as
@@ -1007,7 +1013,7 @@ for an Int the rule refuses. There is no character type: one character of text i
 `String` of length 1.
 
 **`Byte`** is a value from 0 to 255, and `Bytes` an immutable byte sequence,
-the boundary type for Go's `[]byte`. `Byte` is not a number: it has no
+std's type for binary data. `Byte` is not a number: it has no
 arithmetic (`b + 1` is ``no impl of `Add` for `Byte` (required via add operator `+`)``),
 and `Byte.to_int` and `Int.to_byte` convert. An integer literal where a
 `Byte` is expected is a `Byte` (§3 *Byte literals*). `Bytes + Bytes`
@@ -2161,6 +2167,9 @@ and a rule that reaches an effect (§19 *Effects*) is an error at the declaratio
 So is a rule that reads an app field, since the compiler checks it with the value alone:
 ``the rule of Bounded reads `App.limit`: a rule is checked with the value alone, and an app field exists only while the program runs``.
 So is a rule that reaches a pure function whose cost grows with its argument, such as `String.repeat`, which §19 *Effects* calls unbounded.
+So is a rule that reaches a hash, `String.hash` or `Hashable.hash` of a String, a collection or a struct, whose value differs between runs (§5 *Hashing and keys*):
+``the rule of EvenHash reads a hash, which differs between runs (lambda calls strings.String.hash): a rule must give the same answer in every run``.
+The compiler runs the rule once, and the program's runs would hash the value otherwise.
 A refinement is declared at the top of a file. It cannot be `opaque`, since its point is that its base is visible:
 ``a refinement cannot be opaque: `Secret`'s values are values of its parent, which every file sees; drop `opaque`, or declare a new type, `opaque type Secret ...`, and check values in its constructor``.
 
@@ -3090,7 +3099,16 @@ declare its own, which shadows it. A function whose signature does not name
 the block's `T` does not depend on it, and a call to it names no instance
 (`Span.seven()`). Its body may not name that `T` either:
 `` `T` is `Span`'s type parameter, and `seven`'s signature does not determine it ``.
-The same holds in an inherent block on an interface (`impl Iter<T>`).
+The same holds in an inherent block on an interface (`impl Iter<T>`). A
+function of an interface impl may use the block's `T` whatever its
+signature names, since a call through the interface names the implementor,
+and so `T`: in `impl Unit for Wrap<T> where T: Unit`, `fn symbol() -> String`
+may call `T.symbol()`, and `Unit.symbol<Wrap<Meters>>()` runs it with `T` as
+`Meters`. A call through the implementor's name writes no instance of it,
+so when the signature names neither `self` nor `Wrap`, `Wrap.symbol()` is
+`` `Wrap.symbol` names no instance of `Wrap`, and its impl is for every `Wrap<T>`, so this call does not say which one it runs for ``,
+whose help writes the call through the interface. An impl for one instance
+(`impl Unit for Box<Meters>`) is that instance, so `Box.symbol()` runs it.
 
 A generic function is instantiated for each tuple of type arguments it is
 called with. A generic function that reaches itself, directly or through
@@ -3116,6 +3134,36 @@ The error is
 
 Recursion at the same type parameters, at a concrete type, or with the
 parameters permuted is allowed.
+
+A generic type is laid out for each tuple of type arguments it is used at.
+A generic struct, enum, distinct type or refinement that holds itself, in
+a field, a variant's payload or its inner type, directly or through other
+types, at a type argument that strictly contains one of its own type
+parameters needs infinitely many instances, and is an error at the type of
+the part that grows the argument:
+
+```nomi
+struct Nested<T>
+    value: T
+    inner: Option<Nested<List<T>>> // T = List<T>: an error
+end
+```
+
+The error is
+`` `Nested` holds itself at `T = List<T>` in `inner`, so the argument grows at every level and `Nested` needs infinitely many instances (polymorphic recursion); each generic type is laid out per type argument, so this is rejected: hold it at its own type parameters, or at arguments that do not grow ``.
+Through another declaration the error also names the path back:
+`struct Right<U>` holding `Option<Left<List<U>>>`, where `struct Left<T>`
+holds `Option<Right<T>>`, is an error at `Right`'s field that says
+`` `Left` holds `Right` again (Right → Left → Right) ``. A typealias is
+its target, so a part written as an alias is read as the target. The rule
+holds where a finite value exists, as for `enum Perfect<T>` with `Leaf(T)`
+and `Node(Perfect<(T, T)>)`: `Perfect<Int>` is laid out with
+`Perfect<(Int, Int)>` inside it, and so on without end. A type may hold
+itself at its own type parameters (`Tree<T>` holding `List<Tree<T>>`), at
+a concrete type (`Option<Tagged<Int>>` in `Tagged<T>`), or with its
+parameters permuted (`Pair<A, B>` holding `Option<Pair<B, A>>`), and may
+hold a larger instance of a type that does not hold it back
+(`Option<Box<List<T>>>`).
 
 ### Type witnesses
 
@@ -3153,7 +3201,7 @@ representation included.
 An interface's identity is its declaring file and its name too. Two files
 may each declare a `Show`, and an impl of one is no impl of the other. With
 only `impl a.Show for User`, the call `b.Show.show(u)` is the error
-``no impl of `b.Show` for `User` (required via call site)``, and a bound
+``no impl of `b.Show` for `User` (required by the call `b.Show.show`)``, and a bound
 `where T: b.Show` or a value `s: b.Show = u` is rejected the same way. A
 call, a bound and a value find only impls of the interface they name,
 however the program spells it. An impl is likewise of the interface its
@@ -3435,7 +3483,22 @@ f1 = Some<Int>(42)
 
 A type argument is a type annotation: a name that is no type is
 `unknown type "Nope"` at the name (`ident<Nope>(1)`). Explicit type
-arguments are an ordinary call form, usable on any call.
+arguments are an ordinary call form, a pipe stage's included
+(`2 |> pick<String>()`). A call writes one for each type parameter its
+function takes, so a function with no type parameters takes none:
+`g<Int>()` for `fn g() -> Int` is `expected 0 type argument(s), got 1`. A
+function value, a lambda bound to a name included, is never generic and
+takes none either.
+
+A construction's type arguments are its type's own parameters, in the
+order the type declares them: `Tagged<String>(("n", "x"))` for `type
+Tagged<T> (String, T)`, `Box<Int>({v: 1})` for a struct's call form, and
+a variant's are its enum's, so `Err<Int, String>("bad")` is a
+`Result<Int, String>`. The argument is then checked against that instance:
+`Box<String>({v: 1})` is `field 'v' of Box: expected String, got Int`. A
+parameter with a default may be left out, as in a written type. A type
+with no type parameters takes none: `UserId<Int>(5)` for `type UserId Int`
+is `expected 0 type argument(s), got 1`.
 
 A binding whose type carries any concrete information is determined, even
 with a parameter still open: `x = Ok(42)` is a `Result<Int, ?>`, and
@@ -3707,11 +3770,11 @@ or to a resource outside the program. The handles are std's `Task`, `Sender`,
 `Receiver`, `Arm`, `Context` and `Supervisor`; std::io's `Reader`, `Writer`
 and `File`; std::fs's `FileSystem`; std::process's `Child` and `Fake`;
 std::http's `Client`, `Exchange`, `Listener`, `Incoming`, `Mux`, `Jar` and
-`Handle`, and std::tls and std::net's `Certificate`, `TlsConfig`, `Conn` and
-`TcpListener`; std::csv's `Records` and std::xml's `Tokens`. A function's
-only identity is its closure, an `Iter` is a function over its source, and a
-handle names something running or held outside the program. `==` or `!=` on
-one is a compile error:
+`Handle`, and std::tls, std::net and std::udp's `Certificate`, `TlsConfig`,
+`Conn` and `TcpListener`; std::csv's `Records` and std::xml's `Tokens`. A
+function's only identity is its closure, an `Iter` is a function over its
+source, and a handle names something running or held outside the program.
+`==` or `!=` on one is a compile error:
 
 - `` `==` cannot compare `(Int) -> Int`: a function value has no equality ``;
 - `` `==` cannot compare `Sender<Int>`: a handle to running state has no equality ``.
@@ -3719,7 +3782,12 @@ one is a compile error:
 A value that holds one, in a field, a tuple or record part, an element or a
 payload, has no equality either:
 `` `==` cannot compare `Feed`: it holds `Iter<Int>`, and an Iter has no equality; collect it into a list with `Iter.to_list` to compare its elements ``.
-A struct or enum with its own `impl Equatable` compares through it instead.
+A struct, enum or distinct type whose own `impl Equatable` gives `equal` a body
+compares through it instead, whatever its fields and type arguments hold: it asks of
+them only what the impl's `where` clause says. A derived `Equatable`, and
+std's `List`, `Map`, `Set` and `Vector`, compare every part, so `[f] == [f]`,
+`Some(f) == Some(f)` and a `derive Equatable` over a function field stay
+errors. `Hashable` follows the same rule.
 
 #### Equality bounds
 
@@ -3780,11 +3848,35 @@ one key. A key of a type with a hand-written `impl Equatable` matches
 through it at any depth. The bucket comes from the type's hand-written
 `impl Hashable` when it has one; a type whose `Equatable` is hand-written and
 whose `Hashable` is not hashes by its type alone, so all its keys share a
-bucket. Every other value hashes structurally, as a derived `Hashable` does
-(§12 *Derive*): a tuple mixes its slots in order, so
-`Hashable.hash((1, 2)) == 33`, and an anonymous record its fields in name
-order, so `{b: 2, a: 1}` hashes as `(1, 2)` does. Map equality and hashing
-ignore order. An `impl Hashable` must give equal values equal hashes.
+bucket. Every other value hashes structurally, by its shape and each part's
+hash, as a derived `Hashable` does (§12 *Derive*). An anonymous record
+hashes alike whatever order its fields are written in, and Map equality and
+hashing ignore order. An `impl Hashable` must give equal values equal
+hashes.
+
+`Hashable.hash` promises only that: equal values hash equal, and a value
+hashes the same each time within one run. Which Int it gives for a value
+with no hand-written impl is not specified, and may differ between runs
+and between versions of Nomi, so no program may depend on a particular
+hash. A run keys its hashes of Strings, of Bytes and of every value made
+of parts (a tuple, a struct, a variant's payload, a collection) by a seed
+it draws at random when it starts, so keys chosen outside the program
+cannot be made to share a bucket. An Int and a Float hash as their own
+bits.
+
+Code the compiler runs once for every run of the program may not read a
+hash the seed keys: a refinement's rule, a typed literal's handler or a
+checked literal's `check` that can reach one is an error with the code
+`seeded-hash` (§19 *Effects*). Building a `Map` or `Set` there is not
+reading a hash: a Map iterates in insertion order and compares by `==`,
+so its answers are the same under every seed. A key of a type with a
+hand-written `impl Hashable` is hashed by running it, so keying a Map
+there by such a type whose `hash` reads a hash is the same error: where
+that hash disagrees with `==`, it decides which keys share an entry, and
+a `hash` that can fail on the value it computes fails under some seeds
+only. Neither is the hash of an
+Int, a Float, a Byte or `Unit`, which no seed keys: `Hashable.hash(n)` of
+an Int is `n`, for an Int past 64 bits too.
 
 A key or element needs equality, not an impl: `{p => 1}`, `Set[p]`,
 `Iter.to_set` and `Iter.group_by` take a struct `P` with no `Equatable` or
@@ -4385,7 +4477,12 @@ anything else after `fn` starts a lambda. `|x| x + 1` is not a lambda
 (`` unexpected `|` ``).
 
 A body on the `->`'s line is one expression, and runs to the end of the
-enclosing expression. A `->` that ends its line takes the lines below as the
+enclosing expression. It may also be a discard of one,
+`fn i -> _ = Sender.send(out, i)`, which is the body below the `->` that
+holds that one statement, and has type `Unit`
+(§9 *Statements and the Unit rule*). No other statement stands on the
+`->`'s line: a binding of a name, a destructure, `return` and `break` go in
+a body below it. A `->` that ends its line takes the lines below as the
 body, closed by `end`, and `fn -> end` is the empty body:
 
 ```nomi
@@ -4965,8 +5062,9 @@ Precedence, from loosest to tightest:
 | 11 | calls, field access, postfix `?` and `!` |
 
 - Binary operators of one level associate to the left.
-- The bitwise levels are Go's: `x &&& mask == 0` is `(x &&& mask) == 0`, and
-  `hi <<< 8 ||| lo` is `(hi <<< 8) ||| lo`.
+- `&&&` and the shifts bind as `*` does, and `|||` and `^^^` as `+` does, so
+  each binds tighter than a comparison: `x &&& mask == 0` is
+  `(x &&& mask) == 0`, and `hi <<< 8 ||| lo` is `(hi <<< 8) ||| lo`.
 - `is` and `in` bind as `==` does but do not associate. Neither chains with
   `==`, `!=`, an ordering operator, `is` or `in` (*Pattern test: `is`*,
   *Membership: `Contains`*).
@@ -5034,7 +5132,7 @@ end
 
 `Int.wrapping_add`, `Int.wrapping_sub` and `Int.wrapping_mul` return the low
 64 bits of the exact result as a signed 64-bit `Int`, for arithmetic defined
-over 64 bits (a hash, a checksum). `derive Hashable` mixes with them. Their
+over 64 bits (a hash, a checksum). Their
 32-bit siblings (`Int.wrapping_add_32` and the rest), and the rotations, zero
 counts and byte swaps at 32 and 64 bits (`Int.rotate_left_32`,
 `Int.leading_zeros_64`, `Int.swap_bytes_32`), read the low bits of their
@@ -5295,8 +5393,10 @@ end
   shift by a count past 2^34 traps, since its result would not fit in
   memory: `shift count 17179869185 is too large: the result would have more than 17179869184 bits`.
 - `Byte` has `&&&`, `|||`, `^^^` and `~~~`, whose results stay within 8 bits
-  (`~~~b` is `255 - b`). It has no shift, since a left shift could carry bits
-  past 8: shift the `Int` (`Byte.to_int(b) <<< 1`). `b <<< 1` is ``no impl of
+  (`~~~b` is `255 - b`). It has no shift operator, since a left shift could
+  carry bits past 8: shift the `Int` (`Byte.to_int(b) <<< 1`), or call
+  `Byte.wrapping_shift_left` and `Byte.wrapping_shift_right`, which drop the
+  bits moved out. `b <<< 1` is ``no impl of
   `ShiftLeft` for `Byte` (required via shift left operator `<<<`)``.
 - The C-family spellings are parse errors that name the Nomi one: `a << n` is
   ``Nomi spells shift left `<<<`: write `a <<< n`, not `a << n` ``, and the
@@ -5557,8 +5657,21 @@ names a file, a type, an interface or a bounded type parameter:
 
 An interface-qualified call selects the impl for the concrete type bound to
 `self` by the arguments, or by an explicit type argument for a function with
-no `self` parameter (`FromJson.from_json<User>(json)`). A pipe chains qualified
-calls: `x |> Shape.area() |> Display.to_string()`.
+no `self` parameter (`FromJson.from_json<User>(json)`). Its type arguments
+name the implementor first, then the function's own type parameters in
+order, and the implementor may stand alone when the arguments determine the
+rest: for `fn conv<U>(u: U) -> String`, `Conv.conv<Money, Int>(5)` and
+`Conv.conv<Money>(5)` both run Money's `conv` at `Int`, and
+`Conv.conv<Money, Int, Int>(5)` is
+`expected 1 or 2 type argument(s), got 3`. So a function whose signature names neither `self` nor a type parameter
+of its own takes the implementor as its one type argument
+(`Unit.symbol<Meters>()` for `fn symbol() -> String`), and in a generic body
+that may be a type parameter (`Unit.symbol<P>()` under `where P: Unit`). An
+argument in a `self` position must be the implementor the type argument
+names, and so must the left operand of an operator interface's function:
+`Add.add<Float>(1.5, 2.5)` is a Float, and `Add.add<Float>(1, 2)` is
+`argument 1: expected Float, got Int`. A pipe chains qualified calls:
+`x |> Shape.area() |> Display.to_string()`.
 
 ### Pipes
 
@@ -7817,12 +7930,36 @@ end
   `Box` is `` `Box` expects 1 type argument, got 0 ``, whose hint is the header
   to write.
 - Constraints on the type's declaration apply to its impls. An impl's `where`
-  only adds constraints: `impl Iter for Range<T> where T: Discrete`.
+  only adds constraints: `impl Iter for Range<T> where T: Discrete`. They are
+  all a use of the impl asks of the type arguments: with `impl Display for
+  Measure<P> where P: Scale`, a `Measure<Feet>` is Display when `Feet`
+  implements `Scale`, whether or not `Feet` is Display. The same holds for a
+  written `Equatable` or `Hashable`: a `Measure<Op>` has equality when `Op`
+  implements `Scale`, though `Op` holds a function (§5 *Equality*). Every
+  use of the impl asks them, alone or with the value inside a list, an
+  `Option`, a tuple or a record: `==`, `!=`, `in`, an ordering, a `Set`
+  element or `Map` key, an interpolation, `dbg`, a bound, a parameter
+  typed with the interface and a typed literal's slot. With a
+  `Measure<Bare>` whose `Bare` does not implement `Scale`, `[m] == [m]` is
+  the error ``no impl of `Scale` for `Bare` ``. The error says what the
+  program wrote that required it and which impl asked it: passed to `fn
+  shown(x: Display)`, `m` is ``no impl of `Scale` for `Bare` (required by
+  parameter `x` of `shown`)``, with the note `` `Measure<P>`'s `Display`
+  impl requires `P: Scale` ``; in an `Html` template's slot it is ``(required by
+  this `Html` slot)``, and interpolated, ``(required to interpolate it)``.
+  A value whose part lacks the
+  interface a parameter or slot takes is that position's error, which
+  names the whole value: an `Option<Bool>` in an `Html` element's content
+  is ``element content does not show an `Option<Bool>` ``.
 - An interface whose functions all have defaults, or that declares none, is
   implemented by the one-line `impl Iface for Type end`.
-- One impl per interface, type and type arguments, program-wide. A duplicate is
-  an error (*Several instantiations for one type*), and so is an impl beside a
-  `derive` of the same interface (*Derive*).
+- One impl block per interface, type and type arguments, program-wide, whatever
+  functions each block writes. A second block is an error at its header, two
+  empty `impl Marked for P end` blocks included (*Several instantiations for
+  one type*), and so is an impl beside a `derive` of the same interface
+  (*Derive*). Two blocks that differ only in their `where` clauses are a
+  duplicate. One block that writes a function twice is `` function 'show' is
+  declared twice in `impl Show for P` ``.
 - A file holding an impl does not itself implement anything. A stateless API
   that must take part in an interface is a zero-sized type with an impl.
 - Nomi has no extension methods. A file cannot add type-qualified members to an
@@ -8172,14 +8309,21 @@ end
   beside `impl Holds<Int> for Wrap<T>` is `` overlapping impls: `Holds<T>` for
   `Wrap` is generic in its type arguments, so it covers `Holds<Int>`, which
   `Wrap` also implements ``. Two impls at the same arguments are `` duplicate
-  impl: `Holds<Int>` is implemented for `Box` by modules ... (function
-  `holds`); a type implements an interface once at each set of type arguments
-  ``, which names the modules that declare them.
+  impl: `Holds<Int>` is implemented for `Box` by modules ...; a type
+  implements an interface once at each set of type arguments ``, which names
+  the modules that declare them, or says `twice in this module` when one
+  module declares both, and points at the other block.
 - The orphan rule applies to each impl (*Foreign Types*).
 - **A call takes the impl its arguments' types choose,** statically, in every
   call form: type- or interface-qualified, a pipe stage, a partial capture, an
   operator, and a generic call whose bound the call solves. An argument whose
   type its parameter decides (`.Variant`, an open `&1`) does not choose.
+- **An argument that fits several impls takes the most specific.** A type and
+  the enum that embeds it are two instantiations: with `impl From<Circle> for
+  F` and `impl From<Shape> for F`, a `Shape` takes the second, and a
+  `Circle`, which converts to a `Shape`, takes the first, whose parameter
+  takes only what the other's does. A `?` that converts its error calls the
+  impl `F.from(e)` would.
 - A type argument only the result names is chosen by the expected type, as a
   generic call's result-only type parameter is (§5): with `impl Make<Int> for
   Factory` and `impl Make<String> for Factory`, `n: Int = Factory.make(f)` calls
@@ -8324,9 +8468,11 @@ a `Scale` value can be used at are `Scale`, `Debug`, `Equatable` and
   that has the interface as a member: `` `Sized.same` cannot be called on
   `e`, a `Sized`: its result is `self`, the implementor's own type, and a
   `Sized` value does not say which implementor it holds ``. A function with
-  no `self` parameter called through the interface is an error unless the
-  expected type names the implementor (`p: Pot = Sized.make(1)`) or the call
-  is in one of the interface's defaults: `` `Sized.make` has no `self`
+  no `self` parameter called through the interface is an error unless a type
+  argument names the implementor (`Sized.make<Pot>(1)`; it comes before the
+  function's own, as in `Conv.conv<Money, Int>(5)`), the expected type
+  does (`p: Pot = Sized.make(1)`), or the call is in one of the interface's
+  defaults: `` `Sized.make` has no `self`
   parameter, so this call does not say which implementor of Sized runs ``.
   Through the implementing type or a bounded type parameter every such call is
   accepted.
@@ -8516,7 +8662,7 @@ and `dbg` call `Debug.inspect`.
 
 **`Display` is opt-in.** A type has it through an impl or `derive Display`.
 Rendering a value without it is a compile error: `"${p}"` is ``no impl of
-`Display` for `P` (required via call site)``, with the help ``add `derive
+`Display` for `P` (required to interpolate it)``, with the help ``add `derive
 Display` to `P` or write an `impl Display for P` block``, and `io.print(p)` is ``P does not implement Display
 (required by `where T: Display`)``. A function value has no `Display`: ``no impl
 of `Display` for `(Int) -> Int`; a function value has no `Display` ``. A tuple
@@ -8546,10 +8692,17 @@ type with neither.
 
 - **Opaque types** get the name-only default, so the floor never shows hidden
   internals. The owning file writes `impl Debug` or `derive Debug` to show
-  structure (*Derive*).
+  structure (*Derive*). A failed test's report, its `values:` rows and
+  `returned:` block, shows a value without a written `impl Debug` by its
+  shape, an opaque one too (§17 *Failure reports*). A type that holds a
+  secret writes `impl Debug`, as std's `SessionKey` does with
+  `SessionKey(<hidden>)`, and `dbg`, `Debug.inspect` and the report all
+  print that text. Secret text, such as a password or a token, belongs in
+  std::secret's `Secret`, whose `Debug` prints `Secret(<hidden>)` and which
+  has no `Display`.
 - **Host types** get the bare type name: `Bool`'s `embeds True` inspects as
-  `True`, and `Unit` as `Unit`. A host type whose values are Go handles (std's
-  `Regex`) renders by its own `impl Debug` when it declares
+  `True`, and `Unit` as `Unit`. A host type whose values only its host functions make
+  and read (std's `Regex`) renders by its own `impl Debug` when it declares
   one, at the top level and nested, and otherwise by its name. `Regex`'s
   renders the typed literal that builds it (``Regex`\d+` ``).
 - **A lazy `Iter`** inspects as `<iter>`, nested too (`[<iter>]`), and is left
@@ -8606,8 +8759,9 @@ derive Equatable for Point
 derive Hashable for Point
 
 fn main()
-    dbg Point{x: 1, y: 2} == Point{x: 1, y: 2} // True
-    dbg Hashable.hash(Point{x: 1, y: 2})       // 33
+    p = Point{x: 1, y: 2}
+    dbg p == Point{x: 1, y: 2}                               // True
+    dbg Hashable.hash(p) == Hashable.hash(Point{x: 1, y: 2}) // True
 end
 ```
 
@@ -8681,25 +8835,40 @@ Equatable, Hashable, Comparable, Debug, Display, ToJson, FromJson,
 Variants ``.
 
 - **Fields.** Each field's type must implement the interface, checked at the
-  derive: ``no impl of `Display` for `User` (required via `derive Display
-  for Wrapper`, field `id`)``, with the help to derive or implement it on
-  `User`. For `Equatable` and `Hashable` a field's type implements the
-  interface when it meets the bound (§5 *Equality bounds*): a struct `P`
-  with no impl of its own is accepted when it has equality. A variant's payload is checked the same way, named by its variant.
-  When the field's type is a std type, which a program cannot derive or
-  implement an interface for, the help says so: ``only std can implement
-  `Equatable` for `Json.ShapeError`; wrap it in a type of your own that
-  implements `Equatable` ``. Every derivable interface but `Debug`, which
-  every type has, is checked. A field of a tuple or anonymous struct type
-  is checked part by part, since it implements `Equatable`, `Hashable`,
-  `Display` (and, for a tuple, `Comparable`) when each part does:
-  `f: (Int, P)` is ``no impl of `Hashable` for `P` (required via `derive
-  Hashable for W`, field `f`)``. An interface-typed field is not checked there,
-  since its concrete type is known only at run time. A function has no
-  equality, so a field that is or holds one cannot take a derived
-  `Equatable`, `Hashable` or `Comparable`: ``no impl of `Equatable` for `(Int)
-  -> Int` (required via `derive Equatable for W`, field `f`)``, with the help
-  to write an impl that leaves the field out.
+  derive as any use of the interface at that type is checked: ``no impl of
+  `Display` for `User` (required via `derive Display for Wrapper`, field
+  `id`)``, with the help to derive or implement it on `User`. A variant's
+  payload is checked the same way, named by its variant. For `Equatable`
+  and `Hashable` a field's type implements the interface when it meets the
+  bound (§5 *Equality bounds*): a struct `P` with no impl of its own is
+  accepted when it has equality. A field whose type has a hand-written impl
+  asks only that impl's `where` clause of its type arguments: with `impl
+  Equatable for Measure<P> where P: Unit2`, a field `m: Measure<Feet>` meets
+  a derived `Equatable` when `Feet` implements `Unit2`, whatever else `Feet`
+  holds, and `m: Measure<Bare>` is ``no impl of `Unit2` for `Bare`
+  (required via `derive Equatable for Holder`, field `m`)``. When the
+  field's type is a std type, which a program cannot derive or implement an
+  interface for, the help says so: ``only std can implement `Equatable` for
+  `Json.ShapeError`; wrap it in a type of your own that implements
+  `Equatable` ``. Every derivable interface is checked, and so is `Debug`
+  where a field's type has a written `impl Debug` with a `where` clause. A
+  field of a tuple or anonymous struct type is checked part by part, since
+  it implements `Equatable`, `Hashable`, `Display` (and, for a tuple,
+  `Comparable`) when each part does: `f: (Int, P)` is ``no impl of
+  `Hashable` for `P` (required via `derive Hashable for W`, field `f`)``.
+  An interface-typed field holds a value of any implementor, and an
+  interface requires nothing else of its implementors, so it implements the
+  derived interface only when it is that interface or the interface holds
+  of every value: `Debug`, and `Equatable` and `Hashable`, which compare and
+  hash the held value by its type (§5 *Equality*); no interface field takes
+  a derived `Comparable`, since values of two types have no order. A field
+  `g: Debug` is ``` `derive Display for H`: field `g` holds values of
+  `Debug`, and Debug does not require Display of its implementors ```, and
+  `g: Display` is accepted. A function and an `Iter` have no equality, so a
+  field that is or holds one cannot take a derived `Equatable`, `Hashable`
+  or `Comparable`: ``no impl of `Equatable` for `(Int) -> Int` (required
+  via `derive Equatable for W`, field `f`)``, with the help to write an
+  impl that leaves the field out. A function has no `Display` either.
 - **With a hand-written impl.** A derive beside an impl of the same interface
   for the same type, whichever spelling each names it by (`ToJson`,
   `json.ToJson`), is the error `` `derive Equatable for P` conflicts with a
@@ -8718,7 +8887,7 @@ Variants ``.
 | Interface | Declared in | Synthesized impl |
 |---|---|---|
 | `Equatable` | `std::equatable` | Field by field with `==`, stopping at the first difference. Enum values are equal when the variants match and then the payloads. |
-| `Hashable` | `std::hashable` | `Hashable.hash(f0) * 31 + Hashable.hash(f1)`, folded left over the fields with wrapping arithmetic. An enum mixes its variant's declaration index ahead of the payload. |
+| `Hashable` | `std::hashable` | By shape, as a `Map` key of the type hashes (§5 *Hashing and keys*): the type, the variant and each field's or payload's own hash. Equal values hash equal; the Int itself is not specified. |
 | `Comparable` | `std::comparable` | Lexicographic in field declaration order. An earlier-declared variant is less than a later one, and ties compare the payloads. |
 | `Debug` | `std::debug` | The literal shape: `Point{x: 3, y: 4}`, `Circle(5.0)` (the variant, with no enum prefix). |
 | `Display` | `std::display` | `Debug`'s shape with nested strings unquoted: `C{name: bob}` where `Debug` gives `C{name: "bob"}`. |
@@ -8726,9 +8895,6 @@ Variants ``.
 | `FromJson` | `std::json` | The inverse of derived `ToJson`. A missing key reads as its field type's `FromJson.from_missing()`: `Some(v)` is the field's value, as `Option<T>`'s `None` and `Presence<T>`'s `Absent` are. The default answers `None`, and then a defaulted field takes its default and any other is the error `title: expected String, got missing`. A bare variant reads only its name as a string. A payload variant reads only an object with exactly one key, its name, as `Result`'s `{"Ok": value}`: an object with no key, several keys or a key no payload variant has is an error naming its keys, `expected Shape, got object with keys "Circle", "Rect"`. A mismatch names the variant and field. Every shape error names the Nomi type it expected and the JSON kind it got (`Json.kind`): `title: expected String, got null`, `expected Todo, got array`. `FromJson.Options{rename_all: ...}` sets the key case. |
 | `Variants` | `std::variants` | Only for an enum without type parameters whose variants carry no data. `variants()` lists every variant in declaration order: `Coin.variants() == [Coin.Penny, Coin.Nickel]`. |
 
-- The `Hashable` mix collides easily: `Hashable.hash(Point{x: 0, y: 31}) ==
-  Hashable.hash(Point{x: 1, y: 0}) == 31`. It is meant for in-process
-  bucketing.
 - `derive Display` and `derive Debug` give the same output for a type with no
   `String` inside it. Each variant shape renders as follows (`D` is the derived
   interface applied to the part): a struct as `T{f1: D(v1), ...}` (`T{}`
@@ -8759,8 +8925,18 @@ Variants ``.
   error at the field: ``no impl of `ToJson` for `Map<Int, Int>` (required via
   `derive ToJson for W`, field `m`)``.
 
-`derive Debug` on a type that is neither opaque nor a host type is redundant,
-since the synthesized `Debug` is the same. It is accepted.
+`derive Equatable`, `derive Hashable`, `derive Debug` and `derive Display`
+write an impl with no function. A derived Equatable compares by shape, as
+`==` compares a type with no impl (§5 *Equality*), each part through its own
+impl. A derived Hashable hashes by shape, as a `Map` key of the type hashes
+(§5 *Hashing and keys*), each part through its own impl, so it agrees with
+the type's equality: beside a hand-written `impl Equatable`, it hashes every
+value of the type alike. Debug and Display render the type by its shape, the
+literal that builds it, each part through its own impl. `derive Debug` on a type that is neither opaque nor a host type is
+redundant, since the type renders so with no derive, and it is accepted.
+`derive Display` is what gives a type Display. Each is an impl all the same: a
+hand-written impl of the interface beside it is the conflict above, and `T:
+Equatable`, `T: Hashable` and `T: Display` are met by the derive.
 
 #### Generic types
 
@@ -8770,10 +8946,23 @@ use. The implied bound for `Debug` is always met. The type may be named bare,
 parameters: decoding a `Box<Int>` needs `Int: FromJson`, as a hand-written
 `impl FromJson for Box<T> where T: FromJson` does.
 
+A field whose type's impl asks more of `T` than the implied bound, as
+`m: Measure<T>` does under `impl Equatable for Measure<P> where P: Unit2`,
+needs that bound on the derive. `derive Equatable for Hold` is an error:
+
+```console
+`derive Equatable for Hold`: field `m` holds values of `T`, and the derive does not require Unit2 of `T`
+```
+
+Its help says to write `derive Equatable for Hold<T> where T: Equatable and
+Unit2`. A `where` clause on a
+derive is checked at each use as the implied bound is: with it, `a == a`
+over a `Hold<Bare>` is ``no impl of `Unit2` for `Bare` ``.
+
 #### Distinct types
 
-A derive delegates to the inner type: with `type Id Int` and `derive Hashable
-for Id`, `Hashable.hash(Id(n)) == Hashable.hash(n)`.
+A derive goes through the inner value: with `type Id Int` and `derive
+Equatable for Id`, `Id(m) == Id(n)` exactly when `m == n`.
 
 #### Opaque types
 
@@ -8785,8 +8974,8 @@ structural output in place of `<opaque Token>`.
 
 A derive on a `host type` asserts the type has one inhabitant.
 `Equatable.equal` returns `True`, `Comparable.compare` returns `Equal`,
-`Hashable.hash` returns `0`, and `Debug` and `Display` render the bare type
-name. There are no fields to check. A host type that carries a value (such as
+`Hashable.hash` gives every value one hash, and `Debug` and `Display` render
+the bare type name. There are no fields to check. A host type that carries a value (such as
 `Instant`) writes its impls with `host fn` items instead.
 
 ## 13. Iteration
@@ -8817,7 +9006,7 @@ end
   returns `False` to ask it to stop. `each_while` returns `True` when the source
   ran out and `False` when a consumer stopped it. This is the whole
   early-termination mechanism: `Iter.take(3)` stops an infinite source by
-  refusing a fourth element. It is Go's `iter.Seq` shape.
+  refusing a fourth element.
 - `known_count` is `Some(n)` when the source knows its length without being
   walked, and `None` otherwise. `Iter.count` consults it. `List`, `Vector`,
   `Map`, `Set`, `Option` and bounded ranges whose element type can count steps
@@ -8920,8 +9109,8 @@ dispatched defaults.
   `String.reverse`.
 - `break` and `continue` in an adapter's callback act through the fused
   pipeline on the consuming terminal.
-- `Iter.zip` pulls its right operand one element at a time, as Go's
-  `iter.Pull` does, since two sources cannot both own the loop. It is the only
+- `Iter.zip` pulls its right operand one element at a time, since two
+  sources cannot both own the loop. It is the only
   adapter that pays a coroutine handoff per element, and it works over sources
   unbounded on either side.
 
@@ -9131,7 +9320,7 @@ File names are snake_case. A file cannot be reopened or split across files. Impo
 
 A **file API object** is the qualifier a path-only import binds: `import http::request` binds `request`, and `request.get(...)` calls its `pub fn get`. Inside a file, the last segment of its own path is also that file's qualifier when no top-level declaration of the file has that name: `users.nomi` may call its own `pub fn new` as `users.new(...)`. In `main.nomi`, `fn main` owns the name, so there is no `main` qualifier.
 
-**Import paths across modules.** Within a module, a path names a file of that module. A file may also start the path with its own module's short name, the `name` in its `nomi.toml` (`import my_app::models::user` inside `my_app`). A path into another module starts with the name the importing module gives it: the key of its entry in the importing module's `[dependencies]`. With `sqlite = { module = "github.com/nomi-language/nomi/lib/sql/sqlite", version = "v0.4.0" }`, `import sqlite::driver` names `driver.nomi` at the root of that module. The name is the importer's, so each module's files import through its own `[dependencies]`: a dependency's own files never see the names its consumer chose, and two dependencies with the same `[module].name` can both be used under different keys. An import that is a short name alone is an ordinary path inside its own module: inside `sqlite`, `import sqlite` names `sqlite.nomi` at the root, and with no such file and no directory `sqlite/`, the module's root directory (*Directory imports* below). From another module, a dependency's name alone names the file of that name at the dependency's root, so `import sqlite` is `import sqlite::sqlite` when the module holds `sqlite.nomi`, and binds `sqlite` either way. A dependency's name wins over a file of the same name in the importing module. A module with no such file is its root directory under its name alone: `import sqlite`, then `sqlite::driver.open(path)`. A file inside an `internal/` directory can be imported only by files under that directory's parent: `import a::internal::x` from `main.nomi` at the root is the error `cannot import "a::internal::x" from "main": outside the parent subtree of a/internal/`.
+**Import paths across modules.** Within a module, a path names a file of that module. A file may also start the path with its own module's short name, the `name` in its `nomi.toml` (`import my_app::models::user` inside `my_app`). A path into another module starts with the name the importing module gives it: the key of its entry in the importing module's `[dependencies]`. With `sqlite = { repo = "github.com/nomi-language/nomi", subdir = "lib/sql/sqlite", version = "v0.4.0" }`, `import sqlite::driver` names `driver.nomi` at the root of that module. The name is the importer's, so each module's files import through its own `[dependencies]`: a dependency's own files never see the names its consumer chose, and two dependencies with the same `[module].name` can both be used under different keys. An import that is a short name alone is an ordinary path inside its own module: inside `sqlite`, `import sqlite` names `sqlite.nomi` at the root, and with no such file and no directory `sqlite/`, the module's root directory (*Directory imports* below). From another module, a dependency's name alone names the file of that name at the dependency's root, so `import sqlite` is `import sqlite::sqlite` when the module holds `sqlite.nomi`, and binds `sqlite` either way. A dependency's name wins over a file of the same name in the importing module. A module with no such file is its root directory under its name alone: `import sqlite`, then `sqlite::driver.open(path)`. A file inside an `internal/` directory can be imported only by files under that directory's parent: `import a::internal::x` from `main.nomi` at the root is the error `cannot import "a::internal::x" from "main": outside the parent subtree of a/internal/`.
 
 ### Import forms
 
@@ -9282,7 +9471,8 @@ An import path that names no file is an error at the path, in every import form,
 | A dependency whose directory has no `nomi.toml` | ``no module `csvdata`: [dependencies] csvdata is the directory ./generators/csvdata, which has no nomi.toml`` |
 | A published dependency with no `nomi.toml` | ``no module `csvdata`: module `example.com/csvdata` has no nomi.toml, so it is not a Nomi module`` |
 
-A hint names a sibling file the path misspells (``did you mean 'helpers'?``), or, for an import that selects names from a path that is a directory, a file inside it (`` `sub` is a directory; import a file in it, such as `sub::inner` ``). When the project needs a module the module cache does not hold, the hint says to run `nomi fetch` (`` the project needs module example.com/greet v0.1.0, which is not in the module cache; run `nomi fetch` to download it ``). When the first name is neither a file nor a directory and `nomi.toml` has no dependency of that name, the hint says to run `nomi add`, with the directory when exactly one directory under the project root (at most three levels down) or beside it holds a Nomi module of that name (`` run `nomi add ../csvdata` to add the module in that directory ``), and otherwise `` run `nomi add <module path>` to add a published module, or `nomi add <directory>` for one on disk ``.
+A hint names a sibling file the path misspells (``did you mean 'helpers'?``), or, for an import that selects names from a path that is a directory, a file inside it (`` `sub` is a directory; import a file in it, such as `sub::inner` ``). When the project needs a module the module cache does not hold, the hint says to run `nomi fetch` (`` the project needs module example.com/greet v0.1.0, which is not in the module cache; run `nomi fetch` to download it ``). When the first name is neither a file nor a directory and `nomi.toml` has no dependency of that name, the hint says to run `nomi add`, with the directory when exactly one directory under the project root (at most three levels down) or beside it holds a Nomi module of that name (`` run `nomi add ../csvdata` to add the module in that directory ``), and otherwise `` run `nomi add <repository>` to add a published module, such as `nomi add github.com/owner/name`, or `nomi add <directory>` for one on disk ``.
+
 
 A selected name the file does not export is an error at the name: `file 'std::io' has no exported name 'nosuchname'`.
 
@@ -9468,6 +9658,8 @@ end // as `main`: prints `usage: count <file>` and exits 2
 Only std's `Exit` does this. A program's own type named `Exit` is an ordinary error and prints after `error: `. No function exits on the spot: an `Exit` returned through `?` ends the program from anywhere `main` calls. A test checks an exit as a value: `assert main() == Err(Exit{code: 2, message: "usage"})`.
 
 A boot that returns `Err` ends the program the same way, before `main` runs (*Cleanup and boot failure* below). For a boot declared `-> Result<App, Exit>`, supervised tasks drain and boot's deferred calls run before the program exits with the code, so the message prints after them.
+
+A program that `SIGINT` or `SIGTERM` stops exits with status 130 or 143, the status a shell gives a process the signal ends, after its supervisors drain and boot's deferred calls run (§16 *Flushing and shutdown*). It does so whatever `main` returns, also when `main` returns during the drain.
 
 ### Scoped application fields
 
@@ -9690,7 +9882,7 @@ Taught in [Concurrency](/concurrency/#concurrent-taskspawn-taskawait).
 
 Control flow in the block is scoped to the block, as in a lambda: `return`, `?`, `break` and `continue` leave the block, not the enclosing function. Any exit other than reaching the end cancels every task still running in the block before the exit continues outward.
 
-`Task<T>`, from `std::tasks`, is the handle of a running task; `T` is its body's result. `Task.spawn(body)` starts `body`, a function of no parameters, as a task of the enclosing block, and returns its `Task<T>` at once. The body runs alongside the code that started it, and the values it captures are shared, immutably. `Task.await(task)` waits for the task and returns its `T`. The other task operations (`Task.spawn_all`, `Task.await_all`, `Task.outcome`, `Task.cancel`) are in [std::tasks](/reference/tasks/).
+`Task<T>`, from `std::tasks`, is the handle of a running task; `T` is its body's result. `Task.spawn(body)` starts `body`, a function of no parameters, as a task of the enclosing block, and returns its `Task<T>` at once. The body runs alongside the code that started it, and the values it captures are shared, immutably. `Task.await(task)` waits for the task and returns its `T`. The other task operations (`Task.spawn_all`, `Task.await_all`, `Task.try_await_all`, `Task.race`, `Task.within`, `Task.stream`, `Task.outcome`, `Task.cancel`) are in [std::tasks](/reference/tasks/).
 
 ```nomi
 import
@@ -9723,8 +9915,30 @@ A task body is a lambda, and an assertion in a lambda is an error (§17 *Asserti
 The compiler enforces three rules, which together rule out leaked tasks.
 
 1. **`Task.spawn` runs only inside the dynamic extent of a `concurrent` block.** A function that calls `Task.spawn` may itself be called from inside a block. A spawn that can run outside every block is the error `spawn outside concurrent block`. A task's body runs in its block's extent, so a spawn inside it, directly or through a helper at any depth (`Task.spawn(fn -> helper())` where `helper` spawns), joins that block: the block waits for the task, its failure and cancellation are those of a task spawned in the block's own body, and cancelling the task that spawned it does not cancel it. A `concurrent` block inside a task body is a block of its own.
-2. **Every `Task<T>` is awaited.** A task whose handle is never passed to `Task.await` is the error `Task bound to 't' is never awaited`. Discarding the result of an await, `_ = Task.await(t)`, counts. Discarding the handle, `_ = t`, does not, because it skips the wait: it is the error ``` `_ = t` discards the Task without waiting for it; await it instead: `_ = Task.await(t)` ```.
+2. **Every task is awaited or cancelled.** A handle bound from `Task.spawn`, or a list of handles bound from `Task.spawn_all`, in a `concurrent` block is settled in that block. A reference settles it in these positions, anywhere in the block:
+    - an argument of a call of `Task.await`, `Task.await_all`, `Task.try_await_all`, `Task.outcome` or `Task.cancel`;
+    - an argument of a call where another argument names one of those functions, or is a lambda or capture that calls one on its parameter: `Iter.each(handles, Task.cancel)`, `Iter.each(handles, fn t -> _ = Task.outcome(t))`;
+    - the left of a `|>` whose stage is such a call or names such a function: `handles |> Task.await_all()`, `handles |> Iter.map(Task.outcome)`.
+
+    No other use settles it: reading it (`Task.inspect(t)`, `Iter.count(handles)`), copying it to another name (`u = [t]`, `_ = t`), or passing it to a function the program declares. A handle that is not settled is the error `Task bound to 't' is never awaited or cancelled`, which names the use the block makes of it. A task a supervisor owns (*Supervision* below) is not held to this rule.
+
 3. **A `Task<T>` does not leave its block.** It cannot be returned from the block, sent on a channel, or stored where it outlives the block: `Task<T> cannot escape its enclosing concurrent block`.
+
+Under rule 2, the first block below settles each handle, and the second is an error:
+
+```nomi
+concurrent
+    first = Task.spawn(fn -> fetch(1))
+    rest = Task.spawn_all([2, 3], fetch, max_running: 2)
+    Iter.each(rest, Task.cancel) // settles every handle in `rest`
+    Task.await(first)
+end
+
+concurrent
+    t = Task.spawn(fn -> fetch(1))
+    Task.inspect(t) // error: Task bound to 't' is never awaited or cancelled
+end
+```
 
 ### Errors and cancellation
 
@@ -9775,7 +9989,7 @@ end
 
 A **safe point** is every function call, tail calls included; every loop iteration (an `Iter.loop` step, and each element an iteration passes along, including one with no callback); and every operation that waits (`timer.sleep`, `Sender.send`, `Receiver.receive`, `Task.await`, a read of standard input). Waiting operations also wait on the context, so cancellation and deadlines reach a task blocked in one.
 
-A task that was cancelled, or whose deadline has passed, stops at the first safe point it reaches, so pure computation stops too. A single call into Go (a host function) is not interrupted; the work stops at the next safe point after it returns. A program must not depend on which safe point a stop lands on.
+A task that was cancelled, or whose deadline has passed, stops at the first safe point it reaches, so pure computation stops too. A single call to a host function is not interrupted; the work stops at the next safe point after it returns. A program must not depend on which safe point a stop lands on.
 
 ### Channels
 
@@ -9783,7 +9997,7 @@ Taught in [Concurrency](/concurrency/#channels).
 
 A channel is a typed FIFO queue between tasks, held as two halves. `std::channels` declares `Channel<T>`, a struct of a `Sender<T>` (`ch.sender`) and a `Receiver<T>` (`ch.receiver`). A function that takes one half can use only that direction; nothing at run time keeps the halves apart.
 
-- `Sender.send` returns an `Err` once the channel is closed, including a send waiting for room when it closes, and `Receiver.receive` returns `None` once it is closed and drained. Only a `Sender` closes it, and closing a closed channel does nothing. [std::channels](/reference/channels/) has the functions.
+- `Sender.send` returns an `Err` once the channel is closed, including a send waiting for room when it closes, and `Receiver.receive` returns `None` once it is closed and drained. `Receiver.iter` reads a channel's values as an `Iter` until then. Only a `Sender` closes it, and closing a closed channel does nothing. [std::channels](/reference/channels/) has the functions.
 - A `send`, `receive` or `select` blocked when its context is cancelled unwinds like any cancelled wait.
 - A channel belongs to no block. It may be made in one block, returned, and used in a later one, and its memory is reclaimed when nothing refers to it.
 
@@ -9905,7 +10119,9 @@ A supervised task may open its own `concurrent` block; the block owns the tasks 
 
 #### Flushing and shutdown
 
-The program drains every supervisor when `main` returns or the process receives `SIGINT` or `SIGTERM`. Supervisors drain at the same time, each within its own `shutdown_timeout`; when a budget runs out, the remaining work is cancelled, and shutdown waits up to one second for it to unwind and run its deferred calls before abandoning it. Boot's deferred calls run after that (§15 *Cleanup and boot failure*). A second interrupt exits at once.
+The program drains every supervisor when `main` returns or the process receives `SIGINT` or `SIGTERM`. Supervisors drain at the same time, each within its own `shutdown_timeout`; when a budget runs out, the remaining work is cancelled, and shutdown waits up to one second for it to unwind and run its deferred calls before abandoning it. Boot's deferred calls run after that (§15 *Cleanup and boot failure*). A second interrupt exits at once. When the drain starts, a terminal std::terminal holds in raw mode, or with echo off for a password, is put back in the mode it had before, so a program interrupted there leaves the terminal as it found it ([std::terminal](/reference/terminal/)).
+
+`SIGINT` and `SIGTERM` belong to the runtime: no program can catch, delay or ignore them, so a program always stops when asked, and one that needs longer to finish gives its supervisors a longer `shutdown_timeout`. `SIGHUP`, `SIGUSR1` and `SIGUSR2`, which ask a running program to do something and keep running, end the program until it subscribes to them; [std::signals](/reference/signals/)'s `signals.receiver` makes each arrival a value on a channel instead. `SIGWINCH`, a change in the terminal's size, is ignored until a program subscribes to it, and is then a value the same way. The drain closes those channels as it closes a listener, and a signal that arrives during it is dropped.
 
 #### Failures and restarts
 
@@ -10075,7 +10291,7 @@ assert "Ada Lovelace"
     |> String.contains("Ada")
 ```
 
-**`testing.check`.** `testing.check(expr)`, from `std::testing`, takes the subjects `assert` takes and returns `Result<Subject, AssertionFailure>` instead of leaving: `Ok` of the assertion's value, or `Err` of its failure. It is std's `check` under any name the file gives the module (`t.check(expr)` after `import std::testing as t`). A project's own file named `testing` is not `std::testing`, and its `check` is an ordinary function.
+**`testing.check`.** `testing.check(expr)`, from `std::testing`, takes the subjects `assert` takes and returns `Result<Subject, AssertionFailure>` instead of leaving: `Ok` of the assertion's value, or `Err` of its failure. It is std's `check` under any name the file gives the module (`t.check(expr)` after `import std::testing as t`) or the function (`check(expr)` after `import std::testing.{check}`, `must(expr)` after `{check as must}`), called or as a pipe stage. It takes no type arguments. Named as a value (`Iter.map(flags, testing.check)`), it takes the subject type its position gives it, which must be one `assert` takes: `Iter.map(counts, testing.check)` over Ints is the error `testing.check expects Bool, Result, Option, or Assertable, got Int`. A project's own file named `testing` is not `std::testing`, and its `check` is an ordinary function.
 
 **A final `Err(AssertionFailure)` fails the test.** A test body or a `setup` whose final value is `Err(AssertionFailure)` fails with that failure's report. The rule reaches through a final `if`, `case` or block to the arm that ran, and applies to `return value`. A body whose final statement is itself an assertion is judged by the assertion. The body still needs an assertion of its own (*Tests* above).
 
@@ -10093,7 +10309,7 @@ When a `?` exits a test early, the report shows the `?`'s source and the value i
 
 ### Failure reports
 
-A failed assertion's report shows the assertion and, under `values:`, each operand it compared with its value. A value reads structurally: a `String` is quoted, a struct's fields are sorted by name, and a type's `impl Display` is not used. A type with a hand-written `impl Debug` reads as that impl renders it, at any depth, as `dbg` prints it; a derived or universal `Debug` changes nothing. A literal operand has no row, nor does a function named by its own name. A name bound to a function keeps its row (`g = <func: double>`).
+A failed assertion's report shows the assertion and, under `values:`, each operand it compared with its value. A value reads structurally: a `String` is quoted, a struct's fields are sorted by name, and a type's `impl Display` is not used. A type with a hand-written `impl Debug` reads as that impl renders it, at any depth, as `dbg` prints it; a derived or universal `Debug` changes nothing. A literal operand has no row, nor does a function named by its own name. A name bound to a function keeps its row (`g = <func: double>`). A test that a `?` ends early, or whose group's `boot` returns `Err`, reports that line and, under `returned:`, the `Err` or `None` it returned, rendered as a row is.
 
 **Line diffs.** When `assert a == b` fails and both operands are Strings, at least one with a line break, the report shows a line diff in place of their two rows, the left operand as the actual value and the right as the expected. The [tooling reference](/tooling/running-tests/#line-diffs) shows its layout.
 
@@ -10317,7 +10533,7 @@ A typed literal with no `${...}` slot, written with double quotes, triple quotes
 - `Ok(v)`: the literal is that `T`. `Date"2026-05-04"` is a `Date` and ``Regex`\d+` `` is a `Regex<Unit>`; neither needs a `?`, and ``once letters = Regex`[A-Za-z]+` `` works at the top level of a file.
 - `Err(e)`: the literal is a compile error carrying the handler's message (`e`'s `Display`, or its `Debug` when it has none): ``typed literal Regex`[` is invalid: error parsing regexp: missing closing ]: `[` ``.
 
-A handler that returns `T` itself gives the type `T`, and it runs at compile time too. Any handler that reaches an effect (§19 *Effects*), reads an app field, traps, or does not finish within the compiler's step limit cannot be run at compile time, and the literal is an error that says so: ``typed literal Loud"x" cannot be checked at compile time: its handler has effects (Literal.from_fragments for Loud calls io.print)``, with the help ``a typed literal without `${...}` slots is checked at compile time; to build the value when the program runs, call one of `Loud`'s functions instead, such as its `parse`, and handle its result``. A text known only when the program runs goes through such a function, `Date.parse(text)`, or into a slot.
+A handler that returns `T` itself gives the type `T`, and it runs at compile time too. Any handler that reaches an effect (§19 *Effects*), reads an app field, reads a hash the run's seed keys (§5 *Hashing and keys*), traps, or does not finish within the compiler's step limit cannot be run at compile time, and the literal is an error that says so: ``typed literal Loud"x" cannot be checked at compile time: its handler has effects (Literal.from_fragments for Loud calls io.print)``, with the help ``a typed literal without `${...}` slots is checked at compile time; to build the value when the program runs, call one of `Loud`'s functions instead, such as its `parse`, and handle its result``. A text known only when the program runs goes through such a function, `Date.parse(text)`, or into a slot.
 
 A `?` on a literal without slots is the ordinary error `` `?` requires a Result or Option, got Regex<Unit> ``, whose hint says to remove the `?`.
 
@@ -10358,7 +10574,7 @@ end
 
 Its literals are checked literals. A checked literal's type is `T` in every quote style, with or without slots; it is never a `Result`:
 
-- `check` runs while the program is checked, once per literal, on the literal's static text: the `n + 1` pieces around its `n` slots, in order, empty ones included. It follows the rules of a handler run at compile time: a `check` that reaches an effect (§19 *Effects*) is one error at the check, ``Url.check has effects (...); a checked literal's check runs when the program is checked``, so is one that reads an app field, and one that does not finish within the step limit is an error at the literal.
+- `check` runs while the program is checked, once per literal, on the literal's static text: the `n + 1` pieces around its `n` slots, in order, empty ones included. It follows the rules of a handler run at compile time: a `check` that reaches an effect (§19 *Effects*) is one error at the check, ``Url.check has effects (...); a checked literal's check runs when the program is checked``, so is one that reads an app field or a hash the run's seed keys (§5 *Hashing and keys*), and one that does not finish within the step limit is an error at the literal.
 - What the compiler runs is `check_type`, whose default is `check`. It gets the statics and a description of the literal's type: each of its type arguments as Nomi spells it, in order, after the expected type solved them (§18 *Literals typed by their position*). A `Route<{id: Uuid}>` literal gets `["{id: Uuid}"]`, a `Url` literal `[]`. The description is text, not the types; nothing in it is a value of the type. A type whose text must agree with its type arguments, as a route's wildcards agree with its parameters, writes `check_type`; it follows `check`'s rules, and an effect in it is reported as `Route.check_type has effects (...)`.
 - A generic type's impl, `impl CheckedLiteral<String, Route<P>> for Route<P>`, gives each literal fresh type arguments, which the expected type solves as it solves a generic call's.
 - std::http's `Route<P>` is the one checked literal whose type follows from its text when nothing else gives it, as a `Regex` literal's captures do: with no expected type, or one that leaves `P` open once the arguments that solve it on their own are checked (§18 *Literals typed by their position*), `Route"GET /users/{id}"` is a `Route<{id: String}>`, a `String` field per wildcard (`{rest...}` included), and a route with none is a `Route<Unit>`. Its `check_type` holds the wildcards to `P`'s fields, ``the pattern has `{id}`, but `{post_id: Uuid}` has no field `id` `` at the wildcard, and the checker holds each field's type to `Parse` and `Display`: ``a route's parameters are read from its path and written into links as text: each field's type implements `Parse` and `Display`, and `Bool`, the type of `id`, does not implement `Parse` ``.
@@ -10692,7 +10908,7 @@ An `embed` declaration names files a program carries inside itself:
 
 The compiler finds the files the patterns match when it compiles the program, and records each one's size and SHA-256, and `name` is a value of std::embed's `Files`, a read-only tree of them ([std::embed](/reference/embed/)). It is read like a `once` value (`site`, `web.site` from another file). A program reaches an embedded file only through the declaration that names it, and a built image holds the files of the declarations the program reaches.
 
-**When a file is read.** The tree, each file's path, size and SHA-256, is in the program from the start: `paths`, `list`, `walk`, `metadata`, `exists`, `sum` and `sub` read no file. A file's contents are read when the program reads that file (`read`, `read_text`), each time it does, and are kept only as long as the program keeps the `Bytes`. A built program holds the contents in its image, after the code it starts from, so `nomi build`'s executable, its WebAssembly modules and a `.nomic` read no file but their own, and starting one costs the same however much it embeds. `nomi run`, `nomi test` and the REPL read a file's contents from the file, and a file whose size or SHA-256 is not what the program was compiled with stops the program with an error naming the file (`static/a.css changed after the program was compiled`); the next run compiles the new contents. A build checks each file the same way when it writes it into the image.
+**When a file is read.** The tree, each file's path, size and SHA-256, is in the program from the start: `paths`, `list`, `walk`, `metadata`, `exists`, `sum` and `sub` read no file, and `metadata` reports the Unix epoch as every file's modification time. A file's contents are read when the program reads that file (`read`, `read_text`), each time it does, and are kept only as long as the program keeps the `Bytes`. A built program holds the contents in its image, after the code it starts from, so `nomi build`'s executable, its WebAssembly modules and a `.nomic` read no file but their own, and starting one costs the same however much it embeds. `nomi run`, `nomi test` and the REPL read a file's contents from the file, and a file whose size or SHA-256 is not what the program was compiled with stops the program with an error naming the file (`static/a.css changed after the program was compiled`); the next run compiles the new contents. A build checks each file the same way when it writes it into the image.
 
 ```nomi
 import std::embed.Files
@@ -10708,7 +10924,14 @@ fn home() -> String
 end
 ```
 
-The body is one or more patterns, separated by white space; a pattern that holds a space is written in double quotes (`"my notes.txt"`). A pattern is Go's `path.Match` pattern (`*`, `?`, `[a-z]`), slash-separated, and names files from the module root, as an import path names a file (§14 *Files and modules*), whatever directory the declaring file is in, so moving the file never changes what its patterns name. It never reaches outside the module. The other rules are Go's `//go:embed`'s:
+The body is one or more patterns, separated by white space; a pattern that holds a space is written in double quotes (`"my notes.txt"`), which take no escapes. A pattern is a list of names separated by `/`, and names files from the module root, as an import path names a file (§14 *Files and modules*), whatever directory the declaring file is in, so moving the file never changes what its patterns name. It never reaches outside the module. Each name of the pattern matches a name in the tree at the same depth, so no wildcard crosses a `/`:
+
+- `*` matches any run of code points, the empty run included, and `?` matches one code point.
+- `[...]`, a class, matches one code point it lists, and `[^...]` one it does not. A class lists single code points (`[abc]`) and ranges (`[a-z]`), each range holding both its ends and every code point between them. A class lists at least one entry. It cannot list `-` or `]`, since nothing escapes them; `*`, `?` and `[` inside one are ordinary code points, so `[*]` matches a `*`.
+- Any other code point matches itself, a `-` or `]` outside a class included. `\` is an error rather than an escape, so a pattern reads the same on every system.
+- A `[` with no `]` to close its class, an empty class, and a `-` that does not join a range's two ends make the pattern malformed.
+
+What a pattern embeds:
 
 - A pattern that matches a file embeds it, whatever its name. One that matches a directory embeds every file under it, except names that start with `.` or `_`; a pattern that starts with `all:` embeds those too (`all:static`).
 - A directory holding a `nomi.toml` of its own is another module: a directory walk leaves it out, and a pattern that names it, or a file under it, is an error.
@@ -10722,7 +10945,7 @@ The body is one or more patterns, separated by white space; a pattern that holds
 | A `.` or `..` name, or an empty one | ``the `embed` pattern `../x` names `..` `` |
 | `**` | ``the `embed` pattern `static/**` holds `**` ``: a directory's name already embeds everything under it |
 | A `\` | ``the `embed` pattern `static\a` holds `\` `` |
-| A malformed pattern | ``the `embed` pattern `static/[a` is not a valid pattern: a `[` is not closed, or a `\` ends it`` |
+| A malformed class | ``the `embed` pattern `static/[a` is not a valid pattern: a `[` has no `]` to close its class``; for `static/[]`, ``the class `[]` is empty``; for `static/[a-]`, ``a `-` in a class does not join two characters into a range`` |
 | A directory with nothing to embed | ``cannot embed `empty`: it holds no file to embed`` |
 | A symbolic link or other irregular file | ``cannot embed `link.html`: it is a symbolic link`` |
 | Another module's directory | ``cannot embed `tools`: it is another module, with its own nomi.toml`` |
@@ -10739,8 +10962,6 @@ The body is one or more patterns, separated by white space; a pattern that holds
 | A path under a `Files.sub` | `` `index.htm` is not embedded in `static` of `site` `` |
 | A leading `/` | `` `/a.css` is not an embedded path: an embedded path is relative to the root of the embedded tree `` |
 | `..` out of the tree | `` `../a.css` is not an embedded path: the path leaves the embedded tree `` |
-
-Nomi differs from Go in five things: a pattern names files from the module root, where Go's names them from the declaring file's directory; `**` is an error rather than a pattern matching like `*`, since naming a directory embeds its whole tree; `\` is an error rather than an escape, so a pattern reads the same on every system; a quoted pattern takes no escapes; and a file's modification time is the Unix epoch, since an `Instant` cannot hold Go's zero time.
 
 ## 19. Host declarations
 
@@ -10760,9 +10981,7 @@ host fn abs(n: Int) -> Int
 - `host fn name(params) -> R` declares a function with no body. It may also be an item of an `impl` block, where its host key is `module.Type.function`.
 - Host declarations take doc comments like any declaration.
 
-**`host` for the standard library and for embedders.** Every std declaration whose implementation is Go is a `host fn` or `host type`, whichever Go package implements it, so importing any std module, `std::regex` included, needs no Go toolchain. Why std's Go lives behind `host` declarations is in [the `std` package doc](../std/doc.go).
-
-**Nomi source binds no Go code.** `go` and `gopkg` are ordinary names. A `gopkg "strings"` handle, a `go strs.ToUpper` after a function's or a type's header, a `go { ... }` block and a `go "net/http"` import are each the error `` Nomi source does not bind Go code: there is no `gopkg` handle and no `go` binding ``, at its `gopkg` or `go`. Code outside Nomi is reached through the standard library, through a WebAssembly module std::wasm runs, or from a Go program that embeds Nomi and implements its `host fn` declarations (below).
+**`host` for the standard library and for embedders.** Every std declaration the runtime implements is a `host fn` or `host type`. Code outside Nomi is reached through the standard library, through a WebAssembly module std::wasm runs, or from a program that embeds Nomi and implements its `host fn` declarations (below).
 
 #### `host` declarations and embedders
 
@@ -10770,15 +10989,15 @@ A Go program that embeds Nomi implements the `host fn`s its Nomi program declare
 
 - A plain `host type` in such a program is an opaque handle. The table's functions create and read its values; Nomi code passes them around and stores them. The type needs no registration.
 - A table implements each function by its declaration's key: its name in the entry file, and in another file the file's path within its module, `/`-separated and without `.nomi`, then `.` and the name. `helpers/util.nomi`'s `host fn greet` is `helpers/util.greet`, a file at the module's root gives `util.greet`, and a dependency's file is under the dependency's name in the program: `lib/sub/thing.nomi` of the dependency `lib` gives `lib/sub/thing.ping`. Two files with one base name never share a key.
-- A program's own host functions never implement a std call, nor the reverse, even when a file of the program has a Go-backed std module's name: a project's `regex.nomi` may declare a `host fn` named `compile` beside `std::regex`'s.
+- A program's own host functions never implement a std call, nor the reverse, even when a file of the program has a std module's name: a project's `regex.nomi` may declare a `host fn` named `compile` beside `std::regex`'s.
 - A `host fn`'s default is Nomi code like a `fn`'s, evaluated before the call leaves Nomi.
 
 ### Effects
 
-A function is pure when its result depends only on its inputs and nothing else happens. Its inputs are its arguments and the app fields it reads (§15 *Scoped application fields*). An effect is a call into Go whose declaration does not mark it pure: output, files, the network, the clock, the system's entropy, tasks and channels. Reading an app field is not an effect, and neither is replacing one with `with`, which rebinds an input for the rest of a block as a local binding shadows another. An effect reached through a field's value still counts: a function that calls `App.logger` and so reaches std::io has std::io's effect.
+A function is pure when its result depends only on its inputs and nothing else happens. Its inputs are its arguments and the app fields it reads (§15 *Scoped application fields*). An effect is a call to a host function that is not marked pure (below): output, files, the network, the clock, the system's entropy, tasks and channels. Reading an app field is not an effect, and neither is replacing one with `with`, which rebinds an input for the rest of a block as a local binding shadows another. An effect reached through a field's value still counts: a function that calls `App.logger` and so reaches std::io has std::io's effect.
 
 Some code must be pure: a refinement's or validated type's rule (§4 *Refinements*, §4 *Validated types*), a typed literal's handler run at compile time and a checked literal's `check` (§18 *Typed literals*), and an expression a debugger evaluates. The compiler runs the first three with no app: it calls a rule with the value it checks and a handler with the literal's parts, and has no other value to pass. So they may read no app field, as they may use no other value that exists only while the program runs: ``the rule of Bounded reads `App.limit`: a rule is checked with the value alone, and an app field exists only while the program runs``. A debugger's expression runs in a running program and reads the app fields in force where it stopped.
 
-A std `host fn` is marked pure where the standard library binds it to Go, when it computes its answer from its operands alone and acts on nothing outside the program. `String.uppercase`, `Map.get` and `Date.to_string` are pure. A function whose one call costs more as an operand's value grows, rather than its size, is pure and also marked unbounded, and is refused where evaluation must be bounded, as in all four places above, since a call into Go cannot be stopped partway: `String.repeat` and `Decimal.divide` are unbounded. A function an embedder's host table implements is always an effect. Code reaches an effect when its body, or any function it may call, has one; a call through an interface counts every implementation of the method.
+The standard library marks a std `host fn` pure when it computes its answer from its operands alone and acts on nothing outside the program. `String.uppercase`, `Map.get` and `Date.to_string` are pure. A function whose one call costs more as an operand's value grows, rather than its size, is pure and also marked unbounded, and is refused where evaluation must be bounded, as in all four places above, since a host function's call cannot be stopped partway: `String.repeat` and `Decimal.divide` are unbounded. A function whose answer is a hash keyed by the run's seed (§5 *Hashing and keys*) is pure and also marked seeded: `String.hash`, `Bytes.hash`, `Decimal.hash`, `Dynamic.hash`, and `Hashable.hash` of a value hashed by its shape. A call to one is no effect, and a debugger's expression may make one, but the first three places above refuse it, since the compiler runs them once and their answer must hold in every run. A function an embedder's host table implements is always an effect. Code reaches an effect when its body, or any function it may call, has one; a call through an interface counts every implementation of the method.
 
 An effects list in `nomi.toml` names a program's effects, by the std module the program's code called (`std::fs`), and an empty list allows none. A `dbg` (§8 *`dbg`*) prints and is an effect, but no list names it, since `nomi build` refuses a program that holds one. Using a value already made, such as reading from a reader, sending on a channel end or awaiting a task, is named where the value was made: opening the file, making the channel, starting the task. A std::fs `Dir` is such a value: `fs.open_dir` is the call a list names `std::fs`, and a call through the `Dir`, which reaches only what is under its directory, is named by none. A call through an interface value is one such use when the implementation it reaches is std's and only std code makes values of its type: `Store.put` on a store from `storage.local` is named `std::storage` at the `storage.local` call, and names nothing where the store is used. What a call costs is not an effect, and neither is failing.

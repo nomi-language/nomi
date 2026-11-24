@@ -1,101 +1,30 @@
 package main
 
 import (
-	"bytes"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/nomi-language/nomi/internal/fileuri"
-	"github.com/nomi-language/nomi/internal/modfetch"
 )
 
-// moduleCLI runs bin, nomiBin unless a test sets it, in a directory with a
-// file:// module proxy, no checksum database, a private module cache and no
-// `go` on PATH.
-type moduleCLI struct {
-	t     *testing.T
-	bin   string
-	proxy string
-	env   []string
-}
-
-func newModuleCLI(t *testing.T) *moduleCLI {
-	t.Helper()
-	tmp := t.TempDir()
-	proxy := filepath.Join(tmp, "proxy")
-	bin := filepath.Join(tmp, "bin")
-	if err := os.MkdirAll(bin, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	env := []string{
-		"HOME=" + filepath.Join(tmp, "home"),
-		"PATH=" + bin,
-		"NOMI_COLOR=never",
-		"NOMI_RUNNER_CACHE_ROOT=" + filepath.Join(tmp, "nomi-cache"),
-		"GOPROXY=" + fileuri.FromPath(proxy),
-		"GOSUMDB=off",
-		"GOMODCACHE=" + filepath.Join(tmp, "modcache"),
-		"GOFLAGS=-modcacherw",
-	}
-	env = withUserDirs(env)
-	if p := os.Getenv("NOMI_STD_PATH"); p != "" {
-		env = append(env, "NOMI_STD_PATH="+p)
-	}
-	return &moduleCLI{t: t, bin: nomiBin, proxy: proxy, env: env}
-}
-
-func (c *moduleCLI) run(dir string, args ...string) (stdout, stderr string, err error) {
-	c.t.Helper()
-	cmd := exec.Command(c.bin, args...)
-	cmd.Dir = dir
-	cmd.Env = c.env
-	var out, errOut bytes.Buffer
-	cmd.Stdout, cmd.Stderr = &out, &errOut
-	err = cmd.Run()
-	return strings.TrimSpace(out.String()), strings.TrimSpace(errOut.String()), err
-}
-
-func (c *moduleCLI) must(dir string, args ...string) string {
-	c.t.Helper()
-	out, stderr, err := c.run(dir, args...)
-	if err != nil {
-		c.t.Fatalf("nomi %s: %v\n%s\n%s", strings.Join(args, " "), err, out, stderr)
-	}
-	return out
-}
-
-func mustRead(t *testing.T, path string) string {
-	t.Helper()
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return string(data)
-}
-
-// `nomi new` writes nomi.toml, a main.nomi that runs, an AGENTS.md that
-// links the cheat sheet and the go.mod nomi keeps, in a new directory named
-// for the path, and refuses one that has a nomi.toml.
+// `nomi new` writes nomi.toml, a main.nomi that runs and an AGENTS.md that
+// links the cheat sheet, in a new directory named for the module, and
+// refuses one that has a nomi.toml.
 func TestModules_NewStartsAProject(t *testing.T) {
 	c := newModuleCLI(t)
 	work := t.TempDir()
-	out := c.must(work, "new", "github.com/you/hello-world/v2")
-	want := "wrote hello_world/nomi.toml, hello_world/main.nomi, hello_world/AGENTS.md and hello_world/go.mod\nnext: cd hello_world && nomi run main.nomi"
+	out := c.must(work, "new", "hello_world")
+	want := "wrote hello_world/nomi.toml, hello_world/main.nomi and hello_world/AGENTS.md\nnext: cd hello_world && nomi run main.nomi"
 	if out != want {
 		t.Fatalf("nomi new printed\n%s\nwant\n%s", out, want)
 	}
 	dir := filepath.Join(work, "hello_world")
-	if got := mustRead(t, filepath.Join(dir, "nomi.toml")); got != "[module]\nname = \"hello_world\"\npath = \"github.com/you/hello-world/v2\"\nentry_points = [\"main\"]\n" {
+	if got := mustRead(t, filepath.Join(dir, "nomi.toml")); got != "[module]\nname = \"hello_world\"\nentry_points = [\"main\"]\n" {
 		t.Errorf("nomi.toml is\n%s", got)
 	}
-	if got, want := mustRead(t, filepath.Join(dir, "go.mod")), string(modfetch.GoModText("github.com/you/hello-world/v2")); got != want {
-		t.Errorf("go.mod is\n%s\nwant\n%s", got, want)
-	}
 	agents := mustRead(t, filepath.Join(dir, "AGENTS.md"))
-	for _, want := range []string{"# hello_world\n", "https://nomi-lang.org/cheatsheet.md", "`nomi test`", "`nomi fmt -w .`"} {
+	for _, want := range []string{"# hello_world\n", "https://nomi-lang.org/cheatsheet.md", "`nomi test`", "`nomi fmt -w .`", "`nomi add <repository>`"} {
 		if !strings.Contains(agents, want) {
 			t.Errorf("AGENTS.md has no %q:\n%s", want, agents)
 		}
@@ -107,7 +36,7 @@ func TestModules_NewStartsAProject(t *testing.T) {
 		t.Errorf("the new main.nomi is not formatted: %s", out)
 	}
 
-	_, stderr, err := c.run(work, "new", "github.com/you/hello-world/v2", "hello_world")
+	_, stderr, err := c.run(work, "new", "hello_world", "hello_world")
 	if err == nil || stderr != "nomi new: hello_world already holds a nomi.toml, so it is a project already" {
 		t.Errorf("nomi new over a project: %v\n%s", err, stderr)
 	}
@@ -116,16 +45,14 @@ func TestModules_NewStartsAProject(t *testing.T) {
 	// main.nomi already there is kept.
 	app := filepath.Join(work, "app")
 	mustWrite(t, filepath.Join(app, "main.nomi"), "fn main() end\n")
-	out = c.must(app, "new", "example.com/app", ".")
-	if out != "wrote nomi.toml, AGENTS.md and go.mod\nkept main.nomi, which was already there\nnext: nomi run main.nomi" {
+	out = c.must(app, "new", "app", ".")
+	if out != "wrote nomi.toml and AGENTS.md\nkept main.nomi, which was already there\nnext: nomi run main.nomi" {
 		t.Errorf("nomi new . printed\n%s", out)
 	}
-
 }
 
-// `nomi new <name>` starts a module nobody downloads: its nomi.toml has no
-// path and it has no go.mod, and it runs, checks and builds by its
-// directory.
+// `nomi new <name>` writes no go.mod, and the project runs, checks and
+// builds by its directory.
 func TestNew_ANameAloneStartsAProject(t *testing.T) {
 	c := newModuleCLI(t)
 	work := t.TempDir()
@@ -142,7 +69,7 @@ func TestNew_ANameAloneStartsAProject(t *testing.T) {
 	}
 	agents := mustRead(t, filepath.Join(dir, "AGENTS.md"))
 	if !strings.Contains(agents, "`nomi run .`") || strings.Contains(agents, "go.mod") {
-		t.Errorf("AGENTS.md of a module with no path:\n%s", agents)
+		t.Errorf("AGENTS.md of a new module:\n%s", agents)
 	}
 	for _, args := range [][]string{{"run", "."}, {"run", "main.nomi"}} {
 		if out := c.must(dir, args...); out != "hello" {
@@ -158,20 +85,18 @@ func TestNew_ANameAloneStartsAProject(t *testing.T) {
 }
 
 // A refused `nomi new` writes nothing: a name that is no module name, a
-// path that is no module path, std, and a directory that is a project.
+// repository, and std.
 func TestNew_ARefusedNewWritesNothing(t *testing.T) {
 	c := newModuleCLI(t)
 	work := t.TempDir()
 	for _, tc := range []struct{ arg, want string }{
-		{"not a path", `nomi new: "not a path" is not a module name: a name is lowercase letters, digits and _, not starting with a digit, such as hello_world; ` +
-			"a module others download is named by the path it is published at, such as github.com/you/hello_world"},
+		{"not a name", `nomi new: "not a name" is not a module name: a name is lowercase letters, digits and _, not starting with a digit, such as hello_world`},
 		{"Hello", `nomi new: "Hello" is not a module name`},
 		{"hello-world", `nomi new: "hello-world" is not a module name`},
 		{"2fast", `nomi new: "2fast" is not a module name`},
-		{"hello/world", `nomi new: "hello/world" is not a module path: malformed module path "hello/world": missing dot in first path element; ` +
-			"a module path is usually its repository's address, such as github.com/you/project"},
+		{"github.com/you/hello", `nomi new: "github.com/you/hello" is not a module name: a name is lowercase letters, digits and _, not starting with a digit, such as hello_world; ` +
+			"a module names no repository: a project that depends on it names the repository it is published in"},
 		{"std", "nomi new: std is the standard library's name; choose another"},
-		{"example.com/std", "nomi new: example.com/std gives no usable module name (its last element names the module); choose another path"},
 	} {
 		_, stderr, err := c.run(work, "new", tc.arg)
 		if err == nil || !strings.HasPrefix(stderr, tc.want) {
@@ -190,7 +115,7 @@ func TestModules_AddALocalModule(t *testing.T) {
 	c := newModuleCLI(t)
 	work := t.TempDir()
 	app := filepath.Join(work, "app")
-	c.must(work, "new", "example.com/app")
+	c.must(work, "new", "app")
 	lib := filepath.Join(app, "csvdata")
 	mustWrite(t, filepath.Join(lib, "nomi.toml"), "[module]\nname = \"csvdata\"\n")
 	mustWrite(t, filepath.Join(lib, "csvdata.nomi"), "pub fn rows() -> Int\n    3\nend\n")
@@ -225,16 +150,16 @@ func TestModules_AddALocalModule(t *testing.T) {
 
 // A module added by its directory brings the modules its own dir entries
 // name, from their directories: the project runs with one entry, nothing
-// is downloaded at the entry's placeholder version, and nomi.lock, which
-// holds only downloaded modules, is not written. A downloaded module's
-// dir entries are not read, and the module it names comes from the proxy.
+// is fetched, and nomi.lock, which holds only fetched modules, is not
+// written. A fetched module's dir entries name its neighbors in its
+// repository at its tag, fetched with it.
 func TestModules_ADirectoryModuleBringsItsDirectoryDependencies(t *testing.T) {
 	c := newModuleCLI(t)
 	work := t.TempDir()
-	mustWrite(t, filepath.Join(work, "lib", "kit", "nomi.toml"), "[module]\nname = \"kit\"\npath = \"example.com/lib/kit\"\n\n[dependencies]\n"+
-		"util = { module = \"example.com/lib/util\", version = \"v0.0.0-20261102000000-000000000000\", dir = \"../util\" }\n")
+	mustWrite(t, filepath.Join(work, "lib", "kit", "nomi.toml"), "[module]\nname = \"kit\"\n\n[dependencies]\n"+
+		"util = { dir = \"../util\" }\n")
 	mustWrite(t, filepath.Join(work, "lib", "kit", "kit.nomi"), "import util\n\npub fn twice(n: Int) -> Int\n    util.add(n, n)\nend\n")
-	mustWrite(t, filepath.Join(work, "lib", "util", "nomi.toml"), "[module]\nname = \"util\"\npath = \"example.com/lib/util\"\n")
+	mustWrite(t, filepath.Join(work, "lib", "util", "nomi.toml"), "[module]\nname = \"util\"\n")
 	mustWrite(t, filepath.Join(work, "lib", "util", "util.nomi"), "pub fn add(a: Int, b: Int) -> Int\n    a + b\nend\n")
 	app := filepath.Join(work, "app")
 	mustWrite(t, filepath.Join(app, "nomi.toml"), "[module]\nname = \"app\"\nentry_points = [\"main\"]\n")
@@ -253,17 +178,15 @@ func TestModules_ADirectoryModuleBringsItsDirectoryDependencies(t *testing.T) {
 		t.Errorf("nomi.lock was written for dependencies that are all directories:\n%s", mustRead(t, filepath.Join(app, "nomi.lock")))
 	}
 
-	publishFiles(t, c.proxy, "example.com/strutil", "v1.0.0", map[string]string{
-		"nomi.toml":    "[module]\nname = \"strutil\"\npath = \"example.com/strutil\"\n",
-		"strutil.nomi": "pub fn twice(s: String) -> String\n    s + s\nend\n",
-	})
-	publishFiles(t, c.proxy, "example.com/greet", "v0.1.0", map[string]string{
-		"nomi.toml":  "[module]\nname = \"greet\"\npath = \"example.com/greet\"\n\n[dependencies]\nstrutil = { module = \"example.com/strutil\", version = \"v1.0.0\", dir = \"../strutil\" }\n",
-		"greet.nomi": "import strutil\n\npub fn hello() -> String\n    strutil.twice(\"hi\")\nend\n",
+	c.host.Tag("example.com/greet", "v0.1.0", map[string]string{
+		"nomi.toml":            "[module]\nname = \"greet\"\n\n[dependencies]\nstrutil = { dir = \"strutil\" }\n",
+		"greet.nomi":           "import strutil\n\npub fn hello() -> String\n    strutil.twice(\"hi\")\nend\n",
+		"strutil/nomi.toml":    "[module]\nname = \"strutil\"\n",
+		"strutil/strutil.nomi": "pub fn twice(s: String) -> String\n    s + s\nend\n",
 	})
 	c.must(app, "add", "example.com/greet")
 	lock := mustRead(t, filepath.Join(app, "nomi.lock"))
-	for _, want := range []string{"example.com/greet v0.1.0 ", "example.com/strutil v1.0.0 "} {
+	for _, want := range []string{"example.com/greet . v0.1.0 ", "example.com/greet strutil v0.1.0 "} {
 		if !strings.Contains(lock, want) {
 			t.Errorf("nomi.lock has no line %q:\n%s", want, lock)
 		}
@@ -335,16 +258,16 @@ func TestModules_AddTheDependencyAToolTableNames(t *testing.T) {
 // removes one nothing imports, with what only it needed.
 func TestModules_RemoveADependency(t *testing.T) {
 	c := newModuleCLI(t)
-	publishFiles(t, c.proxy, "example.com/strutil", "v1.0.0", map[string]string{
+	c.host.Tag("example.com/strutil", "v1.0.0", map[string]string{
 		"nomi.toml":    "[module]\nname = \"strutil\"\n",
 		"strutil.nomi": "pub fn twice(s: String) -> String\n    s + s\nend\n",
 	})
-	publishFiles(t, c.proxy, "example.com/greet", "v0.1.0", map[string]string{
-		"nomi.toml":  "[module]\nname = \"greet\"\n\n[dependencies]\nstrutil = { module = \"example.com/strutil\", version = \"v1.0.0\" }\n",
+	c.host.Tag("example.com/greet", "v0.1.0", map[string]string{
+		"nomi.toml":  "[module]\nname = \"greet\"\n\n[dependencies]\nstrutil = { repo = \"example.com/strutil\", version = \"v1.0.0\" }\n",
 		"greet.nomi": "pub fn hello() -> String\n    \"hello\"\nend\n",
 	})
 	work := t.TempDir()
-	c.must(work, "new", "example.com/app")
+	c.must(work, "new", "app")
 	app := filepath.Join(work, "app")
 	c.must(app, "add", "example.com/greet")
 	mustWrite(t, filepath.Join(app, "lib", "talk.nomi"), "import greet\n\npub fn talk() -> String\n    greet.hello()\nend\n")
@@ -376,9 +299,9 @@ func TestModules_RemoveADependency(t *testing.T) {
 	}
 }
 
-// `nomi update` moves dependencies to their latest release of the same
-// module path and prints each move.
-func TestModules_UpdateWithinAMajorVersion(t *testing.T) {
+// `nomi update` moves dependencies to their repository's latest release in
+// the same line, here the same major version, and prints each move.
+func TestModules_UpdateWithinALine(t *testing.T) {
 	c := newModuleCLI(t)
 	greet := func(v string) map[string]string {
 		return map[string]string{
@@ -386,37 +309,67 @@ func TestModules_UpdateWithinAMajorVersion(t *testing.T) {
 			"greet.nomi": "pub fn hello() -> String\n    \"" + v + "\"\nend\n",
 		}
 	}
-	publishFiles(t, c.proxy, "example.com/greet", "v1.0.0", greet("v1.0.0"))
+	c.host.Tag("example.com/greet", "v1.0.0", greet("v1.0.0"))
 	work := t.TempDir()
-	c.must(work, "new", "example.com/app")
+	c.must(work, "new", "app")
 	app := filepath.Join(work, "app")
 	c.must(app, "add", "example.com/greet")
-	if out := c.must(app, "update"); out != "every dependency is at its latest release" {
+	if out := c.must(app, "update"); out != "every repository of the build is at the latest release of its line" {
 		t.Errorf("nomi update with nothing newer printed %q", out)
 	}
 
-	publishFiles(t, c.proxy, "example.com/greet", "v1.2.0", greet("v1.2.0"))
-	publishFiles(t, c.proxy, "example.com/greet/v2", "v2.0.0", map[string]string{
-		"go.mod":     "module example.com/greet/v2\n",
-		"nomi.toml":  "[module]\nname = \"greet\"\n",
-		"greet.nomi": "pub fn hello() -> String\n    \"v2\"\nend\n",
-	})
+	c.host.Tag("example.com/greet", "v1.2.0", greet("v1.2.0"))
+	c.host.Tag("example.com/greet", "v2.0.0", greet("v2.0.0"))
 	if out := c.must(app, "update", "greet"); out != "example.com/greet v1.0.0 -> v1.2.0\n\nmodules\n  greet\n    not imported yet" {
 		t.Fatalf("nomi update greet printed %q", out)
 	}
-	if manifest := mustRead(t, filepath.Join(app, "nomi.toml")); !strings.Contains(manifest, "greet = { module = \"example.com/greet\", version = \"v1.2.0\" }\n") {
+	if manifest := mustRead(t, filepath.Join(app, "nomi.toml")); !strings.Contains(manifest, "greet = { repo = \"example.com/greet\", version = \"v1.2.0\" }\n") {
 		t.Errorf("nomi.toml after nomi update:\n%s", manifest)
 	}
 	lock := mustRead(t, filepath.Join(app, "nomi.lock"))
-	if strings.Contains(lock, "example.com/greet v1.0.0 h1:") || !strings.Contains(lock, "example.com/greet v1.2.0 h1:") {
+	if strings.Contains(lock, "example.com/greet . v1.0.0 ") || !strings.Contains(lock, "example.com/greet . v1.2.0 ") {
 		t.Errorf("nomi.lock after nomi update:\n%s", lock)
 	}
-	if out := c.must(app, "update", "example.com/greet"); out != "greet is at its latest release" {
+	if out := c.must(app, "update", "example.com/greet"); out != "greet is at the latest release of its line" {
 		t.Errorf("a second nomi update printed %q", out)
 	}
 	_, stderr, err := c.run(app, "update", "none")
 	if err == nil || stderr != "nomi update: nomi.toml has no dependency none" {
 		t.Errorf("nomi update of a dependency nomi.toml does not name: %v\n%s", err, stderr)
+	}
+}
+
+// One tag versions a repository: `nomi add` of another module of a
+// repository the project takes at a version adds it there and says so,
+// and a version named moves the repository's other entries with it.
+func TestModules_AddAnotherModuleOfARepository(t *testing.T) {
+	c := newModuleCLI(t)
+	mono := func(v string) map[string]string {
+		return map[string]string{
+			"nomi.toml":       "[module]\nname = \"mono\"\n",
+			"lib/a/nomi.toml": "[module]\nname = \"a\"\n",
+			"lib/a/a.nomi":    "pub fn v() -> String\n    \"" + v + "\"\nend\n",
+			"lib/b/nomi.toml": "[module]\nname = \"b\"\n",
+			"lib/b/b.nomi":    "pub fn v() -> String\n    \"" + v + "\"\nend\n",
+		}
+	}
+	c.host.Tag("example.com/mono", "v1.0.0", mono("v1.0.0"))
+	c.host.Tag("example.com/mono", "v2.0.0", mono("v2.0.0"))
+	work := t.TempDir()
+	c.must(work, "new", "app")
+	app := filepath.Join(work, "app")
+	c.must(app, "add", "example.com/mono/lib/a@v1.0.0")
+
+	out := c.must(app, "add", "example.com/mono/lib/b")
+	if want := "added b, example.com/mono/lib/b v1.0.0 (import b), at the version the project already takes example.com/mono at\n"; !strings.HasPrefix(out, want) {
+		t.Errorf("nomi add of another module of the repository printed\n%s\nwant it to start\n%s", out, want)
+	}
+	out = c.must(app, "add", "example.com/mono/lib/a@v2.0.0")
+	if want := "added a, example.com/mono/lib/a v2.0.0 (import a)\nmoved b to v2.0.0 with it, since one tag versions example.com/mono\n"; !strings.HasPrefix(out, want) {
+		t.Errorf("nomi add of a new major version printed\n%s\nwant it to start\n%s", out, want)
+	}
+	if manifest := mustRead(t, filepath.Join(app, "nomi.toml")); !strings.Contains(manifest, "b = { repo = \"example.com/mono\", subdir = \"lib/b\", version = \"v2.0.0\" }\n") {
+		t.Errorf("nomi.toml after adding a@v2.0.0:\n%s", manifest)
 	}
 }
 
@@ -438,7 +391,8 @@ func TestModules_HelpListsTheModuleCommands(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"nomi new <module path> [dir]", "nomi add [<name>=]<directory>", "nomi remove <name>", "nomi update [name]"} {
+	for _, want := range []string{"nomi new <name> [dir]", "nomi init <name>", "nomi add [<name>=]<repository>[/<subdir>][@version]", "nomi add [<name>=]<directory>", "nomi remove <name>", "nomi update [name]", "nomi outdated [dir]"} {
+
 		if !strings.Contains(string(help), want) {
 			t.Errorf("nomi help does not list %q", want)
 		}

@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"syscall"
 	"time"
@@ -23,6 +24,13 @@ import (
 // captured stream open, or a read of the program's standard input that no
 // input answers, does not hold the wait up past it.
 const waitDelay = time.Second
+
+// errUnsupported is what sendSignal answers for a signal the platform
+// cannot send.
+var errUnsupported = errors.New("the signal is not supported here")
+
+// processID is this process's id.
+func processID() int64 { return int64(os.Getpid()) }
 
 // osProcess is a child the operating system runs.
 type osProcess struct {
@@ -43,6 +51,9 @@ func startOS(fr *rt.Frame, s spec) (*child, *rt.IOError) {
 	}
 	cmd := exec.CommandContext(ctx, s.program, s.args...)
 	cmd.WaitDelay = waitDelay
+	if s.newGroup {
+		newGroup(cmd)
+	}
 	cmd.Dir = workingDir(fr, s.dir)
 	if s.clearEnv || len(s.env) > 0 {
 		var env []string
@@ -58,7 +69,7 @@ func startOS(fr *rt.Frame, s spec) (*child, *rt.IOError) {
 		cmd.Env = env
 	}
 
-	c := &child{program: s.program}
+	c := &child{program: s.program, group: s.newGroup}
 	var closeAfterStart []*os.File
 	fail := func(e *rt.IOError) (*child, *rt.IOError) {
 		for _, f := range closeAfterStart {
@@ -132,6 +143,7 @@ func startOS(fr *rt.Frame, s spec) (*child, *rt.IOError) {
 		_ = f.Close()
 	}
 	c.proc = &osProcess{cmd: cmd, ctx: ctx}
+	c.id = int64(cmd.Process.Pid)
 	return c, nil
 }
 
@@ -145,14 +157,33 @@ func (p *osProcess) wait(fr *rt.Frame, c *child) {
 	}
 }
 
-// kill ends the child if it has not finished, then reaps it.
+// kill ends the child if it has not finished, then reaps it. The kill is
+// sent before the wait is taken, so it ends a child a wait on another task
+// is waiting for (`Child.stop` past its grace), which that wait then reaps.
+// os.Process refuses to signal a process its wait has reaped.
 func (p *osProcess) kill(c *child) {
-	p.once.Do(func() {
-		if p.cmd.Process != nil {
-			_ = p.cmd.Process.Kill()
-		}
-		p.finish(c)
-	})
+	if p.cmd.Process != nil {
+		_ = p.cmd.Process.Kill()
+	}
+	p.once.Do(func() { p.finish(c) })
+}
+
+// signal sends the signal POSIX names name to the child, or to the group
+// it leads when group is set. A name the platform cannot send is
+// Unsupported (signal_unix.go, signal_windows.go).
+func (p *osProcess) signal(c *child, op, name string, group bool) *rt.IOError {
+	err := sendSignal(p.cmd.Process, name, group)
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, errUnsupported):
+		return &rt.IOError{Tag: rt.TagIOUnsupported, Operation: op + " " + name, Target: runtime.GOOS + "/" + runtime.GOARCH}
+	case errors.Is(err, os.ErrProcessDone), errors.Is(err, syscall.ESRCH):
+		e := ended(op, c.program)
+		return &e
+	}
+	e := stdio.Classify(op, c.program, err)
+	return &e
 }
 
 func (p *osProcess) finish(c *child) {

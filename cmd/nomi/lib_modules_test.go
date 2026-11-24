@@ -20,8 +20,8 @@ import (
 // example, `nomi test` on image, and `nomi effects --check` on every
 // module, which holds its tables to what its public functions and its
 // tests have.
-// Each is its own module with its own go.mod, which root `go test ./...`
-// does not reach. They are Nomi alone, sqlite and image with their engines
+// They hold no Go, so root `go test ./...` finds no package in them.
+// They are Nomi alone, sqlite and image with their engines
 // as WebAssembly. The postgres, migrate and jobs runs skip where
 // postgres.scratch() cannot start a server. Every case must pass.
 func TestLibModules(t *testing.T) {

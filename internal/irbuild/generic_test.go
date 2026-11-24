@@ -132,11 +132,13 @@ func TestGeneric_TheBoundFreeLineIsOneImplementation(t *testing.T) {
 	}
 	// A SYNTHESIZED bound counts, and the guard would pass vacuously if the
 	// analyzer never put one anywhere — so it is asserted that the population
-	// is non-empty rather than assumed. `derive Debug` on a generic struct
-	// synthesizes `impl Debug for Pair<A, B>` whose `inspect` carries
-	// `A: Debug, B: Debug` in TypeParam.Bounds and nothing in WhereClauses.
-	src := "struct Pair<A, B>\n  first: A\n  second: B\nend\n\n" +
-		"derive Debug for Pair\n\n" +
+	// is non-empty rather than assumed. `derive ToJson` on a generic struct
+	// synthesizes `impl ToJson for Pair<A, B>` whose `to_json` carries
+	// `A: ToJson, B: ToJson` in TypeParam.Bounds and nothing in WhereClauses.
+	// (A derived Comparable body carries bounds the same way; a derived
+	// Equatable, Hashable, Debug or Display writes no body.)
+	src := "import std::json.ToJson\n\nstruct Pair<A, B>\n  first: A\n  second: B\nend\n\n" +
+		"derive ToJson for Pair\n\n" +
 		"fn main()\n  _ = Pair{first: 1, second: \"a\"}\nend\n"
 	p, err := AnalyzeSource("main", src)
 	if err != nil {

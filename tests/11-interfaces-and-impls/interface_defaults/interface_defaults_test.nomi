@@ -351,5 +351,5 @@ test "derive where clauses reject unsatisfied receiver arguments"
     )
 
     assert Iter.count(diagnostics) == 1
-    assert test_helpers.has_diagnostic(diagnostics, "does not implement Display")
+    assert test_helpers.has_diagnostic(diagnostics, "no impl of `Display` for `Plain`")
 end

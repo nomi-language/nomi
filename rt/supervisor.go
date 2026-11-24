@@ -223,7 +223,12 @@ type supervisorRegistry struct {
 
 	// drained guards against a second drain pass: the program drains after the
 	// entry function returns, and a signal handler may have started one.
-	drained bool
+	// drainEnded closes when the first pass ends, and a later DrainSupervisors
+	// waits for it. signalStatus is the exit status of the SIGINT or SIGTERM
+	// that started the drain (DrainForSignal), 0 when none did.
+	drained      bool
+	drainEnded   chan struct{}
+	signalStatus int
 
 	// drainHooks run when the drain starts, before any grace period
 	// (OnDrain). Keyed so a hook can unregister itself.
@@ -442,8 +447,10 @@ func supervisorEnrol(fr *Frame, sup Supervisor, body func(*Frame) Unit) Task[Uni
 		}
 	}
 
+	taskBegan()
 	go func() {
 		defer g.leave()
+		defer taskEnded()
 		defer close(t.done)
 		defer stopWithSupervisor()
 		defer taskCancel()
@@ -841,15 +848,43 @@ func SupervisorFlushBounded(fr *Frame, sup Supervisor, bound Wait) FlushOutcome 
 // write after this returns. That is the direct consequence of not waiting for
 // it, and it is the cost of item 2 in the file header rather than a bug.
 //
-// Idempotent.
+// Idempotent: a call after the first waits for the first to end, so a main
+// that returns while a signal's drain runs does not end the program before
+// the supervisors' budgets are spent.
 func DrainSupervisors() {
+	drainSupervisors(0)
+}
+
+// DrainForSignal is DrainSupervisors started by a shutdown signal whose exit
+// status is status (130 for SIGINT, 143 for SIGTERM), which ShutdownStatus
+// then answers.
+func DrainForSignal(status int) {
+	drainSupervisors(status)
+}
+
+// ShutdownStatus is the exit status of the shutdown signal that started the
+// drain (DrainForSignal), or 0 when none did. The program's entry exits with
+// it, after the drain and boot's cleanup.
+func ShutdownStatus() int {
+	reg := supervisors()
+	reg.mu.Lock()
+	defer reg.mu.Unlock()
+	return reg.signalStatus
+}
+
+func drainSupervisors(status int) {
 	reg := supervisors()
 	reg.mu.Lock()
 	if reg.drained {
+		ended := reg.drainEnded
 		reg.mu.Unlock()
+		<-ended
 		return
 	}
 	reg.drained = true
+	reg.drainEnded = make(chan struct{})
+	reg.signalStatus = status
+	defer close(reg.drainEnded)
 	groups := make([]*supervisor, len(reg.groups))
 	copy(groups, reg.groups)
 	cancelRoot := reg.cancelRoot
@@ -1032,6 +1067,10 @@ func (g *supervisor) grace(done <-chan struct{}) {
 // virtual time rather than real. runTest does.
 func ResetSupervisors() {
 	DrainSupervisors()
+	// The drain closed every signal feed and left their signals caught,
+	// so one arriving during shutdown was dropped; the next program starts
+	// with them at their default action (signals.go).
+	ReleaseSignals()
 	supervisorMu.Lock()
 	defer supervisorMu.Unlock()
 	supervisorReg = nil

@@ -3,12 +3,68 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/dap"
 )
+
+// TestHelp_TheSummaryNamesEachCommandsFlags: every flag in a command's usage
+// line is in the lines `nomi help` gives that command (the lines that start
+// `nomi <name>` and the description under each). --offline and --all-calls
+// are named once for every command that takes them, from the command table,
+// and the summary's line for each names exactly those commands.
+func TestHelp_TheSummaryNamesEachCommandsFlags(t *testing.T) {
+	summary := usageText()
+	lines := strings.Split(summary, "\n")
+	flag := regexp.MustCompile(`(?:^|[\s\[|])(--?[a-z][a-z-]*)`)
+	var offline, allCalls []string
+	for _, c := range commandTable() {
+		if c.offline {
+			offline = append(offline, c.name)
+		}
+		if c.allCalls {
+			allCalls = append(allCalls, c.name)
+		}
+		var own strings.Builder
+		in := false
+		for _, l := range lines {
+			switch {
+			case strings.HasPrefix(l, "  nomi "+c.name+" ") || l == "  nomi "+c.name:
+				in = true
+			case !strings.HasPrefix(l, strings.Repeat(" ", 40)):
+				in = false
+			}
+			if in {
+				own.WriteString(l + "\n")
+			}
+		}
+		synopsis, _, _ := strings.Cut(c.usage, "\n\n")
+		for _, m := range flag.FindAllStringSubmatch(synopsis, -1) {
+			f := m[1]
+			if (f == "--offline" && c.offline) || (f == "--all-calls" && c.allCalls) {
+				continue
+			}
+			if !strings.Contains(own.String(), f) {
+				t.Errorf("nomi %s's usage names %s, and nomi help's lines for it do not:\n%s", c.name, f, own.String())
+			}
+		}
+	}
+	for _, want := range []string{
+		"  --offline                             on " + joinAnd(offline) + ":\n",
+		"  --all-calls                           on " + joinAnd(allCalls) + ": ",
+	} {
+		if !strings.Contains(summary, want) {
+			t.Errorf("nomi help lacks %q", want)
+		}
+	}
+	if !slices.Contains(offline, "types") || !slices.Contains(allCalls, "build") {
+		t.Errorf("the command table's --offline commands are %v and --all-calls commands %v; this test checks the wrong flags", offline, allCalls)
+	}
+}
 
 // Every command answers `--help` and `-h` with its usage on stdout and
 // exits 0, and `nomi help <command>` prints the same; the summary `nomi
@@ -20,7 +76,7 @@ func TestHelp_EveryCommandAnswersHelp(t *testing.T) {
 		if !strings.HasPrefix(c.usage, "usage: nomi "+c.name) {
 			t.Errorf("nomi %s's usage does not start with its name:\n%s", c.name, c.usage)
 		}
-		if c.name != dap.TerminalCommand && !strings.Contains(usage, "\n  nomi "+c.name) {
+		if c.name != dap.TerminalCommand && !strings.Contains(usageText(), "\n  nomi "+c.name) {
 			t.Errorf("nomi help does not list nomi %s", c.name)
 		}
 		for _, args := range [][]string{{c.name, "--help"}, {c.name, "-h"}, {"help", c.name}} {

@@ -284,7 +284,7 @@ Server.Close | mapped | phase 3 | `Listener.shutdown` closes the connections sti
 Server.Shutdown | covered | phase 3 | `Listener.shutdown(listener)`: stop accepting, wait for requests in flight up to `Server.shutdown_timeout`, then close what is left; `http.serve` calls it when its task is stopped
 Server.RegisterOnShutdown | covered | phase 6 | `Server.on_shutdown: Option<() -> Unit>`
 Server.ListenAndServe | covered | phase 3 | `http.serve`
-Server.Serve | covered | phase 3 | `http.serve(listener, handler, supervisor)`
+Server.Serve | covered | phase 3 | `http.serve(listener, handler, supervisor)`, on a std::net `Listener` (a Unix or inherited one) through `Server.listener`
 Server.ServeTLS | covered | phase 5 | `http.listen` with `Server.tls`
 Server.SetKeepAlivesEnabled | covered | phase 3 | `Server.keep_alives: Bool = True`
 Server.ListenAndServeTLS | covered | phase 5 | `http.listen` with `Server.tls`, then `http.serve`
@@ -296,7 +296,7 @@ TimeoutHandler | covered | phase 4 | `http.timeout(handler, after, message)`, wh
 Transport | covered | phase 2 | `Transport` options struct, inside `ClientOptions`
 Transport.Proxy | covered | phase 2 | `Transport.proxy: Proxy` (`.FromEnvironment`, `.None`, `.Fixed(Url)`, `.Choose(fn)`)
 Transport.OnProxyConnectResponse | covered | phase 6 | `Transport.on_proxy_connect: Option<(Url, Response) -> Result<Unit, Error>>`
-Transport.DialContext | mapped | phase 2 | `Transport.dial: DialOptions` (std/net's timeout and keep-alive); a custom dial function is not offered
+Transport.DialContext | mapped | phase 2 | `Transport.dial: DialOptions` (std/net's timeout and keep-alive), and `Transport.unix_socket` to send every request to a Unix socket; a custom dial function is not offered
 Transport.Dial | skipped | Deprecated in Go.
 Transport.DialTLSContext | skipped | A custom TLS dial function. `Transport.tls` configures TLS; revisit with a use.
 Transport.DialTLS | skipped | Deprecated in Go.
@@ -748,8 +748,8 @@ Dial | covered | phase 5 | `net.dial(address, options: DialOptions = #DialOption
 DialTimeout | covered | phase 5 | `net.dial(address, #DialOptions{timeout: Some(d)})`
 DialTCP | covered | phase 5 | `net.dial`
 DialIP | skipped | Raw IP sockets; not TCP.
-DialUDP | skipped | UDP; later, its own roadmap item.
-DialUnix | skipped | Unix sockets; later, its own roadmap item.
+DialUDP | covered | phase 5 | `udp.dial(address) -> Result<Socket, Error>`
+DialUnix | covered | phase 5 | `net.dial_unix(path, options)`, and `udp.dial_unix(path)` for a datagram socket
 Dialer | covered | phase 5 | `DialOptions` struct
 Dialer.Timeout | covered | phase 5 | `DialOptions.timeout: Option<Duration>`
 Dialer.Deadline | mapped | phase 5 | The context's deadline
@@ -760,24 +760,24 @@ Dialer.KeepAlive | covered | phase 5 | `DialOptions.keep_alive: KeepAlive`
 Dialer.KeepAliveConfig | covered | phase 5 | `DialOptions.keep_alive: KeepAlive`
 Dialer.Resolver | skipped | A custom resolver; the system resolver is used.
 Dialer.Cancel | skipped | Deprecated in Go; the context replaces it.
-Dialer.Control | skipped | Raw socket options before connect; no file descriptors in Nomi.
+Dialer.Control | mapped | phase 5 | `DialOptions.reuse_address` and `reuse_port` set the options a program asks for before connecting; no file descriptors in Nomi
 Dialer.ControlContext | skipped | Same as `Control`.
 Dialer.MultipathTCP | covered | phase 5 | `DialOptions.multipath: Bool`
 Dialer.SetMultipathTCP | covered | phase 5 | `DialOptions.multipath`
 Dialer.Dial | covered | phase 5 | `net.dial`
 Dialer.DialContext | covered | phase 5 | `net.dial` (under the context in force)
 Dialer.DialTCP | covered | phase 5 | `net.dial`
-Dialer.DialUDP | skipped | UDP; later.
+Dialer.DialUDP | covered | phase 5 | `udp.dial`
 Dialer.DialIP | skipped | Raw IP sockets; not TCP.
-Dialer.DialUnix | skipped | Unix sockets; later.
+Dialer.DialUnix | covered | phase 5 | `net.dial_unix`
 ErrClosed | covered | phase 5 | `net.Error.Closed`
-ErrWriteToConnected | skipped | UDP; later.
+ErrWriteToConnected | mapped | phase 5 | `Socket.send_to` on a dialed socket is the system's error, `net.Error.Other`
 Error | mapped | phase 5 | `net.Error` enum
 Error.Temporary | skipped | Deprecated meaning in Go.
 Error.Timeout | covered | phase 5 | `net.Error.Timeout`
 FileConn | skipped | Wraps an OS file descriptor; none in Nomi.
-FileListener | skipped | Wraps an OS file descriptor.
-FilePacketConn | skipped | Wraps an OS file descriptor.
+FileListener | mapped | phase 5 | `net.inherited_listeners()`: the listening sockets a service manager passed (systemd's LISTEN_FDS), each wrapped once for the process; no descriptor is a Nomi value
+FilePacketConn | mapped | phase 5 | `udp.inherited_sockets()`: the datagram sockets a service manager passed, as `net.inherited_listeners`
 Flags | skipped | Network interfaces; later.
 Flags.String | skipped | Network interfaces; later.
 Flag* | skipped | Network interfaces; later.
@@ -813,20 +813,20 @@ KeepAliveConfig.Interval | covered | phase 5 | `KeepAlive.interval: Option<Durat
 KeepAliveConfig.Count | covered | phase 5 | `KeepAlive.count: Option<Int>`
 Listen | covered | phase 5 | `net.listen(address, options: ListenOptions = #ListenOptions{}) -> Result<Listener, Error>` (TCP)
 ListenConfig | covered | phase 5 | `ListenOptions` struct
-ListenConfig.Control | skipped | Raw socket options; no file descriptors in Nomi.
+ListenConfig.Control | mapped | phase 5 | `ListenOptions.reuse_address` and `reuse_port`, and `udp.BindOptions`'s, set the options a program asks for before binding; no file descriptors in Nomi
 ListenConfig.KeepAlive | covered | phase 5 | `ListenOptions.keep_alive: KeepAlive`
 ListenConfig.KeepAliveConfig | covered | phase 5 | `ListenOptions.keep_alive`
 ListenConfig.MultipathTCP | covered | phase 5 | `ListenOptions.multipath: Bool`
 ListenConfig.SetMultipathTCP | covered | phase 5 | `ListenOptions.multipath`
 ListenConfig.Listen | covered | phase 5 | `net.listen`
-ListenConfig.ListenPacket | skipped | UDP; later.
+ListenConfig.ListenPacket | covered | phase 5 | `udp.bind(address, options: BindOptions)`
 ListenIP | skipped | Raw IP sockets.
-ListenMulticastUDP | skipped | UDP; later.
-ListenPacket | skipped | UDP; later.
+ListenMulticastUDP | mapped | phase 5 | `udp.bind` then `Socket.join_group(socket, group, interface_name)`
+ListenPacket | covered | phase 5 | `udp.bind` and `udp.bind_unix`
 ListenTCP | covered | phase 5 | `net.listen`
-ListenUDP | skipped | UDP; later.
-ListenUnix | skipped | Unix sockets; later.
-ListenUnixgram | skipped | Unix sockets; later.
+ListenUDP | covered | phase 5 | `udp.bind(address) -> Result<Socket, Error>`
+ListenUnix | covered | phase 5 | `net.listen_unix(path, options) -> Result<Listener, Error>`
+ListenUnixgram | covered | phase 5 | `udp.bind_unix(path) -> Result<Socket, Error>`
 Listener | covered | phase 5 | `Listener`, an opaque handle
 Listener.Accept | covered | phase 5 | `Listener.accept(listener) -> Result<Connection, Error>`
 Listener.Addr | covered | phase 5 | `Listener.address(listener) -> String`
@@ -845,9 +845,9 @@ MX.Host | covered | phase 5 | `Mx.host: String`
 MX.Pref | covered | phase 5 | `Mx.preference: Int`
 NS | mapped | phase 5 | A `String` host
 NS.Host | mapped | phase 5 | The `String` itself
-OpError | covered | phase 5 | `net.Error` variants: `Refused`, `Unreachable`, `Reset`, `AddressInUse`, `Timeout`, `Closed`, `Other{op, address, reason}`
+OpError | covered | phase 5 | `net.Error` variants: `Refused`, `Unreachable`, `Reset`, `AddressInUse`, `Timeout`, `Closed`, `Truncated{address, max}`, `Unsupported{op, reason}`, `Other{op, address, reason}`
 OpError.Op | covered | phase 5 | `net.Error.Other`'s `op`
-OpError.Net | mapped | phase 5 | Always TCP in std/net
+OpError.Net | mapped | phase 5 | The function called says it: `net.dial`, `net.dial_unix`, `udp.bind`
 OpError.Source | mapped | phase 5 | `Connection.local_address`
 OpError.Addr | covered | phase 5 | `net.Error.Other`'s `address` (and the other variants')
 OpError.Err | covered | phase 5 | `net.Error.Other`'s `reason`
@@ -855,8 +855,8 @@ OpError.Unwrap | mapped | phase 5 | Match the variant
 OpError.Error | covered | phase 5 | `Display for net.Error`
 OpError.Timeout | covered | phase 5 | `net.Error.Timeout`
 OpError.Temporary | skipped | Deprecated meaning in Go.
-PacketConn | skipped | UDP; later.
-PacketConn.* | skipped | UDP; later.
+PacketConn | covered | phase 5 | `Socket` (std/udp), an opaque handle
+PacketConn.* | mapped | phase 5 | `Socket`'s functions: `send_to`, `receive`, `local_address`, `close` and the deadlines
 ParseCIDR | skipped | IP arithmetic; later.
 ParseError | covered | phase 5 | `net.Error.InvalidAddress`
 ParseError.* | covered | phase 5 | `net.Error.InvalidAddress`'s `address` and `reason`, and `Display for net.Error`
@@ -865,8 +865,8 @@ ParseMAC | skipped | Network interfaces; later.
 Pipe | covered | phase 5 | `net.pipe() -> (Connection, Connection)`, two ends in memory, for tests
 ResolveIPAddr | skipped | Raw IP sockets.
 ResolveTCPAddr | covered | phase 5 | `net.lookup_host` and `net.split_host_port`
-ResolveUDPAddr | skipped | UDP; later.
-ResolveUnixAddr | skipped | Unix sockets; later.
+ResolveUDPAddr | mapped | phase 5 | `udp.Address.Ip{host, port}`, resolved when a datagram is sent
+ResolveUnixAddr | mapped | phase 5 | A Unix socket's path is its address
 Resolver | mapped | phase 5 | The system resolver behind `net.lookup_*`
 Resolver.PreferGo | skipped | Resolver choice; Go's default is used.
 Resolver.StrictErrors | skipped | Resolver tuning; Go's default is used.
@@ -911,16 +911,16 @@ TCPListener.Close | covered | phase 5 | `Listener.close`
 TCPListener.Addr | covered | phase 5 | `Listener.address`
 TCPListener.SetDeadline | covered | phase 5 | `Listener.set_deadline(listener, at: Option<Instant>)`
 TCPListener.File | skipped | Raw file descriptor.
-UDPAddr | skipped | UDP; later.
-UDPAddr.* | skipped | UDP; later.
-UDPAddrFromAddrPort | skipped | UDP; later.
-UDPConn | skipped | UDP; later.
-UDPConn.* | skipped | UDP; later.
-UnixAddr | skipped | Unix sockets; later.
-UnixAddr.* | skipped | Unix sockets; later.
-UnixConn | skipped | Unix sockets; later.
-UnixConn.* | skipped | Unix sockets; later.
-UnixListener | skipped | Unix sockets; later.
-UnixListener.* | skipped | Unix sockets; later.
-UnknownNetworkError | mapped | phase 5 | std/net is TCP only, so the network is never unknown
+UDPAddr | covered | phase 5 | `udp.Address.Ip{host, port}`
+UDPAddr.* | mapped | phase 5 | `udp.Address.Ip`'s `host` and `port`, and `Display for Address`
+UDPAddrFromAddrPort | skipped | Takes a `netip.AddrPort`; later, with `std/netip`.
+UDPConn | covered | phase 5 | `udp.Socket`
+UDPConn.* | mapped | phase 5 | `Socket`'s functions: `send`, `send_to`, `receive`, the deadlines, `set_read_buffer`, `set_write_buffer`, `read_buffer`, `write_buffer`, `set_multicast_interface`, `close`; no file descriptors or ancillary data
+UnixAddr | covered | phase 5 | `udp.Address.Unix{path}`, and a path string in std/net
+UnixAddr.* | mapped | phase 5 | The path
+UnixConn | covered | phase 5 | `Connection` (stream) and `udp.Socket` (datagram)
+UnixConn.* | mapped | phase 5 | `Connection`'s and `Socket`'s functions; no file descriptors or ancillary data (`ReadMsgUnix`, `WriteMsgUnix`)
+UnixListener | covered | phase 5 | `Listener`, from `net.listen_unix`
+UnixListener.* | mapped | phase 5 | `Listener`'s functions; closing it removes its socket file, as Go's `SetUnlinkOnClose(true)` does
+UnknownNetworkError | mapped | phase 5 | Each function names its network, so the network is never unknown
 UnknownNetworkError.* | mapped | phase 5 | Same.

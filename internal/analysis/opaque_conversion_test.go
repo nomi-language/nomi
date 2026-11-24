@@ -221,9 +221,9 @@ func TestOpaqueConversion_ProvidedImplMeetsNoBoundOutside(t *testing.T) {
 		{"a std type", "    dbg gen.make<Codepoint>(65)\n", "Codepoint", bound("Codepoint", "TryFrom<Int>"), 9},
 		{"a generic function value", "    f: (Int) -> Option<Pct> = gen.make\n    dbg f(5)\n", "Pct", bound("Pct", "TryFrom<Int>"), 34},
 		{"a type with a TryFrom of its own", "    dbg gen.from_float<Kelvin>(1.0)\n", "Kelvin", bound("Kelvin", "TryFrom<Float>"), 9},
-		{"an impl's where", "    dbg gen.Maker.build(gen.Box{v: ids.pct(5)!}, 7)\n", "Pct", "no impl of `TryFrom` for `Pct` (required via call site)", 24},
-		{"a TryFrom value", "    dbg take(ids.pct(5)!)\n", "Pct", "no impl of `TryFrom` for `Pct` (required via interface-typed param/field)", 21},
-		{"a call through TryFrom", "    q: Option<Pct> = TryFrom.try_from(7)\n    dbg q\n", "Pct", "no impl of `TryFrom` for `Pct` (required via call site)", 38},
+		{"an impl's where", "    dbg gen.Maker.build(gen.Box{v: ids.pct(5)!}, 7)\n", "Pct", "no impl of `TryFrom` for `Pct` (required by the call `gen.Maker.build`)", 24},
+		{"a TryFrom value", "    dbg take(ids.pct(5)!)\n", "Pct", "no impl of `TryFrom` for `Pct` (required by parameter `x` of `take`)", 21},
+		{"a call through TryFrom", "    q: Option<Pct> = TryFrom.try_from(7)\n    dbg q\n", "Pct", "no impl of `TryFrom` for `Pct` (required by the call `TryFrom.try_from`)", 38},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

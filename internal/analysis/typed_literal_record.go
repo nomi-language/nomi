@@ -156,7 +156,7 @@ func (c *checker) typedLiteralHint(expected, got Type, expr ast.Node) string {
 	if c.hasTextFunction(name, origin) {
 		return hint + "; `" + name + ".to_string` gives its text"
 	}
-	if c.typeImplementsInterface(have, "Display", OriginUnresolved, Pos{Line: lit.Line, Col: lit.Col}, RecordingKindCallSite) {
+	if c.typeImplementsInterface(have, "Display", OriginUnresolved, Recording{Pos: Pos{Line: lit.Line, Col: lit.Col}, Kind: RecordingKindCallSite}) {
 		return hint + "; `Display.to_string` gives its text"
 	}
 	return hint

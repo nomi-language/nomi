@@ -2,6 +2,7 @@ package irbuild
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -12,18 +13,19 @@ import (
 	"github.com/nomi-language/nomi/std"
 )
 
-// machineFunctions are the interface functions an operator or a
-// rendering goes through, with the operator a body spells for its own
-// (Equatable's `==`, Add's `+`): operIfaceSpecs' operators and `~~~`,
-// the comparisons, Debug's inspect and Display's to_string. Comparable's
-// compare answers an Ordering, and inspect and to_string a String, which
-// no operator spells.
+// machineFunctions are the interface functions an operator, a rendering
+// or the machine's hash goes through, with the operator a body spells for
+// its own (Equatable's `==`, Add's `+`): operIfaceSpecs' operators and
+// `~~~`, the comparisons, Debug's inspect, Display's to_string and
+// Hashable's hash. Comparable's compare answers an Ordering, inspect and
+// to_string a String and hash an Int, which no operator spells.
 func machineFunctions() map[[2]string]string {
 	out := map[[2]string]string{
 		{"Equatable", "equal"}:    "==",
 		{"Comparable", "compare"}: "",
 		{"Debug", "inspect"}:      "",
 		{"Display", "to_string"}:  "",
+		{"Hashable", "hash"}:      "",
 	}
 	for _, s := range operIfaceSpecs {
 		if s.op != "" || s.unary {
@@ -34,7 +36,7 @@ func machineFunctions() map[[2]string]string {
 }
 
 // selfOperatorBody reports whether fd's body is its operator op over its
-// own two parameters, as `fn equal(a: List<T>, b: List<T>) -> Bool` is
+// own two parameters, as `fn equal(a: Int, b: Int) -> Bool` is
 // `a == b`: a call of it reaches the operator again. For an interface
 // function with no operator, it is whether the body renders its own
 // parameter (selfRenderBody).
@@ -158,13 +160,56 @@ func TestMachineImplsAreComplete(t *testing.T) {
 		t.Fatalf("found %d unbound host fns and %d self-operator bodies, which is too few to check anything", hosts, selves)
 	}
 	t.Logf("%d std operator and rendering impls: %d unbound host fns, %d self-operator bodies", len(impls), hosts, selves)
-	for row, route := range machineImpls {
-		if row.std.IsZero() || route == routeImpl {
-			continue
-		}
+	for row := range machineImpls {
 		if _, declared := impls[row.std]; !declared {
 			t.Errorf("machineImpls has a row for %+v, which no std module declares as an impl of an operator's or a rendering's interface", row.std)
 		}
+	}
+}
+
+// Every structural row over a generic type is an impl whose uses the
+// checker holds to its parts (analysis.ImplAsksParts: std writes it as a
+// `host fn`), since the machine compares, hashes or renders each element
+// of the type by its shape: List's, Map's, Set's and Vector's Equatable and
+// Hashable. A body written in Nomi would tell the checker to ask only the
+// impl's where clause, and a List of functions would reach the machine's
+// comparison. Debug is left out: every type has it, so asking it of the
+// parts refuses nothing.
+func TestMachineImpls_ShapeRowsAskTheirParts(t *testing.T) {
+	impls := stdMachineImpls(t)
+	lib := std.All()
+	checked := 0
+	for row, route := range machineImpls {
+		iface := rowIface(row)
+		if route != routeStructural || iface == "Debug" {
+			continue
+		}
+		fn := impls[row.std]
+		var block *analysis.ImplTypeArgs
+		for _, fa := range lib.Files {
+			if _, declares := fa.StdFuncs()[fn]; !declares {
+				continue
+			}
+			for _, info := range fa.ImplBlocks[row.std.Owner][iface] {
+				if info != nil && info.Block != nil && slices.Contains(info.Block.Items, fn) {
+					block = info
+				}
+			}
+		}
+		if block == nil {
+			t.Errorf("no impl block of %+v holds its function", row.std)
+			continue
+		}
+		if len(block.TypeParamDefs) == 0 {
+			continue
+		}
+		checked++
+		if !analysis.ImplAsksParts(block.Block) {
+			t.Errorf("%+v: the machine answers it by its shape, and its block writes a body, so the checker asks nothing of its parts", row.std)
+		}
+	}
+	if checked < 8 {
+		t.Fatalf("checked %d structural rows over a generic type, which is too few to check anything", checked)
 	}
 }
 
@@ -189,28 +234,28 @@ func (c machineCase) task() bool {
 
 // rowIface is the interface of row's impl.
 func rowIface(row machineImpl) string {
-	if row.std.IsZero() {
-		return row.derived.iface
-	}
 	iface, _, _ := strings.Cut(row.std.Impl, "<")
 	return iface
 }
 
-// unary reports whether c's impl takes one value, as Debug's inspect and
-// Display's to_string do.
+// unary reports whether c's impl takes one value, as Debug's inspect,
+// Display's to_string and Hashable's hash do.
 func (c machineCase) unary() bool {
 	iface := rowIface(c.row)
-	return iface == "Debug" || iface == "Display"
+	return iface == "Debug" || iface == "Display" || iface == "Hashable"
 }
 
 // rendering is the interface function a unary case's operator side
-// calls, which the machine renders: `Debug.inspect` or
-// `Display.to_string`.
-func (c machineCase) rendering() string {
-	if rowIface(c.row) == "Display" {
-		return "Display.to_string"
+// calls, which the machine answers: `Debug.inspect`,
+// `Display.to_string` or `Hashable.hash`, and the type it answers.
+func (c machineCase) rendering() (string, string) {
+	switch rowIface(c.row) {
+	case "Display":
+		return "Display.to_string", "String"
+	case "Hashable":
+		return "Hashable.hash", "Int"
 	}
-	return "Debug.inspect"
+	return "Debug.inspect", "String"
 }
 
 // lines is how many lines c's part of the cases' program prints.
@@ -230,7 +275,6 @@ var machineCases = []machineCase{
 	{stdRow("std/float", "Float", "Comparable", "compare"), "Float", "Float.compare", []string{"-0.5", "0.0", "2.5", "Float.positive_infinity()"}},
 	{stdRow("std/float", "Float", "Equatable", "equal"), "Float", "Float.equal", []string{"0.5", "Float.nan()"}},
 	{stdRow("std/strings", "String", "Equatable", "equal"), "String", "String.equal", []string{`"a"`, `"b"`}},
-	{stdRow("std/bool", "Bool", "Equatable", "equal"), "Bool", "Bool.equal", []string{"False", "True"}},
 	{stdRow("std/bool", "Bool", "Comparable", "compare"), "Bool", "Bool.compare", []string{"False", "True"}},
 	{stdRow("std/unit", "Unit", "Equatable", "equal"), "Unit", "Unit.equal", []string{"Unit"}},
 	{stdRow("std/lists", "List", "Equatable", "equal"), "List<Int>", "List.equal", []string{"[]", "[1]", "[1, 2]"}},
@@ -238,24 +282,6 @@ var machineCases = []machineCase{
 	{stdRow("std/maps", "Map", "Equatable", "equal"), "Map<String, Int>", "Map.equal", []string{`{}`, `{"a" => 1}`, `{"a" => 2}`}},
 	{stdRow("std/bytes", "Bytes", "Equatable", "equal"), "Bytes", "Bytes.equal", []string{`String.to_bytes("a")`, `String.to_bytes("b")`}},
 	{stdRow("std/decimal", "Decimal", "Equatable", "equal"), "Decimal", "Decimal.equal", []string{"1.5d", "1.50d", "-1.5d", "0d", "0.000d", "2d"}},
-	{machineImpl{derived: derivedImpl{"Equatable", derivedStruct}}, "Spot", "Spot.equal",
-		[]string{
-			"Spot{name: Name{text: \"a\"}, at: 1.0, cost: 1.5d, tag: Tag.Plain}",
-			"Spot{name: Name{text: \"A\"}, at: 1.0, cost: 1.50d, tag: Tag.Plain}",
-			"Spot{name: Name{text: \"b\"}, at: 1.0, cost: 1.5d, tag: Tag.Plain}",
-			"Spot{name: Name{text: \"a\"}, at: Float.nan(), cost: 1.5d, tag: Tag.Plain}",
-			"Spot{name: Name{text: \"a\"}, at: 1.0, cost: 2d, tag: Tag.Plain}",
-			"Spot{name: Name{text: \"a\"}, at: 1.0, cost: 1.5d, tag: Tag.Named(Name{text: \"x\"})}",
-		}},
-	{machineImpl{derived: derivedImpl{"Equatable", derivedStruct}}, "Cell<Name>", "Cell.equal",
-		[]string{"Cell{item: Name{text: \"a\"}, n: 1}", "Cell{item: Name{text: \"A\"}, n: 1}", "Cell{item: Name{text: \"a\"}, n: 2}"}},
-	{machineImpl{derived: derivedImpl{"Equatable", derivedEnum}}, "Tag", "Tag.equal",
-		[]string{"Tag.Plain", "Tag.Named(Name{text: \"a\"})", "Tag.Named(Name{text: \"A\"})", "Tag.Named(Name{text: \"b\"})", "Tag.Measured(Float.nan())", "Tag.Measured(1.0)"}},
-	{machineImpl{derived: derivedImpl{"Equatable", derivedDistinct}}, "Alias", "Alias.equal",
-		[]string{"Alias(Name{text: \"a\"})", "Alias(Name{text: \"A\"})", "Alias(Name{text: \"b\"})"}},
-	{machineImpl{derived: derivedImpl{"Equatable", derivedWrapping}}, "Meters", "Meters.equal", []string{"Meters(1)", "Meters(2)"}},
-	{machineImpl{derived: derivedImpl{"Equatable", derivedMarker}}, "Done", "Done.equal", []string{"Done"}},
-	{machineImpl{derived: derivedImpl{"Equatable", derivedEnum}}, "Option<Float>", "Option.equal", []string{"None", "Some(1.0)", "Some(Float.nan())"}},
 
 	{debugRow("std/int", "Int"), "Int", "Int.inspect",
 		[]string{"0", "-7", "9223372036854775807", "92233720368547758070", "-92233720368547758070"}},
@@ -291,22 +317,20 @@ var machineCases = []machineCase{
 	{debugRow("std/context", "Context"), "Context", "Context.inspect",
 		[]string{"Context.root()", "Context.with_value(Context.root(), 1)"}},
 	{debugRow("std/unit", "Unit"), "Unit", "Unit.inspect", []string{"Unit"}},
-	{machineImpl{derived: derivedImpl{"Debug", derivedMarker}}, "Done", "Done.inspect", []string{"Done"}},
-	{machineImpl{derived: derivedImpl{"Debug", derivedWrapping}}, "Meters", "Meters.inspect", []string{"Meters(0)", "Meters(-92233720368547758070)"}},
-	{machineImpl{derived: derivedImpl{"Debug", derivedWrapping}}, "Label", "Label.inspect", []string{`Label("")`, `Label("a\"b\n")`, `Label("\u{0}")`}},
-	{machineImpl{derived: derivedImpl{"Debug", derivedWrapping}}, "Ratio", "Ratio.inspect", []string{"Ratio(0.1)", "Ratio(-0.0)", "Ratio(Float.nan())", "Ratio(1.0e21)"}},
-	{machineImpl{derived: derivedImpl{"Debug", derivedWrapping}}, "Flag", "Flag.inspect", []string{"Flag(True)", "Flag(False)"}},
-	{machineImpl{derived: derivedImpl{"Debug", derivedWrapping}}, "Shown", "Shown.inspect", []string{"Shown(3)"}},
 	{debugRow("std/channels", "Sender"), "Sender<Int>", "Sender.inspect", []string{"Channel.buffered<Int>(1).sender"}},
 	{debugRow("std/channels", "Receiver"), "Receiver<String>", "Receiver.inspect", []string{"Channel.buffered<String>(1).receiver"}},
 	{debugRow("std/channels", "Arm"), "Arm<Int>", "Arm.inspect", []string{"Arm.after(Duration.seconds(0), fn -> 1)"}},
 	{debugRow("std/tasks", "Task"), "Task<Int>", "Task.inspect", []string{"Task.spawn(fn -> 1)"}},
 	{debugRow("std/type", "Type"), "Type<Done>", "Type.inspect", []string{"Done"}},
 	{debugRow("std/type", "Type"), "Type<Name>", "Type.inspect", []string{"Name"}},
+	{hashRow("std/lists", "List"), "List<Int>", "List.hash", []string{"[]", "[1, 2]", "[2, 1]"}},
+	{hashRow("std/lists", "List"), "List<List<String>>", "List.hash", []string{`[["a"], []]`}},
+	{hashRow("std/vectors", "Vector"), "Vector<Int>", "Vector.hash", []string{"Vector[]", "Vector[1, 2]"}},
+	{hashRow("std/maps", "Map"), "Map<String, Int>", "Map.hash", []string{"{}", `{"a" => 1, "b" => 2}`, `{"b" => 2, "a" => 1}`}},
+	{hashRow("std/sets", "Set"), "Set<Int>", "Set.hash", []string{"Set[]", "Set[3, 1]", "Set[1, 3]"}},
 	{displayRow("std/int", "Int"), "Int", "Int.to_string", []string{"0", "-7", "92233720368547758070"}},
 	{displayRow("std/float", "Float"), "Float", "Float.to_string",
 		[]string{"0.0", "-0.0", "0.1", "1.0e21", "Float.nan()", "Float.positive_infinity()"}},
-	{displayRow("std/bool", "Bool"), "Bool", "Bool.to_string", []string{"False", "True"}},
 	{displayRow("std/strings", "String"), "String", "String.to_string", []string{`""`, `"a\"b\t"`, `"\u{0}"`}},
 	{displayRow("std/decimal", "Decimal"), "Decimal", "Decimal.to_string",
 		[]string{"1.50d", "-0.001d", "0d", "100d", "123456789012345678901234.5d"}},
@@ -315,6 +339,11 @@ var machineCases = []machineCase{
 // displayRow is the row of std's Display of owner, declared in module.
 func displayRow(module, owner string) machineImpl {
 	return stdRow(module, owner, "Display", "to_string")
+}
+
+// hashRow is the row of std's Hashable of owner, declared in module.
+func hashRow(module, owner string) machineImpl {
+	return stdRow(module, owner, "Hashable", "hash")
 }
 
 // debugRow is the row of std's Debug of owner, declared in module.
@@ -326,7 +355,8 @@ func debugRow(module, owner string) machineImpl {
 // whose hand-written Equatable ignores case, an enum, a distinct, a
 // struct and a generic struct that derive theirs over it (the struct over
 // a Float and a Decimal too), and distincts over an Int, a String, a
-// Float and a Bool and a marker, each of which derives its Debug.
+// Float and a Bool and a marker, each of which derives its Debug, which
+// the machine renders by its shape (TestMachineImpls_ADerivedDebugIsTheShape).
 const machineCaseTypes = `import
     std::channels.{Arm, Channel, Receiver, Sender}
     std::duration.Duration
@@ -340,49 +370,11 @@ struct Name
     text: String
 end
 
-impl Equatable for Name
-    fn equal(a: Name, b: Name) -> Bool
-        String.lowercase(a.text) == String.lowercase(b.text)
-    end
-end
-
-enum Tag
-    Plain
-    Named(Name)
-    Measured(Float)
-end
-
-derive Equatable for Tag
-
-type Alias Name
-
-derive Equatable for Alias
-
-struct Spot
-    name: Name
-    at: Float
-    cost: Decimal
-    tag: Tag
-end
-
-derive Equatable for Spot
-
-struct Cell<T>
-    item: T
-    n: Int
-end
-
-derive Equatable for Cell
-
 type Meters Int
-
-derive Equatable for Meters
 
 derive Debug for Meters
 
 type Done
-
-derive Equatable for Done
 
 derive Debug for Done
 
@@ -417,8 +409,9 @@ func machineCaseProgram() string {
 	fns := machineFunctions()
 	for i, c := range machineCases {
 		if c.unary() {
-			fmt.Fprintf(&b, "\nfn operator_%d(a: %s) -> String\n    %s(a)\nend\n", i, c.typ, c.rendering())
-			fmt.Fprintf(&b, "\nfn called_%d(a: %s) -> String\n    f: (%s) -> String = %s\n    f(a)\nend\n", i, c.typ, c.typ, c.fn)
+			rendering, result := c.rendering()
+			fmt.Fprintf(&b, "\nfn operator_%d(a: %s) -> %s\n    %s(a)\nend\n", i, c.typ, result, rendering)
+			fmt.Fprintf(&b, "\nfn called_%d(a: %s) -> %s\n    f: (%s) -> %s = %s\n    f(a)\nend\n", i, c.typ, result, c.typ, result, c.fn)
 			for x, v := range c.values {
 				if c.task() {
 					fmt.Fprintf(&main, "    line_%d_%d = concurrent\n        a: %s = %s\n", i, x, c.typ, v)
@@ -461,19 +454,6 @@ func machineCaseProgram() string {
 	return b.String()
 }
 
-// uncalledMachineRows are the rows machineCases cannot run, with the
-// reason. A value of std's `True` or `False`, Bool's variant types, is
-// not lowered on its own (a binding `a: True = True` declines), so the
-// derived equal of either has nothing to be called with; `True == True`
-// compares two constants, and a derived equal of a type with one value
-// answers True.
-var uncalledMachineRows = map[machineImpl]string{
-	stdRow("std/bool", "True", "Equatable", "equal"):    "a True value is not lowered on its own",
-	stdRow("std/bool", "False", "Equatable", "equal"):   "a False value is not lowered on its own",
-	stdRow("std/bool", "True", "Display", "to_string"):  "a True value is not lowered on its own",
-	stdRow("std/bool", "False", "Display", "to_string"): "a False value is not lowered on its own",
-}
-
 // machineCaseRows are the rows of machineImpls the machine computes
 // whose impl has a body other than its own operator, or is a `host fn` a
 // host table binds: the rows whose equivalence with the machine's
@@ -485,10 +465,6 @@ func machineCaseRows(t *testing.T) []machineImpl {
 	var rows []machineImpl
 	for row, route := range machineImpls {
 		if !machineComputed(route) {
-			continue
-		}
-		if row.std.IsZero() {
-			rows = append(rows, row)
 			continue
 		}
 		switch d := impls[row.std].(type) {
@@ -509,8 +485,8 @@ func machineCaseRows(t *testing.T) []machineImpl {
 // over a sample of values, each operator answers as a call of the impl's
 // function does, and the machine's rendering of each value is the text a
 // call of the impl's inspect answers. Every row whose impl has a body of
-// its own (Int's compare, Unit's equal, List's `+`, Bool's and a derived
-// struct's, enum's, distinct's and marker's impls, std's Debug of Int,
+// its own (Int's compare, Unit's equal, List's `+`, Bool's derived
+// Comparable, std's Debug of Int,
 // String, List and the others, and Unit's name-only Debug) or is a bound `host fn` (Decimal's equal, over values equal at
 // different scales) is in the sample, which holds the values the stage-1
 // probe of item 14 compared at every Debug site: big Ints, Float edge
@@ -534,13 +510,8 @@ func TestMachineImplsComputeTheirBodies(t *testing.T) {
 		}
 		covered[c.row] = true
 	}
-	for row := range uncalledMachineRows {
-		if !machineComputed(machineImpls[row]) {
-			t.Errorf("uncalledMachineRows names %+v, which machineImpls does not compute", row)
-		}
-	}
 	for _, row := range machineCaseRows(t) {
-		if _, uncalled := uncalledMachineRows[row]; !covered[row] && !uncalled {
+		if !covered[row] {
 			t.Errorf("no case runs %+v, whose body machineImpls claims the machine computes", row)
 		}
 	}

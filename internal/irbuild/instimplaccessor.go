@@ -80,10 +80,8 @@ func (g *gen) instImplAccessorsBuild(r *instImplAccessorReq) {
 	g.pushGenericImplInst(r.inst)
 	defer g.popSubst()
 	defer g.enterTypeScope(r.d.typeScope)()
-	if r.d.ifaceSubst != nil {
-		g.pushIfaceSubst(substIfaceImpl, r.d, r.d.ifaceSubst, r.d.ifaceSubstTypes)
-		defer g.popIfaceSubst()
-	}
+	// The function is the block's own (instImplAccessorsFor takes no
+	// inherited one), so the interface's frame is no part of its scope.
 	fd := r.it.decl
 	callee := g.irImplSym(r.it)
 	sig := &fnSig{params: r.it.params, result: r.it.result, decl: fd, lowerable: true}

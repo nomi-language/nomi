@@ -293,9 +293,14 @@ func (g *gen) irStdBoxPlan(d *ifaceDef, have kind, haveType analysis.Type) *irBo
 			return g.irStdNamedBoxPlan(d, have, haveType)
 		}
 	}
-	if _, _, container := stdRecvParts(have); !container {
+	if _, _, container := stdRecvParts(have); !container && !irShapeHoldsBoxedEnum(have) {
 		return nil
 	}
+	vt := g.irValType(have)
+	if vt == nil || vt.Erased() {
+		return nil
+	}
+	name := vt.String()
 	var display *irBoxedImpl
 	if d.nomi == "Display" {
 		structural := g.irDisplayErasedContainer(existential(d), have)
@@ -305,19 +310,20 @@ func (g *gen) irStdBoxPlan(d *ifaceDef, have kind, haveType analysis.Type) *irBo
 			// values, whose runtime type is the struct each embeds, so a
 			// structural rendering would select the struct's impl. The box
 			// renders through std's impl instantiated at the container's
-			// own kind, as `"${v}"` does.
+			// own kind, as `"${v}"` does, and an Option's and a Result's,
+			// whose Display is derived and writes no function, through
+			// `Display.to_string` at the container's kind, which renders
+			// it by its shape (stdProgThunk).
 			fn, owner := g.irContainerDisplayInstance(have, haveType)
+			if m := d.methods["to_string"]; fn == nil && m != nil {
+				fn, owner = g.stdProgThunk(d, m, have, haveType, name), g
+			}
 			if fn == nil {
 				return nil
 			}
 			display = &irBoxedImpl{fn: fn, owner: owner}
 		}
 	}
-	vt := g.irValType(have)
-	if vt == nil || vt.Erased() {
-		return nil
-	}
-	name := vt.String()
 	p := &irBoxPlan{typ: g.irTypes().Symbol(irBoxTypeToken{name}, name)}
 	if display != nil {
 		display.typ = p.typ
@@ -361,29 +367,64 @@ func (g *gen) irStdNamedBoxPlan(d *ifaceDef, have kind, haveType analysis.Type) 
 }
 
 // irHoldsBoxedEnum reports whether a value of kind k holds, at any depth of
-// its containers, tuples and records, a value of an enum that boxes
-// (irBoxedEnum).
+// its containers, tuples, records and declared types' fields, payloads and
+// inner values, a value of an enum that boxes (irBoxedEnum): a position a
+// value of the embedded type fills at run time, which only the position's
+// static type says is the enum's.
 func irHoldsBoxedEnum(k kind) bool {
+	return irHoldsBoxedEnumIn(k, map[*typeDef]bool{})
+}
+
+func irHoldsBoxedEnumIn(k kind, seen map[*typeDef]bool) bool {
 	if irBoxedEnum(k) {
 		return true
 	}
 	var parts []kind
-	if _, ps, container := stdRecvParts(k); container {
+	switch _, ps, container := stdRecvParts(k); {
+	case container:
 		parts = ps
-	} else if (irRetainedRecordKind(k) || irRetainedTupleKind(k)) && k.comp != nil {
+	case (irRetainedRecordKind(k) || irRetainedTupleKind(k)) && k.comp != nil:
 		parts = k.comp.parts
+	case k.tag == tagNamed && k.def != nil && !seen[k.def]:
+		seen[k.def] = true
+		d := k.def
+		// kindInvalid: marker — a zero-sized marker holds no value.
+		if d.isDistinct && d.inner != kindInvalid {
+			parts = append(parts, d.inner)
+		}
+		for _, f := range d.fields {
+			parts = append(parts, f.k)
+		}
+		for _, v := range d.variants {
+			for _, p := range v.payloads {
+				parts = append(parts, p.k)
+			}
+		}
 	}
 	for _, p := range parts {
-		if irHoldsBoxedEnum(p) {
+		if irHoldsBoxedEnumIn(p, seen) {
 			return true
 		}
 	}
 	return false
 }
 
+// irShapeHoldsBoxedEnum reports whether have, a value held as std's Display
+// or Debug, is a container, tuple or record (no declared type, which names
+// itself) that holds an `embeds` enum's position (irHoldsBoxedEnum): it
+// enters the interface boxed under its static type, whose rendering knows
+// the positions, since the held value's run-time types do not.
+func irShapeHoldsBoxedEnum(have kind) bool {
+	_, _, container := stdRecvParts(have)
+	return (container || irStructuralBoxes(have)) && !irBoxedEnum(have) && irHoldsBoxedEnum(have)
+}
+
 // irDisplayInstanceContainer reports whether have is a std container whose
 // Display std answers with an impl instantiated at have, and whose text is
-// not structural (irDisplayErasedContainer): an Option, a Result or a Set.
+// not structural (irDisplayErasedContainer): a Set. An Option's and a
+// Result's Display is derived and has no instance: one whose payload
+// enters Display itself is structural, and a box renders any other
+// through a thunk (irStdBoxPlan).
 func (g *gen) irDisplayInstanceContainer(have kind, haveType analysis.Type) bool {
 	if _, _, container := stdRecvParts(have); !container || g.stdModule != "" {
 		return false
@@ -751,15 +792,23 @@ func (g *gen) checkedErasures() []checkedErasure {
 			}
 			if !seen[wk.iface][hk] {
 				seen[wk.iface][hk] = true
-				g.erasures[i].kinds = append(g.erasures[i].kinds, hk)
+				g.erasures[i].values = append(g.erasures[i].values, erasedValue{k: hk, typ: e.rec.Value})
 			}
 		}
 	}
 	return g.erasures
 }
 
-// checkedErasure is the kinds checkedErasures found entering one interface.
+// checkedErasure is the values checkedErasures found entering one
+// interface, one per kind.
 type checkedErasure struct {
-	iface *ifaceDef
-	kinds []kind
+	iface  *ifaceDef
+	values []erasedValue
+}
+
+// erasedValue is a kind of value entering an interface, and the checker's
+// type of the first value of that kind to enter it.
+type erasedValue struct {
+	k   kind
+	typ analysis.Type
 }

@@ -13,6 +13,7 @@ import
     io.{Error, File, Reader, Writer}
     lists.List
     maps.Map
+    option.Option
     results.Result
     strings.String
     unit.Unit
@@ -57,21 +58,55 @@ pub host fn rename(files: FileSystem, from: String, to: String) -> Result<Unit, 
 
 pub host fn copy(files: FileSystem, from: String, to: String) -> Result<Unit, Error>
 
-/// The kind's position in `fs.Kind`, the size, the modification time in
-/// nanoseconds since the Unix epoch, and the permission bits.
-pub host fn metadata(files: FileSystem, path: String) -> Result<List<Int>, Error>
+/// The kind's position in `fs.Kind`, the size, the modification time, the
+/// mode, the access, status change and birth times, the link count, the
+/// device, the inode, and the owner's user and group numbers. A time is in
+/// nanoseconds since the Unix epoch. The first four are always there; any
+/// other is `None` when the file system keeps none.
+pub host fn metadata(files: FileSystem, path: String) -> Result<List<Option<Int>>, Error>
 
 /// As `metadata`, describing a symlink at `path` as itself.
-pub host fn link_metadata(files: FileSystem, path: String) -> Result<List<Int>, Error>
+pub host fn link_metadata(files: FileSystem, path: String) -> Result<List<Option<Int>>, Error>
 
 /// A symlink at `path` whose target is `target`.
 pub host fn create_symlink(files: FileSystem, path: String, target: String) -> Result<Unit, Error>
+
+/// `path` as a second name of the file at `target`.
+pub host fn create_link(files: FileSystem, path: String, target: String) -> Result<Unit, Error>
 
 /// The target of the symlink at `path`.
 pub host fn read_link(files: FileSystem, path: String) -> Result<String, Error>
 
 /// The permission bits of what `path` names become `mode`.
 pub host fn set_mode(files: FileSystem, path: String, mode: Int) -> Result<Unit, Error>
+
+/// The modification and access times of what `path` names, in
+/// nanoseconds since the Unix epoch; `None` leaves one as it is.
+pub host fn set_times(
+    files:    FileSystem,
+    path:     String,
+    modified: Option<Int>,
+    accessed: Option<Int>,
+) -> Result<Unit, Error>
+
+/// The file at `path`, made empty when missing, with its times now.
+pub host fn touch(files: FileSystem, path: String) -> Result<Unit, Error>
+
+/// The numeric owner of what `path` names, following a symlink when
+/// `follow` is true.
+pub host fn set_owner(
+    files:  FileSystem,
+    path:   String,
+    user:   Int,
+    group:  Int,
+    follow: Bool,
+) -> Result<Unit, Error>
+
+/// The total, free and available bytes of the file system `path` is on.
+pub host fn disk_usage(files: FileSystem, path: String) -> Result<List<Int>, Error>
+
+/// The name of the user, or the group when `group` is true, numbered `id`.
+pub host fn owner_name(files: FileSystem, id: Int, group: Bool) -> Option<String>
 
 /// A file on `path` for reads and writes at a position, opened as the
 /// access at position `access` of `fs.Access` (Read 0, ReadWrite 1,

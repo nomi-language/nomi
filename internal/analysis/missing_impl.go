@@ -2,6 +2,7 @@ package analysis
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -34,7 +35,22 @@ func MissingImpls(p *Program, demanders []*FileAnalysis) []TypeError {
 	if p == nil || p.ImplIndex == nil {
 		return nil
 	}
-	return newProgramDemands(p, nil, demanders).diagnostics()
+	return newProgramDemands(p, nil, demanders, false).diagnostics()
+}
+
+// stdMissingImpls is the missing-impl check a std module fa makes of its
+// own demands, which a program's check leaves to it (programDemands.wants):
+// each pair a body, a derive or a `//!` prompt of fa demands and no impl
+// supplies, reported as a program's check reports one of the program's
+// own. The checker runs it at the end of a std file's check, so std's
+// analysis reports a std body's `a <= b` on a type with no Comparable
+// where std is checked, and the builder never meets the body.
+func stdMissingImpls(fa *FileAnalysis) []TypeError {
+	p := fa.Program()
+	if p == nil || p.ImplIndex == nil {
+		return nil
+	}
+	return newProgramDemands(p, nil, []*FileAnalysis{fa}, true).diagnostics()
 }
 
 // sortRecordings orders recordings by source location, (Pos.File, Pos.Line,
@@ -62,22 +78,17 @@ func sortRecordings(recs []Recording) {
 // build time so the user sees a precise demand-site location instead of
 // a runtime stack trace.
 //
-// Stdlib hands-off rule: if every Recording for a pair has a stdlib
-// Pos.File, the pair is suppressed. The stdlib's own (Iface, T) coverage
-// is pinned by stdlib load/tests — emitting a "missing impl" at every
-// user build for a stdlib-internal demand would surface the same issue
-// at every site rather than once at the stdlib coverage test.
-// The rule suppresses based on the recording side alone. Tightening it
-// with a "T is a stdlib type" check needs a typeDecls input this
-// function does not have. The false negative it allows (a stdlib call
-// site demanding a user-defined T) is unusual and benign.
+// Stdlib hands-off rule: a pair every Recording of which has a stdlib
+// Pos.File is a program's check's to leave out, as programDemands.wants
+// leaves it out: std's own check reports it (stdMissingImpls), once,
+// rather than every program that loads the module.
 //
 // Primary error site: the first user-project Recording (non-stdlib
 // Pos.File), falling back to the first Recording overall if all are
-// stdlib (only reachable when the suppression rule above is bypassed
-// by some yet-unmodeled case; defensive). The message names how the
+// stdlib (std's own check). The message names how the
 // primary site demands the impl, never its position, which the diagnostic
-// itself carries; the remaining non-stdlib Recordings are related locations. DeriveCtx
+// itself carries; the remaining Recordings the author can change are
+// related locations (missingImplError). DeriveCtx
 // info on each derive-sourced Recording is unpacked into the "via"
 // clause so the diagnostic names the @derive site and the offending
 // component.
@@ -93,7 +104,7 @@ func DetectMissingImpls(idx *ProjectImplIndex, typeDecls map[string]Pos) []TypeE
 	var errs []TypeError
 
 	// Deterministic iteration: sort ifaces, then types within each iface.
-	// Same posture as detectImplCollisions / detectOrphanImpls.
+	// Same posture as detectOrphanImpls.
 	ifaceNames := make([]string, 0, len(idx.ImplManifest))
 	for iface := range idx.ImplManifest {
 		ifaceNames = append(ifaceNames, iface)
@@ -112,7 +123,11 @@ func DetectMissingImpls(idx *ProjectImplIndex, typeDecls map[string]Pos) []TypeE
 		sort.Strings(typeNames)
 
 		for _, typeName := range typeNames {
-			if e, ok := idx.missingImpl(iface, typeName, byType[typeName], typeDecls); ok {
+			recs := byType[typeName]
+			if !slices.ContainsFunc(recs, func(rec Recording) bool { return !isStdlibRecording(rec) }) {
+				continue
+			}
+			if e, ok := idx.missingImpl(iface, typeName, recs, typeDecls); ok {
 				errs = append(errs, e)
 			}
 		}
@@ -178,17 +193,6 @@ func (idx *ProjectImplIndex) missingImpl(iface, typeName string, recs []Recordin
 			}
 			borrowed = true
 		}
-	}
-	// Stdlib hands-off: every Recording is stdlib-internal.
-	allStdlib := true
-	for _, rec := range recs {
-		if !isStdlibRecording(rec) {
-			allStdlib = false
-			break
-		}
-	}
-	if allStdlib {
-		return TypeError{}, false
 	}
 	// Equality-operator demands are weak — see
 	// RecordingKindEqualityOperator. `==` / `!=` on a concrete
@@ -259,28 +263,26 @@ func (idx *ProjectImplIndex) missingImplError(iface, typeName string, recs []Rec
 		shown = throughFile(primary.TypeOrigin, typeName)
 	}
 
-	var b strings.Builder
-	fmt.Fprintf(&b, "no impl of `%s` for `%s` (required via %s)",
-		shownIface, shown, formatRecordingVia(primary))
-
 	e := TypeError{
 		Line:    primary.Pos.Line,
 		Col:     primary.Pos.Col,
-		Message: b.String(),
+		Message: fmt.Sprintf("no impl of `%s` for `%s` (%s)", shownIface, shown, requiredClause(primary)),
 		File:    primary.Pos.File,
-	}
+	}.WithHint(implBoundNote(primary))
 
-	// Every other Recording in the program's own code is a related
-	// location. A std one is not: it is a site inside std's own bodies or
-	// doc prompts (`std/json.nomi:82:39` for a program's `Error`, which
-	// shares its bare name with std's), which the author can neither read
-	// as their code nor change.
+	// Every other Recording in the code the report is for is a related
+	// location. In a program's report a std one is not: it is a site inside
+	// std's own bodies or doc prompts (`std/json.nomi:82:39` for a
+	// program's `Error`, which shares its bare name with std's), which the
+	// author can neither read as their code nor change. Std's own report
+	// (stdMissingImpls), whose primary is std's, names them all.
+	stdOwn := isStdlibRecording(primary)
 	for i, rec := range recs {
-		if i == primaryIdx || isStdlibRecording(rec) {
+		if i == primaryIdx || (isStdlibRecording(rec) && !stdOwn) {
 			continue
 		}
 		e = e.WithRelated(RelatedInfo{File: rec.Pos.File, Line: rec.Pos.Line, Col: rec.Pos.Col,
-			Message: "also required here via " + formatRecordingVia(rec)})
+			Message: "also required here " + requiredBy(rec)})
 	}
 
 	if typeDecls != nil && shown == typeName {
@@ -300,10 +302,10 @@ func (idx *ProjectImplIndex) missingImplError(iface, typeName string, recs []Rec
 		// interface has one declaration, so the fix is an impl block of
 		// the interface the demand names.
 		return e.WithHint(implBlockHelp(withTypeParams(shownIface, primary.IfaceTypeParams), shown))
-	case IsStdlibKey(primary.TypeOrigin) || (builtinPrimitive(primary.TypeOrigin, typeName) && stdOnlyInterface(iface)):
+	case !stdOwn && (IsStdlibKey(primary.TypeOrigin) || (builtinPrimitive(primary.TypeOrigin, typeName) && stdOnlyInterface(iface))):
 		// A std or built-in type missing a std interface: the program
 		// cannot derive or implement it, so the help says what to do
-		// instead.
+		// instead. Std, whose own demand it is, can.
 		return e.WithHint(stdTypeHelp(iface, typeName, primary.TypeOrigin, nil))
 	}
 	return e.WithHint(missingImplHelp(iface, primary.IfaceTypeParams, primary.IfaceOrigin, shown, primary.TypeOrigin, recs))
@@ -505,6 +507,11 @@ func (c *checker) boundHelp(concrete Type, bound *InterfaceType) string {
 	if help, ok := c.structuralBoundHelp(concrete, bound); ok {
 		return help
 	}
+	if part := c.partLackingBound(concrete, bound); part != nil {
+		// Its impl asks bound of a part that lacks it, so the help is the
+		// part's: an `Option<Foo>` is Display only where Foo is.
+		return fmt.Sprintf("`%s` is %s when `%s` is, and `%s` is not: %s", name, bound.Name, part, part, c.boundHelp(part, bound))
+	}
 	ownsType := programDeclares(concrete)
 	origin, _ := nominalOrigin(resolveTypeVar(concrete))
 	if !ownsType && IsStdlibKey(bound.Origin) {
@@ -657,15 +664,6 @@ func callCol(n *ast.Call) int {
 	return n.Col
 }
 
-// pipeBoundCol is callCol for a piped call's stage, or the pipe itself when
-// the stage is not a call.
-func pipeBoundCol(n *ast.Binary, stage *ast.Call) int {
-	if stage != nil {
-		return callCol(stage)
-	}
-	return n.Col
-}
-
 // callBoundError is boundError for a call whose demands are recorded at
 // demand. When the bound error is reported, the call's own demands for the
 // same type and interface are dropped from the file's manifest: they would
@@ -721,10 +719,8 @@ func (c *checker) boundError(line, col int, concrete Type, bound *InterfaceType,
 		c.report(refinementMakesBaseError(line, col, sub, bound, required))
 		return true
 	}
-	if c.implBoundsUnmetByNamedTypes(concrete, bound) {
-		// `List<Foo>` has Display only where Foo does: the demand is Foo's,
-		// and the missing-impl report names Foo with its own help.
-		c.recordBoundConformance(concrete, bound.Name, bound.Origin, c.recPos(line, col), RecordingKindGenericBoundCheck)
+	if c.boundsMissOf(concrete, bound) != missNotByBounds {
+		c.recordBoundConformance(concrete, bound.Name, bound.Origin, c.site(line, col, RecordingKindGenericBoundCheck))
 		return false
 	}
 	end := TypeError{}
@@ -774,134 +770,279 @@ func boundAt(bound *InterfaceType, param string, concrete Type) *InterfaceType {
 	return &InterfaceType{Name: bound.Name, TypeArgs: args}
 }
 
-// formatRecordingVia renders the demand-site kind in user-relevant
-// terms. For derive-sourced Recordings, unpacks the DeriveCtx into the
-// "via" clause naming the derive declaration and (when known) the
-// offending field.
-func formatRecordingVia(rec Recording) string {
+// requiredClause is what a missing-impl report says made the demand rec
+// records, in the program's terms: "required by parameter `x` of
+// `shown`", "required to interpolate it", "required via `derive Display
+// for Wrapper`, field `u`". The one rendering of a RecordingKind;
+// TestEveryRecordingKindSaysWhatRequiredIt holds it to every kind.
+func requiredClause(rec Recording) string {
+	return "required " + requiredBy(rec)
+}
+
+// requiredBy is requiredClause after its "required ".
+func requiredBy(rec Recording) string {
 	switch rec.Kind {
 	case RecordingKindCallSite:
-		return "call site"
+		switch {
+		case rec.Callee != "":
+			return fmt.Sprintf("by the call `%s`", rec.Callee)
+		case rec.Tag != "":
+			return fmt.Sprintf("by this `%s` literal", rec.Tag)
+		}
+		return "via call site"
+	case RecordingKindInterpolation:
+		return "to interpolate it"
+	case RecordingKindArgument:
+		if rec.Param != "" {
+			return fmt.Sprintf("by parameter `%s` of `%s`", rec.Param, rec.Callee)
+		}
+		return fmt.Sprintf("by argument %d of `%s`", rec.Arg, rec.Callee)
 	case RecordingKindTypedLiteralSlot:
-		return "typed-literal slot"
+		if rec.Tag != "" {
+			return fmt.Sprintf("by this `%s` slot", rec.Tag)
+		}
+		return "by a typed literal's slot"
 	case RecordingKindGenericBoundCheck:
-		return "generic where bound check"
+		return "by a `where` bound"
 	case RecordingKindInterfaceTypedParam:
-		return "interface-typed param/field"
+		return "by the interface type declared for it"
 	case RecordingKindDeriveSynth:
 		if rec.Derive != nil {
 			if rec.Derive.FieldName != "" {
-				return fmt.Sprintf("`derive %s for %s`, field `%s`",
+				return fmt.Sprintf("via `derive %s for %s`, field `%s`",
 					rec.Derive.Iface, rec.Derive.TypeName, rec.Derive.FieldName)
 			}
-			return fmt.Sprintf("`derive %s for %s`",
+			return fmt.Sprintf("via `derive %s for %s`",
 				rec.Derive.Iface, rec.Derive.TypeName)
 		}
-		return "a derive"
+		return "via a derive"
 	case RecordingKindDerivePayload:
 		if rec.Derive != nil {
-			return fmt.Sprintf("`derive %s for %s` (an interpolated payload)",
+			return fmt.Sprintf("via `derive %s for %s` (an interpolated payload)",
 				rec.Derive.Iface, rec.Derive.TypeName)
 		}
-		return "a derive's interpolated payload"
+		return "via a derive's interpolated payload"
 	case RecordingKindEqualityOperator:
 		if rec.Op != "" {
-			return fmt.Sprintf("equality operator `%s`", rec.Op)
+			return fmt.Sprintf("via equality operator `%s`", rec.Op)
 		}
-		return "equality operator"
+		return "via equality operator"
 	case RecordingKindOrderingOperator:
 		if rec.Op != "" {
-			return fmt.Sprintf("ordering operator `%s`", rec.Op)
+			return fmt.Sprintf("via ordering operator `%s`", rec.Op)
 		}
-		return "ordering operator"
+		return "via ordering operator"
 	case RecordingKindOperator:
 		if rec.Op == "in" {
-			return "membership test `in`"
+			return "via membership test `in`"
 		}
 		if rec.Op != "" {
 			if opIface, ok := operatorInterfaceForOp(rec.Op); ok {
-				return fmt.Sprintf("%s operator `%s`", opIface.Verb, rec.Op)
+				return fmt.Sprintf("via %s operator `%s`", opIface.Verb, rec.Op)
 			}
-			return fmt.Sprintf("operator `%s`", rec.Op)
+			return fmt.Sprintf("via operator `%s`", rec.Op)
 		}
-		return "operator"
+		return "via operator"
 	default:
-		return "unknown"
+		return "via an unknown site"
 	}
 }
 
-// implBoundsUnmetByNamedTypes reports whether concrete's type has an impl of
-// bound (`impl Display for List<T> where T: Display`) whose receiver it
-// matches but for a bound on the impl's type parameters, and each type
-// argument that misses one is a named type. Recording the demand then
-// reaches that argument, which the missing-impl report names.
-func (c *checker) implBoundsUnmetByNamedTypes(concrete Type, bound *InterfaceType) bool {
+// implBoundNote says which impl's where bound asked the demand rec
+// records, when one did (Recording.Bound): "`Measure<P>`'s `Display` impl
+// requires `P: Unit2`". "" for a demand the site made itself.
+func implBoundNote(rec Recording) string {
+	b := rec.Bound
+	if b.Iface == "" {
+		return ""
+	}
+	return fmt.Sprintf("`%s`'s `%s` impl requires `%s: %s`", b.Receiver, b.Iface, b.Param, b.Bound)
+}
+
+// boundsMiss is how a type misses an interface by the where bounds of its
+// impl of it (boundsMissOf). It decides which error the miss draws: the
+// position's own, which names the whole value and what the position takes,
+// or the demand of the bound left unmet, whose missing-impl report names the
+// type that lacks it.
+type boundsMiss int
+
+const (
+	// missNotByBounds: the type has no impl of the interface that matches
+	// it, or misses it at a part the demand would not report by name. The
+	// position's own error is the one error.
+	missNotByBounds boundsMiss = iota
+	// missAtOwnParts: the impl asks the interface itself of a part that
+	// lacks it. `impl ToHtml for Option<T> where T: ToHtml` misses at an
+	// `Option<Bool>` because Bool has no ToHtml, and std's derived Display
+	// of Option misses at an `Option<Html>` because Html has no Display.
+	missAtOwnParts
+	// missByAnotherBound: every miss ends at a where bound of another
+	// interface, at the type or at a part the impl asks the interface of:
+	// `impl Display for Measure<P> where P: Unit2` at a `Measure<Bare>`, and
+	// at a `List<Measure<Bare>>`.
+	missByAnotherBound
+)
+
+// boundsMissOf is how concrete misses bound, the interface a position
+// takes, by the where bounds of its impl of bound. It is the one answer to
+// which error the miss draws, and each position reads it:
+//
+//   - A where bound (boundError) records the demand for any miss by bounds,
+//     so the missing-impl report names the part that lacks the interface, as
+//     an interpolation's demand does: `List<Foo>` has Display only where Foo
+//     does.
+//   - A position that takes a value of an interface type (a parameter or a
+//     field, ifaceParamAdmits and reportGenericArgMismatch, and a typed
+//     literal's slot, checkTaggedStringSlot) records it only for
+//     missByAnotherBound: the impl the value's type has is unmet at this
+//     instance, and the demand names the bound. A part that lacks the
+//     interface itself is the position's own error, which names the whole
+//     value and what the position takes, as an `Html` template's slot says
+//     what its context shows.
+//
+// A type that holds a function, an Iter or a handle is the bound's own
+// error under Equatable and Hashable, whose help names what it holds.
+func (c *checker) boundsMissOf(concrete Type, bound *InterfaceType) boundsMiss {
+	if (bound.Name == "Equatable" || bound.Name == "Hashable") && c.holdsNoEqualityOutsideDeclaredTypes(concrete) {
+		return missNotByBounds
+	}
+	return c.implBoundsMiss(concrete, bound, bound)
+}
+
+// unmetBound is a where bound of an impl, at the type argument it binds,
+// that the argument does not meet.
+type unmetBound struct {
+	arg   Type
+	bound *InterfaceType
+}
+
+// unmetImplBounds is the where bounds of concrete's impl of bound
+// (`impl Display for List<T> where T: Display`) that concrete's type
+// arguments leave unmet, ordered by the name of the parameter each binds.
+// ok is false where concrete's type has no impl of bound whose receiver it
+// matches.
+func (c *checker) unmetImplBounds(concrete Type, bound *InterfaceType) (unmet []unmetBound, ok bool) {
 	if c == nil || bound == nil {
-		return false
+		return nil, false
 	}
 	name := interfaceImplName(concrete)
 	if name == "" {
-		return false
+		return nil, false
 	}
 	info := lookupImplTypeArgs(name, bound.Name, c.implTypeArgsContext())
 	if info == nil || info.Receiver == nil {
-		return false
+		return nil, false
 	}
 	subs := map[*TypeParam_]Type{}
 	if unifyFull(info.Receiver, concrete, subs, c.implsContext(), c.implTypeArgsContext()) != nil {
-		return false
+		return nil, false
 	}
-	unmet := false
-	for tp, arg := range subs {
+	params := make([]*TypeParam_, 0, len(subs))
+	for tp := range subs {
+		params = append(params, tp)
+	}
+	sort.Slice(params, func(i, j int) bool { return params[i].Name_ < params[j].Name_ })
+	for _, tp := range params {
 		for _, b := range tp.Bounds {
-			if typeSatisfiesInterfaceForImplMatch(arg, b, c.implsContext(), c.implTypeArgsContext(), nil) {
-				continue
+			if !typeSatisfiesInterfaceForImplMatch(subs[tp], b, c.implsContext(), c.implTypeArgsContext(), nil) {
+				unmet = append(unmet, unmetBound{arg: subs[tp], bound: b})
 			}
-			if !c.unmetDemandReachesNamedTypes(arg, b) {
-				return false
-			}
-			unmet = true
 		}
 	}
-	return unmet
+	return unmet, true
 }
 
-// unmetDemandReachesNamedTypes reports whether the demand that t, which
-// misses bound, implement it is recorded at named types alone: t is one, or
-// a tuple or anonymous struct whose parts that miss the bound are, as
-// recordConformanceRecording splits an Equatable, Hashable or Display demand
-// (and a tuple's Comparable one) into its parts'.
-func (c *checker) unmetDemandReachesNamedTypes(t Type, bound *InterfaceType) bool {
+// implBoundsMiss is boundsMissOf for concrete, which misses bound, at a
+// position that takes taken: concrete's impl of bound matches it but for
+// where bounds, and each argument that misses one is reported where its
+// demand is recorded (unmetDemandMiss).
+func (c *checker) implBoundsMiss(concrete Type, bound, taken *InterfaceType) boundsMiss {
+	unmet, ok := c.unmetImplBounds(concrete, bound)
+	if !ok {
+		return missNotByBounds
+	}
+	miss := missNotByBounds
+	for _, u := range unmet {
+		m := c.unmetDemandMiss(u.arg, u.bound, taken)
+		if m == missNotByBounds {
+			return missNotByBounds
+		}
+		if m == missAtOwnParts || miss == missNotByBounds {
+			miss = m
+		}
+	}
+	return miss
+}
+
+// unmetDemandMiss is how t, which misses bound, misses it at a position
+// that takes taken, where the demand that t implement bound is reported
+// where it is recorded: t is a named type; or for Equatable and Hashable a
+// type that holds a function, an Iter or a handle outside a declared type's
+// fields, which recordConformanceRecording reports (demandWithoutEquality);
+// or a tuple or anonymous struct whose parts that miss bound are, as
+// recordConformanceRecording splits an Equatable, Hashable or Display
+// demand (and a tuple's Comparable one) into its parts'. A bound of another
+// interface than taken is missByAnotherBound. taken itself is
+// missByAnotherBound only where t misses it so in turn (implBoundsMiss), and
+// otherwise missAtOwnParts: t lacks the interface the position takes.
+func (c *checker) unmetDemandMiss(t Type, bound, taken *InterfaceType) boundsMiss {
 	resolved := resolveTypeVar(t)
+	own := sameNominalIdentity(bound.Origin, bound.Name, taken.Origin, taken.Name)
 	if concreteTypeName(resolved) != "" {
-		return true
+		if own && c.implBoundsMiss(resolved, bound, taken) != missByAnotherBound {
+			return missAtOwnParts
+		}
+		return missByAnotherBound
+	}
+	if (bound.Name == "Equatable" || bound.Name == "Hashable") && c.holdsNoEqualityOutsideDeclaredTypes(resolved) {
+		if own {
+			return missAtOwnParts
+		}
+		return missByAnotherBound
 	}
 	var parts []Type
 	switch bound.Name {
 	case "Equatable", "Hashable", "Display":
 		ps, ok := displayParts(resolved)
 		if !ok {
-			return false
+			return missNotByBounds
 		}
 		parts = ps
 	case "Comparable":
 		tup, ok := resolved.(*TupleType)
 		if !ok {
-			return false
+			return missNotByBounds
 		}
 		parts = tup.Elems
 	default:
-		return false
+		return missNotByBounds
 	}
-	unmet := false
+	miss := missNotByBounds
 	for _, p := range parts {
 		if typeSatisfiesInterfaceForImplMatch(p, bound, c.implsContext(), c.implTypeArgsContext(), nil) {
 			continue
 		}
-		if !c.unmetDemandReachesNamedTypes(p, bound) {
-			return false
+		m := c.unmetDemandMiss(p, bound, taken)
+		if m == missNotByBounds {
+			return missNotByBounds
 		}
-		unmet = true
+		if m == missAtOwnParts || miss == missNotByBounds {
+			miss = m
+		}
 	}
-	return unmet
+	return miss
+}
+
+// partLackingBound is the type argument of which concrete's impl of bound
+// asks bound itself and which lacks it (missAtOwnParts), for the help that
+// names it: an `Option<Foo>` is Display only where Foo is. Nil where no
+// unmet where bound of the impl names bound.
+func (c *checker) partLackingBound(concrete Type, bound *InterfaceType) Type {
+	unmet, _ := c.unmetImplBounds(concrete, bound)
+	for _, u := range unmet {
+		if sameNominalIdentity(u.bound.Origin, u.bound.Name, bound.Origin, bound.Name) {
+			return u.arg
+		}
+	}
+	return nil
 }

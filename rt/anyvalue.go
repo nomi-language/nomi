@@ -459,7 +459,9 @@ func (k *Keys) hashRecord(r *Record) uint64 {
 }
 
 // hashFields is a struct's hash: its short name, plus an order-insensitive
-// sum over its fields, because Equal compares fields by name.
+// sum over its fields, because Equal compares fields by name whatever the
+// two records' layouts. Each field's entry is mixed whole first
+// (HashFieldEntry), so two fields' values never trade places unseen.
 func (k *Keys) hashFields(r *Record, short string) uint64 {
 	h := HashString(short)
 	l := r.Layout()
@@ -496,7 +498,9 @@ func (k *Keys) hashSlot(r *Record, f *FieldDesc) uint64 {
 }
 
 // HashFieldEntry is one named field's contribution to a struct's structural
-// hash. Hash sums these, so the fold is order-insensitive.
+// hash: the field's name and its value's hash folded through HashMix. Hash
+// sums these, so the sum is order-insensitive and each term is keyed and
+// mixed.
 func HashFieldEntry(name string, h uint64) uint64 { return HashMix(HashString(name), h) }
 
 // HashVariantHead is an enum variant's structural hash before its payload is

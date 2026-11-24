@@ -73,7 +73,7 @@ func TestRTKernels_RecordedRenderings(t *testing.T) {
 		{"marker", rtDistinct("status.Ready", nil), "Ready", "", "Ready", "", true},
 		{"named struct", point(1, 2), "Point{x: 1, y: 2}", "", "Point{x: 1, y: 2}", "<shapes.Point impl>", true},
 		{"user enum", rtVariant("shapes.Shape", "Circle", 1.5), "Circle(1.5)", "", "Circle(1.5)", "<shapes.Shape impl>", true},
-		{"Dynamic", rt.Dynamic{Inner: int64(1)}, "<dynamic: int64>", "", "1", "", false},
+		{"Dynamic", rt.Dynamic{Inner: int64(1)}, "1", "", "1", "", false},
 		{"a struct inside a prelude payload", listOf([]any{some(point(1, 2))}),
 			"[Some(Point{x: 1, y: 2})]", "", "[Some(Point{x: 1, y: 2})]", "[Some(<shapes.Point impl>)]", true},
 		{"hooked elements", listOf([]any{point(1, 2), id}),
@@ -99,7 +99,11 @@ func TestRTKernels_RecordedRenderings(t *testing.T) {
 				hook func(any) (string, bool, error)
 				want string
 			}{{"Debug", nil, tc.debug}, {"hooked Debug", rtHook, hooked}} {
-				got, err := rt.DebugText(tc.v, d.hook)
+				var hook rt.DebugHook
+				if d.hook != nil {
+					hook = rt.HookFunc(d.hook)
+				}
+				got, err := rt.DebugText(tc.v, hook)
 				if receiver, refuses := strings.CutPrefix(d.want, "refuses: "); refuses {
 					if err == nil || !strings.Contains(err.Error(), "Debug on an unrepresented receiver ("+receiver+")") {
 						t.Errorf("%s = %q, %v; want a refusal naming %s", d.what, got, err, receiver)

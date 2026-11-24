@@ -1,15 +1,12 @@
-// `Option.hash` / `Result.hash` — the DERIVED Hashable half of the two prelude
-// enums, which is `declIndex * 31 + Hashable.hash(payload)` and is NOT the
-// structural map-key hash next door in maps.go.
-//
-// Every row below exists to let two independently-derived facts contradict
-// each other; see the notes at each group.
+// `Option.hash` / `Result.hash`: the DERIVED Hashable of the two prelude
+// enums, which writes no function and is the hash a Map key of the type
+// takes. Which Int it gives is not specified, so every row prints a
+// comparison: equal values hash alike, and the rows that differ tell the
+// variants and the payloads apart.
 import std::io
 
-// A WRITTEN impl, so the payload's hash is a number nothing structural would
-// ever produce. This is the row that separates `Hashable.hash` — which a
-// program may override — from maps.go's valueHash, which deliberately cannot
-// be overridden and would answer an rt.HashMix fold here.
+// A WRITTEN impl, so every Written hashes alike: a payload hashes through
+// it, and two Options holding Writtens of different x hash alike.
 struct Written
     x: Int
 end
@@ -29,32 +26,28 @@ end
 derive Hashable for Derived
 
 fn main()
-    // Declaration index 0. `0 * 31 + h` IS `h`, so this side cannot tell a right
-    // mix from no mix, a 0-based index from a 1-based one, or a wrapping add
-    // from a trapping one. Three derivations collapse into one observation here,
-    // which is why the index-1 group below exists.
-    io.print("some int:     ${Option.hash(Some(4))}")
-    io.print("some str:     ${Option.hash(Some("bad"))}")
-    io.print("ok int:       ${Result.hash(Ok(4))}")
-    io.print("ok str:       ${Result.hash(Ok("bad"))}")
-
-    // Declaration index 1 — the only side that observes the mix at all. `none`
-    // pins the index's own base (1, not the builder's 1-based variant tag of 2,
-    // and not 31), `err str` pins `1 * 31 + h`, and `err wrap` pins that the mix
-    // WRAPS: rt.AddInt would trap on this addition and print nothing at all.
-    io.print("none:         ${Option.hash(None)}")
-    io.print("err str:      ${Result.hash(Err("bad"))}")
-    io.print("err wrap:     ${Result.hash(Err(9223372036854775807))}")
+    // The same value hashes alike, and another payload or variant apart.
+    io.print("some int:     ${Option.hash(Some(4)) == Option.hash(Some(4))}")
+    io.print("some other:   ${Option.hash(Some(4)) == Option.hash(Some(5))}")
+    io.print("ok str:       ${Result.hash(Ok("bad")) == Result.hash(Ok("bad"))}")
+    io.print("ok vs err:    ${Result.hash(Ok("bad")) == Result.hash(Err("bad"))}")
+    io.print("none:         ${Option.hash(None) == Option.hash(None)}")
+    big = Err(9223372036854775807)
+    io.print("err big:      ${Result.hash(big) == Result.hash(big)}")
 
     // The payload routes through `Hashable.hash`, in BOTH variant positions.
-    io.print("some written: ${Option.hash(Some(Written{x: 1}))}")
-    io.print("err written:  ${Result.hash(Err(Written{x: 1}))}")
-    io.print("some derived: ${Option.hash(Some(Derived{a: 2, b: 3}))}")
-    io.print("err derived:  ${Result.hash(Err(Derived{a: 2, b: 3}))}")
+    one = Written{x: 1}
+    two = Written{x: 2}
+    io.print("some written: ${Option.hash(Some(one)) == Option.hash(Some(two))}")
+    io.print("err written:  ${Result.hash(Err(one)) == Result.hash(Err(two))}")
+    d = Derived{a: 2, b: 3}
+    e = Derived{a: 2, b: 4}
+    io.print("some derived: ${Option.hash(Some(d)) == Option.hash(Some(d))}")
+    io.print("err derived:  ${Result.hash(Err(d)) == Result.hash(Err(e))}")
 
     // Reached through the pipe spelling, and as an operand.
-    io.print("piped some:   ${Some(7) |> Option.hash()}")
-    io.print("piped none:   ${None |> Option.hash()}")
+    io.print("piped some:   ${(Some(7) |> Option.hash()) == Hashable.hash(Some(7))}")
+    io.print("piped none:   ${(None |> Option.hash()) == Option.hash(None)}")
     agree = Option.hash(Some(4)) == Option.hash(Some(4))
     differ = Option.hash(Some(4)) == Option.hash(None)
     io.print("agree:        ${agree}")

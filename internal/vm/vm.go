@@ -57,6 +57,11 @@ type Machine struct {
 	// declared type name, which assertion rows render through (rowText),
 	// and on an extended machine a Debug rendering too (debugImplHook).
 	rowDebugs map[string]*ir.Symbol
+	// shapeFuncs holds the machine's own function for each interface
+	// function it answers by a value's shape (ByShape), by the interface
+	// function, and shapes the same functions as a set.
+	shapeFuncs map[string]*ir.Func
+	shapes     map[*ir.Func]bool
 	// extended says Extend linked a later lowering into this machine, as
 	// the REPL does for each input.
 	extended bool
@@ -199,6 +204,16 @@ type hostFn func(m *Machine, pos ir.Pos, args []any) (any, error)
 // that declares it, as an import names it after `std::` (`tasks` for
 // `Task.spawn`), since its key does not always start with it.
 //
+// seeded marks a pure one whose answer is a hash keyed by the run's seed
+// (`vm.hash_value`), which a rule, a literal's handler and a `check` refuse
+// (Effects.Seeded).
+//
+// written is how a program writes a call that lands on it, where its key
+// is the machine's own name: `Hashable.hash` for `vm.hash_value`. A
+// refusal names a crossing by it (crossingName), and every intrinsic a
+// refusal can name has a key or a written name a program writes, which
+// TestCrossingName_NamesWhatTheProgramWrites holds.
+//
 // defaults marks one that answers the payload of its first operand, an
 // Option's Some or a Result's Ok, and otherwise its second operand: an Option
 // or a Result fused in registers (optionfuse.go) takes it as one of the
@@ -206,6 +221,8 @@ type hostFn func(m *Machine, pos ir.Pos, args []any) (any, error)
 type intrinsic struct {
 	fn       hostFn
 	pure     bool
+	seeded   bool
+	written  string
 	held     bool
 	unlisted bool
 	defaults bool
@@ -474,14 +491,17 @@ func NewProgram(entry *ir.Module, rest []*ir.Module, out io.Writer) *Machine {
 		"Arm.after":               {fn: channelHost("Arm.after"), world: outside, std: "channels"},
 		"Receiver.receive_within": {fn: channelHost("Receiver.receive_within"), world: outside, std: "channels"},
 
+		// Feeding a channel from the process's signals (signals.go).
+		"Signal.subscribe": {fn: signalSubscribeHost, world: outside, std: "signals"},
+
 		// The two traps of a failed postfix `!` (unwrap.go).
 		"vm.bang_failed":     {fn: bangFailedHost, pure: true},
 		"vm.bang_none":       {fn: bangNoneHost, pure: true},
 		"vm.refinement_rule": {fn: refinementRuleHost, pure: true},
 		// `String.captures`' groups as the regex's capture type (captureshape.go).
 		captureShapeKey: {fn: captureShapeHost, pure: true},
-		// `Hashable.hash` of an interface value (keys.go).
-		"vm.hash_value": {fn: hashValueHost, pure: true},
+		// `Hashable.hash` of a value hashed by its shape (keys.go).
+		hashValueName: {fn: hashValueHost, pure: true, seeded: true, written: "Hashable.hash"},
 		// std/phrase/format's `variant_name`: an enum value's variant.
 		"phrase/format.variant_name": {fn: variantNameHost, pure: true},
 		"List.compare":               {fn: containerCompareHost("List.compare"), pure: true},
@@ -618,21 +638,12 @@ func (s *syncWriter) Write(p []byte) (int, error) {
 	return s.w.Write(p)
 }
 
-// target is the writer syncWriter wraps, for a decision that must be made
-// about the DESTINATION rather than about the wrapper.
-//
-// IT EXISTS FOR EXACTLY ONE CALLER AND THE CALLER IS A COLOUR DECISION.
-// `rt.ColorEnabledFor` ends in `w.(*os.File)` plus a character-device test, so
-// it answers FALSE for every `*syncWriter` — including one wrapping
-// `os.Stdout` attached to a terminal. Asking it about the wrapper would make a
-// machine over a terminal print `dbg` uncoloured where `nomi run` colours it,
-// which is a divergence in the one construct whose every line is wrapped in a
-// colour decision. See dbg.go's `dbgHost` and writer_test.go's reading.
-//
-// NOT EXPORTED AND NOT ON `Machine`: nothing outside this package may reach
-// past the serialization, which is the whole point of wrapping at
-// construction. `Output()` stays the serialized writer.
-func (s *syncWriter) target() io.Writer { return s.w }
+// Destination is the writer syncWriter wraps (rt.Destination), for a
+// decision rt makes about where the bytes land rather than about the
+// wrapper: whether colour suits them (rt.ColorEnabledFor, which `dbg` asks)
+// and whether standard output is a terminal (rt.StandardFile). Writes still
+// go through the wrapper: nothing writes to what Destination answers.
+func (s *syncWriter) Destination() io.Writer { return s.w }
 
 // Output is the writer `io.print` reaches, already serialized.
 //
@@ -879,7 +890,7 @@ func (m *Machine) irInstr(fr *frame, in ir.Instr) error {
 				fr.write(n.Dst(), s)
 				return nil
 			}
-			s, err := m.displayStructural(fr, v)
+			s, err := m.displayShape(fr, v, n.PartImpls(), fr.fn.TempType(n.Src()))
 			if err != nil {
 				return err
 			}
@@ -905,10 +916,10 @@ func (m *Machine) irInstr(fr *frame, in ir.Instr) error {
 			fr.write(n.Dst(), s)
 			return nil
 		}
-		// The Row discipline is `rt.RowText`, which AGREES with Debug on
-		// these four kinds and disagrees on a Decimal, a Dynamic, a struct,
-		// a record and a hand-written impl. render.go's six measured
-		// disagreements are why a consumer must not substitute one for
+		// The Row discipline is `rt.RowText`, which shares Debug's leaves
+		// and disagrees with it on a struct's field order, a host value with
+		// no written impl and a hand-written impl. render.go's recorded
+		// differences are why a consumer must not substitute one for
 		// another, so the one discipline with no assertion surface behind it
 		// in this machine is refused by name rather than approximated.
 		return fmt.Errorf("vm: %s: this machine does not render the %s discipline",
@@ -1141,7 +1152,7 @@ func (m *Machine) crossOver(fr *frame, n *ir.Call, name string, args []any) (any
 	if fn != nil {
 		return callAdapter(fn, fr.runtime, args)
 	}
-	return nil, fmt.Errorf("vm: %s: %s crosses into Go and this machine binds no "+
+	return nil, fmt.Errorf("vm: %s: %s is a host function, and this machine binds no "+
 		"implementation for it", fr.fn.Name(), hostadapt.DisplayName(name))
 }
 
@@ -1430,10 +1441,6 @@ func constValue(c *ir.Const) (any, error) {
 		return markerValue(c.Type().Name()), nil
 	case ir.ConstEmptyList:
 		return (*list)(nil), nil
-	case ir.ConstEmptyVector:
-		return rt.VectorOf[any](nil), nil
-	case ir.ConstEmptySet:
-		return newSet(nil), nil
 	}
 	return nil, fmt.Errorf("vm: this machine has no value for a %s constant", c.Kind())
 }

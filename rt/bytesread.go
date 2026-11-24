@@ -190,17 +190,23 @@ func BytesVarintAt(data Bytes, at Int) Option[varintAt] {
 	return Some(varintAt{IntOf(IntNot(half)), next})
 }
 
-// from is a search's start index clamped into data, as Bytes.slice clamps
-// its bounds.
-func searchFrom(data Bytes, from Int) int {
-	f := from.Saturated()
-	switch {
-	case f < 0:
-		return 0
-	case f > int64(len(data)):
-		return len(data)
+// window is the part of data a search from from up to stop reads, and the
+// index it starts at: each bound clamped into data, as Bytes.slice clamps
+// its bounds, and a stop before from reading nothing.
+func window(data Bytes, from, stop Int) (Bytes, int) {
+	clamp := func(i Int) int {
+		n := i.Saturated()
+		switch {
+		case n < 0:
+			return 0
+		case n > int64(len(data)):
+			return len(data)
+		}
+		return int(n)
 	}
-	return int(f)
+	start := clamp(from)
+	end := max(clamp(stop), start)
+	return data[start:end], start
 }
 
 // found is i, an index of data[start:] or -1, as std's Option of an index of
@@ -213,17 +219,17 @@ func found(start, i int) Option[int64] {
 }
 
 // BytesIndexOf is `Bytes.index_of`: the first index at or after from where
-// needle starts in data. An empty needle is found at from.
-func BytesIndexOf(data, needle Bytes, from Int) Option[int64] {
-	start := searchFrom(data, from)
-	return found(start, strings.Index(string(data[start:]), string(needle)))
+// needle starts and ends by stop in data. An empty needle is found at from.
+func BytesIndexOf(data, needle Bytes, from, stop Int) Option[int64] {
+	w, start := window(data, from, stop)
+	return found(start, strings.Index(string(w), string(needle)))
 }
 
 // BytesIndexOfByte is `Bytes.index_of_byte`: the first index at or after
-// from that holds b.
-func BytesIndexOfByte(data Bytes, b Byte, from Int) Option[int64] {
-	start := searchFrom(data, from)
-	return found(start, strings.IndexByte(string(data[start:]), byte(b)))
+// from and before stop that holds b.
+func BytesIndexOfByte(data Bytes, b Byte, from, stop Int) Option[int64] {
+	w, start := window(data, from, stop)
+	return found(start, strings.IndexByte(string(w), byte(b)))
 }
 
 // byteSet is a set of bytes as 256 bits, built on the stack from a set's
@@ -241,42 +247,61 @@ func byteSetOf(set Bytes) (s byteSet) {
 func (s *byteSet) has(b byte) bool { return s[b>>6]&(1<<(b&63)) != 0 }
 
 // BytesIndexOfAny is `Bytes.index_of_any`: the first index at or after
-// from that holds one of the bytes of set. Each byte of set counts on its
-// own, unlike Go's bytes.IndexAny, which reads its set as UTF-8. A set of
-// one byte is BytesIndexOfByte's search.
-func BytesIndexOfAny(data, set Bytes, from Int) Option[int64] {
-	start := searchFrom(data, from)
-	switch len(set) {
-	case 0:
-		return None[int64]()
-	case 1:
-		return found(start, strings.IndexByte(string(data[start:]), set[0]))
+// from and before stop that holds one of the bytes of set. Each byte of
+// set counts on its own, unlike Go's bytes.IndexAny, which reads its set as
+// UTF-8. A set of one byte is BytesIndexOfByte's search.
+func BytesIndexOfAny(data, set Bytes, from, stop Int) Option[int64] {
+	w, start := window(data, from, stop)
+	if len(set) == 1 {
+		return found(start, strings.IndexByte(string(w), set[0]))
 	}
+	return found(start, indexIn(w, set, true))
+}
+
+// BytesIndexOfNone is `Bytes.index_of_none`: the first index at or after
+// from and before stop whose byte is not one of set's.
+func BytesIndexOfNone(data, set Bytes, from, stop Int) Option[int64] {
+	w, start := window(data, from, stop)
+	return found(start, indexIn(w, set, false))
+}
+
+// indexIn is the first index of data whose byte is in set (in) or not in
+// it (!in), or -1.
+func indexIn(data, set Bytes, in bool) int {
 	s := byteSetOf(set)
-	for i := start; i < len(data); i++ {
-		if s.has(data[i]) {
-			return Some(int64(i))
+	for i := 0; i < len(data); i++ {
+		if s.has(data[i]) == in {
+			return i
 		}
 	}
-	return None[int64]()
+	return -1
+}
+
+// lastIndexIn is the last index of data whose byte is in set (in) or not
+// in it (!in), or -1.
+func lastIndexIn(data, set Bytes, in bool) int {
+	s := byteSetOf(set)
+	for i := len(data) - 1; i >= 0; i-- {
+		if s.has(data[i]) == in {
+			return i
+		}
+	}
+	return -1
 }
 
 // BytesLastIndexOfAny is `Bytes.last_index_of_any`: the last index that
 // holds one of the bytes of set.
 func BytesLastIndexOfAny(data, set Bytes) Option[int64] {
-	switch len(set) {
-	case 0:
-		return None[int64]()
-	case 1:
+	if len(set) == 1 {
 		return found(0, strings.LastIndexByte(string(data), set[0]))
 	}
-	s := byteSetOf(set)
-	for i := len(data) - 1; i >= 0; i-- {
-		if s.has(data[i]) {
-			return Some(int64(i))
-		}
-	}
-	return None[int64]()
+	return found(0, lastIndexIn(data, set, true))
+}
+
+// BytesLastIndexOfNone is `Bytes.last_index_of_none`: the last index whose
+// byte is not one of set's.
+func BytesLastIndexOfNone(data, set Bytes) Option[int64] {
+	return found(0, lastIndexIn(data, set, false))
 }
 
 // BytesLastIndexOf is `Bytes.last_index_of`: the last index where needle

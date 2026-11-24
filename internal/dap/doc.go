@@ -12,7 +12,7 @@
 // `nomi dap-terminal <socket>` ([RunTerminal]), which connects back over a
 // Unix socket and carries the program's standard input and output. The Zed
 // and VS Code extensions and the Neovim plugin start the server;
-// `nomi-lsp`'s Debug lenses name the commands `nomi.debugTest` and
+// `nomi lsp`'s Debug lenses name the commands `nomi.debugTest` and
 // `nomi.debugMain`.
 //
 // The message types are github.com/google/go-dap's. protocol.go adds the

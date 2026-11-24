@@ -158,9 +158,19 @@ func (fa *FileAnalysis) typeDeclaredAt(origin, name string) Type {
 
 // partType answers the type of the part of the declared type t that name
 // names, as eachDeclPart names a part (`email`, `Email`, `Email.address`,
-// `Email[0]`, `inner`, `inner[1]`), and whether t has the part. A part of
-// no type answers nil and true.
+// `Email[0]`, `inner`, `inner[1]`), at t's type arguments, and whether t
+// has the part. A part of no type answers nil and true.
 func partType(t Type, name string) (Type, bool) {
+	part, ok := declaredPartType(t, name)
+	if part == nil {
+		return part, ok
+	}
+	_, _, defs, _ := nominalInstance(t)
+	return substituteTypeParamDefs(defs, concreteTypeArgs(t), part), ok
+}
+
+// declaredPartType is partType over the declaration's own type parameters.
+func declaredPartType(t Type, name string) (Type, bool) {
 	index := -1
 	if open := strings.IndexByte(name, '['); open >= 0 && strings.HasSuffix(name, "]") {
 		i, err := strconv.Atoi(name[open+1 : len(name)-1])

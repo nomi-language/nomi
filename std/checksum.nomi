@@ -1,0 +1,179 @@
+//# Checksums that formats and protocols carry to detect accidental damage:
+//# CRC-32 (zip, gzip, PNG, Ethernet), CRC-32C (iSCSI, ext4, Kafka), CRC-64,
+//# Adler-32 (zlib) and FNV-1a. Each answers a non-negative Int, the value as
+//# its format writes it.
+//#
+//# ```nomi
+//# crc = checksum.crc32(data)
+//# ```
+//#
+//# Each has an `_update` form that takes the value so far first, so a reader
+//# checksums a stream as it reads it, a chunk at a time, with no handle:
+//# `crc32_update(crc32(a), b)` is `crc32(a ++ b)`, and the whole form is the
+//# update form started from the value of no bytes, which each function's
+//# documentation gives. An update form reads the low 32 or 64 bits of the
+//# value it is given, as std::int's wrapping operations read an operand.
+//#
+//# A checksum is not a hash an attacker cannot steer: anyone can change data
+//# and keep its CRC. To tell whether someone changed data, use std::hash.
+//#
+//# Every function here is pure and runs in the host over the whole buffer,
+//# with the processor's CRC instructions where it has them.
+
+import
+    bytes.Bytes
+    int.{Int, NonNegativeInt}
+    strings.String
+end
+
+/// The CRC-32 of `data`: the IEEE 802.3 polynomial, reflected, as zip,
+/// gzip, PNG and Ethernet compute it. `crc32_update(0, data)` is the same.
+//! import std::checksum
+//!
+//! // The standard check value: CRC-32 of the ASCII digits 1 to 9.
+//! assert checksum.crc32(String.to_bytes("123456789")) == 0xCBF43926
+//! assert checksum.crc32(String.to_bytes("")) == 0
+//
+pub fn crc32(data: Bytes) -> NonNegativeInt
+    crc32_update(0, data)
+end
+
+/// The CRC-32 of the bytes `crc` is the CRC-32 of, followed by `data`.
+//! import std::checksum
+//!
+//! whole = checksum.crc32(String.to_bytes("123456789"))
+//! part = checksum.crc32(String.to_bytes("1234"))
+//! assert checksum.crc32_update(part, String.to_bytes("56789")) == whole
+//
+pub host fn crc32_update(crc: Int, data: Bytes) -> NonNegativeInt
+
+/// The CRC-32C of `data`: the Castagnoli polynomial, as iSCSI, ext4,
+/// Btrfs and Kafka's record batches compute it. `crc32c_update(0, data)`
+/// is the same.
+//! import std::checksum
+//!
+//! assert checksum.crc32c(String.to_bytes("123456789")) == 0xE3069283
+//
+pub fn crc32c(data: Bytes) -> NonNegativeInt
+    crc32c_update(0, data)
+end
+
+/// The CRC-32C of the bytes `crc` is the CRC-32C of, followed by `data`.
+//! import std::checksum
+//!
+//! part = checksum.crc32c(String.to_bytes("12345"))
+//!
+//! assert checksum.crc32c_update(part, String.to_bytes("6789"))
+//!     == checksum.crc32c(String.to_bytes("123456789"))
+//
+pub host fn crc32c_update(crc: Int, data: Bytes) -> NonNegativeInt
+
+/// The CRC-64 of `data` with the ISO 3309 polynomial, reflected, with all
+/// ones before and after. `crc64_iso_update(0, data)` is the same.
+//! import std::checksum
+//!
+//! assert checksum.crc64_iso(String.to_bytes("123456789")) == 0xB90956C775A41001
+//
+pub fn crc64_iso(data: Bytes) -> NonNegativeInt
+    crc64_iso_update(0, data)
+end
+
+/// The CRC-64/ISO of the bytes `crc` is the CRC-64/ISO of, followed by
+/// `data`.
+//! import std::checksum
+//!
+//! part = checksum.crc64_iso(String.to_bytes("123"))
+//!
+//! assert checksum.crc64_iso_update(part, String.to_bytes("456789"))
+//!     == checksum.crc64_iso(String.to_bytes("123456789"))
+//
+pub host fn crc64_iso_update(crc: Int, data: Bytes) -> NonNegativeInt
+
+/// The CRC-64 of `data` with the ECMA-182 polynomial, reflected, with all
+/// ones before and after: the CRC xz files carry. `crc64_ecma_update(0,
+/// data)` is the same.
+//! import std::checksum
+//!
+//! assert checksum.crc64_ecma(String.to_bytes("123456789")) == 0x995DC9BBDF1939FA
+//
+pub fn crc64_ecma(data: Bytes) -> NonNegativeInt
+    crc64_ecma_update(0, data)
+end
+
+/// The CRC-64/ECMA of the bytes `crc` is the CRC-64/ECMA of, followed by
+/// `data`.
+//! import std::checksum
+//!
+//! part = checksum.crc64_ecma(String.to_bytes("12345678"))
+//!
+//! assert checksum.crc64_ecma_update(part, String.to_bytes("9"))
+//!     == checksum.crc64_ecma(String.to_bytes("123456789"))
+//
+pub host fn crc64_ecma_update(crc: Int, data: Bytes) -> NonNegativeInt
+
+/// The Adler-32 of `data` (RFC 1950), the checksum a zlib stream ends
+/// with. The Adler-32 of no bytes is 1, so `adler32_update(1, data)` is
+/// the same.
+//! import std::checksum
+//!
+//! assert checksum.adler32(String.to_bytes("123456789")) == 0x091E01DE
+//! assert checksum.adler32(String.to_bytes("")) == 1
+//
+pub fn adler32(data: Bytes) -> NonNegativeInt
+    adler32_update(1, data)
+end
+
+/// The Adler-32 of the bytes `sum` is the Adler-32 of, followed by `data`.
+//! import std::checksum
+//!
+//! part = checksum.adler32(String.to_bytes("1234567"))
+//!
+//! assert checksum.adler32_update(part, String.to_bytes("89"))
+//!     == checksum.adler32(String.to_bytes("123456789"))
+//
+pub host fn adler32_update(sum: Int, data: Bytes) -> NonNegativeInt
+
+/// The 32-bit FNV-1a hash of `data`. The FNV-1a of no bytes is its offset
+/// basis, 0x811C9DC5, so `fnv1a_32_update(0x811C9DC5, data)` is the same.
+//! import std::checksum
+//!
+//! assert checksum.fnv1a_32(String.to_bytes("a")) == 0xE40C292C
+//! assert checksum.fnv1a_32(String.to_bytes("")) == 0x811C9DC5
+//
+pub fn fnv1a_32(data: Bytes) -> NonNegativeInt
+    fnv1a_32_update(0x811C9DC5, data)
+end
+
+/// The 32-bit FNV-1a of the bytes `sum` is the FNV-1a of, followed by
+/// `data`.
+//! import std::checksum
+//!
+//! part = checksum.fnv1a_32(String.to_bytes("1234"))
+//!
+//! assert checksum.fnv1a_32_update(part, String.to_bytes("56789"))
+//!     == checksum.fnv1a_32(String.to_bytes("123456789"))
+//
+pub host fn fnv1a_32_update(sum: Int, data: Bytes) -> NonNegativeInt
+
+/// The 64-bit FNV-1a hash of `data`. The FNV-1a of no bytes is its offset
+/// basis, 0xCBF29CE484222325, so `fnv1a_64_update(0xCBF29CE484222325,
+/// data)` is the same.
+//! import std::checksum
+//!
+//! assert checksum.fnv1a_64(String.to_bytes("a")) == 0xAF63DC4C8601EC8C
+//! assert checksum.fnv1a_64(String.to_bytes("123456789")) == 0x06D5573923C6CDFC
+//
+pub fn fnv1a_64(data: Bytes) -> NonNegativeInt
+    fnv1a_64_update(0xCBF29CE484222325, data)
+end
+
+/// The 64-bit FNV-1a of the bytes `sum` is the FNV-1a of, followed by
+/// `data`.
+//! import std::checksum
+//!
+//! part = checksum.fnv1a_64(String.to_bytes("1"))
+//!
+//! assert checksum.fnv1a_64_update(part, String.to_bytes("23456789"))
+//!     == checksum.fnv1a_64(String.to_bytes("123456789"))
+//
+pub host fn fnv1a_64_update(sum: Int, data: Bytes) -> NonNegativeInt

@@ -41,8 +41,9 @@ func declaredType(t *testing.T, lib *std.StdLib, module, name string) analysis.T
 // declares in Nomi with no spec row to one def for the process: the
 // projection with no gen answers it, the same pointer every time, marked
 // with its declaring module, package-neutral and named by its declaration
-// (`json.Json.Case`); the shared lowering's functions over it take that
-// def; and a type a listed module declares has none.
+// (`json.Json.Case`); and a type a listed module declares has none. Their
+// derived impls write no function, so the shared lowering has none over
+// them to hold to the def.
 func TestStdTypes_OneDefForTheProcess(t *testing.T) {
 	lib := std.Shared().Ensure("json", "testing", "uuid")
 	for _, c := range stdTypeCases {
@@ -62,12 +63,6 @@ func TestStdTypes_OneDefForTheProcess(t *testing.T) {
 		if name, ok := stdSpecTypeName(d); !ok || name != c.spelled {
 			t.Errorf("std/%s.%s is spelled %q at run time, want %q", c.module, c.name, name, c.spelled)
 		}
-	}
-	idx := stdlibLowering()
-	caseKind := projectShared(declaredType(t, lib, "json", "Json.Case"))
-	equal := idx.byType["Json.Case.equal"]
-	if len(equal) != 1 || len(equal[0].params) != 2 || equal[0].params[0] != caseKind || !equal[0].lowerable() {
-		t.Errorf("the shared lowering's Json.Case.equal does not take the process's def: %+v", equal)
 	}
 	if k := projectShared(declaredType(t, lib, "uuid", "Uuid")); k != kindInvalid {
 		t.Errorf("std/uuid is declared with each program, but its Uuid has a shared kind %v", k)
@@ -181,57 +176,61 @@ func stdTypesFingerprint(t *testing.T, path string) {
 // it imports that is stopped, or "none".
 var listedModuleStops = map[string]string{
 	"actors":           "declares a generic type",
-	"bits":             "none",
-	"bytes/cursor":     "none",
-	"csv":              "position: iter",
-	"embed":            "position: iter",
-	"fs":               "position: iter",
+	"cipher":           "none",
+	"compress":         "none",
+	"csv":              "none",
+	"embed":            "none",
+	"fs":               "none",
 	"fs/testing":       "declares a generic type",
-	"html":             "position: interface value",
-	"http":             "position: iter",
-	"http/testing":     "position: interface value",
-	"jobs":             "position: interface value",
-	"jobs/testing":     "position: interface value",
+	"html":             "none",
+	"http":             "position: generic std type instance",
+	"http/testing":     "declares a generic type",
+	"jobs":             "declares a generic type",
+	"jobs/testing":     "position: generic std type instance",
 	"jwt":              "none",
+	"key_exchange":     "none",
+	"system":           "none",
 	"literals/testing": "none",
 	"log":              "none",
 	"log/testing":      "declares a generic type",
-	"mail":             "imports std/html",
-	"mail/testing":     "position: std type with no shared def: non-scalar field type",
-	"money":            "position: iter",
+	"mail":             "none",
+	"mail/testing":     "none",
+	"money":            "none",
 	"net":              "none",
 	"parse":            "position: generic std type instance",
-	"passwords":        "position: interface value",
-	"path":             "none",
-	"phrase":           "position: interface value",
+	"passwords":        "none",
+	"phrase":           "none",
 	"presence":         "declares a generic type",
 	"process":          "none",
 	"process/testing":  "declares a generic type",
 	"reverse":          "declares a generic type",
+	"secret":           "none",
 	"sessions":         "declares a generic type",
-	"signatures":       "none",
-	"sql":              "position: interface value",
-	"sql/testing":      "position: interface value",
-	"storage":          "position: iter",
-	"storage/testing":  "position: interface value",
+	"sql":              "imports std/uuid",
+	"sql/testing":      "imports std/sql",
+	"storage":          "imports std/http",
+	"storage/testing":  "imports std/storage",
+	"terminal":         "none",
 	"tls":              "none",
-	"toml":             "position: interface value",
+	"toml":             "none",
+	"udp":              "none",
 	"url":              "none",
 	"uuid":             "imports std/parse",
 	"wasm":             "none",
 	"websocket":        "imports std/http",
-	"xml":              "position: iter",
+	"xml":              "none",
 }
 
 // TestStdObjects_WhatStopsEachListedModule is TestStdObjects_WhatHoldsEachModuleShared
 // in the other direction: for every module declared with each program, with
-// the registry answering those modules' types too (stdTypesListed), what
-// the shared lowering could not hold of it. Its causes, each counted:
+// the registry answering those modules' types and interfaces too
+// (stdTypesListed), what the shared lowering could not hold of it. Its
+// causes, each counted:
 //
 //   - a signature position of one of its functions or `once`s that still
-//     has no kind with no gen, by sharedRefusalCause: an interface held as
-//     a value, an Iter, an instance of a generic std type, or a std type
-//     the registry built and did not admit, with the reason;
+//     has no kind with no gen, by sharedRefusalCause: an Iter, an instance
+//     of a generic std type or interface, or a std type or interface the
+//     registry built and did not admit, with the reason;
 //   - a type it declares that the registry did not admit, with the reason;
 //   - a generic type it declares, whose instances at a program's types the
 //     process holds none of;
@@ -431,5 +430,61 @@ func TestStdTypes_AGenericDeclarationHasNoSharedDef(t *testing.T) {
 		if why := stdTypeWhy(stdTypeKey{origin: "std/" + c.module, name: c.name}); why != "generic type" {
 			t.Errorf("std/%s.%s has no shared def because %q, want %q", c.module, c.name, why, "generic type")
 		}
+	}
+}
+
+// TestStdTypes_EveryStdInterfaceHasOneDef holds every interface a shared
+// std module declares in Nomi with no spec row to one def for the process
+// (stdtypes.go): the registry admits a non-generic one, the projection with
+// no gen answers its existential, the same pointer each time, marked with
+// its declaring module and package-neutral; a generic one's def is the
+// registry's template, which no value holds. The shared lowering's
+// `Json.encode_as` takes the process's ToJson.
+func TestStdTypes_EveryStdInterfaceHasOneDef(t *testing.T) {
+	lib := std.All()
+	var g *gen
+	admitted, templates := 0, 0
+	for module, nodes := range lib.Nodes {
+		if isProgramStd(module) {
+			continue
+		}
+		origin := "std/" + module
+		for _, n := range nodes {
+			id, ok := n.(*ast.InterfaceDef)
+			if !ok || id.Name == structIfaceName || id.Name == "Iter" ||
+				stdSpecIface(analysis.StdType{Module: origin, Name: id.Name}) != nil {
+				continue
+			}
+			d := g.stdDeclaredIface(origin, id.Name)
+			if d == nil {
+				t.Errorf("std/%s.%s has no process-wide def: %s", module, id.Name, stdTypeWhy(stdTypeKey{origin: origin, name: id.Name}))
+				continue
+			}
+			if d.stdOrigin != origin || d.decl != id {
+				t.Errorf("std/%s.%s: the def is marked %q for another declaration", module, id.Name, d.stdOrigin)
+			}
+			if len(id.TypeParams) > 0 {
+				templates++
+				if stdProgTemplate(d) == nil || existential(d).packageNeutral() {
+					t.Errorf("std/%s.%s is generic, and its def is not a template no value holds", module, id.Name)
+				}
+				continue
+			}
+			admitted++
+			ty := declaredType(t, lib, module, id.Name)
+			k := projectShared(ty)
+			if k != existential(d) || projectShared(ty) != k || !k.packageNeutral() {
+				t.Errorf("std/%s.%s: the projection with no gen is %v, want the process's def", module, id.Name, k)
+			}
+		}
+	}
+	if admitted == 0 || templates == 0 {
+		t.Fatalf("%d interfaces admitted and %d templates; the enumeration is wrong", admitted, templates)
+	}
+	t.Logf("%d std interfaces with one def for the process, %d generic templates", admitted, templates)
+	toJson := projectShared(declaredType(t, lib, "json", "ToJson"))
+	encode := stdlibLowering().byType["Json.encode_as"]
+	if len(encode) != 1 || len(encode[0].params) != 1 || encode[0].params[0] != toJson || !encode[0].lowerable() {
+		t.Errorf("the shared lowering's Json.encode_as does not take the process's ToJson: %+v", encode)
 	}
 }

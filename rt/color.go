@@ -30,25 +30,13 @@ const (
 // ColorEnabledFor reports whether colour should be written to w.
 //
 // The precedence — explicit NOMI_COLOR, then NO_COLOR/TERM=dumb, then
-// CLICOLOR_FORCE, then "is it a character device" — is stated only here, and
-// nomi/internal/termcolor calls it.
+// CLICOLOR_FORCE (ColorChosen), then "is it a character device" — is stated
+// only here, and nomi/internal/termcolor calls it.
 func ColorEnabledFor(w io.Writer) bool {
-	switch strings.ToLower(os.Getenv("NOMI_COLOR")) {
-	case "always", "1", "true", "yes", "force":
-		return true
-	case "never", "0", "false", "no":
-		return false
+	if on, decided := ColorChosen(); decided {
+		return on
 	}
-	if os.Getenv("NO_COLOR") != "" || strings.ToLower(os.Getenv("TERM")) == "dumb" {
-		return false
-	}
-	if os.Getenv("CLICOLOR_FORCE") != "" {
-		return true
-	}
-	if t, ok := w.(interface{ colourTarget() io.Writer }); ok {
-		w = t.colourTarget()
-	}
-	f, ok := w.(*os.File)
+	f, ok := destinationOf(w).(*os.File)
 	if !ok {
 		return false
 	}
@@ -57,6 +45,27 @@ func ColorEnabledFor(w io.Writer) bool {
 		return false
 	}
 	return info.Mode()&os.ModeCharDevice != 0
+}
+
+// ColorChosen is what the process's environment says of colour before any
+// device is asked: NOMI_COLOR first, then NO_COLOR or TERM=dumb (off), then
+// CLICOLOR_FORCE (on). decided is false when none of them says. std::terminal's
+// `supports_color` asks it before it asks whether the stream is a terminal,
+// so a program's colour follows the rule the runtime's own output does.
+func ColorChosen() (on, decided bool) {
+	switch strings.ToLower(os.Getenv("NOMI_COLOR")) {
+	case "always", "1", "true", "yes", "force":
+		return true, true
+	case "never", "0", "false", "no":
+		return false, true
+	}
+	if os.Getenv("NO_COLOR") != "" || strings.ToLower(os.Getenv("TERM")) == "dumb" {
+		return false, true
+	}
+	if os.Getenv("CLICOLOR_FORCE") != "" {
+		return true, true
+	}
+	return false, false
 }
 
 // Color wraps s in an ANSI code when colour is on for stdout.

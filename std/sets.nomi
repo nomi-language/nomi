@@ -39,7 +39,7 @@ end
 
 impl Set<T>
     /// `s` with `elem` added. A set that already holds `elem` comes back
-    /// unchanged.
+    /// unchanged. It costs what `Map.put` does.
     //! assert Set.insert([1, 2], 3) == [1, 2, 3]
     //! assert Set.insert([1, 2], 2) == [1, 2]
     //
@@ -139,7 +139,7 @@ impl Display for Set<T> where T: Display
     end
 end
 
-impl Debug for Set<T>
+impl Debug for Set<T> where T: Debug
     fn inspect(s: Set<T>) -> String
         inner =
             Iter.map(s, &Debug.inspect(&1))
@@ -150,19 +150,18 @@ impl Debug for Set<T>
 end
 
 impl Equatable for Set<T>
-    fn equal(a: Set<T>, b: Set<T>) -> Bool
-        a == b
-    end
+    /// Whether the two sets hold the same elements, whatever order they
+    /// were inserted in. The machine compares the elements, so they need
+    /// equality of their own.
+    host fn equal(a: Set<T>, b: Set<T>) -> Bool
 end
 
 impl Hashable for Set<T> where T: Hashable
-    // The hash of the backing `Map<T, Bool>`: each element is an entry whose
-    // value is True (hash 31), combined with the same commutative `+`.
-    fn hash(s: Set<T>) -> Int
-        Iter.reduce(s, 0, fn acc, x ->
-            Int.wrapping_add(acc, Int.wrapping_add(Int.wrapping_mul(Hashable.hash(x), 31), 31))
-        end)
-    end
+    /// The hash a Set element of this type takes: the elements' hashes,
+    /// each mixed, added, so two sets `==` calls equal hash alike whatever
+    /// order their elements were inserted in. It is keyed by the run, so
+    /// it may differ between runs.
+    host fn hash(s: Set<T>) -> Int
 end
 
 impl Add<Set<T>, Set<T>> for Set<T>

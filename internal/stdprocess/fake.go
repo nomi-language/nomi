@@ -141,6 +141,7 @@ func (fake *Fake) start(fr *rt.Frame, s spec) (*child, *rt.IOError) {
 	rec := &call{program: s.program, args: s.args, dir: s.dir, env: s.env}
 	fake.mu.Lock()
 	fake.calls = append(fake.calls, rec)
+	id := int64(len(fake.calls))
 	var found *answer
 	for i := range fake.answers {
 		a := &fake.answers[i]
@@ -158,7 +159,7 @@ func (fake *Fake) start(fr *rt.Frame, s spec) (*child, *rt.IOError) {
 		return nil, &e
 	}
 
-	c := &child{program: s.program, finished: true, status: []int64{0, found.code}}
+	c := &child{program: s.program, id: id, group: s.newGroup, finished: true, status: []int64{0, found.code}}
 	switch s.stdin {
 	case stdinReader:
 		if r := rt.ReaderReadAll(fr, s.input); r.Tag == rt.TagOk {

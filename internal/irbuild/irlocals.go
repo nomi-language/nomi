@@ -129,7 +129,7 @@ func (bl *irScalarBuilder) readKey(t *ast.Ident) (key analysis.Pos, local, known
 	if sym == nil {
 		return analysis.Pos{}, false, false
 	}
-	if bodyBinding(g.srcFA(), sym) {
+	if g.bodyBinding(sym) {
 		return sym.Pos, true, true
 	}
 	return analysis.Pos{}, false, true

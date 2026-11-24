@@ -1,0 +1,168 @@
+//# The signals that ask a running program to do something and keep
+//# running: `SIGHUP`, which asks a service to read its configuration again,
+//# `SIGUSR1` and `SIGUSR2`, which a program gives its own meaning, such as
+//# reopening its log files or writing out its state, and `SIGWINCH`, which
+//# says the terminal changed size. `signals.receiver`
+//# makes each arrival of the signals it is given a value on a channel, so a
+//# task waits for one beside its other work, in a `Channel.select` with a
+//# timer or another channel:
+//#
+//# ```nomi
+//# reloads = signals.receiver([Signal.Hangup])?
+//#
+//# Channel.select([
+//#     Arm.receive(reloads, fn _ -> reload()),
+//#     Arm.after(Duration.minutes(1), fn -> flush()),
+//# ])
+//# ```
+//#
+//# `signals.each` runs a handler for each arrival as a task of a
+//# supervisor. Until a program subscribes, `SIGHUP`, `SIGUSR1` and
+//# `SIGUSR2` end it, as they end any process that does not handle them, and
+//# `SIGWINCH` is ignored.
+//#
+//# `SIGINT` and `SIGTERM` are not among them, and nothing lets a program
+//# catch, delay or ignore them: they ask a program to stop, and a Nomi
+//# program always stops when asked. The runtime drains the supervisors, runs
+//# boot's deferred cleanup and exits. A program that needs longer to finish
+//# its work gives the supervisor doing it a longer `shutdown_timeout`, and
+//# what must run on the way out goes in a `defer` in `boot`
+//# ([Concurrency](/spec/concurrency/)).
+
+import
+    channels.{Channel, Receiver, Sender}
+    display.Display
+    equatable.Equatable
+    iter.Iter
+    lists.List
+    option.Option.{self, None, Some}
+    results.Result.{self, Err, Ok}
+    strings.String
+    supervisors.Supervisor
+    unit.Unit
+end
+
+/// A signal a program may receive. Each is a POSIX signal, and its
+/// `Display` is the signal's name.
+pub enum Signal
+    /// `SIGHUP`: by convention, read the configuration again.
+    Hangup
+    /// `SIGUSR1`, which the program gives a meaning.
+    User1
+    /// `SIGUSR2`, which the program gives a meaning.
+    User2
+    /// `SIGWINCH`: the terminal the program runs in changed size, which
+    /// std::terminal's `terminal.size()` then answers.
+    WindowChange
+end
+
+derive Equatable for Signal
+
+impl Display for Signal
+    //! import std::signals.Signal
+    //!
+    //! assert "${Signal.Hangup}" == "SIGHUP"
+    //! assert "${Signal.User2}" == "SIGUSR2"
+    //! assert "${Signal.WindowChange}" == "SIGWINCH"
+    //
+    fn to_string(signal: Signal) -> String
+        case signal
+            .Hangup       -> "SIGHUP"
+            .User1        -> "SIGUSR1"
+            .User2        -> "SIGUSR2"
+            .WindowChange -> "SIGWINCH"
+        end
+    end
+end
+
+impl Signal
+    /// Sends `values[i]` on `sender` for each arrival of the signal
+    /// `names[i]` names, until the calling task ends or the program
+    /// drains, then closes the channel; `Some` of why when this system
+    /// delivers no signals. Generic, as every function over a channel
+    /// half is, so the checker records the instantiation it lowers by.
+    host fn subscribe<T>(sender: Sender<T>, values: List<T>, names: List<String>) -> Option<String>
+end
+
+/// Why a program cannot receive signals.
+pub enum Error
+    /// This system sends a program none of the signals: Windows, a
+    /// browser and a WASI host.
+    Unsupported {reason: String}
+end
+
+derive Equatable for Error
+
+impl Display for Error
+    //! import std::signals.Error
+    //!
+    //! reason = "Windows has no SIGHUP, SIGUSR1, SIGUSR2 or SIGWINCH"
+    //! assert "${Error.Unsupported{reason:}}" == "signals are unsupported: ${reason}"
+    //
+    fn to_string(error: Error) -> String
+        case error
+            .Unsupported{reason:} -> "signals are unsupported: ${reason}"
+        end
+    end
+end
+
+/// A channel on which each arrival of a signal in `wanted` is a value,
+/// from this call on, while the calling task runs. A `SIGHUP`, `SIGUSR1`
+/// or `SIGUSR2` it wants no longer ends the program.
+///
+/// The system does not queue a signal: while a value waits on the channel,
+/// unreceived, more arrivals of the same signal are dropped, so a burst
+/// is one value per signal to a task that is busy.
+///
+/// The channel closes, and a receive on it answers `None`, when the task
+/// or `concurrent` block that made it ends and when the program starts
+/// shutting down, which drops a signal that arrives during the drain. Its
+/// signals then act as they did before it, ending the program or, for
+/// `SIGWINCH`, doing nothing, unless another receiver still wants them;
+/// each receiver gets each arrival. A receiver that wants no
+/// signal is closed at once, since nothing will arrive on it.
+///
+/// `Err(Error.Unsupported)` on Windows, in a browser and on WASI, whatever
+/// `wanted` holds, so `receiver([])` asks whether this system has signals.
+//! case signals.receiver([])
+//!     Ok(none) -> assert Receiver.receive(none) == None
+//!     Err(e)   -> assert String.starts_with("${e}", "signals are unsupported: ")
+//! end
+//
+pub fn receiver(wanted: List<Signal>) -> Result<Receiver<Signal>, Error>
+    channel = Channel.unbuffered<Signal>()
+    names = wanted |> Iter.map(&Display.to_string(&1)) |> Iter.to_list()
+
+    case Signal.subscribe(channel.sender, wanted, names)
+        Some(reason) -> Err(Error.Unsupported{reason:})
+        None         -> Ok(channel.receiver)
+    end
+end
+
+/// Runs `handler` for each arrival of a signal in `wanted`, each as a task
+/// of `supervisor`, as `signals.receiver` delivers them. Returns `Ok` when
+/// the calling task ends or the program starts shutting down, and
+/// `Err(Error.Unsupported)` where `signals.receiver` does.
+pub fn each(
+    wanted:     List<Signal>,
+    handler:    (Signal) -> Unit,
+    supervisor: Supervisor,
+) -> Result<Unit, Error>
+    arrivals = receiver(wanted)?
+    Ok(handle_each(arrivals, handler, supervisor))
+end
+
+fn handle_each(
+    arrivals:   Receiver<Signal>,
+    handler:    (Signal) -> Unit,
+    supervisor: Supervisor,
+) -> Unit
+    case Receiver.receive(arrivals)
+        Some(signal) ->
+            _ = Supervisor.spawn(supervisor, fn -> handler(signal))
+            handle_each(arrivals, handler, supervisor)
+
+        None ->
+            Unit
+    end
+end

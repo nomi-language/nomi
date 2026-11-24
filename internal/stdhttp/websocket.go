@@ -3,7 +3,6 @@ package stdhttp
 import (
 	"context"
 	"errors"
-	"net/http"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -35,8 +34,8 @@ func wsOf(h rt.HTTPHandle) *wsConn {
 	return w
 }
 
-func wsOptions(client bool, max, ping, idle int64) websocket.Options {
-	return websocket.Options{Client: client, MaxMessage: max, PingInterval: dur(ping), IdleTimeout: dur(idle)}
+func wsOptions(client, deflate bool, max, ping, idle int64) websocket.Options {
+	return websocket.Options{Client: client, Deflate: deflate, MaxMessage: max, PingInterval: dur(ping), IdleTimeout: dur(idle)}
 }
 
 func wsHandle(c *websocket.Conn, protocol string) rt.HTTPHandle {
@@ -51,31 +50,43 @@ func WsAcceptKey(key string) string { return websocket.AcceptKey(key) }
 // WsValidKey is `std::http::host.ws_valid_key`.
 func WsValidKey(key string) bool { return websocket.ValidKey(key) }
 
+// WsDeflateResponse is `std::http::host.ws_deflate_response`: the
+// Sec-WebSocket-Extensions value a server answers a client's extension
+// offers with to take permessage-deflate, or "" when it can take none
+// (websocket.AcceptDeflate).
+func WsDeflateResponse(offers *rt.List[string]) string {
+	return websocket.AcceptDeflate(strsOf(offers))
+}
+
 // WsOpen is `std::http::host.ws_open`: a WebSocket over a connection whose
-// handshake is done. Deadlines a server left on a hijacked connection are
-// cleared. The connection is the WebSocket's from here on.
-func WsOpen(conn rt.NetConn, client bool, maxArg, pingArg, idleArg rt.Int) rt.HTTPHandle {
+// handshake is done, with permessage-deflate when the handshake agreed it.
+// Deadlines a server left on a hijacked connection are cleared. The
+// connection is the WebSocket's from here on.
+func WsOpen(conn rt.NetConn, client, deflate bool, maxArg, pingArg, idleArg rt.Int) rt.HTTPHandle {
 	max := maxArg.Saturated()
 	ping := pingArg.Saturated()
 	idle := idleArg.Saturated()
 	x := connOf(conn)
 	_ = x.c.SetDeadline(time.Time{})
-	return wsHandle(websocket.New(x.c, nil, wsOptions(client, max, ping, idle)), "")
+	return wsHandle(websocket.New(x.c, nil, wsOptions(client, deflate, max, ping, idle)), "")
 }
 
 // WsConnect is `std::http::host.ws_connect`: the client's opening handshake over
-// conn, its request target and headers given, offering protocols.
-func WsConnect(fr *rt.Frame, conn rt.NetConn, host, target string, headers, protocols *rt.List[string], maxArg, pingArg, idleArg rt.Int) rt.Result[rt.HTTPHandle, *rt.List[string]] {
+// conn, its request target and headers given, offering protocols, and
+// permessage-deflate when compress.
+func WsConnect(fr *rt.Frame, conn rt.NetConn, host, target string, headers, protocols *rt.List[string], compress bool, maxArg, pingArg, idleArg rt.Int) rt.Result[rt.HTTPHandle, *rt.List[string]] {
 	max := maxArg.Saturated()
 	ping := pingArg.Saturated()
 	idle := idleArg.Saturated()
 	x := connOf(conn)
-	h := http.Header{}
-	for l := headers; l != nil && l.Tail != nil; l = l.Tail.Tail {
-		h.Add(l.Head, l.Tail.Head)
+	h := withUserAgent(header(headers))
+	if h.Get("User-Agent") == "" {
+		// "" asks for none, as Go's writers read it; the handshake writes
+		// every header it is given.
+		h.Del("User-Agent")
 	}
-	req := websocket.Request{Host: host, Target: target, Header: h, Protocols: strsOf(protocols)}
-	c, resp, err := websocket.Client(frameContext(fr), x.c, req, wsOptions(true, max, ping, idle))
+	req := websocket.Request{Host: host, Target: target, Header: h, Protocols: strsOf(protocols), Compress: compress}
+	c, resp, err := websocket.Client(frameContext(fr), x.c, req, wsOptions(true, false, max, ping, idle))
 	if err != nil {
 		_ = x.c.Close()
 		return rt.Err[rt.HTTPHandle](listOf(wsErrParts(err, host)))

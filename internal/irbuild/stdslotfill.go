@@ -246,7 +246,7 @@ func (bl *irScalarBuilder) fillStdInstDefaults(at ast.Node, kinds []kind, temps 
 	for _, inst := range accessors {
 		slot := inst.slot
 		// The instance's signature is held to operand kinds (queue).
-		k := g.stdProgHere(inst.view.params[slot])
+		k := inst.view.params[slot]
 		c := ir.NewCall(pos, bl.f.NewTemp(), ir.OrdinaryCall, inst.sym, temps[:slot]...)
 		bl.b.Append(c)
 		bl.side(c.Dst(), irScalarSide{k: k})

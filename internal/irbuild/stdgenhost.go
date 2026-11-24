@@ -496,7 +496,7 @@ var stdMarkerSpecs = []stdMarkerSpec{
 //
 // A genuine zero-sized MARKER, so `rtOpaque` is deliberately NOT set: there is
 // nothing inside one, two of them ARE always equal, the hash IS the unit hash
-// and `zeroSized()` IS true. That is the exact opposite of stdhost.go's `Bytes`,
+// and `irRetainedMarker` IS true. That is the exact opposite of stdhost.go's `Bytes`,
 // which is a leaf WITH contents, and the two are one line apart on purpose.
 var stdMarkerDefs = sync.OnceValue(func() []*typeDef {
 	defs := make([]*typeDef, len(stdMarkerSpecs))

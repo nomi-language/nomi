@@ -4,9 +4,11 @@ import (
 	"flag"
 	"fmt"
 	"hash/fnv"
+	"maps"
 	"math/rand"
 	"os"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -19,16 +21,39 @@ import (
 	"github.com/nomi-language/nomi/internal/rotation"
 )
 
-// fuzzProjects are the projects the fuzzer edits: orderProject and the
-// multi-file corpus directories, in a fixed order, so an input's project
-// index names the same project on every machine.
+// fuzzProjects are the projects the fuzzer edits: orderProject, the
+// multi-file corpus directories, layeredProject and unseenInterfaceProject,
+// in a fixed order, so an input's project index names the same project on
+// every machine.
 func fuzzProjects(tb testing.TB) []incrementalProject {
 	tb.Helper()
 	corpus, err := corpusProjects()
 	if err != nil {
 		tb.Fatal(err)
 	}
-	return append(append([]incrementalProject{orderIncremental()}, corpus...), layeredProject())
+	return append(append([]incrementalProject{orderIncremental()}, corpus...), layeredProject(), unseenInterfaceProject())
+}
+
+// handSeed is an input the fuzzers start from besides each project's own
+// texts: a project of fuzzProjects and a file of it by index, and the
+// file's new text.
+type handSeed struct {
+	project, file uint
+	src           string
+}
+
+// handSeeds are the fuzzers' hand-written inputs: unseenInterfaceProject's
+// iface with a default `size` added, which lib reads through other's impl
+// without importing iface (unseenInterfaceEdits).
+func handSeeds(projects []incrementalProject) []handSeed {
+	i := len(projects) - 1
+	p := projects[i]
+	keys := slices.Sorted(maps.Keys(p.texts))
+	src, ok := unseenInterfaceEdits[0].change(p.texts["iface"], p.texts["iface"])
+	if p.name != unseenInterfaceProject().name || !ok {
+		panic("fuzzProjects no longer ends with unseenInterfaceProject, or its first edit does not apply")
+	}
+	return []handSeed{{uint(i), uint(slices.Index(keys, "iface")), src}}
 }
 
 // projectFile answers the project and the file an input's indexes name.
@@ -159,6 +184,9 @@ func FuzzIncrementalMatchesFull(f *testing.F) {
 				f.Add(uint(i), uint(j), p.texts[key])
 			}
 		}
+	}
+	for _, s := range handSeeds(projects) {
+		f.Add(s.project, s.file, s.src)
 	}
 	f.Fuzz(func(t *testing.T, project, file uint, src string) {
 		if !utf8.ValidString(src) || len(src) > 2*fuzzSeedText {

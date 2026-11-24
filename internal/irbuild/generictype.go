@@ -1,6 +1,7 @@
 package irbuild
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/analysis"
@@ -274,6 +275,64 @@ func implReceiverBaseName(te ast.TypeExpr) string {
 
 // --- the per-gen intern table ------------------------------------------------
 
+// typeInstCap and typeInstSizeCap bound the instances genericInstance
+// builds. It refuses an instance built inside typeInstCap others, or one
+// whose arguments are made of more than typeInstSizeCap types
+// (kindsHoldAtMost), with the reason `generic instantiation depth` naming
+// it. An instance is built inside another when the outer one's fields or
+// impl signatures name it. A type whose parts hold itself at a strictly
+// larger argument (`inner: Option<Nested<List<T>>>` in `struct Nested<T>`)
+// would make that chain endless, and the checker rejects it (polymorphic
+// recursion, internal/analysis's instantiation_cycle.go), so the bounds
+// refuse only what the checker cannot see: an impl of a generic interface
+// at a larger instance of its receiver (`impl Deeper<Box<Box<T>>> for
+// Box<T>`), a cycle through a type whose declaration the checker's walk
+// does not find, or a builder that resolved an impl's signature at the
+// wrong arguments. A same-argument mention (`next: Option<Node<T>>`)
+// re-finds the interned instance and costs nothing.
+//
+// Both are needed. A chain that grows by one type at each instance
+// (`Box<Box<T>>`) reaches the depth first. One that doubles
+// (`Box<(T, T)>`, `P<P<A, B>, P<A, B>>`) holds 2^d types at depth d, and
+// every walk over a type (its spelling, its linkage key, the projection of
+// the checker's type for it) costs that much, so it is stopped by size
+// while the walks are still short. The values are fences, as monoInstCap's
+// is: across `std/` and `tests/` no instance is built inside more than two
+// others, and none has arguments made of more than 16 types.
+const (
+	typeInstCap     = 32
+	typeInstSizeCap = 256
+)
+
+// kindsHoldAtMost reports whether the kinds ks are made of at most n types
+// in all, each counting itself and the kinds it is made of: a composite's
+// parts, a std instance's arguments (kindParts), a program instance's and an
+// interface instance's arguments. It stops counting once the count passes
+// n, so it takes at most n steps however large the kinds are: a kind shares
+// its parts, and `(X, X)` nested d deep is d kinds and 2^d types.
+func kindsHoldAtMost(ks []kind, n int) bool {
+	var within func(ks []kind) bool
+	within = func(ks []kind) bool {
+		for _, k := range ks {
+			if n--; n < 0 {
+				return false
+			}
+			parts := kindParts(k)
+			switch {
+			case k.def != nil && len(k.def.genericArgs) > 0:
+				parts = k.def.genericArgs
+			case k.iface != nil:
+				parts = k.iface.instArgs
+			}
+			if !within(parts) {
+				return false
+			}
+		}
+		return true
+	}
+	return within(ks)
+}
+
 // genericInstance is the def for `tpl<args>`, interned per gen.
 //
 // Inserted into the table BEFORE its fields are resolved, so a self-referential
@@ -282,6 +341,9 @@ func implReceiverBaseName(te ast.TypeExpr) string {
 // buildTypes does for a module declaration.
 func (g *gen) genericInstance(tpl *genericTemplate, args []kind, types []analysis.Type) (kind, bool) {
 	defer changingTypes()()
+	if g.genericInstCalls++; g.genericInstBudget > 0 && g.genericInstCalls > g.genericInstBudget {
+		panic(fmt.Sprintf("irbuild: genericInstance was called more than %d times", g.genericInstBudget))
+	}
 	if tpl.why != "" {
 		return kindInvalid, false
 	}
@@ -327,6 +389,20 @@ func (g *gen) genericInstance(tpl *genericTemplate, args []kind, types []analysi
 	}
 	g.genericInsts[key] = append(g.genericInsts[key], d)
 	g.genericInstOrder = append(g.genericInstOrder, d)
+	if deep := g.genericInstNesting >= typeInstCap; deep || !kindsHoldAtMost(args, typeInstSizeCap) {
+		// Interned refused, so a second mention gets the same answer.
+		d.lowerable = false
+		d.why = "generic instantiation depth"
+		d.whyDetail = fmt.Sprintf("the arguments of %s are made of more than %d types; the chain does not terminate",
+			tpl.nomi, typeInstSizeCap)
+		if deep {
+			d.whyDetail = fmt.Sprintf("%s<%s> is built inside %d other instances; the chain does not terminate",
+				tpl.nomi, kindsNomi(args), g.genericInstNesting)
+		}
+		return kindInvalid, false
+	}
+	g.genericInstNesting++
+	defer func() { g.genericInstNesting-- }()
 
 	g.pushGenericSubst(substType, tpl, args, types)
 	switch decl := tpl.decl.(type) {
@@ -361,9 +437,6 @@ func (g *gen) genericInstance(tpl *genericTemplate, args []kind, types []analysi
 	// exactly as it is in buildTypes, where the identical loop runs over every
 	// def. Two passes over one list, each doing the half that is its own.
 	d.boxFields()
-	// After the field boxing, which is buildTypes' order, for a reason that
-	// applies here unchanged: a boxed field is never zero-sized, and
-	// zero-sizedness decides whether a payload gets a slot at all.
 	d.assignSlots()
 	g.settleLowerable([]*typeDef{d})
 	if !d.lowerable {
@@ -489,9 +562,15 @@ func (g *gen) popGenericSubst() { g.popSubst() }
 // up from a kind. A call's and an operator's record is read at these types
 // (calleeAt, operatorUseAt); under test pushSubst holds each to its kind
 // (verifySubst).
+//
+// opens marks the frame of a declaration the builder entered while it was
+// lowering another one (substOpens): the frames below it are that other
+// declaration's, which this one cannot name, so a lookup stops at it
+// (visibleSubst).
 type substFrame struct {
 	kinds   map[string]kind
 	checked map[string]analysis.Type
+	opens   bool
 }
 
 // newSubstFrame is the frame binding params to args and, where types has
@@ -530,8 +609,14 @@ const (
 	// substMethod is an impl function with type parameters of its own
 	// (methodInstance), under its block's frame.
 	substMethod
+	// substIface is a generic interface's instance while its declaration
+	// resolves (ifaceInstAtTyped).
+	substIface
 	// substIfaceImpl is the generic interface an impl block implements
-	// (`impl Holds<Int> for Box`), at the block's arguments.
+	// (`impl Holds<Int> for Box`), at the block's arguments, around the code
+	// the block takes from the interface's declaration: the defaults it
+	// inherits (enterIfaceCode). The block's own functions cannot name the
+	// interface's parameters and are never under it.
 	substIfaceImpl
 	// substIfaceDefault is an interface default instantiated per receiver.
 	substIfaceDefault
@@ -550,17 +635,60 @@ const (
 	substEntries
 )
 
-var substEntryNames = [substEntries]string{
-	substMono: "program generic fn", substNested: "generic nested fn",
-	substType: "generic type fields", substImpl: "impl of a generic type",
-	substMethod: "generic impl fn", substIfaceImpl: "generic interface of an impl",
-	substIfaceDefault: "interface default", substParamDefault: "parameter default at a call",
-	substStd:   "std generic fn",
-	substAlias: "generic typealias", substRefinement: "generic refinement",
-	substProbe: "probe",
+// substScope is what an entry's frame says about the frames below it.
+//
+// A type parameter is its declaration, not its spelling. The checker
+// resolves a written type name in a lexical scope, innermost declaration
+// first, and records the parameter it found by its spelling
+// (analysis.TypeParam_), which names one declaration among those in scope
+// there. The frame stack is the builder's copy of that scope: it holds the
+// frames of the declaration being built and of the declarations it is
+// written inside. The builder also enters a declaration while it lowers
+// another one: `Box<Option<Int>>`'s impl functions are registered while
+// the call in `fn mk<S>` that first names the instance is lowered, so
+// mk's frame is below the block's. Box's block declares `fn make<S>`,
+// whose `S` no frame of the block binds, and mk's `S` must not answer for
+// it. So an entry that opens a declaration hides the frames below it.
+// The same holds within one impl block: `impl Holds<List<T>> for Box<T>`
+// binds the block's `T` to Int and the interface's `T` to List<Int>, and
+// only the interface's defaults are written where the interface's `T` is
+// in scope, so its frame opens too.
+type substScope uint8
+
+const (
+	substScopeUnset substScope = iota
+	// substOpens: the frame binds every type parameter its declaration can
+	// name, and the frames below it are another declaration's, which a
+	// lookup does not reach.
+	substOpens
+	// substNests: the frame binds the parameters of a declaration written
+	// inside the one whose frames are below it, which it can name: a
+	// nested fn inside its enclosing fn.
+	substNests
+)
+
+// substEntryInfo is each entry's census name and scope. Every entry has
+// both (TestEverySubstEntryHasANameAndAScope).
+var substEntryInfo = [substEntries]struct {
+	name  string
+	scope substScope
+}{
+	substMono:         {"program generic fn", substOpens},
+	substNested:       {"generic nested fn", substNests},
+	substType:         {"generic type fields", substOpens},
+	substImpl:         {"impl of a generic type", substOpens},
+	substMethod:       {"generic impl fn", substOpens},
+	substIface:        {"generic interface", substOpens},
+	substIfaceImpl:    {"generic interface of an impl", substOpens},
+	substIfaceDefault: {"interface default", substOpens},
+	substParamDefault: {"parameter default at a call", substOpens},
+	substStd:          {"std generic fn", substOpens},
+	substAlias:        {"generic typealias", substOpens},
+	substRefinement:   {"generic refinement", substOpens},
+	substProbe:        {"probe", substOpens},
 }
 
-func (e substEntry) String() string { return substEntryNames[e] }
+func (e substEntry) String() string { return substEntryInfo[e].name }
 
 // pushSubst enters f, the frame of owner's instance (a template, an
 // instance or a declaration: what tells one instance from another in the
@@ -569,11 +697,24 @@ func (g *gen) pushSubst(entry substEntry, owner any, f substFrame) {
 	if substVerify {
 		g.verifySubst(entry, owner, f)
 	}
+	f.opens = substEntryInfo[entry].scope == substOpens
 	g.genericSubst = append(g.genericSubst, f)
 }
 
 func (g *gen) popSubst() {
 	g.genericSubst = g.genericSubst[:len(g.genericSubst)-1]
+}
+
+// visibleSubst is the frames the declaration being built can name: the
+// innermost frame that opens a declaration (substOpens) and the frames
+// above it, innermost last. Every read of the stack goes through it.
+func (g *gen) visibleSubst() []substFrame {
+	for i := len(g.genericSubst) - 1; i >= 0; i-- {
+		if g.genericSubst[i].opens {
+			return g.genericSubst[i:]
+		}
+	}
+	return g.genericSubst
 }
 
 // genericSubstKind is the argument a type parameter stands for inside the
@@ -588,8 +729,9 @@ func (g *gen) genericSubstKind(name string) (kind, bool) {
 		// No gen (projectShared), so no instance's frame.
 		return kindInvalid, false
 	}
-	for i := len(g.genericSubst) - 1; i >= 0; i-- {
-		if k, found := g.genericSubst[i].kinds[name]; found {
+	frames := g.visibleSubst()
+	for i := len(frames) - 1; i >= 0; i-- {
+		if k, found := frames[i].kinds[name]; found {
 			return k, true
 		}
 	}
@@ -600,8 +742,9 @@ func (g *gen) genericSubstKind(name string) (kind, bool) {
 // the instance being built, from the frame genericSubstKind reads the
 // parameter's kind from, and whether that frame's entry had one.
 func (g *gen) genericSubstType(name string) (analysis.Type, bool) {
-	for i := len(g.genericSubst) - 1; i >= 0; i-- {
-		f := g.genericSubst[i]
+	frames := g.visibleSubst()
+	for i := len(frames) - 1; i >= 0; i-- {
+		f := frames[i]
 		if _, found := f.kinds[name]; found {
 			t, ok := f.checked[name]
 			return t, ok
@@ -724,8 +867,12 @@ func kindParts(k kind) []kind {
 // projected) or not (an unannotated lambda parameter, a binding), so an
 // annotation and an inference over one value are one answer.
 //
-// The template is the one the checker's type names (templateAt).
-func (g *gen) projectGenericInstance(params []*analysis.TypeParam_, origin, name string, typeArgs []analysis.Type) (kind, bool) {
+// The template is the one the checker's type names (templateAt). args is
+// typeArgs projected, where the caller has projected them already, and nil
+// otherwise. Each argument is projected once: an instance nested d deep
+// inside instances of itself (`Box<Box<Box<Int>>>`) would cost 2^d
+// projections if each level projected its arguments twice.
+func (g *gen) projectGenericInstance(params []*analysis.TypeParam_, origin, name string, typeArgs []analysis.Type, args []kind) (kind, bool) {
 	// With no gen (projectShared) there are no templates.
 	if g == nil || g.fa == nil {
 		return kindInvalid, false
@@ -734,9 +881,11 @@ func (g *gen) projectGenericInstance(params []*analysis.TypeParam_, origin, name
 	if !ok {
 		return kindInvalid, false
 	}
-	args := make([]kind, len(typeArgs))
-	for i, a := range typeArgs {
-		args[i] = g.project(a)
+	if args == nil {
+		args = make([]kind, len(typeArgs))
+		for i, a := range typeArgs {
+			args[i] = g.project(a)
+		}
 	}
 	return instantiate(args, g.checkerTypeArgs(typeArgs))
 }

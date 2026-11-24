@@ -21,10 +21,14 @@ const identityVersion = "runner-compiler-identity/1"
 
 // identitySkipDirs are directories that hold no input to a runner build. They
 // are named rather than pattern-matched because each is a specific thing: the
-// two git directories this repository uses.
+// two git directories this repository uses, and the build output of Cargo
+// and npm, which a directory with a `//go:embed` beside a Rust crate or a
+// Node package holds (editors/zed's target/) and which holds no Go.
 var identitySkipDirs = map[string]bool{
-	".git":  true,
-	".bare": true,
+	".git":         true,
+	".bare":        true,
+	"target":       true,
+	"node_modules": true,
 }
 
 // CompilerIdentity is the COMPILER half of every runner's cache key: a

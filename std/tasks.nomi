@@ -1,18 +1,30 @@
 //# Tasks: work running in parallel inside a `concurrent` block.
 //# `Task.spawn` starts one and `Task.await` waits for its value;
 //# `Task.spawn_all` and `Task.await_all` do the same for many at once,
-//# with a bound on how many run together. `Task.outcome` returns how a
+//# with a bound on how many run together, and `Task.try_await_all` stops
+//# at the first task that answers `Err`. `Task.race` answers with the
+//# first of several bodies to finish, and `Task.within` with a body's
+//# value if it finishes within a wait. `Task.stream` is a lazy pipeline
+//# stage that runs a function over a source's elements as tasks, a bounded
+//# number at once, in order. `Task.outcome` returns how a
 //# task ended as a value (`Outcome`: completed, cancelled or failed), and
 //# `Task.cancel` stops one. Where a task may be spawned, what may not
 //# escape its block, and how errors and cancellation travel are language
 //# rules ([Concurrency](/spec/concurrency/)).
 
 import
+    bool.Bool.{self, False, True}
+    channels.{Channel, Receiver, Sender, TimedOut}
     debug.Debug
-    int.PositiveInt
+    duration.Duration
+    int.{Int, NonNegativeInt, PositiveInt}
     iter.Iter
-    lists.List
+    lists.{List, NonEmptyList}
+    option.Option.{self, None, Some}
+    results.Result.{self, Err, Ok}
+    timer
     unit.Unit
+    vectors.Vector
 end
 
 /// Why a task failed. A cancelled task has not failed, so cancellation is
@@ -44,10 +56,10 @@ end
 ///
 /// A task belongs to the `concurrent` block it was spawned in, and the
 /// compiler holds it there. A `Task.spawn` that can run outside every
-/// block is an error. So is a task that is never passed to `Task.await`,
-/// `Task.await_all` or `Task.outcome`, and one that leaves its block by
-/// being returned or sent on a channel. `_ = Task.await(t)` waits for a
-/// task and discards its value.
+/// block is an error. So is a task that is never awaited or cancelled,
+/// by `Task.await`, `Task.await_all`, `Task.outcome` or `Task.cancel`,
+/// and one that leaves its block by being returned or sent on a channel.
+/// `_ = Task.await(t)` waits for a task and discards its value.
 pub host type Task<T>
 
 impl Task<T>
@@ -133,6 +145,133 @@ impl Task<T>
     //
     pub host fn await_all<U>(tasks: List<Task<U>>) -> List<U>
 
+    /// Waits for every task in `tasks`, each of which returns a `Result`,
+    /// and stops at the first `Err`. When every task answers `Ok`, the
+    /// result is `Ok` with their values in the order of `tasks`.
+    ///
+    /// The first `Err` is the first to arrive, in the order the tasks
+    /// finish, not their order in the list, and it is the answer as soon as
+    /// it arrives: the tasks still running are cancelled, and
+    /// `try_await_all` waits for them to stop before it returns it. A task
+    /// that fails stops the wait as it does in `Task.await_all`: the call
+    /// traps with that task's fault as soon as it fails.
+    //! answers =
+    //!     concurrent
+    //!         [1, 2, 3]
+    //!         |> Task.spawn_all(fn n -> if n == 2 then Err(n) else Ok(n * 10), max_running: 3)
+    //!         |> Task.try_await_all()
+    //!     end
+    //!
+    //! assert answers == Err(2)
+    //!
+    //! all_ok =
+    //!     concurrent
+    //!         [1, 3]
+    //!         |> Task.spawn_all(fn n -> if n == 2 then Err(n) else Ok(n * 10), max_running: 3)
+    //!         |> Task.try_await_all()
+    //!     end
+    //!
+    //! assert all_ok == Ok([10, 30])
+    //
+    pub fn try_await_all<U, E>(tasks: List<Task<Result<U, E>>>) -> Result<List<U>, E>
+        case PositiveInt.try_from(List.length(tasks))
+            Some(size) -> try_await_each(tasks, size)
+            None       -> Ok([])
+        end
+    end
+
+    /// Runs every body in `bodies` as a task and answers with the value of
+    /// the first to finish. The others are cancelled, and `race` waits for
+    /// them to stop before it returns. A body that traps first ends the race
+    /// with its fault, as awaiting it would.
+    ///
+    /// Every body starts at once, so `race` takes no `max_running`: a race
+    /// of three bodies runs three tasks. The tasks belong to a `concurrent`
+    /// block of its own, so none outlives the call, and cancelling the
+    /// caller cancels them.
+    //! winner = Task.race([
+    //!     fn ->
+    //!         timer.sleep(Duration.hours(1))
+    //!         "slow"
+    //!     end,
+    //!     fn -> "fast",
+    //! ])
+    //!
+    //! assert winner == "fast"
+    //
+    pub fn race<T>(bodies: NonEmptyList<() -> T>) -> T
+        size = NonEmptyList.length(bodies)
+        finished = Channel.buffered<NonNegativeInt>(size)
+
+        concurrent
+            runners =
+                bodies
+                |> Iter.with_index()
+                |> Task.spawn_all(
+                    fn (index, body) -> report(finished.sender, index, body),
+                    max_running: size,
+                )
+
+            first = Receiver.receive(finished.receiver)!
+
+            runners
+            |> Iter.with_index()
+            |> Iter.reject(fn (index, _) -> index == first)
+            |> Iter.map(.second)
+            |> stop_all()
+
+            Task.await(Iter.get(runners, first)!)
+        end
+    end
+
+    /// Runs `body` as a task and waits for it at most `wait`, on the clock
+    /// in force. `Ok(value)` is the body's value, and `Err(TimedOut)` a wait
+    /// that ran out first, as `Receiver.receive_within` answers; the body is
+    /// then cancelled, and `within` waits for it to stop. A body that traps
+    /// before the wait runs out ends the call with its fault.
+    ///
+    /// It is a `Task.race` of `body` and a timer.
+    //! assert Task.within(Duration.seconds(5), fn -> 42) == Ok(42)
+    //!
+    //! late = Task.within(Duration.seconds(0), fn -> timer.sleep(Duration.hours(1)))
+    //! assert late == Err(TimedOut)
+    //
+    pub fn within<T>(wait: Duration, body: () -> T) -> Result<T, TimedOut>
+        race([fn -> Ok(body()), fn -> time_out(wait)])
+    end
+
+    /// Lazy: yields `f(x)` for each element `x` of `source`, in the
+    /// source's order, with each call of `f` running as a task and at most
+    /// `max_running` of them at once. It reads the source only as its
+    /// results are read: while the consumer handles one result, at most
+    /// `max_running - 1` calls past it have started. So a slow consumer
+    /// slows the source down, and an infinite source works.
+    /// `Task.spawn_all` instead starts every task before it returns.
+    ///
+    /// Each walk of the result runs its tasks in a `concurrent` block of
+    /// its own, which ends with the walk. A consumer that stops early, as
+    /// `Iter.take` does, cancels the tasks still running and waits for them,
+    /// and so does cancelling the walk. A task that traps ends the walk with
+    /// its fault when its result is the next to be read.
+    //! doubled =
+    //!     [1, 2, 3]
+    //!     |> Task.stream(&(&1 * 2), max_running: 2)
+    //!     |> Iter.to_list()
+    //!
+    //! assert doubled == [2, 4, 6]
+    //!
+    //! firsts =
+    //!     Iter.from(1)
+    //!     |> Task.stream(&(&1 * 10), max_running: 4)
+    //!     |> Iter.take(2)
+    //!     |> Iter.to_list()
+    //!
+    //! assert firsts == [10, 20]
+    //
+    pub fn stream<T, U>(source: Iter<T>, f: (T) -> U, max_running: PositiveInt) -> Iter<U>
+        Streamed{source:, f:, max_running:}
+    end
+
     /// Waits for `task`, as `Task.await` does, and returns how it ended as
     /// a value: `Completed` with the body's value, `Cancelled`, or `Failed`
     /// with the fault that ended the body. It never traps.
@@ -170,9 +309,9 @@ impl Task<T>
     /// calls. A `concurrent` block inside it is cancelled too. It cancels a
     /// task of a `concurrent` block and a supervised task alike.
     ///
-    /// A cancelled task must still be awaited, and the wait ends once the
-    /// task has stopped. Read it with `Task.outcome`, which returns
-    /// `Cancelled`; `Task.await` would propagate the cancellation.
+    /// Cancelling a task settles it in its block, as awaiting does. To read
+    /// how it ended, pass it to `Task.outcome`, which returns `Cancelled`;
+    /// `Task.await` would propagate the cancellation.
     ///
     /// Cancelling a task twice, or one that has finished, does nothing.
     pub host fn cancel<T>(task: Task<T>) -> Unit
@@ -181,10 +320,10 @@ end
 impl Debug for Task<T>
     /// `<task>`, with its value left out: reading it would wait for the
     /// task to finish.
-    //! text =
+    //! (text, _) =
     //!     concurrent
     //!         task = Task.spawn(fn -> 42)
-    //!         Task.inspect(task)
+    //!         (Task.inspect(task), Task.await(task))
     //!     end
     //!
     //! assert text == "<task>"
@@ -192,4 +331,133 @@ impl Debug for Task<T>
     fn inspect(_task: Task<T>) -> String
         "<task>"
     end
+end
+
+// `Task.stream`'s result: each walk spawns `f` over the source's elements,
+// keeping at most `max_running` tasks, oldest first, in a window.
+opaque struct Streamed<T, U>
+    source:      Iter<T>
+    f:           (T) -> U
+    max_running: PositiveInt
+end
+
+impl Iter for Streamed<T, U>
+    fn each_while(stream: Streamed<T, U>, yield: (U) -> Bool) -> Bool
+        concurrent
+            start: (List<Task<U>>, Bool) = ([], True)
+
+            // Before a new element's task starts, a full window yields its
+            // oldest result; the consumer refusing it stops the source.
+            (window, reading) = Iter.reduce(stream.source, start, fn state, item ->
+                (window, _) = state
+
+                (window, reading) =
+                    case window
+                        [oldest, ..rest] when List.length(window) >= stream.max_running ->
+                            (rest, yield(Task.await(oldest)))
+
+                        _ ->
+                            (window, True)
+                    end
+
+                if reading then
+                    (List.concat(window, [Task.spawn(fn -> stream.f(item))]), reading)
+                else
+                    break (window, reading)
+                end
+            end)
+
+            // The source has ended, or the consumer stopped reading. The
+            // window's results are read in order until the consumer stops,
+            // and the tasks it did not read are stopped.
+            read_all =
+                if reading then
+                    Iter.all_match(window, fn task -> yield(Task.await(task)))
+                else
+                    False
+                end
+
+            stop_all(window)
+            read_all
+        end
+    end
+
+    fn known_count(stream: Streamed<T, U>) -> Option<Int>
+        Iter.known_count(stream.source)
+    end
+
+    fn is_infinite(stream: Streamed<T, U>) -> Bool
+        Iter.is_infinite(stream.source)
+    end
+end
+
+// `try_await_all` over tasks that are there. A watcher per task awaits it
+// and reports its index from a `defer`, so a task that traps reports too,
+// and the reports arrive in the order the tasks finish. Awaiting a
+// watcher then returns its task's `Result`, or traps with its fault.
+fn try_await_each<U, E>(tasks: List<Task<Result<U, E>>>, size: PositiveInt) -> Result<List<U>, E>
+    finished = Channel.buffered<NonNegativeInt>(size)
+
+    concurrent
+        watchers =
+            tasks
+            |> Iter.with_index()
+            |> Task.spawn_all(
+                fn (index, task) -> report(finished.sender, index, fn -> Task.await(task)),
+                max_running: size,
+            )
+
+        case read_reports(finished.receiver, Iter.to_vector(watchers), size)
+            Ok(_) ->
+                watchers |> Task.await_all() |> Result.collect()
+
+            Err(e) ->
+                stop_all(tasks)
+                stop_all(watchers)
+                Err(e)
+        end
+    end
+end
+
+// Reads `left` more reports, awaiting each reported watcher as it arrives,
+// and stops at the first `Err`.
+fn read_reports<U, E>(
+    finished: Receiver<NonNegativeInt>,
+    watchers: Vector<Task<Result<U, E>>>,
+    left:     Int,
+) -> Result<Unit, E>
+    if left == 0 then
+        Ok(Unit)
+    else
+        index = Receiver.receive(finished)!
+        _ = Task.await(Vector.get(watchers, index)!)?
+        read_reports(finished, watchers, left - 1)
+    end
+end
+
+// Runs `body` and then, from a `defer`, sends `index` on `finished`, so
+// the report goes out whether `body` returns, traps or is cancelled.
+fn report<T>(finished: Sender<NonNegativeInt>, index: NonNegativeInt, body: () -> T) -> T
+    defer send_report(finished, index)
+    body()
+end
+
+fn send_report(finished: Sender<NonNegativeInt>, index: NonNegativeInt) -> Unit
+    _ = Sender.send(finished, index)
+end
+
+// `within`'s timer: `Err(TimedOut)` once `wait` has passed.
+fn time_out<T>(wait: Duration) -> Result<T, TimedOut>
+    timer.sleep(wait)
+    Err(TimedOut)
+end
+
+// Cancels each of `tasks` and waits for each to stop. A task that has
+// finished is left as it ended.
+fn stop_all<T>(tasks: Iter<Task<T>>) -> Unit
+    Iter.each(tasks, Task.cancel)
+
+    Iter.each(tasks, fn task ->
+        _ = Task.outcome(task)
+    end)
 end

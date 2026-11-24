@@ -224,11 +224,11 @@ func (g *gen) verifyCalleeIn(t *ast.Call, decl ast.Node, block *ast.ImplBlock) {
 	if !calleeVerify || t == nil || isNilNode(decl) || g.srcFA() == nil {
 		return
 	}
-	rec := g.resolvedCallOf(t)
-	if rec == nil || isNilNode(rec.Callee.Decl) {
+	c := g.calleeOf(t)
+	if isNilNode(c.Decl) {
 		return
 	}
-	switch rec.Callee.Kind {
+	switch c.Kind {
 	case analysis.CalleeFunction, analysis.CalleeHost, analysis.CalleeImpl:
 	case analysis.CalleeInterface:
 		if _, iface := decl.(*ast.InterfaceMethod); !iface {
@@ -238,10 +238,10 @@ func (g *gen) verifyCalleeIn(t *ast.Call, decl ast.Node, block *ast.ImplBlock) {
 		return
 	}
 	decl = shellSource(decl)
-	want := rec.Callee.Decl
-	id := rec.Callee.Std
+	want := c.Decl
+	id := c.Std
 	same := want == decl || sameDecl(want, decl, id, g.stdFuncIn(id, decl))
-	if have, ok := rec.Callee.Impl.(*ast.ImplBlock); same && ok && block != nil {
+	if have, ok := c.Impl.(*ast.ImplBlock); same && ok && block != nil {
 		same = sameImplBlock(have, block)
 	}
 	if !same {
@@ -374,12 +374,22 @@ func (g *gen) stdFuncIn(want analysis.StdFunc, decl ast.Node) analysis.StdFunc {
 
 // calleeOf is the callee of call t as the checker classified it
 // (analysis.Callee): the record's, or the one a call the builder wrote
-// carries. The zero Callee for a call with neither.
+// carries, its Decl as this gen's module declares it (ownCallee). The zero
+// Callee for a call with neither.
 func (g *gen) calleeOf(t *ast.Call) analysis.Callee {
 	if rec := g.resolvedCallOf(t); rec != nil {
-		return rec.Callee
+		return g.ownCallee(rec.Callee)
 	}
 	return analysis.Callee{}
+}
+
+// ownCallee is c with its Decl read as this gen's module declares it
+// (ownDecl): in a std module checked from edited source, a call through
+// the module's std name is recorded against the shared analysis's copy of
+// the function, and the edited twin is the one lowered here.
+func (g *gen) ownCallee(c analysis.Callee) analysis.Callee {
+	c.Decl = g.ownDecl(c.Decl)
+	return c
 }
 
 // calleeAt is the callee of call t (calleeOf) in the instance being
@@ -398,7 +408,7 @@ func (g *gen) calleeAt(t *ast.Call) analysis.Callee {
 		return c
 	}
 	if by, at := g.recordTypes(); at {
-		return g.instanceFA().CalleeAt(c, by)
+		return g.ownCallee(g.instanceFA().CalleeAt(c, by))
 	}
 	return c
 }
@@ -428,7 +438,7 @@ func (g *gen) instanceFA() *analysis.FileAnalysis {
 // frame), or an interface default lowered for one implementor, whose
 // `self` the implementor binds (genericSubstType).
 func (g *gen) inInstance() bool {
-	return len(g.genericSubst) > 0 || g.defaultSelf != nil
+	return len(g.visibleSubst()) > 0 || g.defaultSelf != nil
 }
 
 // genericSubstType_ is genericSubstType in the form the checker's

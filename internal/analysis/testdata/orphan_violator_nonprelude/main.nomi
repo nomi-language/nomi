@@ -1,7 +1,9 @@
 // An orphan impl on a std type outside the prelude: `Display` and `Date` are
 // both declared in std, so the impl is rejected even though `Date` reaches
-// this file only through an explicit import.
+// this file only through an explicit import. std/calendar's own `impl
+// Display for Date` makes it a duplicate impl too.
 // expect type-error: orphan impl: `Display`
+// expect type-error: duplicate impl: `Display` is implemented for `calendar.Date`
 import std::calendar.Date
 
 impl Display for Date

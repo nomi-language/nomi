@@ -67,26 +67,29 @@ var programStdModules = map[string]bool{
 	"money":            true,
 	"net":              true,
 	"passwords":        true,
+	"cipher":           true,
+	"compress":         true,
+	"key_exchange":     true,
+	"system":           true,
 	"parse":            true,
-	"path":             true,
 	"process":          true,
 	"process/testing":  true,
 	"reverse":          true,
+	"secret":           true,
 	"sessions":         true,
-	"signatures":       true,
 	"jwt":              true,
 	"actors":           true,
-	"bits":             true,
-	"bytes/cursor":     true,
 	"csv":              true,
 	"xml":              true,
 	"sql":              true,
 	"storage":          true,
 	"storage/testing":  true,
+	"terminal":         true,
 	"tls":              true,
+	"udp":              true,
+	"url":              true,
 	"toml":             true,
 	"sql/testing":      true,
-	"url":              true,
 	"uuid":             true,
 	"wasm":             true,
 	"websocket":        true,
@@ -318,22 +321,30 @@ func generateProgramStdTestIR(module string, nodes []ast.Node, fa *analysis.File
 	return p, res, nil
 }
 
-// implFuncTwins maps each top-level declaration and impl function of shared,
-// the shared analysis's copy of a std module, to the one of the same kind and
-// name (and, for an impl function, the same receiver and interface) in
-// edited, the module checked from edited source. A check of the edited module
-// resolves a typed literal's handler through the stdlib's impl index
-// (Symbol.DispatchImpl), and a block import of the module's own names, which
-// a reference editor's context writes, through the stdlib's module scopes:
-// both name the shared copy, and the program lowers the edited one.
+// implFuncTwins maps each top-level declaration, interface function, impl
+// function and impl block's `once` of shared, the shared analysis's copy of
+// a std module, to the one of the same kind and name (and, in an impl
+// block, the same receiver and interface) in edited, the module checked
+// from edited source. A check of the edited module resolves a typed
+// literal's handler through the stdlib's impl index (Symbol.DispatchImpl),
+// and a `//!` prompt's import of the module by its std path, and a block
+// import of the module's own names, which a reference editor's context
+// writes, through the stdlib's module scopes: each names the shared copy,
+// and the program lowers the edited one. The builder reads every record
+// that names a declaration through the map (ownDecl; the irbuild package
+// doc, "Linkage names"), for a listed module (Module.twins) and a shared
+// one (stdModuleView.twins) alike.
 func implFuncTwins(shared, edited []ast.Node) map[ast.Node]ast.Node {
 	keys := func(nodes []ast.Node, each func(key string, n ast.Node)) {
 		for _, n := range nodes {
 			switch d := n.(type) {
 			case *ast.ImplBlock:
 				for _, item := range d.Items {
-					if fd, ok := item.(*ast.FuncDef); ok {
-						each("impl "+typeText(d.Receiver)+" "+typeText(d.Interface)+" "+fd.Name, fd)
+					switch it := item.(type) {
+					case *ast.FuncDef:
+						each("impl "+typeText(d.Receiver)+" "+typeText(d.Interface)+" "+it.Name, it)
+					case *ast.OnceBinding:
+						each("impl "+typeText(d.Receiver)+" "+typeText(d.Interface)+" once "+it.Name, it)
 					}
 				}
 			case *ast.StructDef:
@@ -344,8 +355,15 @@ func implFuncTwins(shared, edited []ast.Node) map[ast.Node]ast.Node {
 				each("type "+d.Name, d)
 			case *ast.InterfaceDef:
 				each("interface "+d.Name, d)
+				for i := range d.Methods {
+					each("interface "+d.Name+" fn "+d.Methods[i].Name, &d.Methods[i])
+				}
 			case *ast.FuncDef:
 				each("fn "+d.Name, d)
+			case *ast.ExternFunc:
+				each("fn "+d.Name, d)
+			case *ast.OnceBinding:
+				each("once "+d.Name, d)
 			}
 		}
 	}

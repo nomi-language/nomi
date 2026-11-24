@@ -10,7 +10,8 @@ import (
 // or `Type.func` for an inherent one, whichever use of it the builder
 // lowers first: a program that uses each function first through an
 // operator, interpolation or a dispatch, and one that uses it first by a
-// qualified call, give every function the same name.
+// qualified call, give every function the same name. Pair derives
+// Comparable, whose derive writes a function to name.
 func TestImplFunctionNames_DoNotDependOnWhichUseLowersFirst(t *testing.T) {
 	const decls = "import std::io\n\n" +
 		"struct Loud\n    n: Int\nend\n\n" +
@@ -21,16 +22,16 @@ func TestImplFunctionNames_DoNotDependOnWhichUseLowersFirst(t *testing.T) {
 		"struct Box<T>\n    v: T\nend\n\n" +
 		"impl Display for Box<T>\n    fn to_string(_b: Box<T>) -> String\n        \"box\"\n    end\nend\n\n" +
 		"struct Pair\n    a: Int\nend\n\n" +
-		"derive Debug for Pair\n\n"
+		"derive Comparable for Pair\n\n"
 	implicit := "    io.print(\"${Loud{n: 1}}\")\n" +
 		"    io.inspect(Score{points: 1} == Score{points: 2})\n" +
 		"    shown: Display = Box{v: 1}\n" +
 		"    io.print(Display.to_string(shown))\n" +
-		"    io.inspect(Pair{a: 1})\n"
+		"    io.inspect(Pair{a: 1} < Pair{a: 2})\n"
 	qualified := "    io.print(Display.to_string(Loud{n: 1}))\n" +
 		"    io.inspect(Equatable.equal(Score{points: 1}, Score{points: 2}))\n" +
 		"    io.print(Display.to_string(Box{v: 1}))\n" +
-		"    io.print(Debug.inspect(Pair{a: 1}))\n"
+		"    io.inspect(Comparable.compare(Pair{a: 1}, Pair{a: 2}))\n"
 	twice := "    io.inspect(Loud.twice(Loud{n: 2}))\n"
 	names := func(body string) []string {
 		t.Helper()
@@ -57,7 +58,7 @@ func TestImplFunctionNames_DoNotDependOnWhichUseLowersFirst(t *testing.T) {
 	}
 	for _, want := range []string{
 		"Display.to_string for Loud", "Loud.twice", "Equatable.equal for Score",
-		"Display.to_string for Box<Int>", "Debug.inspect for Pair",
+		"Display.to_string for Box<Int>", "Comparable.compare for Pair",
 	} {
 		if !slices.Contains(first, want) {
 			t.Errorf("no impl function is named %q; the program's are:\n%s", want, strings.Join(first, "\n"))

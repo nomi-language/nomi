@@ -1,0 +1,65 @@
+// std/actors: a counter an agent holds, changed from many tasks at once,
+// handing out ids, crashing on a change that traps, and stopped.
+import
+    std::actors.{Agent, CallError}
+    std::duration.Duration
+    std::instant.Monotonic
+    std::tasks.Task
+    std::testing.Clock
+    counter_agent.{self, App, count, next_id}
+end
+
+group "a counter agent"
+    clock Clock.Virtual
+
+    boot counter_agent.boot()
+
+    test "updates from many tasks at once all count"
+        results =
+            concurrent
+                1..=100
+                |> Task.spawn_all(fn _ -> Agent.update(App.counter, &(&1 + 1)), max_running: 16)
+                |> Task.await_all()
+            end
+
+        assert Result.collect(results) |> Result.is_ok()
+        assert count() == Ok(100)
+    end
+
+    test "get_and_update hands out distinct ids"
+        ids =
+            concurrent
+                1..=50
+                |> Task.spawn_all(fn _ -> next_id(), max_running: 8)
+                |> Task.await_all()
+            end
+
+        assert Ok(taken) = Result.collect(ids)
+        assert Iter.to_set(taken) == Iter.to_set(0..50)
+        assert count() == Ok(50)
+    end
+
+    test "get reads the state in the caller"
+        _ = Agent.cast(App.counter, &(&1 + 4))
+        assert Agent.get(App.counter, &"count ${&1}") == Ok("count 4")
+    end
+
+    test "a change that traps answers Crashed at once"
+        assert Agent.update(App.counter, &(&1 + 3)) == Ok(Unit)
+        start = Monotonic.now()
+        // A text that is no number traps the change.
+        got = Agent.update(App.counter, fn n -> n + String.to_int("none")!)
+        assert got == Err(CallError.Crashed)
+        assert Monotonic.elapsed(start) == Duration.seconds(0)
+        // The supervisor restarts the agent with the state it started with.
+        assert count() == Ok(0)
+    end
+
+    test "a stopped agent answers Stopped"
+        Agent.stop(App.counter)
+        assert Agent.cast(App.counter, &(&1 + 1)) == Err(CallError.Stopped)
+        assert Agent.update(App.counter, &(&1 + 1)) == Err(CallError.Stopped)
+        assert next_id() == Err(CallError.Stopped)
+        assert count() == Err(CallError.Stopped)
+    end
+end

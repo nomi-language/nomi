@@ -10,10 +10,9 @@ import (
 
 // std/json's `ToJson` and `FromJson` at an anonymous struct (spec §12
 // *Tuples, anonymous structs and functions*). No impl can be written for an
-// anonymous struct, so its two functions are lowered here, as
-// `Hashable.hash` over a record is (irtuplehash.go), and they answer what
-// `derive ToJson` and `derive FromJson` answer for a named struct with the
-// same fields and no options:
+// anonymous struct, so its two functions are lowered here, and they answer
+// what `derive ToJson` and `derive FromJson` answer for a named struct with
+// the same fields and no options:
 //
 //   - `ToJson.to_json(r)` is `Json.Obj` of each field's JSON, keyed by the
 //     field's name as written: a field of a named type other than Option
@@ -147,7 +146,7 @@ func (bl *irScalarBuilder) recordJsonKindCall(t *ast.Call, k kind, kt analysis.T
 }
 
 // noteQualRecordRow records v, the call's one operand, as its row when the
-// call is an assertion's subject, as tupleHashOf does.
+// call is an assertion's subject.
 func (bl *irScalarBuilder) noteQualRecordRow(t *ast.Call, v ir.Temp, k kind) {
 	if bl.qualRecord == t {
 		bl.qualRecordArgs = irQualArgs{temps: []ir.Temp{v}, kinds: []kind{k}, mobile: []bool{true}, ok: true}

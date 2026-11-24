@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"os"
 	"runtime"
 	"strings"
 	"sync"
@@ -284,6 +285,59 @@ func streamsOf(fr *Frame) streams {
 		}
 	}
 	return streams{}
+}
+
+// Destination is a writer that writes to another through something of its
+// own, such as the lock that keeps each of a machine's writes whole
+// (internal/vm). A question about where the bytes land, whether colour
+// suits them (ColorEnabledFor) or whether they reach a terminal
+// (StandardFile), is asked of the writer Destination answers.
+type Destination interface{ Destination() io.Writer }
+
+// destinationOf is the writer w's bytes land in: w, or what its Destination
+// answers, followed to the end.
+func destinationOf(w io.Writer) io.Writer {
+	for {
+		d, ok := w.(Destination)
+		if !ok {
+			return w
+		}
+		w = d.Destination()
+	}
+}
+
+// StandardFile is the file behind the frame's standard stream (0 input,
+// 1 output, 2 error), for a question about the device it is: std::io's
+// `is_terminal` and std::terminal ask it. It is nil inside an `io.capture`
+// or a test case, whose streams are the capture's, and when the stream is
+// not a file, as a browser's output and a host's buffer are not.
+func StandardFile(fr *Frame, stream int64) *os.File {
+	if fr == nil {
+		return nil
+	}
+	for c := fr.capture; c != nil; c = c.outer {
+		c.mu.Lock()
+		open := !c.closed
+		c.mu.Unlock()
+		if open {
+			return nil
+		}
+	}
+	var w io.Writer
+	switch stream {
+	case 0:
+		in, _ := stdinInput(fr)
+		if in == nil {
+			return nil
+		}
+		return in.file
+	case 1:
+		w = streamsOf(fr).out
+	case 2:
+		w = streamsOf(fr).err
+	}
+	f, _ := destinationOf(w).(*os.File)
+	return f
 }
 
 // WriteError writes s to the frame's standard error: the `io.capture` in

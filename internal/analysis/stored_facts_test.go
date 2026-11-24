@@ -350,8 +350,8 @@ end
 	}
 	sort.Strings(got)
 	want := []string{
-		"no impl of `Pair` for `Other` (required via call site) | write an `impl Pair<A, B> for Other` block",
-		"no impl of `Scale` for `Other` (required via call site) | write an `impl Scale<N> for Other` block",
+		"no impl of `Pair` for `Other` (required by the call `scale.Pair.pair`) | write an `impl Pair<A, B> for Other` block",
+		"no impl of `Scale` for `Other` (required by the call `scale.Scale.scale`) | write an `impl Scale<N> for Other` block",
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Errorf("the reduction over stored facts reports:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))

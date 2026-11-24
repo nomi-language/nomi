@@ -546,7 +546,7 @@ fn main() end
 //
 // `argMatchesParam` reaches `ifaceParamAdmits`, which does two things: it
 // decides admission via `c.unify` (the impl-aware `UnifyWithImpls`), and it
-// calls `recordConformanceIfConcrete` so the impl manifest records which
+// calls `recordBoundConformance` so the impl manifest records which
 // (Type, Iface) pairs the program demands. A hand-written `c.unify(declared, valTy,
 // nil) == nil` in place of the call gets EVERY VERDICT RIGHT — it is the same
 // unifier — and silently drops the recording. Planted, it passed
@@ -698,7 +698,7 @@ end
 // five checks. tests/20-data-access/jwt_test.nomi adds one (`Login`'s
 // `admin`).
 var fieldDefaultDenominator = map[string]int{
-	"std":             305,
+	"std":             333,
 	"tests":           75,
 	"tour (nomi-run)": 26,
 	"tour (nomi)":     0,

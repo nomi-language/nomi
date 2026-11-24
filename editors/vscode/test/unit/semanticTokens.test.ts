@@ -1,6 +1,6 @@
-// The semantic token modifier nomi-lsp marks code that has effects with:
-// the extension declares it by the server's name and maps it to a scope
-// the default themes draw bold.
+// The semantic token modifier the language server marks code that has
+// effects with: the extension declares it by the server's name and maps it
+// to a scope the default themes draw bold.
 import * as assert from "node:assert/strict";
 import * as fs from "node:fs";
 import * as path from "node:path";

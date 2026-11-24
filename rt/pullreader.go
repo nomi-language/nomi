@@ -5,17 +5,19 @@ import (
 	"iter"
 )
 
-// Readers whose bytes the program makes as they are read: `Reader.from_fn`
-// (a function the reader calls for each chunk) and `Reader.from_chunks` (an
-// Iter of chunks the reader pulls one at a time).
+// Readers whose bytes are made as they are read: `Reader.from_fn` (a
+// function the reader calls for each chunk), `Reader.from_chunks` (an Iter
+// of chunks the reader pulls one at a time), and a reader an adapter makes
+// over another stream (std::compress's, which reads the Reader it wraps).
 //
-// Each read of such a reader runs program code: the function, or the
-// iterator's pipeline up to its next chunk. It runs on the frame of the read
-// that needs the chunk (pullReader.fr, set under the handle's lock before
-// each operation), so a chunk made inside `io.capture` prints into that
-// capture. An iterator is pulled through a coroutine (iter.Pull), as `zip`
-// pulls its right side; the coroutine keeps the frame of the read that
-// started it.
+// Each read of such a reader may run program code: the function, the
+// iterator's pipeline up to its next chunk, or a read of the wrapped
+// Reader, which may itself be a from_fn reader. It runs on the frame of the
+// read that needs the chunk (pullReader.fr, set under the handle's lock
+// before each operation), so a chunk made inside `io.capture` prints into
+// that capture, and a task stopped while the read waits unwinds there. An
+// iterator is pulled through a coroutine (iter.Pull), as `zip` pulls its
+// right side; the coroutine keeps the frame of the read that started it.
 //
 // A pulled function must not read the reader it feeds: the read holds the
 // reader's lock, so it would wait for itself.
@@ -53,9 +55,9 @@ func (p *pullReader) Read(b []byte) (int, error) {
 	return n, nil
 }
 
-// newPullReader is a Reader named name over pull, whose Close is closeFn
-// (nil for none).
-func newPullReader(name string, pull Pull, closeFn func() error) Reader {
+// NewPullReader is a Reader named name over pull, whose Close is closeFn
+// (nil for none). pull runs on the frame of each read that needs a chunk.
+func NewPullReader(name string, pull Pull, closeFn func() error) Reader {
 	p := &pullReader{pull: pull}
 	r := NewReader(ReadSource{Name: name, R: p, Close: closeFn})
 	r.h.st.pull = p
@@ -65,7 +67,7 @@ func newPullReader(name string, pull Pull, closeFn func() error) Reader {
 // ReaderFromFn is `Reader.from_fn`: a Reader that calls next for each chunk
 // it needs, on the frame of the read.
 func ReaderFromFn(next func(fr *Frame) Result[Option[Bytes], IOError]) Reader {
-	return newPullReader("<fn>", next, nil)
+	return NewPullReader("<fn>", next, nil)
 }
 
 // ReaderFromEach is `Reader.from_chunks` once its Iter is a push loop: run
@@ -84,7 +86,7 @@ func ReaderFromEach(run func(fr *Frame, yield func(chunk Bytes) bool)) Reader {
 		}
 		return Ok[Option[Bytes], IOError](Some(chunk))
 	}
-	return newPullReader("<chunks>", pull, func() error {
+	return NewPullReader("<chunks>", pull, func() error {
 		if stop != nil {
 			stop()
 		}

@@ -24,50 +24,50 @@ var errNoWasm = errors.New("this nomi-vm was built without WebAssembly modules; 
 // their adapters.
 const hasWasm = false
 
-func (b *bound) fn1143Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn1258Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoWasm
 }
 
-func (b *bound) fn1148Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn1263Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoWasm
 }
 
-func (b *bound) fn1152Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn1267Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoWasm
 }
 
-func (b *bound) fn1164Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn1279Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoWasm
 }
 
-func (b *bound) fn1170Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn1285Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoWasm
 }
 
-func (b *bound) fn1171Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn1286Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoWasm
 }
 
-func (b *bound) fn1172Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn1287Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoWasm
 }
 
-func (b *bound) fn1174Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn1289Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoWasm
 }
 
-func (b *bound) fn1177Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn1292Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoWasm
 }
 
-func (b *bound) fn1179Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn1294Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoWasm
 }
 
-func (b *bound) fn1181Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn1296Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoWasm
 }
 
-func (b *bound) fn1183Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+func (b *bound) fn1298Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	return false, errNoWasm
 }

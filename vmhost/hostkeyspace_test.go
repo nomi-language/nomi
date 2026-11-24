@@ -12,7 +12,7 @@ import (
 
 // A project's own file named like a Go-backed std module, binding a host
 // function std's module also declares, registers under the key std's row
-// has (`hash.sha256`, `regex.compile`). The program uses both, and both run:
+// has (`hash.shake128`, `regex.compile`). The program uses both, and both run:
 // a project's crossings are named apart from std's (hostadapt.ProjectName),
 // so the machine binds the project's table beside std's and neither answers
 // the other's calls.
@@ -26,19 +26,19 @@ func TestHosts_AProjectFileNamedLikeAStdModuleRunsBesideIt(t *testing.T) {
 end
 
 fn main()
-    io.print(Bytes.to_string(hash.sha256(String.to_bytes("x"))) == Ok("the project's"))
+    io.print(Bytes.to_string(hash.shake128(String.to_bytes("x"), 1)) == Ok("the project's"))
     io.print(digest.sha256_hex(String.to_bytes("abc")))
     io.print(regex.compile("a+"))
     io.print(Result.is_ok(Regex.compile("a+")))
 end
 `
 	files := map[string]string{
-		"hash":  "pub host fn sha256(data: Bytes) -> Bytes\n",
+		"hash":  "pub host fn shake128(data: Bytes, length: Int) -> Bytes\n",
 		"regex": "pub host fn compile(pattern: String) -> String\n",
 	}
 	table := func(*hostadapt.Env) (map[string]hostadapt.Func, error) {
 		return map[string]hostadapt.Func{
-			"hash.sha256": func(_ *rt.Frame, _ []rt.Value) (rt.Value, error) {
+			"hash.shake128": func(_ *rt.Frame, _ []rt.Value) (rt.Value, error) {
 				return rt.Bytes("the project's"), nil
 			},
 			"regex.compile": func(_ *rt.Frame, args []rt.Value) (rt.Value, error) {

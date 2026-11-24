@@ -82,10 +82,14 @@ func stdRowModule(row hostgen.FuncRow) (string, error) {
 // internal/stdxml are std/csv/host's and std/xml/host's; internal/stdhttp is
 // std/http/host's and std/signatures/host's, whose key encodings need
 // crypto/x509, which only the runner with the network links;
-// internal/stdpasswords is std/passwords/host's; internal/stdwasm is
-// std/wasm/host's.
+// internal/stdpasswords is std/passwords/host's; internal/stdcipher is
+// std/cipher/host's and std/key_exchange/host's; internal/stdcompress is
+// std/compress/host's; internal/stdsystem is std/system/host's;
+// internal/stdterminal is std/terminal/host's and std/io's
+// `stream_is_terminal`; internal/stdwasm is std/wasm/host's.
 var alsoImplements = map[string][]string{"io": {"fs/host"}, "process": {"process/host"}, "http": {"http/host", "signatures/host"}, "toml": {"toml/host"},
-	"csv": {"csv/host"}, "xml": {"xml/host"}, "passwords": {"passwords/host"}, "wasm": {"wasm/host"}}
+	"csv": {"csv/host"}, "xml": {"xml/host"}, "passwords": {"passwords/host"}, "cipher": {"cipher/host", "key_exchange/host"}, "compress": {"compress/host"},
+	"system": {"system/host"}, "terminal": {"terminal/host", "io"}, "wasm": {"wasm/host"}}
 
 const (
 	rtPackage     = "github.com/nomi-language/nomi/rt"

@@ -8,6 +8,11 @@ import "net/http"
 // custom dial function turns off (net/http's roundtrip_js.go).
 func browserTransport(tr *http.Transport) { tr.DialContext = nil }
 
+// fetchNamesTheAgent is true on js/wasm: the browser, or Node's fetch,
+// sends its own User-Agent, and a request that sets one is no longer a
+// simple request, so a cross-origin one would be preflighted.
+const fetchNamesTheAgent = true
+
 // noSocketsMessage is what every listen and dial answers on js/wasm, where
 // the program runs in a browser or under Node: Go's net package there is
 // an in-process stand-in that nothing outside the program can reach.

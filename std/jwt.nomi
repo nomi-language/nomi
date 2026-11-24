@@ -10,9 +10,11 @@
 //# claims = jwt.verify(token, SigningKey.verifying_key(key))?
 //# ```
 //#
-//# Five algorithms: HS256 (HMAC-SHA256 with a shared secret), RS256 and
-//# PS256 (RSA), ES256 (ECDSA P-256) and EdDSA (Ed25519), over std::hash and
-//# std::signatures. A key is made for one algorithm, and `verify` refuses a
+//# The algorithms are HS256 (HMAC-SHA256 with a shared secret), RS256,
+//# RS384 and RS512 (RSA PKCS #1 v1.5), PS256, PS384 and PS512 (RSA PSS),
+//# ES256, ES384 and ES512 (ECDSA over P-256, P-384 and P-521) and EdDSA
+//# (Ed25519), over std::hash and std::signatures. A key is made for one
+//# algorithm, and `verify` refuses a
 //# token whose header names another: it never lets the token choose how it
 //# is checked, so an attacker cannot pass off a token signed with `none`, or
 //# signed with HMAC under an RSA public key. A token's `exp` and `nbf` are
@@ -60,12 +62,25 @@ pub enum Algorithm
     Es256
     /// Ed25519.
     EdDsa
+    /// RSA PKCS #1 v1.5 with SHA-384.
+    Rs384
+    /// RSA PKCS #1 v1.5 with SHA-512.
+    Rs512
+    /// RSA PSS with SHA-384.
+    Ps384
+    /// RSA PSS with SHA-512.
+    Ps512
+    /// ECDSA P-384 with SHA-384.
+    Es384
+    /// ECDSA P-521 with SHA-512.
+    Es512
 end
 
 derive Equatable for Algorithm
 
 impl Display for Algorithm
-    /// The algorithm's `alg` name: `HS256`, `RS256`, `PS256`, `ES256` or `EdDSA`.
+    /// The algorithm's `alg` name: `HS256`, `RS384`, `ES512`, `EdDSA` and so
+    /// on.
     fn to_string(algorithm: Algorithm) -> String
         case algorithm
             .Hs256 -> "HS256"
@@ -73,6 +88,12 @@ impl Display for Algorithm
             .Ps256 -> "PS256"
             .Es256 -> "ES256"
             .EdDsa -> "EdDSA"
+            .Rs384 -> "RS384"
+            .Rs512 -> "RS512"
+            .Ps384 -> "PS384"
+            .Ps512 -> "PS512"
+            .Es384 -> "ES384"
+            .Es512 -> "ES512"
         end
     end
 end
@@ -143,6 +164,24 @@ impl SigningKey
         keyed(.EdDsa, key)
     end
 
+    /// A key for `algorithm`, any but HS256, from a private key of the kind
+    /// it signs with: RSA for the RS and PS algorithms, ECDSA over P-256,
+    /// P-384 or P-521 for ES256, ES384 and ES512, Ed25519 for EdDSA. The
+    /// functions named for one algorithm, such as `rs256`, are this with
+    /// the algorithm given.
+    //! import std::jwt.{Algorithm, SigningKey}
+    //! import std::signatures.PrivateKey
+    //!
+    //! key = SigningKey.with_private(Algorithm.Es384, PrivateKey.generate_ecdsa_p384())!
+    //! assert "${key}" == "SigningKey(ES384)"
+    //!
+    //! assert SigningKey.with_private(Algorithm.Es512, PrivateKey.generate_ecdsa_p384())
+    //!     == Err("ES512 signs with an ECDSA P-521 key, not ECDSA P-384")
+    //
+    pub fn with_private(algorithm: Algorithm, key: PrivateKey) -> Result<SigningKey, String>
+        keyed(algorithm, key)
+    end
+
     /// The algorithm `key` signs with.
     pub fn algorithm(key: SigningKey) -> Algorithm
         key.algorithm
@@ -198,6 +237,12 @@ impl VerifyingKey
     /// An EdDSA key, from an Ed25519 public key.
     pub fn eddsa(key: PublicKey) -> Result<VerifyingKey, String>
         public_keyed(.EdDsa, key)
+    end
+
+    /// A key for `algorithm`, any but HS256, from a public key of the kind
+    /// it checks, as `SigningKey.with_private` takes a private one.
+    pub fn with_public(algorithm: Algorithm, key: PublicKey) -> Result<VerifyingKey, String>
+        public_keyed(algorithm, key)
     end
 
     /// The algorithm `key` checks.
@@ -298,11 +343,10 @@ pub fn sign(claims: Map<String, Json>, key: SigningKey) -> String
                 hash.hmac_sha256(secret, String.to_bytes(input))
 
             .Key(private) ->
-                // sign_with fails only for a scheme of another kind than the
-                // key's. A key signer is made only by `keyed`, whose
-                // kind_check holds the key's kind to `kind(algorithm)`, and
-                // `scheme(algorithm)` is a scheme of that kind.
-                signatures.sign_with(private, scheme(key.algorithm), String.to_bytes(input))!
+                // A key signer is made only by `keyed`, whose kind_check
+                // holds the algorithm to a scheme of the key's kind, so the
+                // scheme is there and sign_with does not fail.
+                signatures.sign_with(private, scheme(key.algorithm)!, String.to_bytes(input))!
         end
 
     "${input}.${base64.encode_url(signature, padded: False)}"
@@ -372,7 +416,7 @@ pub fn verify(
                 hash.equal_in_constant_time(hash.hmac_sha256(secret, input), signature)
 
             .Key(public) ->
-                signatures.is_valid_with(public, scheme(key.algorithm), input, signature)
+                signatures.is_valid_with(public, scheme(key.algorithm)!, input, signature)
         end
 
     if not valid then return Err(JwtError.BadSignature)
@@ -413,29 +457,26 @@ fn checked_secret(secret: Bytes) -> Result<Unit, String>
     end
 end
 
-/// The key kind an algorithm signs with.
-fn kind(algorithm: Algorithm) -> Option<KeyKind>
+/// The std::signatures scheme an algorithm signs with, or `None` for
+/// HS256, which signs with a secret.
+fn scheme(algorithm: Algorithm) -> Option<Scheme>
     case algorithm
         .Hs256 -> None
-        .Rs256 -> Some(.Rsa)
-        .Ps256 -> Some(.Rsa)
-        .Es256 -> Some(.EcdsaP256)
+        .Rs256 -> Some(.RsaPkcs1Sha256)
+        .Rs384 -> Some(.RsaPkcs1Sha384)
+        .Rs512 -> Some(.RsaPkcs1Sha512)
+        .Ps256 -> Some(.RsaPssSha256)
+        .Ps384 -> Some(.RsaPssSha384)
+        .Ps512 -> Some(.RsaPssSha512)
+        .Es256 -> Some(.EcdsaSha256)
+        .Es384 -> Some(.EcdsaSha384)
+        .Es512 -> Some(.EcdsaSha512)
         .EdDsa -> Some(.Ed25519)
     end
 end
 
-/// The std::signatures scheme an algorithm signs with.
-fn scheme(algorithm: Algorithm) -> Scheme
-    case algorithm
-        .Rs256 -> .RsaPkcs1Sha256
-        .Ps256 -> .RsaPssSha256
-        .Es256 -> .EcdsaSha256
-        _      -> .Ed25519
-    end
-end
-
 fn kind_check(algorithm: Algorithm, have: KeyKind) -> Result<Unit, String>
-    case kind(algorithm)
+    case scheme(algorithm) |> Option.map(Scheme.key_kind)
         Some(want) when want == have -> Ok(Unit)
         Some(want)                   -> Err("${algorithm} signs with an ${want} key, not ${have}")
         None                         -> Err("${algorithm} signs with a secret, not a key")

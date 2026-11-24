@@ -372,6 +372,12 @@ That's why `dbg` has worked on everything in the tour so far.
 To show a type differently, write `impl Debug for Type`. Your impl is
 used in place of the automatic one.
 
+A password, an API key or a token belongs in a
+[`Secret`](/reference/secret/), not a `String`. Its `Debug` prints
+`Secret(<hidden>)`, so `dbg`, a log line and a failed test's report never
+show the text, and it has no `Display`. `Secret.expose` returns the text
+for the one call that needs it.
+
 <div class="tour-details">
 <p class="tour-details-label">Fine print</p>
 
@@ -710,8 +716,8 @@ dbg line 11: Coin.variants() = [Penny, Nickel, Dime, Quarter]
   too.
 - On a generic type, `derive Equatable for Box<T>` implies `T: Equatable`,
   checked where `Box` is used.
-- A distinct type's derive goes through the value it wraps:
-  `Hashable.hash(Id(5)) == Hashable.hash(5)`.
+- A distinct type's derive goes through the value it wraps: with `derive
+  Equatable for Id`, `Id(5) == Id(5)` compares the two 5s.
 - A derive beside a hand-written impl of the same interface is an error.
   Drop one.
 - `with` options are per declaration. There is no per-field rename or
@@ -728,7 +734,7 @@ Spec: [Derive](/spec/interfaces-implementations-and-derive/#derive),
 
 A type can implement an interface only once in a whole program. Two
 `impl Display for User` blocks anywhere in the program are a compile
-error, reported before anything runs.
+error, even empty ones, reported before anything runs.
 
 A generic interface is the one exception: a type may implement it once at
 each set of type arguments. `String` implements `Contains<String>`,

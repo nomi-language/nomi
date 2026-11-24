@@ -47,6 +47,39 @@ export fn shout(text: String) -> String
 end
 `
 
+// reactorMemoryBound and leanReactorMemoryBound are the most initial
+// memory the reactor and the reactor without the network may declare:
+// each one's measured value on 2026-11-23 plus 256 KiB, four of the 64 KiB
+// pages memory is declared in, so that about 400 more functions fail here
+// and someone decides whether they are worth it.
+//
+// Go declares the end of a module's data and bss, the 4 MiB image area
+// among them, plus 1 MiB, so the bound follows the VM's code. Most of the
+// data is the table Go keeps per function, about 620 bytes each in a wasm
+// module (320 of them findfunctab's), and the rest is Go's own tables in
+// the packages the VM links. On 2026-11-23 the reactor declared 16.19 MiB
+// for 13,105 functions and 9.50 MB of data, and the lean one 12.94 MiB
+// for 9,095 functions and 6.29 MB. From 2026-11-22 to then they grew from
+// 15.94 MiB and 12.44 MiB, by the data each of std's new capabilities
+// added (full reactor, then lean): std::hash's new digests and
+// std::checksum 65 KB and 72 KB; std::cipher, std::key_exchange and HKDF
+// 40 KB and 300 KB, 88 KB of it P-256's precomputed table, which the full
+// reactor already had through crypto/tls; std::compress 35 KB and 128 KB;
+// UDP, Unix and inherited sockets 38 KB, full only; and compiler work the
+// rest.
+//
+// Later the same day the rest of std's host capabilities merged together:
+// std::terminal, std::system, the monotonic clock, process signals,
+// std::signals, file times, links and owners, the polling watcher, more
+// signature and cipher algorithms, TLS channel binding, WebSocket
+// compression and the byte and text helpers. Both reactors then declared
+// 384 KiB more, 16.56 MiB and 13.31 MiB. That growth was measured as one
+// sum and not per capability.
+const (
+	reactorMemoryBound     = 17_367_040 + 256<<10
+	leanReactorMemoryBound = 13_959_168 + 256<<10
+)
+
 // wasmMemoryMinimum is the initial size in bytes the module's memory
 // section declares.
 func wasmMemoryMinimum(t *testing.T, data []byte) uint64 {
@@ -79,14 +112,11 @@ func wasmMemoryMinimum(t *testing.T, data []byte) uint64 {
 // build` embedded a program in, and that an empty load into that one answers
 // its exported functions. The reactor `--reactor` writes is the
 // one `nomi build` embeds programs in, with an empty image area. Its
-// declared initial memory stays under 16 MiB, and the reactor without the
-// network (`--no-network`), which leaves out net/http, under 13 MiB: Go
-// declares the end of its data and bss, the 4 MiB image area among them,
-// plus 1 MiB, so the bound follows the VM's code. Most of the data is the
-// table Go keeps per function, about 620 bytes each in a wasm module (320
-// of them findfunctab's): 12,616 functions, 15.8 MiB, and 8,347 without
-// the network, 12.3 MiB, on 2026-11-21. With no --target it writes the
-// same bytes as with --target wasip1/wasm.
+// declared initial memory, which every instance reserves before it runs,
+// stays within reactorMemoryBound, and the reactor without the network
+// (`--no-network`), which leaves out net/http, within
+// leanReactorMemoryBound. With no --target it writes the same bytes as
+// with --target wasip1/wasm.
 func TestBuildCommand_ReactorLoadsOneProgramPerInstance(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; builds the wasip1 reactor; -short")
@@ -131,15 +161,15 @@ func TestBuildCommand_ReactorLoadsOneProgramPerInstance(t *testing.T) {
 	if _, err := vmrunner.EmbedWasmImage(reactor, []byte("x")); err != nil {
 		t.Fatalf("the reactor --reactor wrote is not the one nomi build embeds programs in: %v", err)
 	}
-	if got := wasmMemoryMinimum(t, reactor); got > 16<<20 {
-		t.Fatalf("the reactor declares %d bytes of initial memory, over 16 MiB", got)
+	if got := wasmMemoryMinimum(t, reactor); got > reactorMemoryBound {
+		t.Fatalf("the reactor declares %d bytes of initial memory, over its bound of %d", got, reactorMemoryBound)
 	}
 	lean, err := os.ReadFile(filepath.Join(dir, "reactor-nonet.wasm"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := wasmMemoryMinimum(t, lean); got > 13<<20 {
-		t.Fatalf("the reactor without the network declares %d bytes of initial memory, over 13 MiB", got)
+	if got := wasmMemoryMinimum(t, lean); got > leanReactorMemoryBound {
+		t.Fatalf("the reactor without the network declares %d bytes of initial memory, over its bound of %d", got, leanReactorMemoryBound)
 	}
 
 	node := wasiNode(t)

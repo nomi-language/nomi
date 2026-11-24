@@ -46,13 +46,9 @@ func DumpStdBaseForTest(b *StdBase) string {
 	for name := range b.names {
 		add("name %s", name)
 	}
-	for iface, byMethod := range b.collisionGroups {
-		for method, groups := range byMethod {
-			for group, impls := range groups {
-				for _, impl := range impls {
-					add("collision %s.%s %q %s@%d:%d #%d", iface, method, group, impl.fn.Name, impl.fn.Line, impl.fn.Col, impl.at)
-				}
-			}
+	for key, blocks := range b.implBlockGroups {
+		for _, blk := range blocks {
+			add("impl block %q %s %p", key, blk.key, blk.info)
 		}
 	}
 	for name, decls := range b.enumDecls {

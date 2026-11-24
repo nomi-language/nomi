@@ -2,7 +2,6 @@ package irbuild
 
 import (
 	"sort"
-	"strings"
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/stdlibbindings"
@@ -15,9 +14,8 @@ import (
 // `pub host type`, so `Regex` and `Context` read identically in source.
 //
 // A handle is a type registered through internal/stdlibbindings' Types(), which
-// is what makes its value a host handle and its assertion `values:` operand
-// `<Regex>` rather than whatever `impl Debug` std wrote. So the check is
-// against that table.
+// is what makes its value a host handle, carrying the registry's name as its
+// TypeName. So the check is against that table.
 //
 // BOTH DIRECTIONS, because each rules out a different wrong row:
 //
@@ -27,10 +25,12 @@ import (
 //   - a `handle: false` row whose type it DOES register sends a Go-backed
 //     handle down the rt-implemented path, which is the wrong-layout direction.
 //
-// The registry's names are `<module>.<Type>` and this table's identity is
-// `(origin, nomi)` — `std/regex` + `Regex` against `regex.Regex` — so the
-// comparison strips the `std/` prefix rather than matching on the bare name. A
-// bare-name match would let a row for one module's `Regex` satisfy another's.
+// The registry's name is the type's symbol name (stdSpecTypeName,
+// `regex.Regex` for `std/regex` + `Regex`), which is what a value's
+// TypeName then carries and what an impl of the type is recorded under, so
+// the machine finds a handle's hand-written `impl Debug` by the value's own
+// name (irRecordStdWritten). A bare-name match would let a row for one
+// module's `Regex` satisfy another's.
 func TestStdHostHandleRowsMatchTheBindingsTypeTable(t *testing.T) {
 	registered := map[string]bool{}
 	for _, tb := range stdlibbindings.Types() {
@@ -55,7 +55,7 @@ func TestStdHostHandleRowsMatchTheBindingsTypeTable(t *testing.T) {
 			}
 			continue
 		}
-		name := strings.TrimPrefix(s.origin, "std/") + "." + s.nomi
+		name, _ := stdSpecTypeName(stdHostDefs()[i])
 		claimed[name] = true
 		switch {
 		case s.handle && !registered[name]:
@@ -79,9 +79,9 @@ func TestStdHostHandleRowsMatchTheBindingsTypeTable(t *testing.T) {
 	sort.Strings(unmentioned)
 
 	if len(claimedNotRegistered) > 0 {
-		t.Errorf("handle row(s) whose type internal/stdlibbindings does not register: %v\n"+
-			"The row claims a host-handle `values:` rendering (`<%s>`) for a value "+
-			"that will never be one.", claimedNotRegistered, strings.Join(claimedNotRegistered, ">, <"))
+		t.Errorf("handle row(s) whose type internal/stdlibbindings does not register under its symbol name: %v\n"+
+			"The row claims a host handle for a value that will never be one, or one whose "+
+			"TypeName no impl is recorded under.", claimedNotRegistered)
 	}
 	if len(registeredNotClaimed) > 0 {
 		t.Errorf("non-handle row(s) whose type internal/stdlibbindings DOES register: %v\n"+

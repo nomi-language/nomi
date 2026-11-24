@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
-	"sort"
 	"strings"
 	"testing"
 
@@ -101,7 +100,7 @@ func TestScriptsNameGoPackagesThatExist(t *testing.T) {
 }
 
 // releaseBinaryEntry matches one row of scripts/release.sh's `binaries=(...)`
-// list: `"nomi-lsp:./cmd/nomi-lsp"`, i.e. installed name then package.
+// list: `"nomi-vm:./cmd/nomi-vm"`, i.e. installed name then package.
 var releaseBinaryEntry = regexp.MustCompile(`^\s*"([A-Za-z0-9._-]+):(\.[A-Za-z0-9._/-]*)"\s*$`)
 
 // TestReleaseScriptNamesGoPackagesThatExist covers the packages the release
@@ -155,13 +154,14 @@ func TestReleaseScriptNamesGoPackagesThatExist(t *testing.T) {
 		}
 	}
 
-	// A release carries `nomi`, `nomi-lsp`, `nomi-vm` and `nomi-vm-nonet`,
-	// the runner without the network that `nomi build` picks for a program
-	// that never reaches it. Pinning the count, not just "more than zero", is
-	// what catches the list being emptied or a row being dropped — either
-	// would leave the loop above passing while shipping less than a release is.
-	if checked != 4 {
-		t.Fatalf("found %d binary row(s) in release.sh's binaries=(...), want 4 (nomi, nomi-lsp, nomi-vm, nomi-vm-nonet)", checked)
+	// A release builds `nomi-vm`, `nomi-vm-nonet` (the runner without the
+	// network that `nomi build` picks for a program that never reaches it)
+	// and `nomi`, which carries the other two. Pinning the count, not just
+	// "more than zero", is what catches the list being emptied or a row
+	// being dropped — either would leave the loop above passing while
+	// shipping less than a release is.
+	if checked != 3 {
+		t.Fatalf("found %d binary row(s) in release.sh's binaries=(...), want 3 (nomi-vm, nomi-vm-nonet, nomi)", checked)
 	}
 }
 
@@ -207,13 +207,13 @@ func TestScriptsAreExecutable(t *testing.T) {
 	}
 }
 
-// TestReleaseTagsNameEveryLibModule: scripts/release-tags.sh prints the
-// root tag and one tag for each module under lib/ whose nomi.toml gives it
-// a path there, which the proxy serves a release of only from that tag, and
-// each such module has the go.mod the proxy reads its path from. A library
-// added without a go.mod, or one the script's search misses, fails here
-// rather than at a release `nomi`'s first `nomi add` of it.
-func TestReleaseTagsNameEveryLibModule(t *testing.T) {
+// TestReleaseTagsChecksTheLibModules: scripts/release-tags.sh prints the
+// one tag a release makes and exits 0 on this tree, whose lib/ modules each
+// name themselves and name each other by dir alone. On a copy of the script
+// over a lib/ of its own, it refuses a module whose [module] gives no name
+// and an entry that names this repository by version, each by file and
+// line, and prints no tag.
+func TestReleaseTagsChecksTheLibModules(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("runs a bash script; the Unix jobs check it")
 	}
@@ -221,8 +221,23 @@ func TestReleaseTagsNameEveryLibModule(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	script := filepath.Join(root, "scripts", "release-tags.sh")
 	const version = "v0.0.1"
-	want := []string{version}
+	run := func(script string) (stdout, stderr string, exit int) {
+		t.Helper()
+		cmd := exec.Command("bash", script, version)
+		var errOut strings.Builder
+		cmd.Stderr = &errOut
+		out, err := cmd.Output()
+		if exitErr := (*exec.ExitError)(nil); errors.As(err, &exitErr) {
+			return string(out), errOut.String(), exitErr.ExitCode()
+		} else if err != nil {
+			t.Fatalf("release-tags.sh %s: %v", version, err)
+		}
+		return string(out), errOut.String(), 0
+	}
+
+	modules := 0
 	err = filepath.WalkDir(filepath.Join(root, "lib"), func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -230,42 +245,46 @@ func TestReleaseTagsNameEveryLibModule(t *testing.T) {
 		if d.IsDir() && (d.Name() == "testdata" || strings.HasPrefix(d.Name(), ".")) {
 			return filepath.SkipDir
 		}
-		if d.IsDir() || d.Name() != modcache.ManifestName {
-			return nil
+		if !d.IsDir() && d.Name() == modcache.ManifestName {
+			modules++
 		}
-		dir := filepath.Dir(path)
-		mf, err := modcache.ReadModuleFile(dir)
-		if err != nil {
-			return err
-		}
-		rel, _ := filepath.Rel(root, dir)
-		rel = filepath.ToSlash(rel)
-		if mf == nil || mf.Path != "github.com/nomi-language/nomi/"+rel {
-			t.Errorf("%s/nomi.toml does not give the module the path github.com/nomi-language/nomi/%s, which the proxy serves it at", rel, rel)
-			return nil
-		}
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err != nil {
-			t.Errorf("%s has a nomi.toml and no go.mod, so the module proxy cannot serve it", rel)
-		}
-		want = append(want, rel+"/"+version)
 		return nil
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	sort.Strings(want[1:])
-	cmd := exec.Command("bash", filepath.Join(root, "scripts", "release-tags.sh"), version)
-	var stderr strings.Builder
-	cmd.Stderr = &stderr
-	out, err := cmd.Output()
-	// Exit 1 says entries between the libraries do not name the version yet,
-	// which a release fixes before tagging; the tags are printed either way.
-	if exit := (*exec.ExitError)(nil); err != nil && !(errors.As(err, &exit) && exit.ExitCode() == 1) {
-		t.Fatalf("release-tags.sh %s: %v\n%s", version, err, stderr.String())
+	if modules == 0 {
+		t.Fatal("found no nomi.toml under lib/, so the run below checks nothing")
 	}
-	got := strings.Fields(string(out))
-	if len(want) < 2 || strings.Join(got, "\n") != strings.Join(want, "\n") {
-		t.Errorf("release-tags.sh %s printed\n%s\nwant the root tag and one per lib/ module\n%s", version, strings.Join(got, "\n"), strings.Join(want, "\n"))
+	if out, errOut, exit := run(script); exit != 0 || out != version+"\n" {
+		t.Fatalf("release-tags.sh %s on this tree exits %d and prints\n%s%s\nwant exit 0 and the one tag %s", version, exit, out, errOut, version)
+	}
+
+	fake := t.TempDir()
+	text, err := os.ReadFile(script)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWrite(t, filepath.Join(fake, "scripts", "release-tags.sh"), string(text))
+	mustWrite(t, filepath.Join(fake, "lib", "good", "nomi.toml"), "[module]\nname = \"good\"\n\n[dependencies]\nother = { dir = \"../other\" }\n")
+	mustWrite(t, filepath.Join(fake, "lib", "nameless", "nomi.toml"), "[module]\nentry_points = [\"main\"]\n")
+	mustWrite(t, filepath.Join(fake, "lib", "pinned", "nomi.toml"),
+		"[module]\nname = \"pinned\"\n\n[dependencies]\ngood = { repo = \"github.com/nomi-language/nomi\", subdir = \"lib/good\", version = \"v0.0.1\" }\n")
+	out, errOut, exit := run(filepath.Join(fake, "scripts", "release-tags.sh"))
+	if exit != 1 || out != "" {
+		t.Errorf("release-tags.sh over a nameless module and a pinned entry exits %d and prints %q, want exit 1 and no tag", exit, out)
+	}
+	for _, want := range []string{
+		"lib/nameless/nomi.toml: [module] gives no name",
+		"lib/pinned/nomi.toml:5: good names github.com/nomi-language/nomi by version; a library names another by dir alone",
+		"2 problems above",
+	} {
+		if !strings.Contains(errOut, want) {
+			t.Errorf("release-tags.sh says\n%s\nwant a line holding %q", errOut, want)
+		}
+	}
+	if strings.Contains(errOut, "lib/good/") {
+		t.Errorf("release-tags.sh names a module with no problem:\n%s", errOut)
 	}
 }
 

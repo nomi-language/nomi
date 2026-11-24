@@ -109,8 +109,8 @@ type stdHostSpec struct {
 	// rather than a leaf whose payload rt owns.
 	//
 	// It flips exactly one bit of the def below, `rtOpaque`, and that bit
-	// decides whether `zeroSized()` answers true (types.go asks `rtOpaque`
-	// FIRST, before the marker arm). The two answers are not
+	// decides whether `irRetainedMarker` answers true (it asks `rtOpaque`
+	// before the marker's shape). The two answers are not
 	// interchangeable in either direction: a marker read as a leaf cannot be
 	// MATERIALIZED, so `case b { Bool.False(x) -> … }` has nowhere to get `x`
 	// from; a leaf read as a marker is equal to every other and takes the unit
@@ -135,10 +135,11 @@ type stdHostSpec struct {
 	// TestStdHostHandleRowsMatchTheBindingsTypeTable asserts both
 	// directions against it.
 	//
-	// What the bit decides here is the `values:` RENDERING: a handle renders
-	// as `"<" + short type name + ">"`, so a row's operand renders
-	// `<Regex>`. Every other row in this table is a type std
-	// writes its own `impl Debug` for.
+	// The handle's TypeName is the type's symbol name (`regex.Regex`,
+	// irTypeSymName), which is what the registry names it, so a table of
+	// impls keyed by type name finds a handle's: a hand-written `impl Debug`
+	// renders it in a `values:` row as `dbg` does (irRecordStdWritten), and
+	// one with none reads `<Regex>`.
 	handle bool
 	// phantom names the declaration's type parameters when every one is
 	// PHANTOM: no value of the type stores anything of it, so the
@@ -255,12 +256,12 @@ var stdHostSpecs = []stdHostSpec{
 	// anchor them, as for `Context` and `Dynamic`.
 	//
 	// A `Bool` value is the scalar kindBool, which names neither embedded
-	// type, so these two types need rows of their own for `bool.Bool.inspect`, `bool.Bool.to_string`, `bool.Bool.equal`
-	// and `bool.Bool.hash` to lower. Each is a DERIVE-SYNTHESIZED body over
+	// type, so these two types need rows of their own for Bool's derived
+	// body (`bool.Bool.compare`) to lower. It is a DERIVE-SYNTHESIZED
+	// body over
 	// `case value { Bool.False(v0) -> … }` (analysis/derive_synthesis.go's
-	// `stringifyEnumExpr` plus `stringifyVariantBody`'s `"embedded"` arm), so
-	// the payload binding is what needs the representation. See
-	// rt/boolmarker.go.
+	// `enumVariantPattern` for an `embeds` variant), so the payload binding
+	// is what needs the representation. See rt/boolmarker.go.
 	{origin: "std/bool", nomi: "True", goType: reflect.TypeFor[rt.BoolTrue](), marker: true},
 	{origin: "std/bool", nomi: "False", goType: reflect.TypeFor[rt.BoolFalse](), marker: true},
 	// `Supervisor`, std/supervisors' owner for work that outlives the call that
@@ -299,8 +300,9 @@ var stdHostSpecs = []stdHostSpec{
 	//
 	// `handle: true`, which is not readable from the declaration. It is
 	// registered as an extern type (`regex.Regex` in internal/stdlibbindings'
-	// Types()), which is what makes its value a host handle and its `values:`
-	// operand `<Regex>`. TestStdHostHandleRowsMatchTheBindingsTypeTable asserts
+	// Types()), which is what makes its value a host handle; its `values:`
+	// operand reads as its `impl Debug` renders it, ``Regex`\d+` ``.
+	// TestStdHostHandleRowsMatchTheBindingsTypeTable asserts
 	// that correspondence in both directions.
 	{origin: "std/regex", nomi: "Regex", goType: reflect.TypeFor[rt.Regex](), handle: true, phantom: []string{"C"}},
 	// `Reader` and `Writer`, std/io's streams, origin-identified for the
@@ -352,6 +354,11 @@ var stdHostSpecs = []stdHostSpec{
 	// only its host calls look inside (rt/bytesbuilder.go). It is a value
 	// with no equality, not a handle to running state.
 	{origin: "std/bytes", nomi: "Builder", goType: reflect.TypeFor[rt.BytesBuilder]()},
+	// `Hasher`, std/hash's digest part way through its input, for the
+	// reason `Builder` is: rt's struct over a state internal/stdhash builds
+	// and never writes once the value exists (rt/hasher.go). A value with
+	// no equality, not a handle to running state.
+	{origin: "std/hash", nomi: "Hasher", goType: reflect.TypeFor[rt.Hasher]()},
 }
 
 // stdHostDefs is the process-wide *typeDef per spec, keyed by spec index.
@@ -368,8 +375,9 @@ var stdHostDefs = sync.OnceValue(func() []*typeDef {
 			//
 			// A `marker` row is the other answer, and it is the one case where
 			// `isDistinct && inner == kindInvalid` means what it looks like:
-			// there is genuinely nothing inside, so `zeroSized()` must answer
-			// true and the value must be materializable from its type alone.
+			// there is genuinely nothing inside, so `irRetainedMarker` must
+			// answer true and the value must be materializable from its type
+			// alone.
 			isDistinct: true, inner: kindInvalid, rtOpaque: !s.marker, lowerable: true, // rtDeclared: rt declares the type, so the def is process-wide and
 			// package-neutral.
 			rtDeclared: true}

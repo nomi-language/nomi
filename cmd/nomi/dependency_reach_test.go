@@ -46,7 +46,7 @@ func reachMain(modules ...string) string {
 func TestModules_AddSaysWhatTheModuleReaches(t *testing.T) {
 	c := newModuleCLI(t)
 	work := t.TempDir()
-	c.must(work, "new", "example.com/app")
+	c.must(work, "new", "app")
 	app := filepath.Join(work, "app")
 	reachModules(t, work)
 
@@ -84,7 +84,7 @@ func TestModules_AddSaysWhatTheModuleReaches(t *testing.T) {
 func TestModules_AddWritesTheModulesEntry(t *testing.T) {
 	c := newModuleCLI(t)
 	work := t.TempDir()
-	c.must(work, "new", "example.com/app")
+	c.must(work, "new", "app")
 	app := filepath.Join(work, "app")
 	reachModules(t, work)
 	manifest := "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n" +
@@ -135,19 +135,19 @@ func TestModules_UpdateSaysWhatChangedInTheReach(t *testing.T) {
 			"idle.nomi": "pub fn version() -> String\n    \"" + v + "\"\nend\n",
 		}
 	}
-	publishFiles(t, c.proxy, "example.com/greet", "v1.0.0", greet("import std::fs\n\npub fn hello() -> String\n    fs.read_text(\"greeting.txt\") |> Result.with_default(\"hello\")\nend\n"))
-	publishFiles(t, c.proxy, "example.com/idle", "v1.0.0", idle("v1.0.0"))
+	c.host.Tag("example.com/greet", "v1.0.0", greet("import std::fs\n\npub fn hello() -> String\n    fs.read_text(\"greeting.txt\") |> Result.with_default(\"hello\")\nend\n"))
+	c.host.Tag("example.com/idle", "v1.0.0", idle("v1.0.0"))
 	work := t.TempDir()
-	c.must(work, "new", "example.com/app")
+	c.must(work, "new", "app")
 	app := filepath.Join(work, "app")
 	mustWrite(t, filepath.Join(app, "main.nomi"), "import\n    std::io\n    greet\nend\n\nfn main()\n    io.print(greet.hello())\nend\n")
 	c.must(app, "add", "example.com/greet")
 	c.must(app, "add", "example.com/idle")
 	mustWrite(t, filepath.Join(app, "nomi.toml"), mustRead(t, filepath.Join(app, "nomi.toml"))+"\n[effects.self]\nstd = [\"std::io\"]\n\n[effects.deps]\nstd = [\"std::fs\"]\n")
 
-	publishFiles(t, c.proxy, "example.com/greet", "v1.1.0", greet("import\n    std::http\n    std::url.Url\nend\n\n"+
+	c.host.Tag("example.com/greet", "v1.1.0", greet("import\n    std::http\n    std::url.Url\nend\n\n"+
 		"pub fn hello() -> String\n    _ = http.get(Url\"https://example.com/greeting\")\n    \"hello\"\nend\n"))
-	publishFiles(t, c.proxy, "example.com/idle", "v1.1.0", idle("v1.1.0"))
+	c.host.Tag("example.com/idle", "v1.1.0", idle("v1.1.0"))
 	want := "example.com/greet v1.0.0 -> v1.1.0\nexample.com/idle v1.0.0 -> v1.1.0\n\nmodules\n" +
 		"  greet\n    std::http\n    now also has the effect std::http\n    no longer has the effect std::fs\n" +
 		"  idle\n    not imported yet\n\n" +

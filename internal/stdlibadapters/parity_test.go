@@ -347,6 +347,93 @@ func passwordsCases() map[string][]argSet {
 	}
 }
 
+// cipherCases covers std::cipher's and std::key_exchange's kernels: RFC
+// 8439's ChaCha20-Poly1305 vector and an AES-GCM and an XChaCha20-Poly1305
+// seal under fixed keys and nonces, each opened, and a tag that does not
+// verify; SP 800-38A's first AES-CTR block and a key AES refuses; RFC
+// 7748's X25519 pair, keys each curve refuses, a low-order X25519 point,
+// and a fresh key by shape, since it is random.
+// systemCases covers std/system/host's rows by shape alone, since each
+// answers a fact of the machine the test runs on; internal/stdsystem's
+// tests hold the values to Go's own.
+func systemCases() map[string][]argSet {
+	c := map[string][]argSet{}
+	for _, name := range []string{"os", "arch", "cpu_count", "hostname", "executable", "home_dir", "cache_dir",
+		"config_dir", "data_dir", "user", "memory", "runtime"} {
+		c["system/host."+name] = []argSet{{args: a(), shapeOnly: true}}
+	}
+	return c
+}
+
+func cipherCases() map[string][]argSet {
+	b := func(text string) any { return rt.Bytes(text) }
+	h := func(text string) any { return rt.Bytes(mustHex(text)) }
+	const (
+		key32    = "808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9f"
+		nonce12  = "070000004041424344454647"
+		nonce24  = "404142434445464748494a4b4c4d4e4f5051525354555657"
+		aad      = "50515253c0c1c2c3c4c5c6c7"
+		chachaCT = "d31a8d34648e60db7b86afbc53ef7ec2a4aded51296e08fea9e2b5a736ee62d63dbea45e8ca9671282fafb69da92728b" +
+			"1a71de0a9e060b2905d6a5b67ecd3b3692ddbd7f2d778b8c9803aee328091b58fab324e4fad675945585808b4831d7bc" +
+			"3ff4def08e4b7a9de576d26586cec64b6116" + "1ae10b594f09e26a7e902ecbd0600691"
+		alice = "77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a"
+		bob   = "de9edb7d7b7dc1b4d35b61c2ece435373f8343c85b78674dadfc7e146f882b4f"
+	)
+	sunscreen := b("Ladies and Gentlemen of the class of '99: If I could offer you only one tip for the future, sunscreen would be it.")
+	zero32 := h(strings.Repeat("00", 32))
+	return map[string][]argSet{
+		"cipher/host.seal": sets(a(i(1), h(key32), h(nonce12), sunscreen, h(aad)),
+			a(i(0), h(key32), h(nonce12), b("hi"), b("")), a(i(0), h(key32[:32]), h(nonce12), b(""), b("label")),
+			a(i(2), h(key32), h(nonce24), b("hi"), b("label")),
+			a(i(3), h(key32), h(nonce24[:32]), b("hi"), b("label")),
+			a(i(3), h(key32+key32[:32]), h(nonce24[:32]), b(""), b("")),
+			a(i(3), h(key32+key32), h(nonce24[:32]), b("sixteen bytes!!!"), b("label"))),
+		"cipher/host.open": sets(a(i(1), h(key32), h(nonce12), h(chachaCT), h(aad)),
+			a(i(1), h(key32), h(nonce12), h(chachaCT), b("")),
+			a(i(1), h(key32), h(nonce12), h(chachaCT[:len(chachaCT)-2]+"00"), h(aad)),
+			a(i(3), h(key32), h(nonce24[:32]), h(chachaCT[:64]), b("label"))),
+		"cipher/host.aes_ctr": sets(a(h("2b7e151628aed2a6abf7158809cf4f3c"), h("f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff"),
+			h("6bc1bee22e409f96e93d7e117393172a")), a(b("short"), h("f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff"), b("x"))),
+		"key_exchange/host.generate": {{args: a(i(0)), shapeOnly: true}, {args: a(i(3)), shapeOnly: true}},
+		"key_exchange/host.private_is_valid": sets(a(i(0), h(alice)), a(i(0), h(alice[:62])), a(i(1), zero32),
+			a(i(1), h(alice))),
+		"key_exchange/host.public_is_valid": sets(a(i(0), h(bob)), a(i(1), h(bob)), a(i(1), h("00"))),
+		"key_exchange/host.public_of":       sets(a(i(0), h(alice))),
+		"key_exchange/host.shared_secret":   sets(a(i(0), h(alice), h(bob)), a(i(0), h(alice), zero32)),
+	}
+}
+
+// compressCases covers std::compress's kernels. Deflate's output may change
+// with Go's version, so what encodes is recorded by shape, and a stream
+// made here by Go's gzip decodes to its text: whole, past its limit, cut
+// short, in another format, and empty. A gzip header reads its fields, and
+// a member its data and where it ends. The streams wrap a Reader or Writer
+// and are recorded by shape; internal/stdcompress's tests read them.
+func compressCases() map[string][]argSet {
+	b := func(text string) any { return rt.Bytes(text) }
+	none := rb.Variant("option.Option", "None")
+	dict := rb.Variant("option.Option", "Some", rt.Bytes("hello"))
+	hi := gzipOf("hi")
+	return map[string][]argSet{
+		"compress/host.encode": {
+			{args: a(i(0), b("hi"), i(-1), s("a.txt"), s("note"), i(1767225600), i(3), none), shapeOnly: true},
+			{args: a(i(1), b(""), i(9), s(""), s(""), i(0), i(255), dict), shapeOnly: true},
+			{args: a(i(2), b("hi"), i(42), s(""), s(""), i(0), i(255), none), shapeOnly: true},
+		},
+		"compress/host.decode": sets(a(i(0), b(hi), i(100), none), a(i(0), b(hi), i(1), none),
+			a(i(0), b(hi[:12]), i(100), none), a(i(1), b(hi), i(100), none), a(i(2), b(""), i(100), none)),
+		"compress/host.gzip_header": sets(a(b(hi), i(0)), a(b("not gzip"), i(0))),
+		"compress/host.decode_at": sets(a(i(0), b(hi+hi), i(0), i(100), none), a(i(0), b(hi+hi), i(int64(len(hi))), i(100), none),
+			a(i(0), b(hi), i(0), i(1), none), a(i(2), b(rawOf("hi")+"after"), i(0), i(100), none),
+			a(i(1), b(hi+"after"), i(0), i(100), none)),
+		"compress/host.reader": {{args: a(i(0), rt.ReaderFromBytes(rt.Bytes(hi)), none), shapeOnly: true}},
+		"compress/host.writer": {{args: a(i(0), rt.WriterToMemory(), i(-1), s(""), s(""), i(0), i(255), none),
+			shapeOnly: true}},
+		"compress/host.encoding_reader": {{args: a(i(1), rt.ReaderFromText("hi"), i(-1), s(""), s(""), i(0), i(255), dict),
+			shapeOnly: true}},
+	}
+}
+
 // formatCases covers the locale-aware formatting and parsing rows: the
 // grouping, digit, sign and percent shapes the adapters convert, and each
 // parse error's payload.
@@ -690,6 +777,9 @@ func TestParity_EveryBindingReproducesItsRecordedOutcomes(t *testing.T) {
 	p.run(moneyDateCases())
 	p.run(tomlCases())
 	p.run(passwordsCases())
+	p.run(cipherCases())
+	p.run(systemCases())
+	p.run(compressCases())
 	p.regex()
 
 	updateOutcomes(t, funcsGoldenPath, p.lines)

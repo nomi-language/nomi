@@ -48,6 +48,7 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `dec!(1.50)` from the `rust_decimal` crate | `1.50d`, a `Decimal` literal, in the language: `0.1d + 0.2d == 0.3d`. See [Exact arithmetic with `Decimal`](/scalars-and-strings/#exact-arithmetic-with-decimal). |
 | `todo!("parse")` | `todo "parse"` |
 | `tokio::spawn` | `Task.spawn` inside a `concurrent` ... `end` block |
+| `tokio::time::timeout(d, f)`, `tokio::select!` over futures | `Task.within(d, f)`, `Task.race([..])`: both cancel what did not finish |
 | `#[test] fn t()` | `test "name"` ... `end` |
 | `pub`, `pub(crate)` | `pub` alone. A declaration is private to its file unless it is marked `pub` |
 | `mod`, `use a::b` | A file is the unit of import: `import a.{b}`. A path is `::`-joined like Rust's (`import db::posts`), and the file is then used by its last part, `posts.find(1)`. Importing a directory, `import db`, is like `use crate::db`: `db::posts.find(1)` reaches the file. |

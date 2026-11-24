@@ -16,7 +16,7 @@ import (
 type iterationFailure struct{ err error }
 
 func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
-	ic := iterCaller{m, fr.depth}
+	ic := iterCaller{m: m, depth: fr.depth}
 	defer func() {
 		if p := recover(); p != nil {
 			if failure, ok := p.(iterationFailure); ok {
@@ -244,6 +244,8 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 		if err != nil {
 			return err
 		}
+		ic, release := ic.holding()
+		defer release()
 		if n.Signalling() {
 			fold := func(runtime *rt.Frame, acc, item any) (any, bool) {
 				return reduceOutcome(ic.invoke(f, runtime, acc, item), acc)
@@ -278,6 +280,8 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 			}))
 			return nil
 		}
+		ic, release := ic.holding()
+		defer release()
 		var failed error
 		split := func(result any) (any, any) {
 			return pairPart(result, 0, &failed), pairPart(result, 1, &failed)
@@ -657,10 +661,27 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 type iterCaller struct {
 	m     *Machine
 	depth int
+	// stk is the register stack a driver that calls back many times in a
+	// row holds across its calls (holding), or nil: each call takes one
+	// from the pool and parks it again.
+	stk *regStack
+}
+
+// holding is ic for a driver that calls back once per element and is done
+// before its instruction is (a fold): its calls share one register stack,
+// each starting it empty as a call from Go does, so the machine view a
+// crossing in the callback is handed (boundAt) is made once for the
+// driver rather than once per call, and a step that pushes onto a vector
+// allocates what the same push does in a tail call. A stage that runs
+// after its instruction (Iter.map) holds none, since its calls may come
+// from another activation's drive. release parks the stack.
+func (ic iterCaller) holding() (held iterCaller, release func()) {
+	ic.stk = getStack()
+	return ic, func() { putStack(ic.stk) }
 }
 
 func (m *Machine) iterInvoke(f *functionValue, runtime *rt.Frame, args ...any) any {
-	return iterCaller{m, m.depth}.invoke(f, runtime, args...)
+	return iterCaller{m: m, depth: m.depth}.invoke(f, runtime, args...)
 }
 
 func (ic iterCaller) invoke(f *functionValue, runtime *rt.Frame, args ...any) any {
@@ -700,7 +721,7 @@ func (ic iterCaller) invokeOwned(f *functionValue, runtime *rt.Frame, owned uint
 	if f.host != nil {
 		v, err = f.host(runtime, append([]any(nil), args...))
 	} else {
-		v, err = ic.m.callValue(f, args, runtime, false, ic.depth, nil, owned)
+		v, err = ic.m.callValue(f, args, runtime, false, ic.depth, ic.stk, owned)
 	}
 	if err != nil {
 		panic(iterationFailure{err})

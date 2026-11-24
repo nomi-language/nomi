@@ -1,13 +1,15 @@
 //# The scratch server: a throwaway Postgres cluster, one per process, that
 //# `database` makes a fresh empty database on for each call. It runs from
 //# the `initdb` and `postgres` on `PATH`, in a temporary directory, on a
-//# free local port, with durability off (`fsync`, `synchronous_commit` and
-//# `full_page_writes`), since nothing on it outlives the process.
+//# free local port and on a Unix socket in a directory of its own under
+//# `/tmp` (`socket_directory`), short enough for a socket's path, with
+//# durability off (`fsync`, `synchronous_commit` and `full_page_writes`),
+//# since nothing on it outlives the process.
 //#
 //# A shell starts the server in the background, beside a watcher that
 //# looks each second at whether the process that asked for it still runs:
 //# once it has ended, however it ended, the watcher stops the server and
-//# removes the directory. That needs a POSIX shell, so Windows has no
+//# removes the directories. That needs a POSIX shell, so Windows has no
 //# scratch server.
 
 import
@@ -24,13 +26,13 @@ import
     postgres::wire
 end
 
-/// The scratch server's port, started on first use, or why it could not
-/// start.
-once server: Result<Int, String> = start()
+/// The scratch server's port and the directory of its Unix socket,
+/// started on first use, or why it could not start.
+once server: Result<(Int, String), String> = start()
 
 /// The URL of a fresh empty database on the process's scratch server.
 pub fn database() -> Result<String, sql.Error>
-    port = server |> Result.map_err(fn message -> sql.Error.Connection{message:})?
+    (port, _) = server |> Result.map_err(fn message -> sql.Error.Connection{message:})?
     name = "scratch_${hex.encode(random.secure_bytes(6))}"
     admin = wire.open(admin_config(port, "postgres"))?
     defer wire.close(admin)
@@ -38,38 +40,48 @@ pub fn database() -> Result<String, sql.Error>
     Ok("postgres://postgres@127.0.0.1:${port}/${name}?sslmode=disable")
 end
 
+/// The directory of the scratch server's Unix socket, which a connection
+/// string names as its host to connect over the socket.
+pub fn socket_directory() -> Result<String, sql.Error>
+    server
+    |> Result.map(.second)
+    |> Result.map_err(fn message -> sql.Error.Connection{message:})
+end
+
 fn admin_config(port: Int, database: String) -> Config
     Config{host: "127.0.0.1", port:, database:, ssl_mode: SslMode.Disable}
 end
 
 // The shell that makes and starts the cluster: `$1` is the port. It
-// prints the cluster's directory, and returns once the server is starting.
+// prints the directory of the server's Unix socket, and returns once the
+// server is starting.
 once script = `
     set -e
     for tool in initdb postgres; do
         command -v "$tool" >/dev/null 2>&1 || { echo "postgres.scratch runs a throwaway server with initdb and postgres from PATH, and $tool is not on PATH" >&2; exit 2; }
     done
     dir=$(mktemp -d "${TMPDIR:-/tmp}/nomi-postgres-XXXXXX")
+    sockets=$(mktemp -d /tmp/nomi-pg-XXXXXX)
     if ! initdb -D "$dir/data" -A trust -U postgres -E UTF8 --locale=C --no-sync >"$dir/initdb.log" 2>&1; then
         cat "$dir/initdb.log" >&2
-        rm -rf "$dir"
+        rm -rf "$dir" "$sockets"
         exit 1
     fi
     owner=$PPID
     (
-        postgres -D "$dir/data" -p "$1" -c listen_addresses=127.0.0.1 -c unix_socket_directories= -c fsync=off -c synchronous_commit=off -c full_page_writes=off >"$dir/log" 2>&1 &
+        postgres -D "$dir/data" -p "$1" -c listen_addresses=127.0.0.1 -c unix_socket_directories="$sockets" -c fsync=off -c synchronous_commit=off -c full_page_writes=off >"$dir/log" 2>&1 &
         pid=$!
         while kill -0 "$owner" 2>/dev/null && kill -0 "$pid" 2>/dev/null; do sleep 1; done
         kill -INT "$pid" 2>/dev/null
         wait "$pid"
-        rm -rf "$dir"
+        rm -rf "$dir" "$sockets"
     ) </dev/null >/dev/null 2>&1 &
-    echo "$dir"
+    echo "$sockets"
     `
 
 // Starts the server and the watcher, and waits for the server to accept
 // connections, for 30 seconds at most.
-fn start() -> Result<Int, String>
+fn start() -> Result<(Int, String), String>
     port = free_port()?
     shell = Command{program: "sh", args: ["-c", script, "sh", "${port}"]}
 
@@ -84,7 +96,8 @@ fn start() -> Result<Int, String>
         )
     end
 
-    accepting(port, Instant.now() + Duration.seconds(30))
+    sockets = Bytes.to_string_lossy(ran.stdout) |> String.trim()
+    accepting(port, Instant.now() + Duration.seconds(30)) |> Result.map(fn port -> (port, sockets))
 end
 
 // A port nothing listens on now.

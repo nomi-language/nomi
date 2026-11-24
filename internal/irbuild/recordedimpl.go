@@ -312,7 +312,7 @@ func (bl *irScalarBuilder) recordedImplPlan(t *ast.Call, args irQualArgs, key st
 			return p
 		}
 	}
-	if p := bl.recordedWithheldPlan(t, args, decl, block, key); p != nil {
+	if p := bl.recordedWithheldPlan(t, args, recvs, decl, block, key); p != nil {
 		return p
 	}
 	if ib, ok := c.Impl.(*ast.ImplBlock); ok {
@@ -336,14 +336,15 @@ func (bl *irScalarBuilder) recordedImplPlan(t *ast.Call, args irQualArgs, key st
 // type parameters of its own, or an expansive one), in whichever gen
 // registered the block that declares it (blockWrites), or for an
 // interface's default, the block that inherits it (block, the record's
-// Callee.Impl): at the instance of a generic receiver an operand is
-// (instanceIn), among the owner functions, among the blocks on non-generic
-// receivers, else at the instance the checker instantiated the call at
+// Callee.Impl): at the instance of a generic receiver an operand is, or
+// the instance beside a call with no operand of it (recvs, instanceIn),
+// among the owner functions, among the blocks on non-generic receivers,
+// else at the instance the checker instantiated the call at
 // (templateCallInstance). This gen's block builds the instance itself
 // (genericMethodItem); another gen's builds it for the call
 // (siblingMethodPlan), unless decl is an inherent function that gen keeps
 // private.
-func (bl *irScalarBuilder) recordedWithheldPlan(t *ast.Call, args irQualArgs, decl ast.Node, block *ast.ImplBlock, key string) *irQualPlan {
+func (bl *irScalarBuilder) recordedWithheldPlan(t *ast.Call, args irQualArgs, recvs []kind, decl ast.Node, block *ast.ImplBlock, key string) *irQualPlan {
 	g := bl.g
 	var name string
 	var holds func(og *gen, ib *ast.ImplBlock) bool
@@ -380,7 +381,7 @@ func (bl *irScalarBuilder) recordedWithheldPlan(t *ast.Call, args irQualArgs, de
 		return nil
 	}
 	for _, og := range g.recordGens() {
-		for _, k := range args.kinds {
+		for _, k := range recvs {
 			at, ok := g.instanceIn(og, k)
 			if !ok {
 				continue
@@ -534,8 +535,8 @@ func (g *gen) itemKinds(og *gen, it *implItem) (params []kind, result kind, ok b
 // recordedOperatorImpl is the function the checker recorded for the
 // operator t (analysis.OperatorUse.Impl.Method), a binary operator or a
 // prefix `~~~`, whose operand implementing it (the left one of two) is of
-// kind lk: a program's impl item and its gen, or a std function. All are
-// nil when the record names no impl.
+// kind lk: a program's impl item and its gen, or a std function
+// (operatorImplStd). All are nil when the record names no impl.
 func (bl *irScalarBuilder) recordedOperatorImpl(t ast.Node, lk kind) (og *gen, it *implItem, f *stdFunc) {
 	use := bl.g.operatorUse(t)
 	if use == nil || use.Form != analysis.OperatorByImpl || use.Impl == nil || isNilNode(use.Impl.Method) {
@@ -544,7 +545,7 @@ func (bl *irScalarBuilder) recordedOperatorImpl(t ast.Node, lk kind) (og *gen, i
 	if og, it := bl.g.recordedImplItem(use.Impl.Method, nil, lk); it != nil {
 		return og, it, nil
 	}
-	return nil, nil, bl.g.stdFuncByID(bl.g.srcFA().StdFuncOf(use.Impl.Method))
+	return nil, nil, bl.g.stdFuncByID(bl.g.operatorImplStd(use.Impl))
 }
 
 // operatorCall is the call the binary operator t means, `Iface.method(a,

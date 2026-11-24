@@ -40,16 +40,19 @@
 //
 // # Runner variants
 //
-// Every runner comes in two builds. The untagged one links every std
-// module's Go side. The lean build (nomi-vm-nonet, nomi-vm-reactor-nonet)
-// is built with every optional family's tag (stdlibadapters.LeanTags):
+// Every runner comes in two tiers, never a combination. The untagged one
+// links every std module's Go side. The lean build (nomi-vm-nonet,
+// nomi-vm-reactor-nonet) is built with every optional family's tag
+// (stdlibadapters.LeanTags) and links none, so a new family joins the full
+// tier and adds no runner. std/compiler's runner is the full one with the
+// front end linked, and has no lean build. In the lean build
 // nomi_nonet fails the network crossings with an error, so it links no
 // net/http, crypto/tls, crypto/x509 or net, and nomi_nowasm fails std::wasm's,
 // so it links no wazero. Leaving the packages out is the only way to drop
 // them, since importing net/http keeps its client transport alive through
 // DefaultTransport; the wasip1 reactor goes from 27.9 to 17.9 MB stripped.
 // No wasip1 runner has WebAssembly modules, whatever its tags: with wazero
-// the reactor would declare 17.3 MiB of initial memory, past its 16 MiB.
+// the reactor would declare 16.9 MiB of initial memory, past its 16.4 MiB.
 //
 // `go generate ./internal/stdlibadapters` writes the split by family
 // (internal/hostgen/stdtable/familysplit.go, Families): adapters_gen.go holds
@@ -98,7 +101,9 @@
 // that an added data segment fills (image_wasip1.go, EmbedWasmImage), so the
 // module needs no file access and no symbols to be found, and a stripped
 // release runner works. A js/wasm module carries it in a nomi.image custom
-// section that nomi.js hands it as the nomiImage Uint8Array (image_js.go).
+// section that nomi.js hands it as the nomiImage Uint8Array, and that it
+// reads from its own file under nomi-node.mjs, the Node loader `nomi build`
+// writes beside it with wasm_exec.js (image_js.go).
 //
 // # The wasip1 reactor
 //
@@ -129,7 +134,7 @@
 // WithStop and the context Instance.Call takes); nomi_call_with bounds one
 // call. The reactor's package doc lists the options. A reactor with an
 // embedded program refuses nomi_load of another. Releases ship the
-// reactor in the wasip1 archive beside nomi-vm. It also writes nomi-wasi.js
+// reactor in the wasip1 runners archive beside nomi-vm. It also writes nomi-wasi.js
 // and nomi-wasi.d.ts (cmd/nomi/wasi): a dependency-free ES module
 // implementing the WASI preview1 imports the reactor needs (stdio, clocks,
 // random, a blocking poll_oneoff sleep, no preopens, ENOSYS for any other
@@ -183,13 +188,15 @@
 //
 // # Runners from a release
 //
-// Release archives ship nomi-vm, and a second archive per target ships
-// std/compiler's runners. `nomi build` uses a runner beside `nomi` only
-// after checking it comes from the same commit and is the variant asked
-// for, by its build tags. A runner not installed, another platform's or
-// std/compiler's, is downloaded, checksum-verified and cached from the same
-// release (internal/runners/prebuilt.go), so a release `nomi` never builds
-// one. A wasm runner's commit is read from its data section
-// (internal/gobuildinfo), since debug/buildinfo cannot read a WebAssembly
-// module.
+// A release `nomi` carries its own platform's nomi-vm and nomi-vm-nonet,
+// gzipped, and `nomi build` for that platform unpacks the one it needs into
+// its cache once. The release also ships each platform's two in a runners
+// archive and std/compiler's in a compiler archive. `nomi build` uses a
+// runner beside `nomi` only after checking it comes from the same commit
+// and is the variant asked for, by its build tags. A runner `nomi` neither
+// carries nor has beside it, another platform's or std/compiler's, is
+// downloaded, checksum-verified and cached from the same release
+// (internal/runners/prebuilt.go), so a release `nomi` never builds one. A
+// wasm runner's commit is read from its data section (internal/gobuildinfo),
+// since debug/buildinfo cannot read a WebAssembly module.
 package vmrunner

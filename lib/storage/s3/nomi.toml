@@ -1,3 +1,2 @@
 [module]
 name = "s3"
-path = "github.com/nomi-language/nomi/lib/storage/s3"

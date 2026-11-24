@@ -116,10 +116,7 @@
 04-scalars-and-text/int_exact_test.nomi:factorial	ran
 04-scalars-and-text/interpolate_composite_test.nomi:Display.to_string for Box<Int>	ran
 04-scalars-and-text/interpolate_composite_test.nomi:Display.to_string for Box<String>	ran
-04-scalars-and-text/interpolate_composite_test.nomi:Display.to_string for Color	ran
 04-scalars-and-text/interpolate_composite_test.nomi:Display.to_string for Greeter	ran
-04-scalars-and-text/interpolate_composite_test.nomi:Display.to_string for Id	ran
-04-scalars-and-text/interpolate_composite_test.nomi:Display.to_string for Point	ran
 04-scalars-and-text/interpolate_composite_test.nomi:always	ran
 04-scalars-and-text/interpolate_composite_test.nomi:show	ran
 04-scalars-and-text/interpolate_composite_test.nomi:show	ran
@@ -338,18 +335,14 @@
 07-structs-and-enums/anonymous_structs/test_helpers.nomi:has_diagnostic	ran
 07-structs-and-enums/anonymous_structs/test_helpers.nomi:hover_signature	ran
 07-structs-and-enums/distinct_equatable_impl/distinct_equatable_impl_test.nomi:Debug.inspect for Marker	ran
-07-structs-and-enums/distinct_equatable_impl/distinct_equatable_impl_test.nomi:Equatable.equal for Derived	ran
 07-structs-and-enums/distinct_equatable_impl/distinct_equatable_impl_test.nomi:Equatable.equal for Marker	ran
 07-structs-and-enums/distinct_equatable_impl/distinct_equatable_impl_test.nomi:Equatable.equal for Slug	ran
 07-structs-and-enums/embeds_positional_match_test.nomi:positional	ran
 07-structs-and-enums/embeds_positional_match_test.nomi:struct_form	ran
-07-structs-and-enums/enum_equatable_impl/enum_equatable_impl_test.nomi:Equatable.equal for Color	ran
 07-structs-and-enums/enum_equatable_impl/enum_equatable_impl_test.nomi:Equatable.equal for Sign	ran
 07-structs-and-enums/enum_equatable_impl/enum_equatable_impl_test.nomi:is_positive	ran
 07-structs-and-enums/field_default_types/field_default_types_test.nomi:Clock.at for FakeClock	ran
 07-structs-and-enums/field_default_types/field_default_types_test.nomi:has_diagnostic	ran
-07-structs-and-enums/field_types_from_defaults/field_types_from_defaults_test.nomi:Display.to_string for Game	ran
-07-structs-and-enums/field_types_from_defaults/field_types_from_defaults_test.nomi:Equatable.equal for Game	ran
 07-structs-and-enums/field_types_from_defaults/field_types_from_defaults_test.nomi:has_diagnostic	ran
 07-structs-and-enums/field_types_from_defaults/models.nomi:Settings.home default	ran
 07-structs-and-enums/field_types_from_defaults/models.nomi:Settings.limit default	ran
@@ -359,21 +352,12 @@
 07-structs-and-enums/field_types_from_defaults/models.nomi:Settings.started default	ran
 07-structs-and-enums/field_types_from_defaults/models.nomi:check Route literal at 9:12 failure	ran
 07-structs-and-enums/field_types_from_defaults/models.nomi:default_limit	ran
-07-structs-and-enums/nested_update/nested_update_test.nomi:Display.to_string for Address	ran
-07-structs-and-enums/nested_update/nested_update_test.nomi:Display.to_string for Building	ran
-07-structs-and-enums/nested_update/nested_update_test.nomi:Display.to_string for Floor	ran
-07-structs-and-enums/nested_update/nested_update_test.nomi:Display.to_string for Geo	ran
 07-structs-and-enums/nested_update/nested_update_test.nomi:ada	ran
 07-structs-and-enums/nested_update/nested_update_test.nomi:at	ran
-07-structs-and-enums/recursive_structs_test.nomi:Equatable.equal for Node	ran
 07-structs-and-enums/recursive_structs_test.nomi:leaf	ran
 07-structs-and-enums/recursive_structs_test.nomi:length	ran
 07-structs-and-enums/recursive_structs_test.nomi:size	ran
-07-structs-and-enums/struct_call_form_record_test.nomi:Display.to_string for Config	ran
 07-structs-and-enums/struct_call_form_record_test.nomi:defaults	ran
-07-structs-and-enums/struct_spread/struct_spread_test.nomi:Display.to_string for Address	ran
-07-structs-and-enums/struct_spread/struct_spread_test.nomi:Display.to_string for Person	ran
-07-structs-and-enums/struct_spread/struct_spread_test.nomi:Display.to_string for Point	ran
 07-structs-and-enums/struct_spread/struct_spread_test.nomi:Speaker.say for Loud	ran
 07-structs-and-enums/struct_spread/struct_spread_test.nomi:Speaker.say for Quiet	ran
 07-structs-and-enums/struct_spread/struct_spread_test.nomi:make_point	ran
@@ -386,14 +370,12 @@
 07-structs-and-enums/variant_field_defaults/policy.nomi:Backoff.Exponential.max_restarts default	ran
 07-structs-and-enums/variant_field_defaults/policy/nested.nomi:Timeout.After.seconds default	ran
 07-structs-and-enums/variant_field_defaults/variant_field_defaults_test.nomi:describe	ran
-07-structs-and-enums/vector_trees_test.nomi:Equatable.equal for Dir	ran
-07-structs-and-enums/vector_trees_test.nomi:Equatable.equal for Tree	ran
-07-structs-and-enums/vector_trees_test.nomi:Hashable.hash for Tree	ran
 07-structs-and-enums/vector_trees_test.nomi:depth	ran
 07-structs-and-enums/vector_trees_test.nomi:eval	ran
 07-structs-and-enums/vector_trees_test.nomi:sample	ran
 07-structs-and-enums/vector_trees_test.nomi:sum	ran
 07-structs-and-enums/vector_trees_test.nomi:total	ran
+07-structs-and-enums/vector_trees_test.nomi:vector_trees_test.Tree.hash	ran
 08-pattern-matching/as_patterns_test.nomi:change	ran
 08-pattern-matching/as_patterns_test.nomi:first_of	ran
 08-pattern-matching/as_patterns_test.nomi:sum_with	ran
@@ -678,10 +660,6 @@
 10-generics-and-type-wrappers/expansive_impl_member_test.nomi:twice	ran
 10-generics-and-type-wrappers/generic_distinct_test.nomi:Display.to_string for Wrap<Int>	ran
 10-generics-and-type-wrappers/generic_distinct_test.nomi:Display.to_string for Wrap<String>	ran
-10-generics-and-type-wrappers/generic_distinct_test.nomi:Equatable.equal for Wrap<Int>	ran
-10-generics-and-type-wrappers/generic_distinct_test.nomi:Equatable.equal for Wrap<String>	ran
-10-generics-and-type-wrappers/generic_distinct_test.nomi:Hashable.hash for Wrap<Int>	ran
-10-generics-and-type-wrappers/generic_distinct_test.nomi:Hashable.hash for Wrap<String>	ran
 10-generics-and-type-wrappers/generic_distinct_test.nomi:Tagged<Int>.tag	ran
 10-generics-and-type-wrappers/generic_distinct_test.nomi:Tagged<String>.tag	ran
 10-generics-and-type-wrappers/generic_distinct_test.nomi:first	ran
@@ -790,8 +768,6 @@
 10-generics-and-type-wrappers/std_refinements_test.nomi:literal Duration"1m30s" at 81:31 failure	ran
 10-generics-and-type-wrappers/std_refinements_test.nomi:paced	ran
 10-generics-and-type-wrappers/type_argument_conversion/routes.nomi:serve	ran
-10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi:Equatable.equal for Pt	ran
-10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi:Hashable.hash for Pt	ran
 10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi:Int.hash	ran
 10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi:Named.name for Pt	ran
 10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi:Reply.text for Page	ran
@@ -806,6 +782,7 @@
 10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi:on_ints	ran
 10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi:shown	ran
 10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi:total	ran
+10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi:type_argument_conversion_test.Pt.hash	ran
 10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi:widened	ran
 10-generics-and-type-wrappers/type_parameter_fields/test_helpers.nomi:has_diagnostic	ran
 10-generics-and-type-wrappers/type_parameter_fields/test_helpers.nomi:hover_signature	ran
@@ -992,10 +969,8 @@
 11-interfaces-and-impls/existential_equality/existential_equality_test.nomi:circle_shape	ran
 11-interfaces-and-impls/existential_equality/protocols.nomi:Debug.inspect for Point	ran
 11-interfaces-and-impls/existential_equality/protocols.nomi:Equatable.equal for Glyph	ran
-11-interfaces-and-impls/existential_equality/protocols.nomi:Equatable.equal for Labeled	ran
 11-interfaces-and-impls/existential_equality/protocols.nomi:Equatable.equal for Name	ran
 11-interfaces-and-impls/existential_equality/protocols.nomi:Equatable.equal for Tag	ran
-11-interfaces-and-impls/existential_equality/protocols.nomi:Hashable.hash for Labeled	ran
 11-interfaces-and-impls/existential_equality/protocols.nomi:Hashable.hash for Name	ran
 11-interfaces-and-impls/existential_equality/protocols.nomi:Show.show for Circle	ran
 11-interfaces-and-impls/existential_equality/protocols.nomi:Show.show for Glyph	ran
@@ -1008,16 +983,16 @@
 11-interfaces-and-impls/existential_equality/protocols.nomi:Show.show for Spot	ran
 11-interfaces-and-impls/existential_equality/protocols.nomi:Show.show for String	ran
 11-interfaces-and-impls/existential_equality/protocols.nomi:Show.show for Tag	ran
+11-interfaces-and-impls/existential_equality/protocols.nomi:protocols.Labeled.hash	ran
 11-interfaces-and-impls/impl_blocks_test.nomi:Describe.describe for Point	ran
 11-interfaces-and-impls/impl_blocks_test.nomi:Describe.describe for Wrapped<Point>	ran
 11-interfaces-and-impls/impl_blocks_test.nomi:Display.to_string for Status	ran
-11-interfaces-and-impls/impl_blocks_test.nomi:Equatable.equal for Dog	ran
-11-interfaces-and-impls/impl_blocks_test.nomi:Hashable.hash for Dog	ran
 11-interfaces-and-impls/impl_blocks_test.nomi:Literal.from_fragments for Sql	ran
 11-interfaces-and-impls/impl_blocks_test.nomi:Speech.speak for Cat	ran
 11-interfaces-and-impls/impl_blocks_test.nomi:Speech.speak for Dog	ran
 11-interfaces-and-impls/impl_blocks_test.nomi:describe	ran
 11-interfaces-and-impls/impl_blocks_test.nomi:get	ran
+11-interfaces-and-impls/impl_blocks_test.nomi:impl_blocks_test.Dog.hash	ran
 11-interfaces-and-impls/impl_blocks_test.nomi:is_active	ran
 11-interfaces-and-impls/impl_blocks_test.nomi:loud_name	ran
 11-interfaces-and-impls/impl_blocks_test.nomi:rename	ran
@@ -1026,13 +1001,11 @@
 11-interfaces-and-impls/interface_conjunctions_test.nomi:Costed.cost for Tea	ran
 11-interfaces-and-impls/interface_conjunctions_test.nomi:Display.to_string for Coffee	ran
 11-interfaces-and-impls/interface_conjunctions_test.nomi:Display.to_string for Tea	ran
-11-interfaces-and-impls/interface_conjunctions_test.nomi:Equatable.equal for Coffee	ran
-11-interfaces-and-impls/interface_conjunctions_test.nomi:Equatable.equal for Tea	ran
-11-interfaces-and-impls/interface_conjunctions_test.nomi:Hashable.hash for Coffee	ran
-11-interfaces-and-impls/interface_conjunctions_test.nomi:Hashable.hash for Tea	ran
 11-interfaces-and-impls/interface_conjunctions_test.nomi:Priced.price for Coffee	ran
 11-interfaces-and-impls/interface_conjunctions_test.nomi:Priced.price for List<Int>	ran
 11-interfaces-and-impls/interface_conjunctions_test.nomi:Priced.price for Tea	ran
+11-interfaces-and-impls/interface_conjunctions_test.nomi:interface_conjunctions_test.Coffee.hash	ran
+11-interfaces-and-impls/interface_conjunctions_test.nomi:interface_conjunctions_test.Tea.hash	ran
 11-interfaces-and-impls/interface_conjunctions_test.nomi:label	ran
 11-interfaces-and-impls/interface_conjunctions_test.nomi:margin	ran
 11-interfaces-and-impls/interface_conjunctions_test.nomi:pick	ran
@@ -1045,7 +1018,6 @@
 11-interfaces-and-impls/interface_defaults/interface_defaults_test.nomi:Announcer.item for Box	ran
 11-interfaces-and-impls/interface_defaults/interface_defaults_test.nomi:Chooser.choose for ChoiceBox<String>	ran
 11-interfaces-and-impls/interface_defaults/interface_defaults_test.nomi:Chooser.item for ChoiceBox<String>	ran
-11-interfaces-and-impls/interface_defaults/interface_defaults_test.nomi:Display.to_string for DisplayBox<String>	ran
 11-interfaces-and-impls/interface_defaults/interface_defaults_test.nomi:Formatted.brief for FormattedUser	ran
 11-interfaces-and-impls/interface_defaults/interface_defaults_test.nomi:Formatted.label for FormattedUser	ran
 11-interfaces-and-impls/interface_defaults/interface_defaults_test.nomi:Formatted.shout for FormattedUser	ran
@@ -1092,7 +1064,6 @@
 11-interfaces-and-impls/missing_impls/test_helpers.nomi:hover_signature	ran
 11-interfaces-and-impls/module_qualified_impl_dispatch/users.nomi:Debug.inspect for Admin	ran
 11-interfaces-and-impls/module_qualified_impl_dispatch/users.nomi:Debug.inspect for User	ran
-11-interfaces-and-impls/module_qualified_impl_dispatch/users.nomi:Equatable.equal for User	ran
 11-interfaces-and-impls/module_qualified_impl_dispatch/users.nomi:FromJson.from_json for User	ran
 11-interfaces-and-impls/module_qualified_impl_dispatch/users.nomi:ToJson.to_json for User	ran
 11-interfaces-and-impls/module_qualified_impl_dispatch/users.nomi:admin	ran
@@ -1136,7 +1107,6 @@
 11-interfaces-and-impls/test_helpers.nomi:has_diagnostic	ran
 11-interfaces-and-impls/test_helpers.nomi:hover_signature	ran
 11-interfaces-and-impls/type_argument_inference/priority.nomi:Comparable.compare for Priority	ran
-11-interfaces-and-impls/type_argument_inference/priority.nomi:Debug.inspect for Priority	ran
 11-interfaces-and-impls/type_argument_inference/priority.nomi:rank	ran
 11-interfaces-and-impls/type_argument_inference/type_argument_inference_test.nomi:Chooser.left for Pair<Int>	ran
 11-interfaces-and-impls/type_argument_inference/type_argument_inference_test.nomi:Chooser.left for Pair<Priority>	ran
@@ -1182,33 +1152,22 @@
 12-derives-and-standard-interfaces/add_test.nomi:score_value	ran
 12-derives-and-standard-interfaces/add_test.nomi:times	ran
 12-derives-and-standard-interfaces/add_test.nomi:weeks_value	ran
-12-derives-and-standard-interfaces/collections_test.nomi:Equatable.equal for Bag	ran
-12-derives-and-standard-interfaces/collections_test.nomi:Equatable.equal for Holder	ran
-12-derives-and-standard-interfaces/collections_test.nomi:Hashable.hash for Bag	ran
+12-derives-and-standard-interfaces/collections_test.nomi:collections_test.Bag.hash	ran
 12-derives-and-standard-interfaces/cross_file_debug/cross_file_debug_test.nomi:Debug.inspect for Box	ran
 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Comparable.compare for Purse	ran
 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Comparable.compare for Wallet	ran
-12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Debug.inspect for Purse	ran
-12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Debug.inspect for Spare	ran
-12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Debug.inspect for Wallet	ran
-12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Display.to_string for Purse	ran
-12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Display.to_string for Spare	ran
-12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Display.to_string for Wallet	ran
-12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Equatable.equal for Purse	ran
-12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Equatable.equal for Spare	ran
-12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Equatable.equal for Wallet	ran
 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:FromJson.from_json for Purse	ran
 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:FromJson.from_json for Spare	ran
 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:FromJson.from_json for Wallet	ran
-12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Hashable.hash for Purse	ran
-12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Hashable.hash for Spare	ran
-12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Hashable.hash for Wallet	ran
 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:ToJson.to_json for Purse	ran
 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:ToJson.to_json for Spare	ran
 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:ToJson.to_json for Wallet	ran
 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:counted	ran
+12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:cross_file_derives_test.Purse.hash	ran
 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:cross_file_derives_test.Purse.to_json_field	ran
+12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:cross_file_derives_test.Spare.hash	ran
 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:cross_file_derives_test.Spare.to_json_field	ran
+12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:cross_file_derives_test.Wallet.hash	ran
 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:cross_file_derives_test.Wallet.to_json_field	ran
 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:wallet	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Comparable.compare for Cents	ran
@@ -1216,29 +1175,23 @@
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Comparable.compare for Money	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Comparable.compare for Tally	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Debug.inspect for Tally	ran
-12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Display.to_string for Cents	ran
-12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Display.to_string for Coin	ran
-12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Display.to_string for Money	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Display.to_string for Tally	ran
-12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Equatable.equal for Cents	ran
-12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Equatable.equal for Coin	ran
-12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Equatable.equal for Money	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Equatable.equal for Tally	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:FromJson.from_json for Cents	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:FromJson.from_json for Coin	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:FromJson.from_json for Money	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:FromJson.from_json for Tally	ran
-12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Hashable.hash for Cents	ran
-12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Hashable.hash for Coin	ran
-12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Hashable.hash for Money	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Hashable.hash for Tally	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:ToJson.to_json for Cents	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:ToJson.to_json for Coin	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:ToJson.to_json for Money	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:ToJson.to_json for Tally	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Variants.variants for Coin	ran
+12-derives-and-standard-interfaces/cross_file_derives/money.nomi:money.Cents.hash	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:money.Cents.to_json_field	ran
+12-derives-and-standard-interfaces/cross_file_derives/money.nomi:money.Coin.hash	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:money.Coin.to_json_field	ran
+12-derives-and-standard-interfaces/cross_file_derives/money.nomi:money.Money.hash	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:money.Money.to_json_field	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:money.Tally.to_json_field	ran
 12-derives-and-standard-interfaces/derives_test.nomi:Comparable.compare for Coord	ran
@@ -1253,41 +1206,19 @@
 12-derives-and-standard-interfaces/derives_test.nomi:Comparable.compare for Shape	ran
 12-derives-and-standard-interfaces/derives_test.nomi:Comparable.compare for Switch	ran
 12-derives-and-standard-interfaces/derives_test.nomi:Comparable.compare for Worker	ran
-12-derives-and-standard-interfaces/derives_test.nomi:Debug.inspect for Coord	ran
-12-derives-and-standard-interfaces/derives_test.nomi:Debug.inspect for Empty	ran
-12-derives-and-standard-interfaces/derives_test.nomi:Debug.inspect for Expired	ran
-12-derives-and-standard-interfaces/derives_test.nomi:Debug.inspect for Id	ran
-12-derives-and-standard-interfaces/derives_test.nomi:Debug.inspect for Point	ran
-12-derives-and-standard-interfaces/derives_test.nomi:Debug.inspect for Shape	ran
-12-derives-and-standard-interfaces/derives_test.nomi:Equatable.equal for Coord	ran
-12-derives-and-standard-interfaces/derives_test.nomi:Equatable.equal for Empty	ran
-12-derives-and-standard-interfaces/derives_test.nomi:Equatable.equal for Expired	ran
-12-derives-and-standard-interfaces/derives_test.nomi:Equatable.equal for Id	ran
-12-derives-and-standard-interfaces/derives_test.nomi:Equatable.equal for Leaf	ran
-12-derives-and-standard-interfaces/derives_test.nomi:Equatable.equal for Node	ran
-12-derives-and-standard-interfaces/derives_test.nomi:Equatable.equal for Off	ran
-12-derives-and-standard-interfaces/derives_test.nomi:Equatable.equal for On	ran
-12-derives-and-standard-interfaces/derives_test.nomi:Equatable.equal for Point	ran
-12-derives-and-standard-interfaces/derives_test.nomi:Equatable.equal for Shape	ran
-12-derives-and-standard-interfaces/derives_test.nomi:Equatable.equal for Switch	ran
-12-derives-and-standard-interfaces/derives_test.nomi:Equatable.equal for Worker	ran
-12-derives-and-standard-interfaces/derives_test.nomi:Hashable.hash for Coord	ran
-12-derives-and-standard-interfaces/derives_test.nomi:Hashable.hash for Expired	ran
-12-derives-and-standard-interfaces/derives_test.nomi:Hashable.hash for Id	ran
-12-derives-and-standard-interfaces/derives_test.nomi:Hashable.hash for Leaf	ran
-12-derives-and-standard-interfaces/derives_test.nomi:Hashable.hash for Node	ran
-12-derives-and-standard-interfaces/derives_test.nomi:Hashable.hash for Off	ran
-12-derives-and-standard-interfaces/derives_test.nomi:Hashable.hash for On	ran
-12-derives-and-standard-interfaces/derives_test.nomi:Hashable.hash for Point	ran
-12-derives-and-standard-interfaces/derives_test.nomi:Hashable.hash for Shape	ran
-12-derives-and-standard-interfaces/derives_test.nomi:Hashable.hash for Switch	ran
-12-derives-and-standard-interfaces/derives_test.nomi:Hashable.hash for Worker	ran
+12-derives-and-standard-interfaces/derives_test.nomi:derives_test.Coord.hash	ran
+12-derives-and-standard-interfaces/derives_test.nomi:derives_test.Expired.hash	ran
+12-derives-and-standard-interfaces/derives_test.nomi:derives_test.Id.hash	ran
+12-derives-and-standard-interfaces/derives_test.nomi:derives_test.Leaf.hash	ran
+12-derives-and-standard-interfaces/derives_test.nomi:derives_test.Off.hash	ran
+12-derives-and-standard-interfaces/derives_test.nomi:derives_test.On.hash	ran
+12-derives-and-standard-interfaces/derives_test.nomi:derives_test.Point.hash	ran
+12-derives-and-standard-interfaces/derives_test.nomi:derives_test.Shape.hash	ran
+12-derives-and-standard-interfaces/derives_test.nomi:derives_test.Worker.hash	ran
 12-derives-and-standard-interfaces/derives_test.nomi:show_order	ran
 12-derives-and-standard-interfaces/derives_test.nomi:use_off	ran
 12-derives-and-standard-interfaces/display_debug_test.nomi:Display.to_string for Greeter	ran
 12-derives-and-standard-interfaces/equality_bounds_test.nomi:Equatable.equal for Tag	ran
-12-derives-and-standard-interfaces/equality_bounds_test.nomi:Equatable.equal for Wrap	ran
-12-derives-and-standard-interfaces/equality_bounds_test.nomi:Hashable.hash for Wrap	ran
 12-derives-and-standard-interfaces/equality_bounds_test.nomi:boxed	ran
 12-derives-and-standard-interfaces/equality_bounds_test.nomi:digest	ran
 12-derives-and-standard-interfaces/equality_bounds_test.nomi:digest	ran
@@ -1304,31 +1235,23 @@
 12-derives-and-standard-interfaces/equality_bounds_test.nomi:equal	ran
 12-derives-and-standard-interfaces/equality_bounds_test.nomi:equal	ran
 12-derives-and-standard-interfaces/equality_bounds_test.nomi:equal	ran
+12-derives-and-standard-interfaces/equality_bounds_test.nomi:equality_bounds_test.Wrap.hash	ran
 12-derives-and-standard-interfaces/equality_bounds_test.nomi:same	ran
 12-derives-and-standard-interfaces/equality_bounds_test.nomi:same	ran
 12-derives-and-standard-interfaces/equality_bounds_test.nomi:same	ran
 12-derives-and-standard-interfaces/generic_debug/generic_debug_test.nomi:Debug.inspect for Labeled<Int>	ran
-12-derives-and-standard-interfaces/generic_debug/generic_debug_test.nomi:Display.to_string for Box<Box<Float>>	ran
-12-derives-and-standard-interfaces/generic_debug/generic_debug_test.nomi:Display.to_string for Box<Float>	ran
-12-derives-and-standard-interfaces/generic_debug/generic_debug_test.nomi:Display.to_string for Box<Int>	ran
-12-derives-and-standard-interfaces/generic_debug/generic_debug_test.nomi:Display.to_string for Box<String>	ran
-12-derives-and-standard-interfaces/generic_debug/main.nomi:Display.to_string for Box<Int>	ran
-12-derives-and-standard-interfaces/generic_debug/main.nomi:Display.to_string for Box<String>	ran
 12-derives-and-standard-interfaces/generic_debug/main.nomi:main	ran
 12-derives-and-standard-interfaces/host_values_as_display_test.nomi:shown	ran
 12-derives-and-standard-interfaces/ordering/ordering_test.nomi:Comparable.compare for OrderedPoint	ran
-12-derives-and-standard-interfaces/ordering/ordering_test.nomi:Debug.inspect for OrderedPoint	ran
 12-derives-and-standard-interfaces/ordering/test_helpers.nomi:has_diagnostic	ran
 12-derives-and-standard-interfaces/ordering/test_helpers.nomi:hover_signature	ran
-12-derives-and-standard-interfaces/refinement_fields_test.nomi:Equatable.equal for Pace	ran
-12-derives-and-standard-interfaces/refinement_fields_test.nomi:Hashable.hash for Pace	ran
 12-derives-and-standard-interfaces/refinement_fields_test.nomi:literal Duration"1m" at 18:31 failure	ran
 12-derives-and-standard-interfaces/refinement_fields_test.nomi:literal Duration"1m" at 19:39 failure	ran
 12-derives-and-standard-interfaces/refinement_fields_test.nomi:literal Duration"1m" at 21:68 failure	ran
 12-derives-and-standard-interfaces/refinement_fields_test.nomi:literal Duration"5s" at 20:36 failure	ran
+12-derives-and-standard-interfaces/refinement_fields_test.nomi:refinement_fields_test.Pace.hash	ran
 12-derives-and-standard-interfaces/std_generics_over_program_types_test.nomi:Comparable.compare for Rev	ran
 12-derives-and-standard-interfaces/std_generics_over_program_types_test.nomi:Equatable.equal for Loose	ran
-12-derives-and-standard-interfaces/std_generics_over_program_types_test.nomi:Equatable.equal for Pt	ran
 12-derives-and-standard-interfaces/summable_test.nomi:Add.add for Cents	ran
 12-derives-and-standard-interfaces/summable_test.nomi:Summable.empty_sum for Cents	ran
 12-derives-and-standard-interfaces/summable_test.nomi:adds_nothing	ran
@@ -1342,11 +1265,10 @@
 12-derives-and-standard-interfaces/summable_test.nomi:adds_nothing	ran
 12-derives-and-standard-interfaces/summable_test.nomi:adds_nothing	ran
 12-derives-and-standard-interfaces/summable_test.nomi:adds_nothing	ran
-12-derives-and-standard-interfaces/unit_hashable_test.nomi:Equatable.equal for Tagged	ran
-12-derives-and-standard-interfaces/unit_hashable_test.nomi:Hashable.hash for Tagged	ran
 12-derives-and-standard-interfaces/unit_hashable_test.nomi:digest	ran
 12-derives-and-standard-interfaces/unit_hashable_test.nomi:digest	ran
 12-derives-and-standard-interfaces/unit_hashable_test.nomi:same	ran
+12-derives-and-standard-interfaces/unit_hashable_test.nomi:unit_hashable_test.Tagged.hash	ran
 12-derives-and-standard-interfaces/universal_debug/token.nomi:Debug.inspect for Token	ran
 12-derives-and-standard-interfaces/universal_debug/token.nomi:make	ran
 12-derives-and-standard-interfaces/universal_debug/universal_debug_test.nomi:Named.name_of for UniversalDog	ran
@@ -1454,10 +1376,7 @@
 14-modules-and-packaging/explicit_item_imports/helper.nomi:call	ran
 14-modules-and-packaging/explicit_item_imports/helper.nomi:ok	ran
 14-modules-and-packaging/file_import_display/main.nomi:main	ran
-14-modules-and-packaging/file_import_display/shapes.nomi:Display.to_string for Color	ran
 14-modules-and-packaging/file_import_display/shapes.nomi:Display.to_string for Money	ran
-14-modules-and-packaging/file_import_display/shapes.nomi:Display.to_string for Point	ran
-14-modules-and-packaging/file_import_display/shapes.nomi:Equatable.equal for Point	ran
 14-modules-and-packaging/file_import_display/shapes.nomi:origin	ran
 14-modules-and-packaging/file_import_display/shapes.nomi:price	ran
 14-modules-and-packaging/file_import_display/shapes.nomi:red	ran
@@ -1478,7 +1397,6 @@
 14-modules-and-packaging/partner_test_derive/todos.nomi:encoded	ran
 14-modules-and-packaging/partner_test_derive/todos.nomi:todos.Tag.to_json_field	ran
 14-modules-and-packaging/partner_test_derive/todos.nomi:todos.TodoJson.to_json_field	ran
-14-modules-and-packaging/partner_test_derive/todos_test.nomi:Equatable.equal for TodoJson	ran
 14-modules-and-packaging/partner_test_derive/todos_test.nomi:FromJson.from_json for TodoJson	ran
 14-modules-and-packaging/partner_test_derive/todos_test.nomi:`!` failure Json.Error	ran
 14-modules-and-packaging/partner_test_file/shapes.nomi:Debug.inspect for Area	ran
@@ -1578,8 +1496,6 @@
 15-app-and-defer/exit_status/silent_exit.nomi:main failure	ran
 15-app-and-defer/file_store_pattern_test.nomi:Display.to_string for Priority	ran
 15-app-and-defer/file_store_pattern_test.nomi:Display.to_string for Status	ran
-15-app-and-defer/file_store_pattern_test.nomi:Equatable.equal for Priority	ran
-15-app-and-defer/file_store_pattern_test.nomi:Equatable.equal for Status	ran
 15-app-and-defer/file_store_pattern_test.nomi:Store.delete for FileStore	ran
 15-app-and-defer/file_store_pattern_test.nomi:Store.load for FileStore	ran
 15-app-and-defer/file_store_pattern_test.nomi:Store.save for FileStore	ran
@@ -1621,6 +1537,11 @@
 16-concurrency/actor/counter_actor.nomi:get	ran
 16-concurrency/actor/counter_actor.nomi:handle	ran
 16-concurrency/actor/counter_actor.nomi:main	ran
+16-concurrency/actor/counter_agent.nomi:boot	ran
+16-concurrency/actor/counter_agent.nomi:boot failure	ran
+16-concurrency/actor/counter_agent.nomi:count	ran
+16-concurrency/actor/counter_agent.nomi:main	ran
+16-concurrency/actor/counter_agent.nomi:next_id	ran
 16-concurrency/concurrent_diagnostics/test_helpers.nomi:has_diagnostic	ran
 16-concurrency/concurrent_diagnostics/test_helpers.nomi:hover_signature	ran
 16-concurrency/concurrent_runtime_test.nomi:consume	ran
@@ -1712,6 +1633,26 @@
 16-concurrency/supervisors/app.nomi:send_email	ran
 16-concurrency/supervisors/app.nomi:send_welcome	ran
 16-concurrency/supervisors/app.nomi:slow_work	ran
+16-concurrency/task_helpers_test.nomi:after	ran
+16-concurrency/task_helpers_test.nomi:after	ran
+16-concurrency/task_helpers_test.nomi:count_out	ran
+16-concurrency/task_helpers_test.nomi:elapsed_seconds	ran
+16-concurrency/task_helpers_test.nomi:every_until	ran
+16-concurrency/task_helpers_test.nomi:job	ran
+16-concurrency/task_helpers_test.nomi:tell	ran
+16-concurrency/task_helpers_test.nomi:tick	ran
+16-concurrency/task_helpers_test.nomi:trap_after	ran
+16-concurrency/task_stream_test.nomi:after	ran
+16-concurrency/task_stream_test.nomi:drained	ran
+16-concurrency/task_stream_test.nomi:drained	ran
+16-concurrency/task_stream_test.nomi:elapsed_seconds	ran
+16-concurrency/task_stream_test.nomi:job	ran
+16-concurrency/task_stream_test.nomi:logged	ran
+16-concurrency/task_stream_test.nomi:starts_at_each_take	ran
+16-concurrency/task_stream_test.nomi:take_slowly	ran
+16-concurrency/task_stream_test.nomi:tell	ran
+16-concurrency/task_stream_test.nomi:tell	ran
+16-concurrency/task_stream_test.nomi:trap_after	ran
 17-typed-literals/fragments_test.nomi:Literal.from_fragments for Count	ran
 17-typed-literals/fragments_test.nomi:Literal.from_fragments for Shape	ran
 17-typed-literals/html_templates_test.nomi:Display.to_string for Badge	ran
@@ -1772,8 +1713,6 @@
 17-typed-literals/without_slots_test.nomi:literal Date"2026-05-04" at 28:17 failure	ran
 17-typed-literals/without_slots_test.nomi:literal Date"2026-05-04" at 30:12 failure	ran
 17-typed-literals/without_slots_test.nomi:literal Date`2026-05-04` at 30:32 failure	ran
-18-json-and-dynamic/json_anon_struct_test.nomi:Equatable.equal for Pinned	ran
-18-json-and-dynamic/json_anon_struct_test.nomi:Equatable.equal for User	ran
 18-json-and-dynamic/json_anon_struct_test.nomi:FromJson.from_json for Pinned	ran
 18-json-and-dynamic/json_anon_struct_test.nomi:FromJson.from_json for User	ran
 18-json-and-dynamic/json_anon_struct_test.nomi:List<{x: Int}>.to_json	ran
@@ -1809,17 +1748,12 @@
 18-json-and-dynamic/json_container_decode_test.nomi:decode	ran
 18-json-and-dynamic/json_container_decode_test.nomi:decode	ran
 18-json-and-dynamic/json_decode_error_text_test.nomi:decode_error	ran
-18-json-and-dynamic/json_derive_defaults_test.nomi:Equatable.equal for Game	ran
-18-json-and-dynamic/json_derive_defaults_test.nomi:Equatable.equal for Shape	ran
 18-json-and-dynamic/json_derive_defaults_test.nomi:FromJson.from_json for Game	ran
 18-json-and-dynamic/json_derive_defaults_test.nomi:FromJson.from_json for Shape	ran
 18-json-and-dynamic/json_derive_defaults_test.nomi:ToJson.to_json for Game	ran
 18-json-and-dynamic/json_derive_defaults_test.nomi:ToJson.to_json for Shape	ran
 18-json-and-dynamic/json_derive_defaults_test.nomi:json_derive_defaults_test.Game.to_json_field	ran
 18-json-and-dynamic/json_derive_defaults_test.nomi:json_derive_defaults_test.Shape.to_json_field	ran
-18-json-and-dynamic/json_derive_test.nomi:Equatable.equal for Account	ran
-18-json-and-dynamic/json_derive_test.nomi:Equatable.equal for Address	ran
-18-json-and-dynamic/json_derive_test.nomi:Equatable.equal for User	ran
 18-json-and-dynamic/json_derive_test.nomi:FromJson.from_json for Account	ran
 18-json-and-dynamic/json_derive_test.nomi:FromJson.from_json for Address	ran
 18-json-and-dynamic/json_derive_test.nomi:FromJson.from_json for User	ran
@@ -1829,8 +1763,6 @@
 18-json-and-dynamic/json_derive_test.nomi:json_derive_test.Account.to_json_field	ran
 18-json-and-dynamic/json_derive_test.nomi:json_derive_test.Address.to_json_field	ran
 18-json-and-dynamic/json_derive_test.nomi:json_derive_test.User.to_json_field	ran
-18-json-and-dynamic/json_enum_derive_test.nomi:Equatable.equal for Circle	ran
-18-json-and-dynamic/json_enum_derive_test.nomi:Equatable.equal for Shape	ran
 18-json-and-dynamic/json_enum_derive_test.nomi:FromJson.from_json for Circle	ran
 18-json-and-dynamic/json_enum_derive_test.nomi:FromJson.from_json for Shape	ran
 18-json-and-dynamic/json_enum_derive_test.nomi:Set<String>.to_json	ran
@@ -2401,9 +2333,10 @@
 20-data-access/http_middleware_test.nomi:answer	ran
 20-data-access/http_middleware_test.nomi:from	ran
 20-data-access/http_middleware_test.nomi:gzip_request	ran
-20-data-access/http_middleware_test.nomi:literal Origin"https://app.example.com" at 31:19 failure	ran
+20-data-access/http_middleware_test.nomi:literal Origin"https://app.example.com" at 32:19 failure	ran
 20-data-access/http_middleware_test.nomi:preflight	ran
-20-data-access/jwt_test.nomi:Equatable.equal for Login	ran
+20-data-access/jwt_algorithms_test.nomi:`!` failure JwtError	ran
+20-data-access/jwt_algorithms_test.nomi:tokens	ran
 20-data-access/jwt_test.nomi:FromJson.from_json for Login	ran
 20-data-access/jwt_test.nomi:ToJson.to_json for Login	ran
 20-data-access/jwt_test.nomi:`!` failure JwtError	ran
@@ -2432,6 +2365,7 @@
 20-data-access/sessions_test.nomi:sign_in	ran
 20-data-access/sessions_test.nomi:sign_out	ran
 20-data-access/sessions_test.nomi:signed_in	ran
+20-data-access/signature_schemes_test.nomi:fixtures	ran
 20-data-access/sql_test.nomi:literal Date"2026-10-19" at 119:24 failure	ran
 20-data-access/sql_test.nomi:literal Date"2026-10-19" at 136:25 failure	ran
 20-data-access/sql_test.nomi:literal Date"2026-10-19" at 136:57 failure	ran
@@ -2514,6 +2448,10 @@
 20-data-access/websocket_chat/chat.nomi:hold	ran
 20-data-access/websocket_chat/chat.nomi:join	ran
 20-data-access/websocket_chat/chat.nomi:main	ran
+20-data-access/websocket_compression_test.nomi:`!` failure Error	ran
+20-data-access/websocket_compression_test.nomi:`!` failure Error	ran
+20-data-access/websocket_compression_test.nomi:echo	ran
+20-data-access/websocket_compression_test.nomi:handshake	ran
 20-data-access/websocket_test.nomi:echo	ran
 20-data-access/websocket_test.nomi:handshake	ran
 20-data-access/websocket_test.nomi:literal Origin"https://app.example.com" at 61:55 failure	ran
@@ -3221,7 +3159,6 @@ exercism/simple-linked-list/simple_linked_list.nomi:LinkedList<Int>.pop	ran
 exercism/simple-linked-list/simple_linked_list.nomi:LinkedList<Int>.push	ran
 exercism/simple-linked-list/simple_linked_list.nomi:LinkedList<Int>.reverse	ran
 exercism/simple-linked-list/simple_linked_list_test.nomi:replay	ran
-exercism/space-age/space_age.nomi:Display.to_string for Planet	ran
 exercism/space-age/space_age.nomi:Planet.orbital_period	ran
 exercism/space-age/space_age.nomi:Planet.parse	ran
 exercism/space-age/space_age.nomi:Variants.variants for Planet	ran
@@ -3434,6 +3371,11 @@ exercism/zipper/zipper_test.nomi:apply	ran
 exercism/zipper/zipper_test.nomi:follow	ran
 exercism/zipper/zipper_test.nomi:initial_tree	ran
 exercism/zipper/zipper_test.nomi:leaf	ran
+std/actors.nomi:Actor<(Int) -> Int>.call	ran
+std/actors.nomi:Actor<(Int) -> Int>.call	ran
+std/actors.nomi:Actor<(Int) -> Int>.cast	ran
+std/actors.nomi:Actor<(Int) -> Int>.start	ran
+std/actors.nomi:Actor<(Int) -> Int>.stop	ran
 std/actors.nomi:Actor<Counter>.call	ran
 std/actors.nomi:Actor<Counter>.call default 2	ran
 std/actors.nomi:Actor<Counter>.cast	ran
@@ -3446,43 +3388,87 @@ std/actors.nomi:Actor<Room>.cast	ran
 std/actors.nomi:Actor<Room>.start	ran
 std/actors.nomi:Actor<Room>.start default 3	ran
 std/actors.nomi:Actor<Room>.stop	ran
+std/actors.nomi:Agent<Int>.cast	ran
+std/actors.nomi:Agent<Int>.get	ran
+std/actors.nomi:Agent<Int>.get	ran
+std/actors.nomi:Agent<Int>.get default 2	ran
+std/actors.nomi:Agent<Int>.get_and_update	ran
+std/actors.nomi:Agent<Int>.get_and_update default 2	ran
+std/actors.nomi:Agent<Int>.start	ran
+std/actors.nomi:Agent<Int>.start default 3	ran
+std/actors.nomi:Agent<Int>.stop	ran
+std/actors.nomi:Agent<Int>.update	ran
+std/actors.nomi:Agent<Int>.update default 2	ran
+std/actors.nomi:Debug.inspect for Actor<(Int) -> Int>	ran
 std/actors.nomi:Debug.inspect for Actor<Counter>	ran
 std/actors.nomi:Debug.inspect for Actor<Room>	ran
+std/actors.nomi:Debug.inspect for Agent<Int>	ran
 std/actors.nomi:Debug.inspect for Reply<Int>	ran
 std/actors.nomi:Debug.inspect for Reply<Unit>	ran
 std/actors.nomi:Display.to_string for CallError	ran
-std/actors.nomi:Equatable.equal for CallError	ran
 std/actors.nomi:Reply<Int>.send	ran
 std/actors.nomi:Reply<Unit>.send	ran
+std/actors.nomi:answering	ran
+std/actors.nomi:answering	ran
+std/actors.nomi:apply	ran
+std/actors.nomi:exchange	ran
+std/actors.nomi:exchange	ran
 std/actors.nomi:serve	ran
 std/actors.nomi:serve	ran
-std/bits.nomi:Bits.field	ran
-std/bits.nomi:Bits.mask	ran
-std/bits.nomi:Bits.matches	ran
-std/bits.nomi:Bits.parse	ran
-std/bits.nomi:Bits.value	ran
-std/bits.nomi:Bits.width	ran
-std/bits.nomi:Debug.inspect for Bits	ran
-std/bits.nomi:Display.to_string for Error	ran
-std/bits.nomi:Equatable.equal for Bits	ran
-std/bits.nomi:Equatable.equal for Error	ran
-std/bits.nomi:FieldBits.try_from	ran
-std/bits.nomi:FieldBits.unchecked	ran
-std/bits.nomi:Literal.from_fragments for Bits	ran
-std/bits.nomi:literal Bits"10aa_aaaa" at 173:35 failure	ran
-std/bits.nomi:literal Bits"110a_aaaa" at 44:28 failure	ran
-std/bits.nomi:literal Bits"110a_aaaa" at 63:20 failure	ran
-std/bits.nomi:literal Bits"1aaa_0000" at 176:27 failure	ran
-std/bits.nomi:read_bit	ran
-std/csv.nomi:Debug.inspect for Error	ran
-std/csv.nomi:Debug.inspect for FieldCount	ran
-std/csv.nomi:Debug.inspect for Row	ran
+std/actors.nomi:serve	ran
+std/cipher.nomi:Debug.inspect for Key	ran
+std/cipher.nomi:Display.to_string for Algorithm	ran
+std/cipher.nomi:Display.to_string for Error	ran
+std/cipher.nomi:Equatable.equal for Key	ran
+std/cipher.nomi:Key.algorithm	ran
+std/cipher.nomi:Key.expose	ran
+std/cipher.nomi:Key.from_bytes	ran
+std/cipher.nomi:Key.generate	ran
+std/cipher.nomi:aes_ctr_unauthenticated	ran
+std/cipher.nomi:check_nonce	ran
+std/cipher.nomi:engine	ran
+std/cipher.nomi:key_length	ran
+std/cipher.nomi:lengths	ran
+std/cipher.nomi:nonce_length	ran
+std/cipher.nomi:open	ran
+std/cipher.nomi:open default 3	ran
+std/cipher.nomi:open_with_nonce	ran
+std/cipher.nomi:open_with_nonce default 4	ran
+std/cipher.nomi:seal	ran
+std/cipher.nomi:seal default 3	ran
+std/cipher.nomi:seal_with_nonce	ran
+std/cipher.nomi:seal_with_nonce default 4	ran
+std/cipher.nomi:tag_length	ran
+std/compress.nomi:Display.to_string for Error	ran
+std/compress.nomi:Display.to_string for Format	ran
+std/compress.nomi:LevelNumber.try_from	ran
+std/compress.nomi:LevelNumber.unchecked	ran
+std/compress.nomi:decode	ran
+std/compress.nomi:decode default 4	ran
+std/compress.nomi:decode_prefix	ran
+std/compress.nomi:decode_prefix default 4	ran
+std/compress.nomi:encode	ran
+std/compress.nomi:encode default 3	ran
+std/compress.nomi:encode default 4	ran
+std/compress.nomi:encoding_reader	ran
+std/compress.nomi:encoding_reader default 3	ran
+std/compress.nomi:encoding_reader default 4	ran
+std/compress.nomi:failure	ran
+std/compress.nomi:format_number	ran
+std/compress.nomi:gzip_header	ran
+std/compress.nomi:gzip_members	ran
+std/compress.nomi:header_at	ran
+std/compress.nomi:level_number	ran
+std/compress.nomi:members	ran
+std/compress.nomi:reader	ran
+std/compress.nomi:reader default 3	ran
+std/compress.nomi:seconds	ran
+std/compress.nomi:writer	ran
+std/compress.nomi:writer default 3	ran
+std/compress.nomi:writer default 4	ran
 std/csv.nomi:Delimiter.try_from	ran
 std/csv.nomi:Delimiter.unchecked	ran
 std/csv.nomi:Display.to_string for Error	ran
-std/csv.nomi:Equatable.equal for Error	ran
-std/csv.nomi:Equatable.equal for FieldCount	ran
-std/csv.nomi:Equatable.equal for Row	ran
 std/csv.nomi:Iter.each_while for RecordIter	ran
 std/csv.nomi:Iter.each_while for RowIter	ran
 std/csv.nomi:Options.comment default	ran
@@ -3542,6 +3528,7 @@ std/embed.nomi:tree	ran
 std/embed.nomi:walk_dir	ran
 std/embed.nomi:walk_entries	ran
 std/fs.nomi:Debug.inspect for Dir	ran
+std/fs.nomi:Debug.inspect for Watcher	ran
 std/fs.nomi:Dir.chunks	ran
 std/fs.nomi:Dir.chunks default 3	ran
 std/fs.nomi:Dir.close	ran
@@ -3550,7 +3537,9 @@ std/fs.nomi:Dir.create	ran
 std/fs.nomi:Dir.create default 3	ran
 std/fs.nomi:Dir.create_dir	ran
 std/fs.nomi:Dir.create_dir default 3	ran
+std/fs.nomi:Dir.create_link	ran
 std/fs.nomi:Dir.create_symlink	ran
+std/fs.nomi:Dir.disk_usage	ran
 std/fs.nomi:Dir.exists	ran
 std/fs.nomi:Dir.glob	ran
 std/fs.nomi:Dir.lines	ran
@@ -3569,25 +3558,39 @@ std/fs.nomi:Dir.remove	ran
 std/fs.nomi:Dir.remove_all	ran
 std/fs.nomi:Dir.remove_all_quietly	ran
 std/fs.nomi:Dir.rename	ran
+std/fs.nomi:Dir.same_file	ran
+std/fs.nomi:Dir.set_link_owner	ran
 std/fs.nomi:Dir.set_mode	ran
+std/fs.nomi:Dir.set_owner	ran
+std/fs.nomi:Dir.set_times	ran
+std/fs.nomi:Dir.set_times default 3	ran
+std/fs.nomi:Dir.set_times default 4	ran
 std/fs.nomi:Dir.subdir	ran
 std/fs.nomi:Dir.sync_dir	ran
+std/fs.nomi:Dir.touch	ran
+std/fs.nomi:Dir.truncate	ran
 std/fs.nomi:Dir.walk	ran
+std/fs.nomi:Dir.watch	ran
+std/fs.nomi:Dir.watch default 4	ran
+std/fs.nomi:Dir.watch_each	ran
+std/fs.nomi:Dir.watch_each default 3	ran
 std/fs.nomi:Dir.write	ran
 std/fs.nomi:Dir.write default 4	ran
 std/fs.nomi:Dir.write_text	ran
 std/fs.nomi:Dir.write_text default 4	ran
-std/fs.nomi:Equatable.equal for Access	ran
-std/fs.nomi:Equatable.equal for Entry	ran
-std/fs.nomi:Equatable.equal for Kind	ran
-std/fs.nomi:Equatable.equal for LockAttempt	ran
-std/fs.nomi:Equatable.equal for LockMode	ran
-std/fs.nomi:Equatable.equal for Metadata	ran
-std/fs.nomi:Equatable.equal for WriteMode	ran
 std/fs.nomi:Iter.each_while for Chunks	ran
 std/fs.nomi:Iter.each_while for Lines	ran
 std/fs.nomi:Iter.each_while for Walk	ran
+std/fs.nomi:Metadata.accessed default	ran
+std/fs.nomi:Metadata.changed default	ran
+std/fs.nomi:Metadata.created default	ran
+std/fs.nomi:Metadata.device default	ran
+std/fs.nomi:Metadata.inode default	ran
+std/fs.nomi:Metadata.links default	ran
+std/fs.nomi:Metadata.owner default	ran
 std/fs.nomi:Release.release for Dir	ran
+std/fs.nomi:Watcher.events	ran
+std/fs.nomi:Watcher.stop	ran
 std/fs.nomi:chunks	ran
 std/fs.nomi:chunks default 2	ran
 std/fs.nomi:copy	ran
@@ -3595,13 +3598,19 @@ std/fs.nomi:create	ran
 std/fs.nomi:create default 2	ran
 std/fs.nomi:create_dir	ran
 std/fs.nomi:create_dir default 2	ran
+std/fs.nomi:create_link	ran
 std/fs.nomi:create_symlink	ran
 std/fs.nomi:current_dir	ran
 std/fs.nomi:decoded	ran
+std/fs.nomi:disk_usage	ran
+std/fs.nomi:drain	ran
+std/fs.nomi:event_at	ran
+std/fs.nomi:event_order	ran
 std/fs.nomi:exists	ran
 std/fs.nomi:glob	ran
 std/fs.nomi:glob_split	ran
 std/fs.nomi:globbed	ran
+std/fs.nomi:group_name	ran
 std/fs.nomi:is_wild	ran
 std/fs.nomi:kind_at	ran
 std/fs.nomi:length_code	ran
@@ -3618,10 +3627,12 @@ std/fs.nomi:make_temp_dir	ran
 std/fs.nomi:metadata	ran
 std/fs.nomi:metadata_of	ran
 std/fs.nomi:mode_code	ran
+std/fs.nomi:offer	ran
 std/fs.nomi:open	ran
 std/fs.nomi:open_dir	ran
 std/fs.nomi:open_file	ran
 std/fs.nomi:open_file default 2	ran
+std/fs.nomi:poll	ran
 std/fs.nomi:read	ran
 std/fs.nomi:read_link	ran
 std/fs.nomi:read_text	ran
@@ -3629,19 +3640,37 @@ std/fs.nomi:remove	ran
 std/fs.nomi:remove_all	ran
 std/fs.nomi:remove_all_quietly	ran
 std/fs.nomi:rename	ran
+std/fs.nomi:same_file	ran
+std/fs.nomi:set_link_owner	ran
 std/fs.nomi:set_mode	ran
+std/fs.nomi:set_owner	ran
+std/fs.nomi:set_times	ran
+std/fs.nomi:set_times default 2	ran
+std/fs.nomi:set_times default 3	ran
+std/fs.nomi:settled	ran
+std/fs.nomi:snapshot	ran
+std/fs.nomi:stamp_of	ran
 std/fs.nomi:sync_dir	ran
 std/fs.nomi:temp_dir	ran
+std/fs.nomi:touch	ran
+std/fs.nomi:truncate	ran
 std/fs.nomi:try_lock	ran
 std/fs.nomi:try_lock default 3	ran
 std/fs.nomi:try_lock default 4	ran
 std/fs.nomi:unlock	ran
 std/fs.nomi:unlock default 2	ran
 std/fs.nomi:unlock default 3	ran
+std/fs.nomi:user_name	ran
 std/fs.nomi:walk	ran
 std/fs.nomi:walk_dir	ran
 std/fs.nomi:walk_entries	ran
 std/fs.nomi:walk_matches	ran
+std/fs.nomi:watch	ran
+std/fs.nomi:watch default 3	ran
+std/fs.nomi:watch_each	ran
+std/fs.nomi:watch_each default 2	ran
+std/fs.nomi:watch_loop	ran
+std/fs.nomi:watching	ran
 std/fs.nomi:within	ran
 std/fs.nomi:within	ran
 std/fs.nomi:within	ran
@@ -3651,7 +3680,6 @@ std/fs.nomi:write	ran
 std/fs.nomi:write default 3	ran
 std/fs.nomi:write_text	ran
 std/fs.nomi:write_text default 3	ran
-std/fs/testing.nomi:Equatable.equal for Operation	ran
 std/fs/testing.nomi:Failure.nth default	ran
 std/fs/testing.nomi:Sandbox.binary default	ran
 std/fs/testing.nomi:Sandbox.cwd default	ran
@@ -3662,6 +3690,9 @@ std/fs/testing.nomi:Sandbox.links default	ran
 std/fs/testing.nomi:abandoned_write	ran
 std/fs/testing.nomi:built	ran
 std/fs/testing.nomi:bytes_of	ran
+std/fs/testing.nomi:check	ran
+std/fs/testing.nomi:check	ran
+std/fs/testing.nomi:check	ran
 std/fs/testing.nomi:check	ran
 std/fs/testing.nomi:check	ran
 std/fs/testing.nomi:check	ran
@@ -3699,12 +3730,14 @@ std/fs/testing.nomi:rule_closed	ran
 std/fs/testing.nomi:rule_copy	ran
 std/fs/testing.nomi:rule_copy_rename_link	ran
 std/fs/testing.nomi:rule_create_dir	ran
+std/fs/testing.nomi:rule_create_link	ran
 std/fs/testing.nomi:rule_dangling	ran
 std/fs/testing.nomi:rule_dir	ran
 std/fs/testing.nomi:rule_dir_closed	ran
 std/fs/testing.nomi:rule_dir_escape	ran
 std/fs/testing.nomi:rule_dir_reach	ran
 std/fs/testing.nomi:rule_dir_temp	ran
+std/fs/testing.nomi:rule_disk_usage	ran
 std/fs/testing.nomi:rule_exists	ran
 std/fs/testing.nomi:rule_file	ran
 std/fs/testing.nomi:rule_file_missing	ran
@@ -3722,6 +3755,7 @@ std/fs/testing.nomi:rule_lock_read_only	ran
 std/fs/testing.nomi:rule_lock_shared	ran
 std/fs/testing.nomi:rule_lock_timeout	ran
 std/fs/testing.nomi:rule_metadata	ran
+std/fs/testing.nomi:rule_metadata_fields	ran
 std/fs/testing.nomi:rule_missing_parent	ran
 std/fs/testing.nomi:rule_new	ran
 std/fs/testing.nomi:rule_read_dir	ran
@@ -3735,9 +3769,13 @@ std/fs/testing.nomi:rule_rename	ran
 std/fs/testing.nomi:rule_rename_missing	ran
 std/fs/testing.nomi:rule_replace	ran
 std/fs/testing.nomi:rule_set_mode	ran
+std/fs/testing.nomi:rule_set_owner	ran
+std/fs/testing.nomi:rule_set_times	ran
 std/fs/testing.nomi:rule_sorted	ran
 std/fs/testing.nomi:rule_symlink	ran
 std/fs/testing.nomi:rule_sync	ran
+std/fs/testing.nomi:rule_touch	ran
+std/fs/testing.nomi:rule_truncate	ran
 std/fs/testing.nomi:rule_walk	ran
 std/fs/testing.nomi:rule_walk_missing	ran
 std/fs/testing.nomi:rule_within	ran
@@ -3778,7 +3816,6 @@ std/html.nomi:CssValue.to_css for Int	ran
 std/html.nomi:CssValue.to_css for Option<Css>	ran
 std/html.nomi:CssValue.to_css for Option<Int>	ran
 std/html.nomi:Debug.inspect for Html	ran
-std/html.nomi:Equatable.equal for Html	ran
 std/html.nomi:Html.concat	ran
 std/html.nomi:Html.each	ran
 std/html.nomi:Html.each	ran
@@ -3890,32 +3927,12 @@ std/http.nomi:Display.to_string for Route<Unit>	NETWORK: declared in std/http, s
 std/http.nomi:Display.to_string for Route<{id: Uuid}>	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Display.to_string for Route<{key: String}>	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Display.to_string for Status	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
-std/http.nomi:Equatable.equal for ConnState	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
-std/http.nomi:Equatable.equal for Cookie	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
-std/http.nomi:Equatable.equal for Error	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
-std/http.nomi:Equatable.equal for Headers	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
-std/http.nomi:Equatable.equal for MaxAge	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
-std/http.nomi:Equatable.equal for Method	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
-std/http.nomi:Equatable.equal for Origin	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
-std/http.nomi:Equatable.equal for Protocol	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
-std/http.nomi:Equatable.equal for Protocols	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
-std/http.nomi:Equatable.equal for Route<Unit>	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
-std/http.nomi:Equatable.equal for Route<{id: Uuid}>	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
-std/http.nomi:Equatable.equal for Route<{key: String}>	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
-std/http.nomi:Equatable.equal for SameSite	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
-std/http.nomi:Equatable.equal for Status	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Error.from_parts	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Error.is_timeout	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:FormFile.open	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:FormPart.encode	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:FormPart.file_disposition	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:FormPart.flat	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
-std/http.nomi:Hashable.hash for Method	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
-std/http.nomi:Hashable.hash for Origin	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
-std/http.nomi:Hashable.hash for Route<Unit>	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
-std/http.nomi:Hashable.hash for Route<{id: Uuid}>	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
-std/http.nomi:Hashable.hash for Route<{key: String}>	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
-std/http.nomi:Hashable.hash for Status	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Headers.add	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Headers.canonical_key	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Headers.get	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -4042,6 +4059,7 @@ std/http.nomi:Server.client_priority default	NETWORK: declared in std/http, std/
 std/http.nomi:Server.http2 default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Server.idle_timeout default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Server.keep_alives default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Server.listener default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Server.max_body default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Server.max_header_bytes default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Server.max_header_value_count default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -4109,11 +4127,16 @@ std/http.nomi:file_server_embedded default 3	NETWORK: declared in std/http, std/
 std/http.nomi:flat	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:format_time	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:forward	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:forwarded_headers	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:from_go	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:get	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:gzip_level	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:gzip_response	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:head	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:html_page	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:http.Method.hash	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:http.Origin.hash	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:http.Status.hash	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:http2_flags	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:http2_numbers	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:ignore_text	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -4198,7 +4221,7 @@ std/http/testing.nomi:`!` failure Error	ran
 std/http/testing.nomi:`!` failure Error	ran
 std/http/testing.nomi:`!` failure UrlError	ran
 std/http/testing.nomi:`!` failure UrlError	ran
-std/http/testing.nomi:check Url literal at 116:28 failure	ran
+std/http/testing.nomi:check Url literal at 117:28 failure	ran
 std/http/testing.nomi:chunks	ran
 std/http/testing.nomi:decompressed	ran
 std/http/testing.nomi:form_request	ran
@@ -4210,6 +4233,8 @@ std/http/testing.nomi:open_websocket default 2	ran
 std/http/testing.nomi:open_websocket default 3	ran
 std/http/testing.nomi:request	ran
 std/http/testing.nomi:with_server	ran
+std/http/testing.nomi:with_server	ran
+std/http/testing.nomi:with_server	ran
 std/http/testing.nomi:with_server default 2	ran
 std/http/testing.nomi:with_server default 3	ran
 std/http/testing.nomi:with_server default 4	ran
@@ -4218,36 +4243,13 @@ std/jobs.nomi:CheckedLiteral.check for Cron	ran
 std/jobs.nomi:Cron.next_after	ran
 std/jobs.nomi:Cron.next_after default 3	ran
 std/jobs.nomi:Cron.parse	ran
-std/jobs.nomi:Debug.inspect for Claimed	ran
 std/jobs.nomi:Debug.inspect for Cron	ran
-std/jobs.nomi:Debug.inspect for CronError	ran
-std/jobs.nomi:Debug.inspect for Enqueued	ran
-std/jobs.nomi:Debug.inspect for Failure	ran
-std/jobs.nomi:Debug.inspect for JobId	ran
-std/jobs.nomi:Debug.inspect for Missed	ran
-std/jobs.nomi:Debug.inspect for NewJob	ran
-std/jobs.nomi:Debug.inspect for Rate	ran
 std/jobs.nomi:Debug.inspect for Schedule	ran
-std/jobs.nomi:Debug.inspect for Settle	ran
-std/jobs.nomi:Debug.inspect for Unique	ran
-std/jobs.nomi:Debug.inspect for UniqueStates	ran
 std/jobs.nomi:Debug.inspect for Worker	ran
 std/jobs.nomi:Display.to_string for Cron	ran
 std/jobs.nomi:Display.to_string for CronError	ran
 std/jobs.nomi:Display.to_string for Failure	ran
 std/jobs.nomi:Display.to_string for JobId	ran
-std/jobs.nomi:Equatable.equal for Claimed	ran
-std/jobs.nomi:Equatable.equal for Cron	ran
-std/jobs.nomi:Equatable.equal for CronError	ran
-std/jobs.nomi:Equatable.equal for Enqueued	ran
-std/jobs.nomi:Equatable.equal for Failure	ran
-std/jobs.nomi:Equatable.equal for JobId	ran
-std/jobs.nomi:Equatable.equal for Missed	ran
-std/jobs.nomi:Equatable.equal for NewJob	ran
-std/jobs.nomi:Equatable.equal for Rate	ran
-std/jobs.nomi:Equatable.equal for Settle	ran
-std/jobs.nomi:Equatable.equal for Unique	ran
-std/jobs.nomi:Equatable.equal for UniqueStates	ran
 std/jobs.nomi:Handler.kind for Job<Greeting>	ran
 std/jobs.nomi:Handler.kind for Job<Int>	ran
 std/jobs.nomi:Handler.run for Job<Greeting>	ran
@@ -4358,11 +4360,6 @@ std/jobs.nomi:weekday_field	ran
 std/jobs.nomi:weekday_of	ran
 std/jobs/testing.nomi:Debug.inspect for Inline	ran
 std/jobs/testing.nomi:Display.to_string for Broken	ran
-std/jobs/testing.nomi:Equatable.equal for Broken	ran
-std/jobs/testing.nomi:Equatable.equal for JobError	ran
-std/jobs/testing.nomi:Equatable.equal for JobState	ran
-std/jobs/testing.nomi:Equatable.equal for Ran	ran
-std/jobs/testing.nomi:Equatable.equal for StoredJob	ran
 std/jobs/testing.nomi:Inline.jobs	ran
 std/jobs/testing.nomi:Inline.new	ran
 std/jobs/testing.nomi:Inline.new default 1	ran
@@ -4417,8 +4414,6 @@ std/jwt.nomi:Display.to_string for Algorithm	ran
 std/jwt.nomi:Display.to_string for JwtError	ran
 std/jwt.nomi:Display.to_string for SigningKey	ran
 std/jwt.nomi:Display.to_string for VerifyingKey	ran
-std/jwt.nomi:Equatable.equal for Algorithm	ran
-std/jwt.nomi:Equatable.equal for JwtError	ran
 std/jwt.nomi:SigningKey.algorithm	ran
 std/jwt.nomi:SigningKey.eddsa	ran
 std/jwt.nomi:SigningKey.es256	ran
@@ -4426,6 +4421,7 @@ std/jwt.nomi:SigningKey.hs256	ran
 std/jwt.nomi:SigningKey.ps256	ran
 std/jwt.nomi:SigningKey.rs256	ran
 std/jwt.nomi:SigningKey.verifying_key	ran
+std/jwt.nomi:SigningKey.with_private	ran
 std/jwt.nomi:Validation.audience default	ran
 std/jwt.nomi:Validation.issuer default	ran
 std/jwt.nomi:Validation.leeway default	ran
@@ -4437,12 +4433,12 @@ std/jwt.nomi:VerifyingKey.es256	ran
 std/jwt.nomi:VerifyingKey.hs256	ran
 std/jwt.nomi:VerifyingKey.ps256	ran
 std/jwt.nomi:VerifyingKey.rs256	ran
+std/jwt.nomi:VerifyingKey.with_public	ran
 std/jwt.nomi:check_claims	ran
 std/jwt.nomi:check_header	ran
 std/jwt.nomi:checked_secret	ran
 std/jwt.nomi:decoded	ran
 std/jwt.nomi:keyed	ran
-std/jwt.nomi:kind	ran
 std/jwt.nomi:kind_check	ran
 std/jwt.nomi:object	ran
 std/jwt.nomi:part	ran
@@ -4457,9 +4453,6 @@ std/jwt.nomi:verify_as	ran
 std/jwt.nomi:verify_as default 3	ran
 std/log.nomi:Debug.inspect for Logger	ran
 std/log.nomi:Display.to_string for Level	ran
-std/log.nomi:Equatable.equal for Field	ran
-std/log.nomi:Equatable.equal for Level	ran
-std/log.nomi:Equatable.equal for Value	ran
 std/log.nomi:Level.is_at_least	ran
 std/log.nomi:Level.rank	ran
 std/log.nomi:Logger.discard	ran
@@ -4499,7 +4492,6 @@ std/log.nomi:value_kind	ran
 std/log.nomi:warn	ran
 std/log.nomi:warn default 3	ran
 std/log.nomi:write	ran
-std/log/testing.nomi:Equatable.equal for Record	ran
 std/log/testing.nomi:field	ran
 std/log/testing.nomi:level_named	ran
 std/log/testing.nomi:messages	ran
@@ -4510,12 +4502,6 @@ std/log/testing.nomi:run default 1	ran
 std/money.nomi:Display.to_string for CurrencyMismatch	ran
 std/money.nomi:Display.to_string for Error	ran
 std/money.nomi:Display.to_string for Money	ran
-std/money.nomi:Equatable.equal for CurrencyDisplay	ran
-std/money.nomi:Equatable.equal for CurrencyMismatch	ran
-std/money.nomi:Equatable.equal for CurrencySign	ran
-std/money.nomi:Equatable.equal for Error	ran
-std/money.nomi:Equatable.equal for Money	ran
-std/money.nomi:Hashable.hash for Money	ran
 std/money.nomi:Literal.from_fragments for Money	ran
 std/money.nomi:Localize.localize for Money	ran
 std/money.nomi:Money.abs	ran
@@ -4542,6 +4528,7 @@ std/money.nomi:Money.split	ran
 std/money.nomi:Money.subtract	ran
 std/money.nomi:Money.sum	ran
 std/money.nomi:Multiply.multiply for Money	ran
+std/money.nomi:money.Money.hash	ran
 std/net.nomi:Connection.close	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:Connection.close_read	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:Connection.close_write	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -4549,22 +4536,27 @@ std/net.nomi:Connection.handle_of	NETWORK: declared in std/http, std/net or std/
 std/net.nomi:Connection.is_multipath	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:Connection.local_address	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:Connection.of_handle	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:Connection.read_buffer	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:Connection.reader	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:Connection.remote_address	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:Connection.set_deadline	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:Connection.set_keep_alive	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:Connection.set_linger	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:Connection.set_no_delay	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:Connection.set_read_buffer	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:Connection.set_read_deadline	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:Connection.set_write_buffer	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:Connection.set_write_deadline	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:Connection.write_buffer	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:Connection.writer	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:DialOptions.fallback_delay default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:DialOptions.keep_alive default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:DialOptions.local_address default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:DialOptions.multipath default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:DialOptions.reuse_address default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:DialOptions.reuse_port default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:DialOptions.timeout default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:Display.to_string for Error	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
-std/net.nomi:Equatable.equal for Error	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:Error.from_parts	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:Error.is_timeout	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:Error.of_tls	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -4577,10 +4569,18 @@ std/net.nomi:Listener.set_deadline	NETWORK: declared in std/http, std/net or std
 std/net.nomi:accept_each	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:dial	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:dial default 2	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:dial_on	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:dial_unix	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:dial_unix default 2	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:inherited_listeners	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:inherited_listeners default 1	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:int	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:join_host_port	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:listen	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:listen default 2	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:listen_on	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:listen_unix	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:listen_unix default 2	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:lookup	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:lookup_address	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:lookup_cname	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -4641,24 +4641,6 @@ std/passwords.nomi:scrypt_key	ran
 std/passwords.nomi:scrypt_params	ran
 std/passwords.nomi:verify	ran
 std/passwords.nomi:verify default 3	ran
-std/path.nomi:base	ran
-std/path.nomi:clean	ran
-std/path.nomi:climb	ran
-std/path.nomi:extension	ran
-std/path.nomi:has_drive	ran
-std/path.nomi:in_set	ran
-std/path.nomi:is_absolute	ran
-std/path.nomi:join	ran
-std/path.nomi:join_all	ran
-std/path.nomi:match_name	ran
-std/path.nomi:match_names	ran
-std/path.nomi:matches	ran
-std/path.nomi:matches_hidden	ran
-std/path.nomi:names_reversed	ran
-std/path.nomi:parent	ran
-std/path.nomi:relative	ran
-std/path.nomi:set_items	ran
-std/path.nomi:stem	ran
 std/phrase.nomi:Catalog.load	ran
 std/phrase.nomi:Catalog.locale	ran
 std/phrase.nomi:Debug.inspect for Catalog	ran
@@ -4666,8 +4648,6 @@ std/phrase.nomi:Debug.inspect for Noun	ran
 std/phrase.nomi:Debug.inspect for Phrase	ran
 std/phrase.nomi:Equatable.equal for Argument	ran
 std/phrase.nomi:Equatable.equal for Noun	ran
-std/phrase.nomi:Equatable.equal for Phrase	ran
-std/phrase.nomi:Equatable.equal for Rejected	ran
 std/phrase.nomi:Localize.localize for Noun	ran
 std/phrase.nomi:Localize.localize for Phrase	ran
 std/phrase.nomi:Phrase.format	ran
@@ -4696,20 +4676,24 @@ std/phrase.nomi:rejections	ran
 std/phrase.nomi:text	ran
 std/phrase.nomi:time	ran
 std/phrase.nomi:variant	ran
+std/process.nomi:Child.id	ran
 std/process.nomi:Child.kill	ran
+std/process.nomi:Child.signal	ran
+std/process.nomi:Child.signal_group	ran
 std/process.nomi:Child.stderr	ran
 std/process.nomi:Child.stdin	ran
 std/process.nomi:Child.stdout	ran
+std/process.nomi:Child.stop	ran
 std/process.nomi:Child.wait	ran
 std/process.nomi:Command.args default	ran
 std/process.nomi:Command.clear_env default	ran
 std/process.nomi:Command.dir default	ran
 std/process.nomi:Command.env default	ran
+std/process.nomi:Command.new_group default	ran
 std/process.nomi:Command.stdin default	ran
 std/process.nomi:Debug.inspect for Child	ran
+std/process.nomi:Display.to_string for Signal	ran
 std/process.nomi:Display.to_string for Status	ran
-std/process.nomi:Equatable.equal for Output	ran
-std/process.nomi:Equatable.equal for Status	ran
 std/process.nomi:Exit.code default	ran
 std/process.nomi:Exit.message default	ran
 std/process.nomi:ExitCode.try_from	ran
@@ -4717,12 +4701,16 @@ std/process.nomi:ExitCode.unchecked	ran
 std/process.nomi:Release.release for Child	ran
 std/process.nomi:Status.code	ran
 std/process.nomi:Status.is_success	ran
+std/process.nomi:id	ran
+std/process.nomi:kill_all	ran
 std/process.nomi:output	ran
 std/process.nomi:piped_stdin	ran
 std/process.nomi:run	ran
+std/process.nomi:send	ran
 std/process.nomi:spawn	ran
 std/process.nomi:start	ran
 std/process.nomi:stdin_of	ran
+std/process.nomi:wait_up_to	ran
 std/process/testing.nomi:Answer.args default	ran
 std/process/testing.nomi:Answer.code default	ran
 std/process/testing.nomi:Answer.error default	ran
@@ -4732,7 +4720,6 @@ std/process/testing.nomi:Call.args default	ran
 std/process/testing.nomi:Call.dir default	ran
 std/process/testing.nomi:Call.env default	ran
 std/process/testing.nomi:Call.input default	ran
-std/process/testing.nomi:Equatable.equal for Call	ran
 std/process/testing.nomi:run	ran
 std/process/testing.nomi:run	ran
 std/process/testing.nomi:run	ran
@@ -4741,6 +4728,12 @@ std/process/testing.nomi:run	ran
 std/process/testing.nomi:run	ran
 std/reverse.nomi:Comparable.compare for Reverse<Int>	ran
 std/reverse.nomi:Reverse<Int>.of	ran
+std/secret.nomi:Debug.inspect for Secret	ran
+std/secret.nomi:Equatable.equal for Secret	ran
+std/secret.nomi:FromJson.from_json for Secret	ran
+std/secret.nomi:Hashable.hash for Secret	ran
+std/secret.nomi:Secret.expose	ran
+std/secret.nomi:Secret.new	ran
 std/sessions.nomi:CookieStore.domain default	ran
 std/sessions.nomi:CookieStore.idle_timeout default	ran
 std/sessions.nomi:CookieStore.max_age default	ran
@@ -4759,7 +4752,7 @@ std/sessions.nomi:base_cookie	ran
 std/sessions.nomi:empty	ran
 std/sessions.nomi:idle_due	ran
 std/sessions.nomi:int_field	ran
-std/sessions.nomi:key_bytes	ran
+std/sessions.nomi:key_of	ran
 std/sessions.nomi:label	ran
 std/sessions.nomi:now	ran
 std/sessions.nomi:open	ran
@@ -4771,56 +4764,12 @@ std/sessions.nomi:unseal	ran
 std/sessions.nomi:with_session	ran
 std/sessions.nomi:write	ran
 std/sessions.nomi:writes	ran
-std/signatures.nomi:Debug.inspect for PrivateKey	ran
-std/signatures.nomi:Debug.inspect for PublicKey	ran
-std/signatures.nomi:Display.to_string for KeyKind	ran
-std/signatures.nomi:Display.to_string for PrivateKey	ran
-std/signatures.nomi:Display.to_string for PublicKey	ran
-std/signatures.nomi:Equatable.equal for KeyKind	ran
-std/signatures.nomi:Equatable.equal for PublicKey	ran
-std/signatures.nomi:Equatable.equal for Scheme	ran
-std/signatures.nomi:PrivateKey.ed25519_seed	ran
-std/signatures.nomi:PrivateKey.from_der	ran
-std/signatures.nomi:PrivateKey.from_ed25519_seed	ran
-std/signatures.nomi:PrivateKey.from_pem	ran
-std/signatures.nomi:PrivateKey.generate_ecdsa_p256	ran
-std/signatures.nomi:PrivateKey.generate_ed25519	ran
-std/signatures.nomi:PrivateKey.generate_rsa	ran
-std/signatures.nomi:PrivateKey.generate_rsa default 1	ran
-std/signatures.nomi:PrivateKey.kind	ran
-std/signatures.nomi:PrivateKey.public_key	ran
-std/signatures.nomi:PrivateKey.to_der	ran
-std/signatures.nomi:PrivateKey.to_pem	ran
-std/signatures.nomi:PublicKey.ed25519_bytes	ran
-std/signatures.nomi:PublicKey.from_der	ran
-std/signatures.nomi:PublicKey.from_ed25519_bytes	ran
-std/signatures.nomi:PublicKey.from_pem	ran
-std/signatures.nomi:PublicKey.kind	ran
-std/signatures.nomi:PublicKey.to_der	ran
-std/signatures.nomi:PublicKey.to_pem	ran
-std/signatures.nomi:is_valid	ran
-std/signatures.nomi:is_valid_with	ran
-std/signatures.nomi:kind_of	ran
-std/signatures.nomi:private	ran
-std/signatures.nomi:public	ran
-std/signatures.nomi:scheme_kind	ran
-std/signatures.nomi:scheme_name	ran
-std/signatures.nomi:scheme_number	ran
-std/signatures.nomi:sign	ran
-std/signatures.nomi:sign_with	ran
-std/signatures.nomi:usual_scheme	ran
 std/sql.nomi:Add.add for Statement	ran
 std/sql.nomi:Debug.inspect for Row	ran
 std/sql.nomi:Display.to_string for ConstraintKind	ran
 std/sql.nomi:Display.to_string for Dialect	ran
 std/sql.nomi:Display.to_string for Error	ran
 std/sql.nomi:Display.to_string for Statement	ran
-std/sql.nomi:Equatable.equal for ConstraintKind	ran
-std/sql.nomi:Equatable.equal for Dialect	ran
-std/sql.nomi:Equatable.equal for Error	ran
-std/sql.nomi:Equatable.equal for Row	ran
-std/sql.nomi:Equatable.equal for Statement	ran
-std/sql.nomi:Equatable.equal for Value	ran
 std/sql.nomi:FromSql.from_sql for Bool	ran
 std/sql.nomi:FromSql.from_sql for Bytes	ran
 std/sql.nomi:FromSql.from_sql for Date	ran
@@ -4907,7 +4856,6 @@ std/sql/testing.nomi:Conn.query for Fake	ran
 std/sql/testing.nomi:Conn.rollback for Fake	ran
 std/sql/testing.nomi:Debug.inspect for Fake	ran
 std/sql/testing.nomi:Display.to_string for Failure	ran
-std/sql/testing.nomi:Equatable.equal for Failure	ran
 std/sql/testing.nomi:Fake.committed	ran
 std/sql/testing.nomi:Fake.is_closed	ran
 std/sql/testing.nomi:Fake.log	ran
@@ -4979,19 +4927,7 @@ std/sql/testing.nomi:times_in_order	ran
 std/sql/testing.nomi:times_table	ran
 std/sql/testing.nomi:violation	ran
 std/sql/testing.nomi:with_effect	ran
-std/storage.nomi:Debug.inspect for Entry	ran
-std/storage.nomi:Debug.inspect for Error	ran
-std/storage.nomi:Debug.inspect for Info	ran
-std/storage.nomi:Debug.inspect for ListOptions	ran
-std/storage.nomi:Debug.inspect for Listing	ran
-std/storage.nomi:Debug.inspect for Object	ran
 std/storage.nomi:Display.to_string for Error	ran
-std/storage.nomi:Equatable.equal for Entry	ran
-std/storage.nomi:Equatable.equal for Error	ran
-std/storage.nomi:Equatable.equal for Info	ran
-std/storage.nomi:Equatable.equal for ListOptions	ran
-std/storage.nomi:Equatable.equal for Listing	ran
-std/storage.nomi:Equatable.equal for Object	ran
 std/storage.nomi:ListOptions.continuation default	ran
 std/storage.nomi:ListOptions.delimiter default	ran
 std/storage.nomi:ListOptions.limit default	ran
@@ -5048,7 +4984,6 @@ std/storage.nomi:missing	ran
 std/storage.nomi:page	ran
 std/storage/testing.nomi:Debug.inspect for Memory	ran
 std/storage/testing.nomi:Display.to_string for Broken	ran
-std/storage/testing.nomi:Equatable.equal for Broken	ran
 std/storage/testing.nomi:Memory.keys	ran
 std/storage/testing.nomi:Memory.new	ran
 std/storage/testing.nomi:Memory.new default 1	ran
@@ -5089,6 +5024,7 @@ std/tls.nomi:Certificate.from_pem	NETWORK: declared in std/http, std/net or std/
 std/tls.nomi:Certificate.info	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/tls.nomi:Certificate.load	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/tls.nomi:CertificateInfo.of_parts	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:ChannelBinding.name	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/tls.nomi:CipherSuite.insecure	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/tls.nomi:CipherSuite.name_of	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/tls.nomi:CipherSuite.of_parts	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -5118,13 +5054,6 @@ std/tls.nomi:Display.to_string for ClientAuth	NETWORK: declared in std/http, std
 std/tls.nomi:Display.to_string for Curve	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/tls.nomi:Display.to_string for Error	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/tls.nomi:Display.to_string for Version	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
-std/tls.nomi:Equatable.equal for CertificateInfo	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
-std/tls.nomi:Equatable.equal for CipherSuite	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
-std/tls.nomi:Equatable.equal for ClientAuth	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
-std/tls.nomi:Equatable.equal for Curve	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
-std/tls.nomi:Equatable.equal for Error	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
-std/tls.nomi:Equatable.equal for Renegotiation	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
-std/tls.nomi:Equatable.equal for Version	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/tls.nomi:Error.from_parts	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/tls.nomi:ServerConfig.certificate_for default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/tls.nomi:ServerConfig.cipher_suites default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -5140,11 +5069,13 @@ std/tls.nomi:ServerConfig.session_tickets default	NETWORK: declared in std/http,
 std/tls.nomi:ServerConfig.verify default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/tls.nomi:Version.number	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/tls.nomi:Version.of_number	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:channel_binding	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/tls.nomi:client	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/tls.nomi:curve_names	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/tls.nomi:dial	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/tls.nomi:dial default 2	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/tls.nomi:dial default 3	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:export_keying_material	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/tls.nomi:listen	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/tls.nomi:roots_files	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/tls.nomi:roots_kind	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -5159,8 +5090,6 @@ std/toml.nomi:CheckedLiteral.build for Toml	ran
 std/toml.nomi:CheckedLiteral.check for Toml	ran
 std/toml.nomi:Display.to_string for Toml.DecodeError	ran
 std/toml.nomi:Display.to_string for Toml.Error	ran
-std/toml.nomi:Equatable.equal for Toml.DecodeError	ran
-std/toml.nomi:Equatable.equal for Toml.Value	ran
 std/toml.nomi:ToJson.to_json for Toml.Value	ran
 std/toml.nomi:ToToml.to_toml for Bool	ran
 std/toml.nomi:ToToml.to_toml for Date	ran
@@ -5195,13 +5124,6 @@ std/url.nomi:Display.to_string for Query	ran
 std/url.nomi:Display.to_string for Url	ran
 std/url.nomi:Display.to_string for UrlError	ran
 std/url.nomi:Display.to_string for Userinfo	ran
-std/url.nomi:Equatable.equal for Query	ran
-std/url.nomi:Equatable.equal for Url	ran
-std/url.nomi:Equatable.equal for UrlError	ran
-std/url.nomi:Equatable.equal for Userinfo	ran
-std/url.nomi:Hashable.hash for Query	ran
-std/url.nomi:Hashable.hash for Url	ran
-std/url.nomi:Hashable.hash for Userinfo	ran
 std/url.nomi:Query.add	ran
 std/url.nomi:Query.encode	ran
 std/url.nomi:Query.get	ran
@@ -5240,14 +5162,14 @@ std/url.nomi:slot_text	ran
 std/url.nomi:to_parts	ran
 std/url.nomi:unescape_path_segment	ran
 std/url.nomi:unescape_query	ran
+std/url.nomi:url.Query.hash	ran
+std/url.nomi:url.Url.hash	ran
+std/url.nomi:url.Userinfo.hash	ran
 std/uuid.nomi:Comparable.compare for Uuid	ran
 std/uuid.nomi:Debug.inspect for Uuid	ran
 std/uuid.nomi:Display.to_string for Error	ran
 std/uuid.nomi:Display.to_string for Uuid	ran
-std/uuid.nomi:Equatable.equal for Error	ran
-std/uuid.nomi:Equatable.equal for Uuid	ran
 std/uuid.nomi:FromJson.from_json for Uuid	ran
-std/uuid.nomi:Hashable.hash for Uuid	ran
 std/uuid.nomi:Literal.from_fragments for Uuid	ran
 std/uuid.nomi:Parse.parse for Uuid	ran
 std/uuid.nomi:ToJson.to_json for Uuid	ran
@@ -5265,10 +5187,12 @@ std/uuid.nomi:random_int	ran
 std/uuid.nomi:read_char	ran
 std/uuid.nomi:read_half	ran
 std/uuid.nomi:unsigned_key	ran
+std/uuid.nomi:uuid.Uuid.hash	ran
 std/uuid.nomi:uuid.Uuid.to_json_field	ran
 std/uuid.nomi:with_variant	ran
 std/uuid.nomi:with_version	ran
 std/websocket.nomi:AcceptOptions.allowed_origins default	ran
+std/websocket.nomi:AcceptOptions.compress default	ran
 std/websocket.nomi:AcceptOptions.headers default	ran
 std/websocket.nomi:AcceptOptions.idle_timeout default	ran
 std/websocket.nomi:AcceptOptions.max_message_size default	ran
@@ -5276,8 +5200,6 @@ std/websocket.nomi:AcceptOptions.ping_interval default	ran
 std/websocket.nomi:AcceptOptions.protocols default	ran
 std/websocket.nomi:Debug.inspect for WebSocket	ran
 std/websocket.nomi:Display.to_string for Error	ran
-std/websocket.nomi:Equatable.equal for Error	ran
-std/websocket.nomi:Equatable.equal for Message	ran
 std/websocket.nomi:WebSocket.close	ran
 std/websocket.nomi:WebSocket.close default 2	ran
 std/websocket.nomi:WebSocket.close default 3	ran
@@ -5286,6 +5208,7 @@ std/websocket.nomi:WebSocket.id	ran
 std/websocket.nomi:WebSocket.over	ran
 std/websocket.nomi:WebSocket.over default 3	ran
 std/websocket.nomi:WebSocket.over default 4	ran
+std/websocket.nomi:WebSocket.over default 5	ran
 std/websocket.nomi:WebSocket.ping	ran
 std/websocket.nomi:WebSocket.ping default 2	ran
 std/websocket.nomi:WebSocket.protocol	ran
@@ -5303,13 +5226,6 @@ std/websocket.nomi:number	ran
 std/websocket.nomi:origin_allowed	ran
 std/websocket.nomi:same_host	ran
 std/websocket.nomi:tokens	ran
-std/xml.nomi:Debug.inspect for Attribute	ran
-std/xml.nomi:Debug.inspect for Element	ran
-std/xml.nomi:Debug.inspect for Error	ran
-std/xml.nomi:Debug.inspect for Name	ran
-std/xml.nomi:Debug.inspect for Namespace	ran
-std/xml.nomi:Debug.inspect for Node	ran
-std/xml.nomi:Debug.inspect for Token	ran
 std/xml.nomi:Display.to_string for Error	ran
 std/xml.nomi:Display.to_string for Name	ran
 std/xml.nomi:Element.attribute	ran
@@ -5327,13 +5243,6 @@ std/xml.nomi:Element.namespaces default	ran
 std/xml.nomi:Element.new	ran
 std/xml.nomi:Element.new default 2	ran
 std/xml.nomi:Element.text	ran
-std/xml.nomi:Equatable.equal for Attribute	ran
-std/xml.nomi:Equatable.equal for Element	ran
-std/xml.nomi:Equatable.equal for Error	ran
-std/xml.nomi:Equatable.equal for Name	ran
-std/xml.nomi:Equatable.equal for Namespace	ran
-std/xml.nomi:Equatable.equal for Node	ran
-std/xml.nomi:Equatable.equal for Token	ran
 std/xml.nomi:Iter.each_while for TokenIter	ran
 std/xml.nomi:Name.prefix default	ran
 std/xml.nomi:Name.space default	ran

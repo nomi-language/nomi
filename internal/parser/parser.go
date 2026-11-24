@@ -1403,7 +1403,7 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 		case token.ENUM:
 			return p.parseEnumDef(true, false)
 		case token.TYPE:
-			return p.parseTypeDefOrGoBinding(true, false)
+			return p.parseTypeDef(true, false)
 		case token.REFINE:
 			return p.parseTypeDef(true, false)
 		case token.OPAQUE:
@@ -1417,7 +1417,7 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 			case token.ENUM:
 				return p.parseEnumDef(true, true)
 			case token.TYPE:
-				return p.parseTypeDefOrGoBinding(true, true)
+				return p.parseTypeDef(true, true)
 			case token.REFINE:
 				return p.parseTypeDef(true, true)
 			default:
@@ -1450,10 +1450,6 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 		default:
 			return nil, errorAt(pubTok.Line, pubTok.Col, "'pub' is not valid before %s", tokenShown(p.peek()))
 		}
-	}
-
-	if p.atGoBinding() {
-		return nil, goBindingError(p.peek())
 	}
 
 	// `extern` is reserved; runtime-provided declarations use `host`.
@@ -1523,10 +1519,9 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 		return p.parseEnumDef(false, false)
 	}
 
-	// Type definition or external type binding: type Name [InnerType] /
-	// [opaque] type RawConn go ffi.Conn
+	// Type definition: [opaque] type Name [InnerType]
 	if p.peek().Type == token.TYPE {
-		return p.parseTypeDefOrGoBinding(false, false)
+		return p.parseTypeDef(false, false)
 	}
 
 	// Refinement: refinement Name Parent [and Parent...] [where ...] [when rule]
@@ -1547,7 +1542,7 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 		case token.ENUM:
 			return p.parseEnumDef(false, true)
 		case token.TYPE:
-			return p.parseTypeDefOrGoBinding(false, true)
+			return p.parseTypeDef(false, true)
 		case token.REFINE:
 			return p.parseTypeDef(false, true)
 		default:
@@ -1783,36 +1778,11 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 	if (p.peek().Type == token.IDENT || p.peek().Type == token.UNDERSCORE) &&
 		(p.peekAt(1).Type == token.EQ || p.peekAt(1).Type == token.COLON) {
 		start := p.pos
-		tok := p.peek()
-		p.advance() // consume binding name
-
-		var typeAnn ast.TypeExpr
-		if p.peek().Type == token.COLON {
-			p.advance() // consume COLON
-			ann, err := p.parseTypeAnnotation()
-			if err != nil {
-				return nil, err
-			}
-			typeAnn = ann
-		}
-
-		if p.peek().Type != token.EQ {
-			got := p.peek()
-			return nil, errorAt(got.Line, got.Col, "expected `=` after binding name%s, got %s", annotationContext(typeAnn), tokenShown(got))
-		}
-		p.advance() // consume EQ
-
-		value, err := p.parseExpr(1)
+		b, err := p.parseNameBinding(false)
 		if err != nil {
 			return nil, err
 		}
-		return p.withBindingElse(start, &ast.Binding{
-			Name:           tok.Lexeme,
-			TypeAnnotation: typeAnn,
-			Value:          value,
-			Line:           tok.Line,
-			Col:            tok.Col,
-		}, value, tok.Line, tok.Col, false)
+		return p.withBindingElse(start, b, b.Value, b.Line, b.Col, false)
 	}
 
 	// Any other pattern followed by `=`: `Meters(n) = d`, `Shape.Circle(r) = c`,
@@ -1836,6 +1806,46 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 	}
 
 	return &ast.ExprStmt{Expr: expr, Line: expr.LineNum(), Col: 0}, nil
+}
+
+// parseNameBinding parses a binding of one name or `_`, `name = value` or
+// `name: T = value`, up to an `else` after the value, which the statement
+// form takes (withBindingElse). The cursor is on the name. It parses a
+// block's binding statement, and the body of a lambda written on its `->`'s
+// line when that body is a discard, `fn i -> _ = send(i)`. There stopAtPipe
+// ends the value at a `then` stage's next `|>`, as it ends that lambda's
+// expression body, and an `else` after the value is the enclosing `if`'s.
+func (p *Parser) parseNameBinding(stopAtPipe bool) (*ast.Binding, error) {
+	tok := p.peek()
+	p.advance() // consume binding name
+
+	var typeAnn ast.TypeExpr
+	if p.peek().Type == token.COLON {
+		p.advance() // consume COLON
+		ann, err := p.parseTypeAnnotation()
+		if err != nil {
+			return nil, err
+		}
+		typeAnn = ann
+	}
+
+	if p.peek().Type != token.EQ {
+		got := p.peek()
+		return nil, errorAt(got.Line, got.Col, "expected `=` after binding name%s, got %s", annotationContext(typeAnn), tokenShown(got))
+	}
+	p.advance() // consume EQ
+
+	value, err := p.parseExprWithPipeStop(1, stopAtPipe)
+	if err != nil {
+		return nil, err
+	}
+	return &ast.Binding{
+		Name:           tok.Lexeme,
+		TypeAnnotation: typeAnn,
+		Value:          value,
+		Line:           tok.Line,
+		Col:            tok.Col,
+	}, nil
 }
 
 // startsFuncDecl reports whether the `fn` at the cursor starts a function
@@ -5437,8 +5447,9 @@ func (p *Parser) parseCaseArmHead(hasValue bool) (ast.Node, ast.Node, error) {
 }
 
 // parseLambda parses a lambda: `fn params -> body`. Current token must be
-// the `fn`. The body is a single expression; use a block expression
-// (`{ ... }`) for multi-statement bodies.
+// the `fn`. A body on the `->`'s line is one expression or a discard of
+// one, `_ = expr`; an `->` that ends its line takes the lines below, to
+// `end`.
 func (p *Parser) parseLambda() (ast.Node, error) {
 	return p.parseLambdaStop(false)
 }
@@ -5519,9 +5530,20 @@ func (p *Parser) parseLambdaStop(stopAtPipe bool) (ast.Node, error) {
 	}
 
 	// Body: a single expression, to the end of the enclosing expression, or
-	// for a `then` stage to the next `|>`.
+	// for a `then` stage to the next `|>`; or a discard of one, `_ = expr`,
+	// the statement the body below an `->` would hold.
 	bodyStart := p.pos
-	bodyExpr, err := p.parseExprWithPipeStop(1, stopAtPipe)
+	var stmt ast.Node
+	var err error
+	if p.peek().Type == token.UNDERSCORE && p.peekAt(1).Type == token.EQ {
+		stmt, err = p.parseNameBinding(stopAtPipe)
+	} else {
+		var bodyExpr ast.Node
+		bodyExpr, err = p.parseExprWithPipeStop(1, stopAtPipe)
+		if err == nil {
+			stmt = &ast.ExprStmt{Expr: bodyExpr, Line: bodyExpr.LineNum()}
+		}
+	}
 	if err != nil {
 		if !p.resilient {
 			return nil, err
@@ -5551,8 +5573,8 @@ func (p *Parser) parseLambdaStop(stopAtPipe bool) (ast.Node, error) {
 	// Normalize body into a Block so Lambda.Body is uniformly *ast.Block.
 	// The one-line body's block has no EndLine.
 	body := &ast.Block{
-		Stmts: []ast.Node{&ast.ExprStmt{Expr: bodyExpr, Line: bodyExpr.LineNum()}},
-		Line:  bodyExpr.LineNum(),
+		Stmts: []ast.Node{stmt},
+		Line:  stmt.LineNum(),
 		Col:   startTok.Col,
 	}
 
@@ -5857,12 +5879,6 @@ func (p *Parser) parseFuncDef(public bool) (ast.Node, error) {
 	whereClauses, err := p.parseOptionalWhereClauseAfterHeader()
 	if err != nil {
 		return nil, err
-	}
-	// Nothing stands after a header on its line, so a `go` there is a Go
-	// binding's symbol, which goBindingError refuses. One on the lines
-	// below is a statement.
-	if p.peekIsContextual("go") {
-		return nil, goBindingError(p.peek())
 	}
 
 	body, err := p.parseEndBody(tok, "a function's body")
@@ -7228,9 +7244,6 @@ func (p *Parser) parseImportEntry(tok token.Token) (ast.Node, error) {
 	if p.peek().Type == token.EXTERN {
 		return nil, errorAt(p.peek().Line, p.peek().Col, "runtime-provided declarations use `host`, not `extern`")
 	}
-	if p.atGoBinding() {
-		return nil, goBindingError(p.peek())
-	}
 
 	// Expect at least one import path segment. Keywords are allowed here:
 	// path segments are file names, so `std::defer` stays valid even
@@ -7794,21 +7807,6 @@ func (p *Parser) parseTypeDef(public bool, opaque bool) (ast.Node, error) {
 		Line:          tok.Line,
 		Col:           nameTok.Col,
 	}, nil
-}
-
-// parseTypeDefOrGoBinding parses a `type` declaration, and refuses one
-// that names a Go type after its name (goBindingError).
-func (p *Parser) parseTypeDefOrGoBinding(public bool, opaque bool) (ast.Node, error) {
-	save := p.pos
-	p.advance() // consume TYPE
-	if _, _, err := p.parseQualifiedTypeDeclName("type"); err != nil {
-		return nil, err
-	}
-	if p.atGoBinding() {
-		return nil, goBindingError(p.peek())
-	}
-	p.pos = save
-	return p.parseTypeDef(public, opaque)
 }
 
 // parseStructDef parses: [pub ][opaque ]struct Name[<TypeParams>], its fields
@@ -9159,7 +9157,8 @@ func (p *Parser) parseListPatternBody(typeName ast.TypeExpr, line, col int) (ast
 			bare := !p.atEnd() && (p.peek().Type == token.RBRACKET || p.peek().Type == token.COMMA)
 			if bare {
 				// `[first, ..]` or `[first, .., last]`: the rest is
-				// ignored.
+				// ignored. The wildcard at the `..` is the list's item
+				// there, which takes the comments written at the `..`.
 				rest = &ast.WildcardPattern{Line: spreadTok.Line, Col: spreadTok.Col}
 			} else {
 				if err := p.discardedRest("list"); err != nil {
@@ -9169,9 +9168,9 @@ func (p *Parser) parseListPatternBody(typeName ast.TypeExpr, line, col int) (ast
 				if err != nil {
 					return nil, err
 				}
-				lc.item(nodeComments(tail))
 				rest = tail
 			}
+			lc.item(nodeComments(rest))
 			p.listAfter(&lc)
 			p.skipListBreaks()
 			if !p.atEnd() && p.peek().Type == token.RBRACKET {
@@ -10497,46 +10496,6 @@ func (p *Parser) parseExtern() (ast.Node, error) {
 		return nil, errorAt(externTok.Line, externTok.Col, "unexpected 'extern'; runtime-provided declarations use `host`")
 	}
 }
-
-// atGoBinding reports whether the parser stands at what a Go binding
-// wrote: `gopkg` before a string on its line (a handle), or `go` before a
-// name, `_`, a string or `{` on its line (a symbol after a type's name, an
-// import, a block). Neither word is followed so in Nomi, which leaves `go`
-// and `gopkg` names everywhere else.
-func (p *Parser) atGoBinding() bool {
-	if p.atEnd() || p.peek().Type != token.IDENT {
-		return false
-	}
-	next := p.peekAt(1).Type
-	if p.peek().Lexeme == "gopkg" {
-		return next == token.STRING_LITERAL
-	}
-	if p.peek().Lexeme == "go" {
-		return next == token.IDENT || next == token.UNDERSCORE || next == token.STRING_LITERAL || next == token.LBRACE
-	}
-	return false
-}
-
-// goBindingError is the one error for source that binds Go code: a
-// `gopkg` handle, a `go alias.Symbol` after a function's or a type's
-// header, a `go { ... }` block or a `go "path"` import (atGoBinding, and
-// a `go` on a function's header line). Nomi source declares no Go code.
-// The hint names what reaches code outside Nomi: std, a WebAssembly
-// module run through std::wasm, and a Go host's table for a plain
-// `host fn`.
-func goBindingError(at token.Token) error {
-	return ParseError{
-		Line:    at.Line,
-		Col:     at.Col,
-		Message: GoBindingMessage,
-		Hints:   []string{goBindingHint},
-	}
-}
-
-// GoBindingMessage is goBindingError's message.
-const GoBindingMessage = "Nomi source does not bind Go code: there is no `gopkg` handle and no `go` binding"
-
-const goBindingHint = "use the standard library, run a WebAssembly build of the code through std::wasm, or run the program from a Go host (vmhost) that supplies a plain `host fn` from a host table"
 
 func (p *Parser) parseHost(public bool) (ast.Node, error) {
 	hostTok := p.peek()

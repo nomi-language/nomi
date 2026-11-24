@@ -63,13 +63,15 @@ type fuel struct {
 	// was set: a test case's time limit (caselimit.go), whose timer sets it.
 	// A step then costs one atomic load, which no task contends for. outer
 	// is the fuel of the machine the case runs on, StopOn's, still burned.
-	// A watching fuel with a bound (an activation's deadline in Unix
-	// nanoseconds, within.go; 0 for none) also reads the clock every 1024
-	// steps and, past it, sets stopped and calls onStop. The bound is
-	// cleared when the activation ends, since a task it started may run on.
+	// A watching fuel with a bound (an activation's deadline, within.go;
+	// nil for none) also reads the clock every 1024 steps and, past it,
+	// sets stopped and calls onStop. The deadline keeps its monotonic
+	// reading, so a step of the wall clock neither fires the bound early
+	// nor holds it off. The bound is cleared when the activation ends,
+	// since a task it started may run on.
 	watch  bool
 	outer  *fuel
-	bound  atomic.Int64
+	bound  atomic.Pointer[time.Time]
 	onStop func()
 	// prof is the profiler a profiling machine's watching fuel samples for
 	// (profile.go): burn takes its pending ticks at the frame it is given.
@@ -93,7 +95,7 @@ func (f *fuel) burn(fr *frame, pc int) error {
 		if f.stopped.Load() {
 			return ErrStopped
 		}
-		if d := f.bound.Load(); d != 0 && f.ticks.Add(1)&1023 == 0 && time.Now().UnixNano() > d {
+		if d := f.bound.Load(); d != nil && f.ticks.Add(1)&1023 == 0 && time.Now().After(*d) {
 			// A bound's own deadline (within.go), read here because the
 			// timer that would set stopped may never run.
 			f.stopped.Store(true)
@@ -256,6 +258,18 @@ func (m *Machine) unboundedCrossing(name string) bool {
 	return stdlibadapters.Unbounded(name)
 }
 
+// seededCrossing reports whether a pure crossing into Go named name answers
+// a hash keyed by the run's hash seed, which differs between runs: an
+// intrinsic marked seeded in the intrinsic table (`vm.hash_value`), or a
+// stdlib adapter whose internal/stdlibbindings row is marked Seeded
+// (`strings.String.hash`).
+func (m *Machine) seededCrossing(name string) bool {
+	if in, ok := m.hosts[name]; ok {
+		return in.seeded
+	}
+	return stdlibadapters.Seeded(name)
+}
+
 // Effects is what Machine.Effects found the functions it walked reach,
 // each list sorted.
 type Effects struct {
@@ -268,6 +282,10 @@ type Effects struct {
 	// operand's value (unboundedCrossing), "F calls K". An evaluation's
 	// steps do not bound it.
 	Unbounded []string
+	// Seeded is each call into a pure crossing whose answer is a hash keyed
+	// by the run's seed (seededCrossing), "F calls K". The same operands
+	// give another answer in another run.
+	Seeded []string
 	// AppFields is each app field the functions read or replace with
 	// `with`, the Context field among them, by its name in the app type
 	// (`limit` for `App.limit`). Reading an app field is reading an input
@@ -278,17 +296,18 @@ type Effects struct {
 
 // Effects walks everything the functions fs can reach, as Unretained does,
 // and answers what stops them being evaluated for an editor, a rule or a
-// literal: their effects, their calls whose cost no step limit bounds, and
-// the app fields they read. All three empty means each computes its result
-// from its operands alone, at a cost the steps bound. Each caller decides
-// which it refuses.
+// literal: their effects, their calls whose cost no step limit bounds,
+// their calls whose answer differs between runs, and the app fields they
+// read. All four empty means each computes its result from its operands
+// alone, at a cost the steps bound, the same in every run. Each caller
+// decides which it refuses.
 //
 // It over-approximates as the reachability walk does: a dispatched call
 // reaches every implementation of its method, and a function value reaches
 // every body the evaluation creates a value of.
 func (m *Machine) Effects(fs ...*ir.Func) Effects {
 	w := reachWalk{m: m, seen: map[*ir.Func]bool{}, found: map[string]Unretained{}, effects: map[string]bool{}, unbounded: map[string]bool{},
-		uses: map[*ir.Func][]string{}}
+		seeded: map[string]bool{}, uses: map[*ir.Func][]string{}}
 	for _, f := range fs {
 		w.push(f, EdgeRoot)
 	}
@@ -306,7 +325,7 @@ func (m *Machine) Effects(fs ...*ir.Func) Effects {
 			fields[field] = true
 		}
 	}
-	return Effects{Effects: sortedKeys(w.effects), Unbounded: sortedKeys(w.unbounded), AppFields: sortedKeys(fields)}
+	return Effects{Effects: sortedKeys(w.effects), Unbounded: sortedKeys(w.unbounded), Seeded: sortedKeys(w.seeded), AppFields: sortedKeys(fields)}
 }
 
 // sortedKeys is set's keys, sorted, or nil for none.
@@ -344,10 +363,22 @@ func appFieldOf(in ir.Instr) string {
 	return strings.TrimPrefix(field.Name(), "$")
 }
 
-// effectOf is the effect one instruction has on m, or "". unbounded says
-// the instruction is a call into a pure crossing whose cost grows with an
-// operand's value, which effect then names.
-func (m *Machine) effectOf(in ir.Instr, from string) (effect string, unbounded bool) {
+// evalRefusal is what a crossing into Go is to an evaluation that must act
+// on nothing, end and answer as the program's runs will: nothing that stops
+// it, an effect, a pure call whose cost grows with an operand's value, or a
+// pure call whose answer is a hash keyed by the run's seed.
+type evalRefusal uint8
+
+const (
+	refuseNothing evalRefusal = iota
+	refuseEffect
+	refuseUnbounded
+	refuseSeeded
+)
+
+// effectOf is what one instruction is to an evaluation (evalRefusal), and
+// when it is not refuseNothing, "F calls K", which names the crossing.
+func (m *Machine) effectOf(in ir.Instr, from string) (call string, kind evalRefusal) {
 	switch n := in.(type) {
 	case *ir.Call:
 		if n.Crosses() {
@@ -358,16 +389,30 @@ func (m *Machine) effectOf(in ir.Instr, from string) (effect string, unbounded b
 			return m.crossingEffect(c.Callee().Name(), from)
 		}
 	}
-	return "", false
+	return "", refuseNothing
 }
 
 // crossingEffect is what a crossing into name from from is to effectOf.
-func (m *Machine) crossingEffect(name, from string) (effect string, unbounded bool) {
+func (m *Machine) crossingEffect(name, from string) (call string, kind evalRefusal) {
 	switch {
 	case !m.pureCrossing(name):
-		return fmt.Sprintf("%s calls %s", from, name), false
+		kind = refuseEffect
 	case m.unboundedCrossing(name):
-		return fmt.Sprintf("%s calls %s", from, name), true
+		kind = refuseUnbounded
+	case m.seededCrossing(name):
+		kind = refuseSeeded
+	default:
+		return "", refuseNothing
 	}
-	return "", false
+	return fmt.Sprintf("%s calls %s", from, m.crossingName(name)), kind
+}
+
+// crossingName is how a refusal names the crossing keyed name: the name an
+// intrinsic is written by where its key is the machine's own
+// (intrinsic.written), and otherwise its key.
+func (m *Machine) crossingName(name string) string {
+	if in, ok := m.hosts[name]; ok && in.written != "" {
+		return in.written
+	}
+	return name
 }

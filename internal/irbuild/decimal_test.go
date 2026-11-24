@@ -24,10 +24,9 @@ import (
 // asserted `observed.line == 27` about ITSELF"). A program's stdout is a
 // function of the rendering rules and nothing else.
 //
-// The report pin therefore names the `values:` ROWS and not the line. Those
-// rows are a THIRD renderer — the assertion machinery's, independent of both
-// `Display` and `Debug` — and no passing case can see a mistake in it, because
-// a passing assertion renders nothing.
+// A Decimal's `values:` row is its Debug, `1.50d`, which
+// TestStdHostTypeRowsRenderAsDebug holds, and decimal.nomi's failing case,
+// recorded in the golden files, pins as a report.
 
 // TestPinned_DecimalRendering is the absolute statement of every rendering rule.
 //
@@ -75,45 +74,6 @@ func TestPinned_DecimalRendering(t *testing.T) {
 	if got.stdout != want || got.exit != 0 || got.stderr != "" {
 		t.Fatalf("Decimal's rendering rules are not what this pins:\nwant stdout=%q\ngot  %s",
 			want, got)
-	}
-}
-
-// TestPinned_DecimalAssertionOperands pins the THIRD renderer.
-//
-// The report is read for the two rows and the exit status, never for the line
-// number: the line is a function of this fixture's comment lengths, and pinning
-// it would make an unrelated edit above present as a Decimal regression.
-//
-// The rows are `1.50` and `2.25` — the DISPLAY form. That is the discriminating
-// fact: an operand recorder that reached for `Debug.inspect` instead would
-// render `1.50d`, and every other test in this file would still pass, because
-// `Debug` is correct in its own right. This is the only place the two can
-// contradict each other.
-func TestPinned_DecimalAssertionOperands(t *testing.T) {
-	if testing.Short() {
-		t.Skip("integration; -short")
-	}
-	got := vmReference(fixture("decimal.nomi"))
-	if got.exit != 1 {
-		t.Fatalf("the fixture's last case fails on purpose, so the run must exit 1: %s", got)
-	}
-	for _, want := range []string{
-		"a failing Decimal comparison renders both operands",
-		"      left\n        = 1.50\n",
-		"      right\n        = 2.25\n",
-	} {
-		if !strings.Contains(got.stdout, want) {
-			t.Errorf("the failure report must contain %q; report was:\n%s", want, got.stdout)
-		}
-	}
-	// Scale-preserving, so NOT the normalized form. Stated in the negative
-	// because the positive assertion above is satisfied by a substring of it.
-	if strings.Contains(got.stdout, "= 1.5\n") {
-		t.Errorf("the operand row dropped the trailing zero, so rendering normalized: %s", got.stdout)
-	}
-	// And not the Debug form, which is the other renderer.
-	if strings.Contains(got.stdout, "= 1.50d") {
-		t.Errorf("the operand row used Debug.inspect rather than Display: %s", got.stdout)
 	}
 }
 

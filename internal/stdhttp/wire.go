@@ -152,6 +152,10 @@ func WireRequest(
 	if req.Host == "" {
 		req.Host = u.Host
 	}
+	if op != 2 && op != 3 {
+		// Written as a client sends it, with the client's User-Agent.
+		withUserAgent(req.Header)
+	}
 	if trailers != nil {
 		req.Trailer = header(trailers)
 	}
@@ -231,14 +235,14 @@ func WireResponse(
 // ChunkedReader is `std::http::host.chunked_reader`: httputil's NewChunkedReader
 // over r.
 func ChunkedReader(fr *rt.Frame, r rt.Reader) rt.Reader {
-	return rt.NewReader(rt.ReadSource{Name: "<chunked>", R: httputil.NewChunkedReader(readerInput{fr: fr, r: r})})
+	return rt.NewReader(rt.ReadSource{Name: "<chunked>", R: httputil.NewChunkedReader(readerInput{fr: fr, r: r}), Fail: streamFailure("<chunked>")})
 }
 
 // ChunkedWriter is `std::http::host.chunked_writer`: httputil's
 // NewChunkedWriter over w; closing it writes the last, empty chunk.
 func ChunkedWriter(fr *rt.Frame, w rt.Writer) rt.Writer {
 	cw := httputil.NewChunkedWriter(writerOutput{fr: fr, w: w})
-	return rt.NewWriter(rt.WriteSink{Name: "<chunked>", W: cw, Close: cw.Close})
+	return rt.NewWriter(rt.WriteSink{Name: "<chunked>", W: cw, Close: cw.Close, Fail: streamFailure("<chunked>")})
 }
 
 // partsReader is what a Handle from multipart_reader holds.
@@ -290,7 +294,7 @@ func PartHeaders(h rt.HTTPHandle) *rt.List[string] { return headerList(http.Head
 
 // PartReader is `std::http::host.part_reader`: the part's body.
 func PartReader(h rt.HTTPHandle) rt.Reader {
-	return rt.NewReader(rt.ReadSource{Name: "<part>", R: partOf(h)})
+	return rt.NewReader(rt.ReadSource{Name: "<part>", R: partOf(h), Fail: streamFailure("<part>")})
 }
 
 // PartFormName is `std::http::host.part_form_name`: "" when it has none.

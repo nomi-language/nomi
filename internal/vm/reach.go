@@ -28,8 +28,11 @@ import (
 // Hashable) is reached from an instruction that renders, compares or hashes
 // a value of a type that is or holds that type (heldTypes), and from every
 // such instruction whose operand's type does not bound it: an interface
-// value, an erased position, an Iter rendered. An assertion's `values:`
-// row reaches the hand-written Debug bodies the same way.
+// value, an erased position, an Iter rendered. A failed test's report
+// reaches the hand-written Debug bodies the same way (rowText): an
+// assertion's `values:` rows from the values they show, and its
+// `returned:` block from the `Err` payload of each `?` and of each boot's
+// result (returnedHeld).
 //
 // The report is the FRONTIER. A function that was not retained has no IR, so
 // nothing it would call is visible; fixing one blocker can reveal the next.
@@ -98,6 +101,15 @@ func (w *reachWalk) run(roots []*ir.Func, boots []*ir.Symbol) (map[*ir.Func]bool
 		w.symbol(sym, "boot", NotRetained, EdgeBoot)
 		if render := m.bootFailures[sym]; render != nil {
 			w.symbol(render, "boot failure", NotRetained, EdgeBoot)
+		}
+		if f, err := m.resolveFunc(sym, "boot"); err == nil {
+			// A group's boot that returns `Err` ends each of its cases,
+			// whose report renders the `Err` as a `?`'s (returnedText).
+			for _, b := range f.Blocks() {
+				if r, isReturn := b.Term().(*ir.Return); isReturn && r.HasVal() {
+					w.rowDebugs(w.returnedHeld(f.TempType(r.Val())), "boot")
+				}
+			}
 		}
 	}
 	root := w.rootKind
@@ -241,9 +253,9 @@ type reachWalk struct {
 	// held memoizes heldTypes by type and by whether the value is
 	// rendered.
 	held map[heldKey]heldTypes
-	// effects and unbounded collect what Effects reports; nil for
+	// effects, unbounded and seeded collect what Effects reports; nil for
 	// Unretained's walk.
-	effects, unbounded map[string]bool
+	effects, unbounded, seeded map[string]bool
 	// uses, when set, records the app fields each function's own body
 	// reads or replaces (appFieldOf), in instruction order, each once:
 	// what Effects reports as AppFields and EffectWalk.Uses spreads back
@@ -278,6 +290,23 @@ type reachEdge struct {
 	at   ir.Instr
 }
 
+// namedPart reports whether e is a Display rendering's edge to a body it
+// names for a part (ir.Render.PartImpls), which it calls as a Debug
+// rendering calls the bodies it names, and not one the machine's table
+// holds for a type the value may hold.
+func (e reachEdge) namedPart() bool {
+	r, render := e.at.(*ir.Render)
+	if !render || e.kind != EdgeDisplay || e.to == nil {
+		return false
+	}
+	for _, p := range r.PartImpls() {
+		if p.Fn == e.to.Sym() || p.Fn != nil && e.to.Sym() != nil && p.Fn.Link() != "" && p.Fn.Link() == e.to.Sym().Link() {
+			return true
+		}
+	}
+	return false
+}
+
 // keyBodies queues the recorded Equatable and Hashable bodies a value of
 // held may run, from an instruction that may hash or compare it. Every body
 // is queued once when held is unbounded; a walk that records edges records
@@ -294,6 +323,39 @@ func (w *reachWalk) keyBodies(held heldTypes, from string) {
 			w.symbol(sym, from, NotRetained, EdgeKeys)
 		}
 	}
+}
+
+// rowDebugs queues the hand-written Debug bodies a failed test's report runs
+// for a value of held (rowText): every value of a type with one, at any
+// depth, renders through it.
+func (w *reachWalk) rowDebugs(held heldTypes, from string) {
+	for _, sym := range byTypeName(w.m.rowDebugs, &held) {
+		w.symbol(sym, from, NotRetained, EdgeDebug)
+	}
+}
+
+// returnedHeld is the declared types a failed test's report may render
+// under `returned:` when a `?` on a value of t ends the case, or a group's
+// boot returns one (returnedText): what the payload of its `Err` holds,
+// rendered as a row is. A `None` holds nothing, and neither does an `Ok`,
+// which does not end the case. A t whose variants are not stated does not
+// bound what it holds.
+func (w *reachWalk) returnedHeld(t *ir.ValType) heldTypes {
+	if t == nil || t.Kind() != ir.KindEnum || t.Layout() == nil {
+		return heldTypes{any: true}
+	}
+	var out heldTypes
+	for _, v := range t.Layout().Variants {
+		if v.Name != "Err" {
+			continue
+		}
+		for _, field := range v.Fields {
+			if out.merge(w.heldIn(field.Type, true)) {
+				return out
+			}
+		}
+	}
+	return out
 }
 
 // byTypeName is a table of bodies by type name (an impl of one method, a
@@ -324,7 +386,7 @@ func byTypeName(table map[string]*ir.Symbol, held *heldTypes) []*ir.Symbol {
 // heldTypes is the declared types a value of some type may be or hold, at
 // any depth, by the name a table of bodies (Display, Equatable, Hashable)
 // keys a type's body under: the bodies an operation on the value may select
-// by a value's type name (displayErased, displayStructural, keyCaller). any
+// by a value's type name (displayErased, displayShape, keyCaller). any
 // says some part's type does not bound what it holds, so every body may be
 // selected.
 type heldTypes struct {
@@ -359,18 +421,26 @@ type heldKey struct {
 func (w *reachWalk) heldBy(f *ir.Func, uses []ir.Temp, rendered bool) heldTypes {
 	var out heldTypes
 	for _, u := range uses {
-		h := w.heldIn(f.TempType(u), rendered)
-		if h.any {
-			return h
-		}
-		for name := range h.names {
-			if out.names == nil {
-				out.names = map[string]bool{}
-			}
-			out.names[name] = true
+		if out.merge(w.heldIn(f.TempType(u), rendered)) {
+			return out
 		}
 	}
 	return out
+}
+
+// merge adds what o holds to h and reports whether h is then unbounded.
+func (h *heldTypes) merge(o heldTypes) bool {
+	if o.any {
+		*h = o
+		return true
+	}
+	for name := range o.names {
+		if h.names == nil {
+			h.names = map[string]bool{}
+		}
+		h.names[name] = true
+	}
+	return false
 }
 
 // heldIn is heldTypes for a value of t, memoized.
@@ -522,10 +592,13 @@ func (w *reachWalk) visit(f *ir.Func) {
 		for _, in := range b.Instrs() {
 			w.at = in
 			if w.effects != nil {
-				if e, unbounded := w.m.effectOf(in, f.Name()); unbounded {
-					w.unbounded[e] = true
-				} else if e != "" {
-					w.effects[e] = true
+				switch call, kind := w.m.effectOf(in, f.Name()); kind {
+				case refuseEffect:
+					w.effects[call] = true
+				case refuseUnbounded:
+					w.unbounded[call] = true
+				case refuseSeeded:
+					w.seeded[call] = true
 				}
 			}
 			if w.uses != nil {
@@ -557,23 +630,29 @@ func (w *reachWalk) visit(f *ir.Func) {
 				}
 			case *ir.Assert, *ir.Record, *ir.Subtests:
 				// A `values:` row renders each value the instruction
-				// reports, and every value of a type with a hand-written
-				// Debug it holds through that impl (rowText), as Debug
-				// renders an Iter: as its source.
-				held := w.heldBy(f, in.AppendUses(nil), true)
-				for _, sym := range byTypeName(w.m.rowDebugs, &held) {
-					w.symbol(sym, f.Name(), NotRetained, EdgeDebug)
-				}
+				// reports (rowText).
+				w.rowDebugs(w.heldBy(f, in.AppendUses(nil), true), f.Name())
+			case *ir.Try:
+				// A `?` that ends a test body leaves the `Err` or `None` it
+				// read in the case's report, rendered as a row is
+				// (returnedText). The walk does not tell a case's body
+				// from another, so every `?` reaches them: an `Err`
+				// payload's written Debug bodies are few.
+				w.rowDebugs(w.returnedHeld(f.TempType(n.Src())), f.Name())
 			case *ir.Render:
-				for _, impl := range n.DebugImpls() {
-					w.symbol(impl.Fn, f.Name(), NotRetained, EdgeDebug)
+				edge := EdgeDebug
+				if n.Kind() == ir.RenderDisplay {
+					edge = EdgeDisplay
+				}
+				for _, impl := range n.PartImpls() {
+					w.symbol(impl.Fn, f.Name(), NotRetained, edge)
 				}
 				if n.Kind() == ir.RenderDisplay {
 					// An erased rendering selects a Display body by the
-					// value's type, which may be any; a structural one
-					// (displayStructural) renders each nested value of a
-					// declared type through its own, which its static type
-					// bounds.
+					// value's type, which may be any; one by shape
+					// (displayShape) renders each nested value of a
+					// declared type its impls do not name through the
+					// machine's, which its static type bounds.
 					held := heldTypes{any: true}
 					if !n.Erased() {
 						held = w.heldBy(f, []ir.Temp{n.Src()}, true)

@@ -12,8 +12,8 @@
 //# native program run by `nomi run` or built by `nomi build`, and a
 //# `wasip1/wasm` module, reach the operating system's (under WASI, the
 //# directories the runner opens for it). A `js/wasm` module reaches one in
-//# memory, whose working directory is `/work`: empty under Go's Node
-//# loader, and seeded by `run`'s `files` option in the browser
+//# memory, whose working directory is `/work`: empty under Node.js, and
+//# seeded by `run`'s `files` option in the browser
 //# ([Building](/tooling/building/)). Inside `std::fs::testing.run` a call reaches a sandbox
 //# in memory, so a test checks what a function reads and writes without
 //# touching the disk. Tasks reach the file system of the frame they were
@@ -39,10 +39,55 @@
 //#     Ok(Unit)
 //# end
 //# ```
+//#
+//# ## Watching for changes
+//#
+//# `fs.watch` reports what changes under a path as `Event`s on a channel,
+//# from a task of the supervisor it is given, and `fs.watch_each` hands
+//# each event to a function in the calling task. The watcher polls: every
+//# `WatchOptions.interval` it lists the directories and reads the metadata
+//# of each entry, and compares what it found with what the poll before
+//# found. It never reads a file's contents.
+//#
+//# What a program may rely on, from this watcher and from one the
+//# operating system notifies, which may replace it:
+//#
+//# - A change that lasts from one poll to the next is reported. Something
+//#   created and removed between two polls may not be reported at all, as
+//#   an operating system's watcher under load may drop it too.
+//# - Several changes to one path between two polls are one `Modified`.
+//# - The events for one path arrive in the order they happened. No order is
+//#   promised between paths.
+//# - A path is as the program wrote it: a relative root gives relative
+//#   paths, joined as `fs.walk` joins them.
+//# - A rename is a `Removed` of the old path and then a `Created` of the
+//#   new one. A file replaced by renaming another over it, as
+//#   `WriteMode.ReplaceAtomically` writes, is `Modified`.
+//# - `Rescan` says changes may have been missed. Every consumer handles it
+//#   by reading again what it watches.
+//# - Watching a path that does not exist is `NotFound`.
+//#
+//# This watcher reports a poll's events removals first, then creations,
+//# then changes, each in path order, so a test sees them in a fixed order.
+//# That order is not part of what a program may rely on.
+//#
+//# It tells that a file changed by its size and its modification time. A
+//# write that keeps the size and lands within the file system's timestamp
+//# granularity of the write before it is not seen: about a nanosecond on
+//# APFS and ext4, two seconds on FAT. A directory changes only by being
+//# created or removed, or by its permission bits with
+//# `WatchOptions.attributes`.
+//#
+//# A poll costs one metadata read per entry and one listing per
+//# directory, so its time grows with the number of entries: a poll of
+//# 1,000 files took about 6 ms on an Apple M2 Max's SSD, measured on
+//# 2026-11-23. For a large tree, watch a narrower root or poll less often.
 
 import
     bool.Bool.{self, False, True}
     bytes.Bytes
+    channels.{Arm, Channel, Receiver, Sender}
+    contains.Contains
     duration.Duration
     equatable.Equatable
     fs::host
@@ -51,11 +96,13 @@ import
     io.{Error, File, Reader, Writer}
     iter.Iter
     lists.List
+    maps.Map
     option.Option.{self, None, Some}
     path
     resources.Release
     results.Result.{self, Err, Ok}
     strings.String
+    supervisors.Supervisor
     unit.Unit
 end
 
@@ -113,7 +160,20 @@ end
 
 derive Equatable for Entry
 
-/// What `fs.metadata` returns about a path.
+/// What `fs.metadata` returns about a path. The fields after `mode` are
+/// what a file system may not keep, each `None` where it keeps none:
+///
+/// | Field | macOS | Linux | Windows | wasip1 | Memory |
+/// |---|---|---|---|---|---|
+/// | `accessed` | yes | yes | yes | yes | yes |
+/// | `changed` | yes | yes | no | yes | yes |
+/// | `created` | yes | no | yes | no | yes |
+/// | `links` | yes | yes | yes | yes | not for a directory |
+/// | `device`, `inode` | yes | yes | yes | yes | yes |
+/// | `owner` | yes | yes | no | no | once `fs.set_owner` sets it |
+///
+/// On Windows a symlink that `fs.link_metadata` describes as itself has
+/// no `links`, `device` or `inode`.
 pub struct Metadata
     kind: Kind
     /// The size in bytes. A directory's is what its file system reports:
@@ -121,11 +181,55 @@ pub struct Metadata
     size: Int
     /// When the contents last changed.
     modified: Instant
-    /// The permission bits, such as `0o644`.
+    /// The permission bits, such as `0o644`, with the setuid (`0o4000`),
+    /// setgid (`0o2000`) and sticky (`0o1000`) bits when they are set.
     mode: Int
+    /// When the contents were last read. A disk may not note every read:
+    /// Linux by default notes one only when the time it holds is before
+    /// the last change or a day old. Memory notes none, and only
+    /// `fs.set_times` and `fs.touch` set it there.
+    accessed: Option<Instant> = None
+    /// When the contents or the metadata (the mode, the owner, the times,
+    /// the names) last changed.
+    changed: Option<Instant> = None
+    /// When the file was made: on macOS, Windows and in memory, and `None`
+    /// elsewhere. Linux keeps it, but std::fs does not read it there.
+    created: Option<Instant> = None
+    /// How many names the file has: 1, and more once `fs.create_link`
+    /// gives it another.
+    links: Option<Int> = None
+    /// The device the file is on: on Windows, the volume's serial number.
+    device: Option<Int> = None
+    /// The file's number on its device, which every name of one file
+    /// shares: on Windows, the file index. `fs.same_file` compares the two.
+    inode: Option<Int> = None
+    /// The numbers of the user and group that own the file. Windows owns a
+    /// file by a security identifier, which is no number.
+    owner: Option<Owner> = None
 end
 
 derive Equatable for Metadata
+
+/// The user and group that own a file, by number, as a tar header records
+/// them. `fs.user_name` and `fs.group_name` look up their names.
+pub struct Owner
+    user_id:  Int
+    group_id: Int
+end
+
+derive Equatable for Owner
+
+/// What `fs.disk_usage` answers about a file system, in bytes.
+pub struct DiskUsage
+    /// The file system's size.
+    total: Int
+    /// What is free, the part kept back for the administrator included.
+    free: Int
+    /// What of `free` this program's user may still write.
+    available: Int
+end
+
+derive Equatable for DiskUsage
 
 /// The write mode as its crossing carries it.
 fn mode_code(mode: WriteMode) -> Int64
@@ -1213,10 +1317,41 @@ pub fn link_metadata(path: String) -> Result<Metadata, Error>
 end
 
 // The Metadata of a crossing's fields.
-fn metadata_of(path: String, fields: List<Int>) -> Result<Metadata, Error>
+fn metadata_of(path: String, fields: List<Option<Int>>) -> Result<Metadata, Error>
     case fields
-        [kind, size, modified, mode] ->
-            Ok(Metadata{kind: kind_at(kind), size:, modified: Instant.from_nanos(modified), mode:})
+        [
+            Some(kind),
+            Some(size),
+            Some(modified),
+            Some(mode),
+            accessed,
+            changed,
+            created,
+            links,
+            device,
+            inode,
+            user_id,
+            group_id,
+        ] ->
+            owner =
+                case (user_id, group_id)
+                    (Some(user_id), Some(group_id)) -> Some(Owner{user_id:, group_id:})
+                    _                               -> None
+                end
+
+            Ok(Metadata{
+                kind: kind_at(kind),
+                size:,
+                modified: Instant.from_nanos(modified),
+                mode:,
+                accessed: Option.map(accessed, Instant.from_nanos),
+                changed:  Option.map(changed, Instant.from_nanos),
+                created:  Option.map(created, Instant.from_nanos),
+                links:,
+                device:,
+                inode:,
+                owner:,
+            })
 
         _ ->
             Err(Error.Other{operation: "metadata", path:, code: "EINVAL"})
@@ -1265,11 +1400,16 @@ pub fn read_link(path: String) -> Result<String, Error>
     Dir.read_link(Dir{files: host.here()}, path)
 end
 
-/// Sets the permission bits of what `path` names, following a symlink:
-/// `0o644`, `0o755`, from 0 to `0o777`; any other mode is `Other` with the
-/// code `EINVAL`. Windows keeps only the owner's write bit, so a file reads
-/// back as `0o666` or `0o444`. In memory (the browser, a sandbox) the bits
-/// are kept and returned by `fs.metadata`, but nothing is refused for them.
+/// Sets the mode of what `path` names, following a symlink: `0o644`,
+/// `0o755`, from 0 to `0o7777`. The permission bits are the low nine, and
+/// `0o4000`, `0o2000` and `0o1000` are the setuid, setgid and sticky bits,
+/// numbered as `Metadata.mode` reads them back. Any other mode is `Other`
+/// with the code `EINVAL`. A system may clear a bit the program's user may
+/// not set, as Linux clears the setgid bit of a file whose group the user is
+/// not in. Windows keeps only the owner's write bit, so a file reads back as
+/// `0o666` or `0o444`, and ignores the setuid, setgid and sticky bits. In
+/// memory (the browser, a sandbox) the bits are kept and returned by
+/// `fs.metadata`, but nothing is refused for them.
 ///
 /// ```nomi
 /// fs.set_mode("deploy.sh", 0o755)?
@@ -1285,6 +1425,221 @@ end
 //
 pub fn set_mode(path: String, mode: Int) -> Result<Unit, Error>
     Dir.set_mode(Dir{files: host.here()}, path, mode)
+end
+
+/// Sets when what `path` names was last modified and last read, following
+/// a symlink: what an archive's extractor restores. A time left `None`
+/// stays as it is. A file system keeps a time as finely as it can: to the
+/// nanosecond on APFS, ext4 and in memory, to 100 nanoseconds on NTFS, and
+/// `fs.metadata` reads back what it kept.
+///
+/// ```nomi
+/// fs.set_times("out/notes.txt", modified: Some(entry.modified))?
+/// ```
+//! import std::fs::testing.{self, Sandbox}
+//!
+//! stamp = Instant.from_seconds(1_700_000_000)
+//!
+//! ran = testing.run(Sandbox{files: {"a.txt" => ""}}, fn ->
+//!     set_times("a.txt", modified: Some(stamp), accessed: Some(stamp))?
+//!     m = metadata("a.txt")?
+//!     Ok((m.modified, m.accessed))
+//! end)
+//!
+//! assert ran.value == Ok((stamp, Some(stamp)))
+//
+pub fn set_times(
+    path:     String,
+    modified: Option<Instant> = None,
+    accessed: Option<Instant> = None,
+) -> Result<Unit, Error>
+    Dir.set_times(Dir{files: host.here()}, path, modified:, accessed:)
+end
+
+/// Sets when what `path` names was last modified and last read to now,
+/// following a symlink, and makes an empty file there first when nothing
+/// is, as the `touch` command does. A missing directory above it is
+/// `NotFound` naming the directory. A build tool marks a target done with
+/// it.
+///
+/// ```nomi
+/// fs.touch("build/.stamp")?
+/// ```
+//! import std::fs::testing.{self, Sandbox}
+//!
+//! ran = testing.run(Sandbox{}, fn ->
+//!     touch("stamp")?
+//!     Ok((metadata("stamp")?).size)
+//! end)
+//!
+//! assert ran.value == Ok(0)
+//! assert testing.text(ran, "/work/stamp") == Some("")
+//
+pub fn touch(path: String) -> Result<Unit, Error>
+    Dir.touch(Dir{files: host.here()}, path)
+end
+
+/// Makes `path` a second name of the file at `target`: a hard link. Both
+/// names are one file, so a write through either is read through the
+/// other, `fs.metadata` answers the same `inode` and a `links` of 2 for
+/// each, and removing one name leaves the file under the other. A symlink
+/// at `target` gets the second name itself, not what it points to. A
+/// missing `target` is `NotFound`, a directory there `PermissionDenied`,
+/// and something already at `path` `AlreadyExists`. The two names must be
+/// on one file system: across two it is `Other` with the code `EXDEV`, as
+/// `fs.rename` answers.
+///
+/// ```nomi
+/// fs.create_link("backup/2026/photo.jpg", target: "backup/2025/photo.jpg")?
+/// ```
+//! import std::fs::testing.{self, Sandbox}
+//!
+//! ran = testing.run(Sandbox{files: {"a.txt" => "a"}}, fn ->
+//!     create_link("b.txt", target: "a.txt")?
+//!     write_text("b.txt", "b")?
+//!     Ok((read_text("a.txt")?, (metadata("a.txt")?).links, same_file("a.txt", "b.txt")?))
+//! end)
+//!
+//! assert ran.value == Ok(("b", Some(2), True))
+//
+pub fn create_link(path: String, target: String) -> Result<Unit, Error>
+    Dir.create_link(Dir{files: host.here()}, path, target:)
+end
+
+/// Sets the user and group that own what `path` names, by number,
+/// following a symlink: what an archive's extractor run as root restores.
+/// A user who is not root may give a file they own only a group they are
+/// in, and is otherwise refused with `PermissionDenied`. A number below 0
+/// or past 32 bits is `Other` with the code `EINVAL`. Windows owns a file
+/// by a security
+/// identifier, and WASI has no owners, so there it is
+/// `Unsupported{operation: "fs.set_owner", target: "windows"}` (or
+/// `"wasip1/wasm"`). In memory any owner is kept, and `fs.metadata` answers
+/// it.
+///
+/// ```nomi
+/// fs.set_owner("srv/data", user_id: 1000, group_id: 1000)?
+/// ```
+//! import std::fs::testing.{self, Sandbox}
+//!
+//! ran = testing.run(Sandbox{files: {"a.txt" => ""}}, fn ->
+//!     set_owner("a.txt", user_id: 1000, group_id: 100)?
+//!     Ok((metadata("a.txt")?).owner)
+//! end)
+//!
+//! assert ran.value == Ok(Some(Owner{user_id: 1000, group_id: 100}))
+//
+pub fn set_owner(path: String, user_id: Int, group_id: Int) -> Result<Unit, Error>
+    Dir.set_owner(Dir{files: host.here()}, path, user_id:, group_id:)
+end
+
+/// Sets the owner of the symlink at `path` itself, as `fs.set_owner` sets
+/// what a path names, without following it. Something that is not a
+/// symlink gets the owner as `fs.set_owner` gives it.
+///
+/// ```nomi
+/// fs.set_link_owner("current", user_id: 0, group_id: 0)?
+/// ```
+//! import std::fs::testing.{self, Sandbox}
+//!
+//! ran = testing.run(Sandbox{files: {"a.txt" => ""}, links: {"l" => "a.txt"}}, fn ->
+//!     set_link_owner("l", user_id: 7, group_id: 7)?
+//!     Ok(((link_metadata("l")?).owner, (metadata("l")?).owner))
+//! end)
+//!
+//! assert ran.value == Ok((Some(Owner{user_id: 7, group_id: 7}), None))
+//
+pub fn set_link_owner(path: String, user_id: Int, group_id: Int) -> Result<Unit, Error>
+    Dir.set_link_owner(Dir{files: host.here()}, path, user_id:, group_id:)
+end
+
+/// The name of the user numbered `id`, as the system's user database gives
+/// it, or `None` when it gives none. Each call looks it up again: on Linux
+/// it reads `/etc/passwd`, so a user only a directory service knows (LDAP)
+/// has no name there, and on macOS it asks the system's directory
+/// services. Windows numbers no users, and in memory, in a wasip1 module
+/// and inside `fs.within` no user has a name.
+///
+/// ```nomi
+/// owner = fs.user_name(id) |> Option.with_default("${id}")
+/// ```
+//! import std::fs::testing.{self, Sandbox}
+//!
+//! assert testing.run(Sandbox{}, fn -> user_name(0)).value == None
+//
+pub fn user_name(id: Int) -> Option<String>
+    host.owner_name(host.here(), id, False)
+end
+
+/// The name of the group numbered `id`, as `fs.user_name` names a user:
+/// from `/etc/group` on Linux.
+///
+/// ```nomi
+/// group = fs.group_name(id) |> Option.with_default("${id}")
+/// ```
+//! import std::fs::testing.{self, Sandbox}
+//!
+//! assert testing.run(Sandbox{}, fn -> group_name(0)).value == None
+//
+pub fn group_name(id: Int) -> Option<String>
+    host.owner_name(host.here(), id, True)
+end
+
+/// The size of the file system `path` is on, what is free on it and what
+/// this program's user may write, in bytes: `available` is at most `free`,
+/// which is at most `total`. Memory reports a size of 1 GiB, less what its
+/// files hold, and refuses nothing for space. WASI has no call that asks,
+/// so in a wasip1 module it is `Unsupported`.
+///
+/// ```nomi
+/// room = (fs.disk_usage(".")?).available
+/// ```
+//! import std::fs::testing.{self, Sandbox}
+//!
+//! ran = testing.run(Sandbox{files: {"a.txt" => "four"}}, fn -> disk_usage("."))
+//! gib = 1024 * 1024 * 1024
+//! assert ran.value == Ok(DiskUsage{total: gib, free: gib - 4, available: gib - 4})
+//
+pub fn disk_usage(path: String) -> Result<DiskUsage, Error>
+    Dir.disk_usage(Dir{files: host.here()}, path)
+end
+
+/// Makes the file at `path` `length` bytes long, dropping what is past it
+/// or adding zero bytes, as `File.truncate` does to an open file. A
+/// missing file is `NotFound`.
+///
+/// ```nomi
+/// fs.truncate("log.txt", 0)?
+/// ```
+//! import std::fs::testing.{self, Sandbox}
+//!
+//! ran = testing.run(Sandbox{files: {"a.txt" => "abcdef"}}, fn -> truncate("a.txt", 2))
+//! assert ran.value == Ok(Unit)
+//! assert testing.text(ran, "/work/a.txt") == Some("ab")
+//
+pub fn truncate(path: String, length: NonNegativeInt) -> Result<Unit, Error>
+    Dir.truncate(Dir{files: host.here()}, path, length)
+end
+
+/// Whether `a` and `b` name one file, following symlinks: two hard links,
+/// or a symlink and its target, are; a copy is not. It compares their
+/// `device` and `inode`, and is `Unsupported` on a file system that keeps
+/// neither.
+///
+/// ```nomi
+/// if fs.same_file(source, dest)? then return Ok(Unit)
+/// ```
+//! import std::fs::testing.{self, Sandbox}
+//!
+//! ran = testing.run(Sandbox{files: {"a.txt" => "a"}, links: {"l" => "a.txt"}}, fn ->
+//!     copy("a.txt", "c.txt")?
+//!     Ok((same_file("a.txt", "l")?, same_file("a.txt", "c.txt")?))
+//! end)
+//!
+//! assert ran.value == Ok((True, False))
+//
+pub fn same_file(a: String, b: String) -> Result<Bool, Error>
+    Dir.same_file(Dir{files: host.here()}, a, b)
 end
 
 fn kind_at(position: Int) -> Kind
@@ -1429,9 +1784,9 @@ end
 /// disk: with `up` a link, Windows reads `sub/up/../a.txt` as `sub/a.txt`,
 /// which is `NotFound` when missing, where macOS, Linux and memory follow
 /// `up` first and refuse the path as `InvalidPath` when its `..` then leads
-/// outside. Neither answer leaves the directory. On the disk the directory
-/// is Go's `os.Root`: each name is opened under the one before it,
-/// relative to the open directory, so a symlink swapped in while a call
+/// outside. Neither answer leaves the directory. On the disk each name in
+/// a path is opened under the one before it, relative to the open
+/// directory, so a symlink swapped in while a call
 /// runs cannot lead out, and a `Dir` whose directory is renamed still
 /// reaches it. What is under the directory is reached whatever it is: a
 /// mount point, a device file, a Linux bind mount or `/proc` entry. On
@@ -1829,6 +2184,146 @@ impl Dir
         host.set_mode(dir.files, path, mode)
     end
 
+    /// Sets when what `path` under `dir` was last modified and last read,
+    /// as `fs.set_times` sets them.
+    //! import std::fs::testing.{self, Sandbox}
+    //!
+    //! d = testing.dir(Sandbox{files: {"a.txt" => ""}})
+    //! defer Dir.close(d)
+    //! stamp = Instant.from_seconds(1_700_000_000)
+    //! assert Dir.set_times(d, "a.txt", modified: Some(stamp)) == Ok(Unit)
+    //! assert Result.map(Dir.metadata(d, "a.txt"), fn m -> m.modified) == Ok(stamp)
+    //
+    pub fn set_times(
+        dir:      Dir,
+        path:     String,
+        modified: Option<Instant> = None,
+        accessed: Option<Instant> = None,
+    ) -> Result<Unit, Error>
+        host.set_times(
+            dir.files,
+            path,
+            Option.map(modified, Instant.as_nanos),
+            Option.map(accessed, Instant.as_nanos),
+        )
+    end
+
+    /// Sets the times of what `path` under `dir` names to now, making an
+    /// empty file there first when nothing is, as `fs.touch` does.
+    //! import std::fs::testing.{self, Sandbox}
+    //!
+    //! d = testing.dir(Sandbox{})
+    //! defer Dir.close(d)
+    //! assert Dir.touch(d, "stamp") == Ok(Unit)
+    //! assert Dir.read_text(d, "stamp") == Ok("")
+    //
+    pub fn touch(dir: Dir, path: String) -> Result<Unit, Error>
+        host.touch(dir.files, path)
+    end
+
+    /// Makes `path` under `dir` a second name of the file at `target`
+    /// under it, as `fs.create_link` does.
+    //! import std::fs::testing.{self, Sandbox}
+    //!
+    //! d = testing.dir(Sandbox{files: {"a.txt" => "a"}})
+    //! defer Dir.close(d)
+    //! assert Dir.create_link(d, "b.txt", target: "a.txt") == Ok(Unit)
+    //! assert Dir.same_file(d, "a.txt", "b.txt") == Ok(True)
+    //
+    pub fn create_link(dir: Dir, path: String, target: String) -> Result<Unit, Error>
+        host.create_link(dir.files, path, target)
+    end
+
+    /// Sets the user and group that own what `path` under `dir` names, as
+    /// `fs.set_owner` sets them.
+    //! import std::fs::testing.{self, Sandbox}
+    //!
+    //! d = testing.dir(Sandbox{files: {"a.txt" => ""}})
+    //! defer Dir.close(d)
+    //! assert Dir.set_owner(d, "a.txt", user_id: 1000, group_id: 100) == Ok(Unit)
+    //!
+    //! assert Result.map(Dir.metadata(d, "a.txt"), fn m -> m.owner)
+    //!     == Ok(Some(Owner{user_id: 1000, group_id: 100}))
+    //
+    pub fn set_owner(dir: Dir, path: String, user_id: Int, group_id: Int) -> Result<Unit, Error>
+        host.set_owner(dir.files, path, user_id, group_id, True)
+    end
+
+    /// Sets the owner of the symlink at `path` under `dir` itself, as
+    /// `fs.set_link_owner` does.
+    //! import std::fs::testing.{self, Sandbox}
+    //!
+    //! d = testing.dir(Sandbox{files: {"a.txt" => ""}, links: {"l" => "a.txt"}})
+    //! defer Dir.close(d)
+    //! assert Dir.set_link_owner(d, "l", user_id: 7, group_id: 7) == Ok(Unit)
+    //! assert Result.map(Dir.metadata(d, "a.txt"), fn m -> m.owner) == Ok(None)
+    //
+    pub fn set_link_owner(
+        dir:      Dir,
+        path:     String,
+        user_id:  Int,
+        group_id: Int,
+    ) -> Result<Unit, Error>
+        host.set_owner(dir.files, path, user_id, group_id, False)
+    end
+
+    /// The size, free bytes and available bytes of the file system `path`
+    /// under `dir` is on, as `fs.disk_usage` answers them.
+    //! import std::fs::testing.{self, Sandbox}
+    //!
+    //! d = testing.dir(Sandbox{})
+    //! defer Dir.close(d)
+    //! assert Result.map(Dir.disk_usage(d, "."), fn u -> u.total) == Ok(1024 * 1024 * 1024)
+    //
+    pub fn disk_usage(dir: Dir, path: String) -> Result<DiskUsage, Error>
+        case host.disk_usage(dir.files, path)?
+            [total, free, available] -> Ok(DiskUsage{total:, free:, available:})
+            _                        -> Err(Error.Other{operation: "statfs", path:, code: "EINVAL"})
+        end
+    end
+
+    /// Makes the file at `path` under `dir` `length` bytes long, as
+    /// `fs.truncate` does.
+    //! import std::fs::testing.{self, Sandbox}
+    //!
+    //! d = testing.dir(Sandbox{files: {"a.txt" => "abcdef"}})
+    //! defer Dir.close(d)
+    //! assert Dir.truncate(d, "a.txt", 2) == Ok(Unit)
+    //! assert Dir.read_text(d, "a.txt") == Ok("ab")
+    //
+    pub fn truncate(dir: Dir, path: String, length: NonNegativeInt) -> Result<Unit, Error>
+        f = Dir.open_file(dir, path, access: Access.ReadWrite)?
+        defer File.close_quietly(f)
+        File.truncate(f, length)?
+        File.close(f)
+    end
+
+    /// Whether `a` and `b` under `dir` name one file, as `fs.same_file`
+    /// answers.
+    //! import std::fs::testing.{self, Sandbox}
+    //!
+    //! d = testing.dir(Sandbox{files: {"a.txt" => "a", "b.txt" => "a"}})
+    //! defer Dir.close(d)
+    //! assert Dir.same_file(d, "a.txt", "b.txt") == Ok(False)
+    //
+    pub fn same_file(dir: Dir, a: String, b: String) -> Result<Bool, Error>
+        first = Dir.metadata(dir, a)?
+        second = Dir.metadata(dir, b)?
+
+        case (first.device, first.inode, second.device, second.inode)
+            (Some(d1), Some(i1), Some(d2), Some(i2)) ->
+                Ok(d1 == d2 and i1 == i2)
+
+            _ ->
+                Err(
+                    Error.Unsupported{
+                        operation: "fs.same_file",
+                        target:    "this program's file system",
+                    }
+                )
+        end
+    end
+
     /// Whether something is at `path` under `dir`, as `fs.exists` answers.
     //! import std::fs::testing.{self, Sandbox}
     //!
@@ -1922,5 +2417,633 @@ impl Dir
     //
     pub fn close(dir: Dir) -> Unit
         host.release(dir.files)
+    end
+
+    /// Watches `path` under `dir` as `fs.watch` does. The watcher reaches
+    /// what `dir`'s functions reach and nothing else: it lists with
+    /// `Dir.walk` and reads with `Dir.link_metadata`, so a symlink is
+    /// watched as itself, never what it points to. A watcher whose `Dir`
+    /// is closed ends.
+    pub fn watch(
+        dir:        Dir,
+        path:       String,
+        supervisor: Supervisor,
+        options:    WatchOptions = WatchOptions{},
+    ) -> Result<Watcher, Error>
+        first = watching(dir, path, options)?
+        events = Channel.buffered<Event>(1024)
+        stop = Channel.buffered<Unit>(1)
+        Sender.close_on_drain(stop.sender)
+
+        _ = Supervisor.spawn(supervisor, fn ->
+            defer Sender.close(events.sender)
+            defer Sender.close(stop.sender)
+            watch_loop(first, stop.receiver, fn found -> offer(found, events))
+        end)
+
+        Ok(Watcher{events: events.receiver, stop: stop.sender})
+    end
+
+    /// Watches `path` under `dir` and runs `handler` on each event, as
+    /// `fs.watch_each` does.
+    //! import std::fs::testing.{self, Sandbox}
+    //!
+    //! d = testing.dir(Sandbox{files: {"a.txt" => ""}})
+    //! defer Dir.close(d)
+    //!
+    //! assert Dir.watch_each(d, "none", fn _ -> Unit) == Err(Error.NotFound{path: "none"})
+    //
+    pub fn watch_each(
+        dir:     Dir,
+        path:    String,
+        options: WatchOptions = WatchOptions{},
+        handler: (Event) -> Unit,
+    ) -> Result<Unit, Error>
+        first = watching(dir, path, options)?
+        stop = Channel.buffered<Unit>(1)
+        Sender.close_on_drain(stop.sender)
+        defer Sender.close(stop.sender)
+
+        watch_loop(first, stop.receiver, fn found ->
+            Iter.each(found, handler)
+            True
+        end)
+
+        Ok(Unit)
+    end
+end
+
+/// A change a watcher found (`fs.watch`). Each names the path as the
+/// program wrote it, joined as `fs.walk` joins paths.
+pub enum Event
+    /// Something appeared at `path`.
+    Created {path: String}
+    /// What is at `path` changed: its contents, by its size or its
+    /// modification time, its kind, or with `WatchOptions.attributes` its
+    /// permission bits.
+    Modified {path: String}
+    /// Nothing is at `path` any more.
+    Removed {path: String}
+    /// The watcher may have missed changes, so the program reads again what
+    /// it watches. A poller sends it when a poll cannot read the tree: the
+    /// root is gone, or a directory under it cannot be listed. It sends it
+    /// again when a poll reads the whole tree after that, and when the
+    /// program falls more than 1,024 events behind, after dropping the ones
+    /// not yet received. A watcher the operating system notifies sends it
+    /// when the system drops events. Every consumer handles it.
+    Rescan
+end
+
+derive Equatable for Event
+
+/// How a watcher looks. Every field has a default, so `WatchOptions{}` is
+/// a watch of a directory's own entries, polled four times a second.
+pub struct WatchOptions
+    /// Watch the directory's whole tree, rather than only its own entries.
+    recursive: Bool = False
+    /// The longest a change may take to be reported by a watcher that
+    /// polls. A watcher the operating system notifies reports sooner and
+    /// ignores it.
+    interval: Duration = Duration.milliseconds(250)
+    /// Report a change of permission bits as `Modified` too.
+    attributes: Bool = False
+    /// Report a path only once it has gone this long without changing
+    /// again, so an editor's several writes to a file are one event. Zero
+    /// reports a change at the next poll.
+    settle: Duration = Duration.nanoseconds(0)
+end
+
+/// Watches `path` for changes, from a task of `supervisor`, and returns the
+/// running `Watcher`: `Watcher.events` is where it sends what it finds. A
+/// directory's entries are watched, its whole tree with
+/// `WatchOptions.recursive`; a file is watched itself. What it reports,
+/// what a program may rely on and what it costs are in the module's
+/// "Watching for changes". Nothing at `path` is `NotFound`.
+///
+/// The watcher ends when `Watcher.stop` is called, when the program starts
+/// shutting down, or when the task is cancelled, and then closes its
+/// events. A supervisor that restarts a task that returned
+/// (`Restart.Permanent`) would start a stopped watcher again, so start one
+/// under `Restart.Temporary` or `Restart.Transient`.
+///
+/// ```nomi
+/// watcher = fs.watch("config", App.watchers)?
+///
+/// _ = Supervisor.spawn(App.watchers, fn ->
+///     Iter.loop(Unit, fn _ ->
+///         case Receiver.receive(Watcher.events(watcher))
+///             Some(.Modified{path:}) -> reload(path)
+///             Some(.Rescan)          -> reload_all()
+///             Some(_)                -> Unit
+///             None                   -> break Unit
+///         end
+///     end)
+/// end)
+/// ```
+pub fn watch(
+    path:       String,
+    supervisor: Supervisor,
+    options:    WatchOptions = WatchOptions{},
+) -> Result<Watcher, Error>
+    Dir.watch(Dir{files: host.here()}, path, supervisor, options:)
+end
+
+/// Watches `path` as `fs.watch` does, and runs `handler` on each event in
+/// the calling task, in the order the watcher found them; the next poll
+/// waits for it. It returns `Ok` when the program starts shutting down,
+/// and ends with the calling task when the task is cancelled. Nothing at
+/// `path` is `NotFound`, at once.
+///
+/// ```nomi
+/// _ = Supervisor.spawn(App.watchers, fn ->
+///     _ = fs.watch_each("templates", options: {recursive: True}, fn _ -> reload_templates())
+/// end)
+/// ```
+//! import std::fs::testing.{self, Sandbox}
+//!
+//! ran = testing.run(Sandbox{}, fn -> watch_each("none", fn _ -> Unit))
+//! assert ran.value == Err(Error.NotFound{path: "none"})
+//
+pub fn watch_each(
+    path:    String,
+    options: WatchOptions = WatchOptions{},
+    handler: (Event) -> Unit,
+) -> Result<Unit, Error>
+    Dir.watch_each(Dir{files: host.here()}, path, options:, handler)
+end
+
+/// A running watcher from `fs.watch`.
+pub opaque struct Watcher
+    events: Receiver<Event>
+    stop:   Sender<Unit>
+end
+
+impl Watcher
+    /// Where the watcher sends what it finds. It holds up to 1,024 events
+    /// the program has not received; past that the watcher drops them and
+    /// sends `Rescan`. A receive returns `None` once the watcher has ended
+    /// and its events are received.
+    pub fn events(watcher: Watcher) -> Receiver<Event>
+        watcher.events
+    end
+
+    /// Ends the watcher: it polls no more, and closes its events once the
+    /// poll it is in, if any, has sent its own. A second stop does nothing.
+    pub fn stop(watcher: Watcher) -> Unit
+        Sender.close(watcher.stop)
+    end
+end
+
+/// What tells one version of what is at a path from another. A
+/// directory's is its kind alone, and its mode with `attributes`.
+struct Stamp
+    kind:     Kind
+    size:     Int
+    modified: Instant
+    mode:     Int
+end
+
+derive Equatable for Stamp
+
+fn stamp_of(m: Metadata, attributes: Bool) -> Stamp
+    mode = if attributes then m.mode else 0
+
+    if m.kind == Kind.Directory then
+        Stamp{kind: m.kind, size: 0, modified: Instant.from_nanos(0), mode:}
+    else
+        Stamp{kind: m.kind, size: m.size, modified: m.modified, mode:}
+    end
+end
+
+/// A walk's stamps so far, or why it cannot finish.
+struct Snapshot
+    stamps:  Map<String, Stamp>
+    failure: Option<Error>
+end
+
+/// What is at `root` under `at` now, by path: `root` itself when it is not
+/// a directory, else its entries, or its whole tree when `recursive`. An
+/// entry gone between its listing and its read is left out. Anything else
+/// that cannot be read fails the whole snapshot.
+fn snapshot(at: Dir, root: String, options: WatchOptions) -> Result<Map<String, Stamp>, Error>
+    top = Dir.metadata(at, root)?
+
+    if top.kind != Kind.Directory then return Ok({root => stamp_of(top, options.attributes)})
+
+    depth = if options.recursive then -1 else 0
+    start = Snapshot{stamps: {}, failure: None}
+
+    read = Iter.reduce(Walk{reach: fn -> at, root:, depth:}, start, fn snap, item ->
+        case item
+            _ when snap.failure is Some(_) ->
+                snap
+
+            Ok(entry) ->
+                case Dir.link_metadata(at, entry.path)
+                    Ok(m) ->
+                        {
+                            ..snap,
+                            stamps: Map.put(
+                                snap.stamps,
+                                entry.path,
+                                stamp_of(m, options.attributes),
+                            ),
+                        }
+
+                    Err(Error.NotFound{path: _}) ->
+                        snap
+
+                    Err(e) ->
+                        {..snap, failure: Some(e)}
+                end
+
+            Err(Error.NotFound{path: p}) when p != root ->
+                snap
+
+            Err(e) ->
+                {..snap, failure: Some(e)}
+        end
+    end)
+
+    case read.failure
+        Some(e) -> Err(e)
+        None    -> Ok(read.stamps)
+    end
+end
+
+/// A watcher between two polls.
+struct Watching
+    at:      Dir
+    root:    String
+    options: WatchOptions
+    /// What the last poll that read the whole tree found.
+    seen: Map<String, Stamp>
+    /// What the events sent so far describe: `seen`, but for the paths
+    /// still settling.
+    reported: Map<String, Stamp>
+    /// When each path whose change is not yet reported last changed.
+    settling: Map<String, Instant>
+    /// Whether the last poll could not read the tree.
+    lost: Bool
+end
+
+/// The watcher of `root` under `at`, with what is there now.
+fn watching(at: Dir, root: String, options: WatchOptions) -> Result<Watching, Error>
+    found = snapshot(at, root, options)?
+    Ok(Watching{at:, root:, options:, seen: found, reported: found, settling: {}, lost: False})
+end
+
+/// Waits `interval`, polls, and hands the events to `deliver`, until
+/// `stop` is closed, `deliver` answers `False` or the `Dir` is closed.
+fn watch_loop(w: Watching, stop: Receiver<Unit>, deliver: (List<Event>) -> Bool) -> Unit
+    go_on = Channel.select([
+        Arm.receive(stop, fn _ -> False),
+        Arm.after(w.options.interval, fn -> True),
+    ])
+
+    if go_on then
+        case poll(w, Instant.now())
+            Some((next, found)) -> if deliver(found) then watch_loop(next, stop, deliver)
+            None                -> Unit
+        end
+    end
+end
+
+/// One poll at `now`: the watcher after it and the events it found, or
+/// `None` when the `Dir` it reads is closed.
+//! import std::fs::testing.{self, Failure, Operation, Sandbox}
+//!
+//! // The events of a watch of `root` over `sandbox`, one list per step:
+//! // each step changes the files, then a poll runs a second after the one
+//! // before.
+//! fn polls(
+//!     sandbox: Sandbox,
+//!     root:    String,
+//!     options: WatchOptions,
+//!     steps:   List<() -> Result<Unit, Error>>,
+//! ) -> List<List<Event>>
+//!     ran = testing.run(sandbox, fn ->
+//!         first = watching(Dir{files: host.here()}, root, options)!
+//!
+//!         (_, found) = Iter.map_reduce(steps, (first, 1), fn (w, n), step ->
+//!             _ = step()
+//!             (next, events) = poll(w, Instant.from_seconds(n))!
+//!             ((next, n + 1), events)
+//!         end)
+//!
+//!         found
+//!     end)
+//!
+//!     ran.value
+//! end
+//!
+//! d = Sandbox{files: {"d/a.txt" => "a"}}
+//!
+//! assert polls(d, "d", WatchOptions{}, [
+//!     fn -> write_text("d/b.txt", "b"),
+//!     fn -> write_text("d/b.txt", "bigger"),
+//!     fn -> remove("d/b.txt"),
+//!     fn -> Ok(Unit),
+//! ]) == [
+//!     [Event.Created{path: "d/b.txt"}],
+//!     [Event.Modified{path: "d/b.txt"}],
+//!     [Event.Removed{path: "d/b.txt"}],
+//!     [],
+//! ]
+//!
+//! // A rename is a removal, then a creation. A file replaced by renaming
+//! // another over it is changed.
+//! assert polls(d, "d", WatchOptions{}, [fn -> rename("d/a.txt", "d/z.txt")]) == [
+//!     [Event.Removed{path: "d/a.txt"}, Event.Created{path: "d/z.txt"}],
+//! ]
+//!
+//! assert polls(d, "d/a.txt", WatchOptions{}, [
+//!     fn -> write_text("d/a.txt", "new text", mode: WriteMode.ReplaceAtomically),
+//!     fn -> write_text("d/b.txt", "b"),
+//! ]) == [
+//!     [Event.Modified{path: "d/a.txt"}],
+//!     [],
+//! ]
+//!
+//! // Something created and removed between two polls is not seen.
+//! assert polls(
+//!     d,
+//!     "d",
+//!     WatchOptions{},
+//!     [
+//!         fn ->
+//!             write_text("d/b.txt", "b")?
+//!             remove("d/b.txt")
+//!         end,
+//!     ],
+//! ) == [[]]
+//!
+//! // A directory's own entries, or its whole tree.
+//! make_sub =
+//!     fn ->
+//!         create_dir("d/sub")?
+//!         write_text("d/sub/x.txt", "x")
+//!     end
+//!
+//! touch_sub = fn -> write_text("d/sub/x.txt", "xx")
+//!
+//! assert polls(d, "d", WatchOptions{}, [make_sub, touch_sub]) == [
+//!     [Event.Created{path: "d/sub"}],
+//!     [],
+//! ]
+//!
+//! assert polls(d, "d", WatchOptions{recursive: True}, [make_sub, touch_sub]) == [
+//!     [Event.Created{path: "d/sub"}, Event.Created{path: "d/sub/x.txt"}],
+//!     [Event.Modified{path: "d/sub/x.txt"}],
+//! ]
+//!
+//! // Permission bits only with `attributes`.
+//! chmod = fn -> set_mode("d/a.txt", 0o600)
+//! assert polls(d, "d", WatchOptions{}, [chmod]) == [[]]
+//!
+//! assert polls(d, "d", WatchOptions{attributes: True}, [chmod]) == [
+//!     [Event.Modified{path: "d/a.txt"}],
+//! ]
+//!
+//! // With `settle`, a path is reported once it has stopped changing.
+//! quiet: () -> Result<Unit, Error> = fn -> Ok(Unit)
+//!
+//! assert polls(d, "d", WatchOptions{settle: Duration.seconds(2)}, [
+//!     fn -> write_text("d/a.txt", "ab"),
+//!     fn -> write_text("d/a.txt", "abc"),
+//!     fn -> write_text("d/a.txt", "abcd"),
+//!     quiet,
+//!     quiet,
+//!     quiet,
+//! ]) == [
+//!     [],
+//!     [],
+//!     [],
+//!     [],
+//!     [Event.Modified{path: "d/a.txt"}],
+//!     [],
+//! ]
+//!
+//! // The root gone and back, and a listing that fails, are a Rescan each
+//! // way, and nothing between.
+//! assert polls(d, "d", WatchOptions{}, [
+//!     fn -> remove_all("d"),
+//!     quiet,
+//!     fn ->
+//!         create_dir("d")?
+//!         write_text("d/c.txt", "c")
+//!     end,
+//!     fn -> write_text("d/c.txt", "cc"),
+//! ]) == [
+//!     [Event.Rescan],
+//!     [],
+//!     [Event.Rescan],
+//!     [Event.Modified{path: "d/c.txt"}],
+//! ]
+//!
+//! broken = Error.Other{operation: "list", path: "d/sub", code: "EIO"}
+//!
+//! assert polls(
+//!     Sandbox{
+//!         files: {"d/a.txt" => "a", "d/sub/x.txt" => "x"},
+//!         failures: [
+//!             Failure{path: "/work/d/sub", operation: Operation.List, error: broken, nth: Some(2)},
+//!         ],
+//!     },
+//!     "d",
+//!     WatchOptions{recursive: True},
+//!     [quiet, fn -> write_text("d/a.txt", "aa")],
+//! ) == [[Event.Rescan], [Event.Rescan]]
+//
+//! import std::fs::testing.{self, Sandbox}
+//!
+//! // A symlink is watched as itself: a change to what it points to,
+//! // outside a Dir or not, is not reported.
+//! ran = testing.run(Sandbox{
+//!     files: {"secret.txt" => "s", "site/a.txt" => "a"},
+//!     links: {"site/s" => "../secret.txt"},
+//! }, fn ->
+//!     site = Dir.subdir(Dir{files: host.here()}, "site")!
+//!     defer Dir.close(site)
+//!     first = watching(site, ".", WatchOptions{recursive: True})!
+//!     _ = write_text("secret.txt", "a longer secret")
+//!     _ = Dir.write_text(site, "a.txt", "aa")
+//!     (_, found) = poll(first, Instant.from_seconds(1))!
+//!     outside = watching(site, "s", WatchOptions{})
+//!     Dir.close(site)
+//!     (found, poll(first, Instant.from_seconds(2)), outside)
+//! end)
+//!
+//! (found, closed, outside) = ran.value
+//! assert found == [Event.Modified{path: "./a.txt"}]
+//! assert closed is None
+//!
+//! assert outside is Err(Error.InvalidPath{
+//!     path: "s",
+//!     reason: "the path leads outside the directory it is confined to",
+//! })
+//
+//! import std::fs::testing.{self, Sandbox}
+//!
+//! // A poll reads the root's metadata, each entry's once, and lists each
+//! // directory once: the watcher and one poll of n files under `d/sub`.
+//! fn reads(n: Int) -> (Int, Int, Int)
+//!     files = 1..=n |> Iter.map(fn i -> ("d/sub/f${i}.txt", "x")) |> Iter.to_map()
+//!
+//!     ran = testing.run(Sandbox{files:}, fn ->
+//!         first = watching(Dir{files: host.here()}, "d", WatchOptions{recursive: True})!
+//!         _ = poll(first, Instant.from_seconds(1))!
+//!     end)
+//!
+//!     count = fn op: String -> Iter.count_by(ran.log, fn line -> String.starts_with(line, "${op} "))
+//!     (count("metadata"), count("link_metadata"), count("list"))
+//! end
+//!
+//! assert reads(10) == (2, 22, 4)
+//! assert reads(100) == (2, 202, 4)
+//
+fn poll(w: Watching, now: Instant) -> Option<(Watching, List<Event>)>
+    case snapshot(w.at, w.root, w.options)
+        Err(Error.Closed) ->
+            None
+
+        Err(_) ->
+            if w.lost then
+                Some((w, []))
+            else
+                Some(({..w, settling: {}, lost: True}, [Event.Rescan]))
+            end
+
+        Ok(found) ->
+            if w.lost then
+                Some(
+                    ({..w, seen: found, reported: found, settling: {}, lost: False}, [Event.Rescan])
+                )
+            else
+                Some(settled(w, found, now))
+            end
+    end
+end
+
+/// The watcher after a poll at `now` that found `found`, and the events of
+/// the paths that have now gone `settle` without changing.
+fn settled(w: Watching, found: Map<String, Stamp>, now: Instant) -> (Watching, List<Event>)
+    seen = w.seen
+
+    changed = Iter.reduce(found, w.settling, fn settling, (p, stamp) ->
+        if Map.get(seen, p) == Some(stamp) then
+            settling
+        else
+            Map.put(settling, p, now)
+        end
+    end)
+
+    settling = Iter.reduce(seen, changed, fn settling, (p, _) ->
+        if p in found then
+            settling
+        else
+            Map.put(settling, p, now)
+        end
+    end)
+
+    (due, waiting) = Iter.partition(settling, fn (_, at) ->
+        not Instant.is_before(now, at + w.options.settle)
+    end)
+
+    events =
+        due
+        |> Iter.map(fn (p, _) -> event_at(p, Map.get(w.reported, p), Map.get(found, p)))
+        |> Option.values()
+        |> Iter.sort_by(event_order)
+
+    reported =
+        if Iter.is_empty(waiting) then
+            found
+        else
+            Iter.reduce(due, w.reported, fn reported, (p, _) ->
+                case Map.get(found, p)
+                    Some(stamp) -> Map.put(reported, p, stamp)
+                    None        -> Map.remove(reported, p)
+                end
+            end)
+        end
+
+    ({..w, seen: found, reported:, settling: Iter.to_map(waiting)}, events)
+end
+
+/// The event that tells a path's change from `before` to `after`, if any.
+//! at = Instant.from_seconds(5)
+//! file = Stamp{kind: Kind.File, size: 1, modified: at, mode: 0}
+//! later = {..file, modified: at + Duration.nanoseconds(1)}
+//!
+//! assert event_at("a", Some(file), Some(later)) == Some(Event.Modified{path: "a"})
+//! assert event_at("a", Some(file), Some(file)) == None
+//! assert event_at("a", None, Some(file)) == Some(Event.Created{path: "a"})
+//! assert event_at("a", Some(file), None) == Some(Event.Removed{path: "a"})
+//
+fn event_at(path: String, before: Option<Stamp>, after: Option<Stamp>) -> Option<Event>
+    case (before, after)
+        (None, Some(_))                        -> Some(Event.Created{path:})
+        (Some(_), None)                        -> Some(Event.Removed{path:})
+        (Some(old), Some(new)) when old != new -> Some(Event.Modified{path:})
+        _                                      -> None
+    end
+end
+
+/// A poll's events in the order they are sent: removals, creations and
+/// changes, each by path.
+fn event_order(e: Event) -> (Int, String)
+    case e
+        Event.Removed{path:}  -> (0, path)
+        Event.Created{path:}  -> (1, path)
+        Event.Modified{path:} -> (2, path)
+        Event.Rescan          -> (3, "")
+    end
+end
+
+/// Sends `found` on `events` without waiting. When the channel is full it
+/// takes back what is queued, sends one `Rescan` and drops the rest of
+/// `found`. `False` once the channel is closed.
+//! ch = Channel.buffered<Event>(2)
+//! many = ["a", "b", "c", "d"] |> Iter.map(fn p -> Event.Created{path: p}) |> Iter.to_list()
+//!
+//! assert offer(many, ch)
+//! assert Receiver.receive_within(ch.receiver, Duration.nanoseconds(0)) == Ok(Some(Event.Rescan))
+//! assert Receiver.receive_within(ch.receiver, Duration.nanoseconds(0)) is Err(_)
+//!
+//! assert offer([Event.Created{path: "a"}], ch)
+//! Sender.close(ch.sender)
+//! refute offer([Event.Created{path: "b"}], ch)
+//
+fn offer(found: List<Event>, events: Channel<Event>) -> Bool
+    case found
+        [] ->
+            True
+
+        [event, ..rest] ->
+            sent = Channel.select([
+                Arm.send(events.sender, event, fn r -> Some(r is Ok(_))),
+                Arm.after(Duration.nanoseconds(0), fn -> None),
+            ])
+
+            case sent
+                Some(True) ->
+                    offer(rest, events)
+
+                Some(False) ->
+                    False
+
+                None ->
+                    drain(events.receiver)
+                    Sender.send(events.sender, Event.Rescan) is Ok(_)
+            end
+    end
+end
+
+/// Takes every event queued on `receiver` without waiting.
+fn drain(receiver: Receiver<Event>) -> Unit
+    case Receiver.receive_within(receiver, Duration.nanoseconds(0))
+        Ok(Some(_)) -> drain(receiver)
+        _           -> Unit
     end
 end

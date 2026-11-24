@@ -1,9 +1,15 @@
-//# Waiting: `timer.sleep` suspends the current task for a `Duration`.
-//# `Instant` and `Duration` are the time values it works with.
+//# Waiting: `timer.sleep` suspends the current task for a `Duration`, and
+//# `timer.every` runs a job again and again with a wait between runs.
+//# `Instant` and `Duration` are the time values they work with.
 
 import
+    bool.Bool.{False, True}
+    channels.{Arm, Channel, Receiver, Sender}
     duration.Duration
     instant.Instant
+    iter.Iter
+    option.Option.Some
+    tasks.Task
     unit.Unit
 end
 
@@ -19,3 +25,52 @@ end
 //! assert timer.sleep(Instant.between(Instant.from_seconds(1), deadline)) == Unit
 //
 pub host fn sleep(d: Duration) -> Unit
+
+/// Runs `job`, waits `interval` on the clock in force, and repeats, until
+/// the program starts shutting down or the calling task is cancelled.
+///
+/// The wait starts when `job` returns, so runs never overlap and none is
+/// skipped. A job that takes longer than `interval` runs again `interval`
+/// after it ends: a three-second job every five seconds starts at 0, 8 and
+/// 16 seconds.
+///
+/// When the program starts shutting down, `every` returns at once if it is
+/// waiting, and as soon as the job returns if one is running, so a
+/// supervisor's drain does not wait out its `shutdown_timeout` for it. A
+/// job that traps ends `every` with its fault.
+//! runs = Channel.buffered<Int>(1)
+//!
+//! first =
+//!     concurrent
+//!         ticker = Task.spawn(fn ->
+//!             timer.every(Duration.hours(1), fn ->
+//!                 _ = Sender.send(runs.sender, 1)
+//!             end)
+//!         end)
+//!
+//!         ran = Receiver.receive(runs.receiver)
+//!         Task.cancel(ticker)
+//!         _ = Task.outcome(ticker)
+//!         ran
+//!     end
+//!
+//! assert first == Some(1)
+//
+pub fn every(interval: Duration, job: () -> Unit) -> Unit
+    // Nothing is sent on `stop`: it closes when shutdown starts, which
+    // makes its arm ready, and the `defer` lets go of it when `every` ends.
+    stop = Channel.unbuffered<Unit>()
+    Sender.close_on_drain(stop.sender)
+    defer Sender.close(stop.sender)
+
+    Iter.loop(fn ->
+        job()
+
+        stopping = Channel.select([
+            Arm.receive(stop.receiver, fn _ -> True),
+            Arm.after(interval, fn -> False),
+        ])
+
+        if stopping then break
+    end)
+end

@@ -112,7 +112,10 @@ type Hooks struct {
 	OnCountError func(*rt.Frame, string) rt.Unit
 }
 
-// Listen is `std::http::host.listen`: bind address and start serving on it.
+// Listen is `std::http::host.listen`: bind address and start serving on it,
+// or serve on given, a std::net Listener, when it is Some (a Unix one, or
+// one the process inherited), whose own connections the server then takes
+// (netListener's Accept); a TLS listener's configuration serves HTTPS.
 // durations are the read, read-header, write, idle and shutdown timeouts
 // in nanoseconds, 0 for Go's default (none); limits are the most header
 // bytes and the most values one header may hold, 0 for Go's defaults.
@@ -127,6 +130,7 @@ type Hooks struct {
 // supervisors' grace period (rt.OnDrain).
 func Listen(
 	address string,
+	given rt.Option[rt.NetListener],
 	durationsArg *rt.List[rt.Int],
 	limitsArg *rt.List[rt.Int],
 	flags *rt.List[bool],
@@ -146,7 +150,7 @@ func Listen(
 	durations := saturatedList(durationsArg)
 	limits := saturatedList(limitsArg)
 	http2 := saturatedList(http2Arg)
-	return listen(address, durations, limits, flags, protocols, hasProtocols, http2, http2Flags,
+	return listen(address, given, durations, limits, flags, protocols, hasProtocols, http2, http2Flags,
 		hooks(onState, hasOnState, onError, hasOnError, onShutdown, hasOnShutdown, onCountError, hasOnCountError), nil)
 }
 
@@ -154,6 +158,7 @@ func Listen(
 // Go's ListenAndServeTLS does (HTTP/2 included when cfg allows it).
 func ListenTLS(
 	address string,
+	given rt.Option[rt.NetListener],
 	durationsArg *rt.List[rt.Int],
 	limitsArg *rt.List[rt.Int],
 	flags *rt.List[bool],
@@ -174,7 +179,7 @@ func ListenTLS(
 	durations := saturatedList(durationsArg)
 	limits := saturatedList(limitsArg)
 	http2 := saturatedList(http2Arg)
-	return listen(address, durations, limits, flags, protocols, hasProtocols, http2, http2Flags,
+	return listen(address, given, durations, limits, flags, protocols, hasProtocols, http2, http2Flags,
 		hooks(onState, hasOnState, onError, hasOnError, onShutdown, hasOnShutdown, onCountError, hasOnCountError), confOf(cfg))
 }
 
@@ -286,15 +291,24 @@ func (w lineWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func listen(address string, durations, limits *rt.List[int64], flags *rt.List[bool], protocols *rt.List[bool],
+func listen(address string, given rt.Option[rt.NetListener], durations, limits *rt.List[int64], flags *rt.List[bool], protocols *rt.List[bool],
 	hasProtocols bool, h2 *rt.List[int64], h2Flags *rt.List[bool], h Hooks, cfg *tlsConf) rt.Result[rt.HTTPListener, *rt.List[string]] {
 	if !hasSockets {
 		return rt.Err[rt.HTTPListener](listOf([]string{"Listen", address, noSocketsMessage}))
 	}
 	osreach.Note("listen")
-	ln, err := net.Listen("tcp", address)
-	if err != nil {
-		return rt.Err[rt.HTTPListener](listOf([]string{"Listen", address, err.Error()}))
+	var ln net.Listener
+	if given.Tag == rt.TagSome {
+		v := viewOf(given.Some)
+		ln = v.netListener
+		if cfg == nil {
+			cfg = v.tls
+		}
+	} else {
+		var err error
+		if ln, err = net.Listen("tcp", address); err != nil {
+			return rt.Err[rt.HTTPListener](listOf([]string{"Listen", address, err.Error()}))
+		}
 	}
 	ds, ls, fs := ints(durations), ints(limits), bools(flags)
 	l := &listener{ln: ln, incoming: make(chan *incoming), closed: make(chan struct{}), b: newBroker()}
@@ -452,7 +466,7 @@ func InClose(in rt.HTTPIncoming) bool { return incomingOf(in).r.Close }
 // InBody is `std::http::host.in_body`: the request's body as a Reader.
 func InBody(in rt.HTTPIncoming) rt.Reader {
 	r := incomingOf(in).r
-	return rt.NewReader(rt.ReadSource{Name: "<request>", R: r.Body, Close: r.Body.Close})
+	return rt.NewReader(rt.ReadSource{Name: "<request>", R: r.Body, Close: r.Body.Close, Fail: streamFailure("<request>")})
 }
 
 // writeHead sets the response's headers and announced trailers and writes
@@ -560,7 +574,7 @@ func Produce(i rt.HTTPIncoming, statusArg rt.Int, headers, trailerNames *rt.List
 	}
 	in.writeHead(status, headers, trailerNames)
 	in.mu.Unlock()
-	return rt.NewWriter(rt.WriteSink{Name: "<response>", W: responseWriter{in: in}})
+	return rt.NewWriter(rt.WriteSink{Name: "<response>", W: responseWriter{in: in}, Fail: streamFailure("<response>")})
 }
 
 type responseWriter struct{ in *incoming }
@@ -570,7 +584,7 @@ func (w responseWriter) Write(p []byte) (int, error) {
 	in.mu.Lock()
 	defer in.mu.Unlock()
 	if in.gone || in.finished {
-		return 0, errors.New("the response is finished")
+		return 0, rt.IOFailure{E: rt.IOError{Tag: rt.TagIOClosed}}
 	}
 	n, err := in.w.Write(p)
 	if err == nil {
@@ -842,7 +856,7 @@ func gmtDate(text string, layouts ...string) (t time.Time, err error) {
 // than max bytes are read, as Go's MaxBytesReader does.
 func LimitBody(fr *rt.Frame, r rt.Reader, maxArg rt.Int) rt.Reader {
 	max := maxArg.Saturated()
-	return rt.NewReader(rt.ReadSource{Name: "<request>", R: &limited{r: readerInput{fr: fr, r: r}, left: max}})
+	return rt.NewReader(rt.ReadSource{Name: "<request>", R: &limited{r: readerInput{fr: fr, r: r}, left: max}, Fail: streamFailure("<request>")})
 }
 
 // ReadAtMost is `std::http::host.read_at_most`: the bytes r holds, read

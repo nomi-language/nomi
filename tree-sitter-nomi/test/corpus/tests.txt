@@ -367,6 +367,41 @@ end
         (integer)))))
 
 ================================================================================
+Attached test string starting with spaces then an escape
+================================================================================
+
+//! data = "  \tkey = 1"
+//! assert data == "  key"
+fn answer() -> Int
+    42
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (decorated_item
+    (attached_test_prompt
+      (attached_comment_test_prompt_marker)
+      body: (binding
+        (identifier)
+        (string
+          (string_content)
+          (escape_sequence)
+          (string_content)))
+      (attached_comment_test_line_prompt)
+      body: (assertion
+        value: (binary_expression
+          (identifier)
+          (string
+            (string_content)))))
+    (function_definition
+      name: (identifier)
+      (parameters)
+      return_type: (type_identifier)
+      (body
+        (integer)))))
+
+================================================================================
 Attached test with an is pattern holding a dot variant
 ================================================================================
 

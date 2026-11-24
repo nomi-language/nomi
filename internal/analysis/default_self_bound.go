@@ -188,7 +188,7 @@ func (c *checker) missingSelfBounds(sig *MethodSig, iface *InterfaceType, recvTy
 				bound = sb
 			}
 		}
-		if !typeImplementsInterface(c, recvTy, bound, pos, RecordingKindGenericBoundCheck) {
+		if !typeImplementsInterface(c, recvTy, bound, Recording{Pos: pos, Kind: RecordingKindGenericBoundCheck}) {
 			missing = append(missing, bound)
 		}
 	}

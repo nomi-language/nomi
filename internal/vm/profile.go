@@ -321,8 +321,8 @@ func profThreadOf(runtime *rt.Frame) *profThread {
 // Ticks that came due while the activation ran and that no call or
 // backward branch in it took are its own: a function whose body neither
 // calls nor loops takes them as it returns.
-func (m *Machine) profActivation(fr *frame, pooled bool) error {
-	if !pooled {
+func (m *Machine) profActivation(fr *frame, fromGo bool) error {
+	if !fromGo {
 		return m.exec(fr)
 	}
 	th := profThreadOf(fr.runtime)
@@ -527,8 +527,8 @@ func (p *Profiler) WriteTable(w io.Writer, name func(string) string) {
 	}
 }
 
-// WritePprof writes the profile in the format `go tool pprof` reads: a
-// gzipped profile.proto whose functions are the program's, with samples of
+// WritePprof writes the profile in pprof's format, which every pprof viewer
+// reads: a gzipped profile.proto whose functions are the program's, with samples of
 // wall time.
 func (p *Profiler) WritePprof(w io.Writer) error {
 	p.mu.Lock()
@@ -702,10 +702,11 @@ func StartProfile(m *Machine, spec string, errOut io.Writer) (run *Machine, fini
 			}
 		}
 		if err != nil {
-			fmt.Fprintf(errOut, "nomi: NOMI_PROFILE: %v\n", err)
+			fmt.Fprintf(errOut, "nomi: the profile was not written: %v\n", err)
 			return
 		}
-		fmt.Fprintf(errOut, "\nwrote %s; go tool pprof -http=: %s shows it as a graph and a flame graph\n", spec, spec)
+		fmt.Fprintf(errOut, "\nwrote %s in pprof's format, a gzipped profile.proto, which any pprof viewer reads; "+
+			"`pprof -http=: %s` shows it as a graph and a flame graph\n", spec, spec)
 	}
 }
 

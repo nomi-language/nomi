@@ -593,7 +593,7 @@ func (p *Program) entryCases(out io.Writer, opts TestOptions, passes *passStore)
 			outcomes[i].blocked = p.blocked(reach.Unretained)
 			continue
 		}
-		outcomes[i].effects = len(reach.Effects) > 0
+		outcomes[i].effects = !reach.Pure()
 		if passes != nil {
 			sum := p.caseFingerprint(c, reach.Parts)
 			pass, decided := passes.decide(c.Name(), sum, reach)
@@ -699,7 +699,7 @@ func (p *Program) reasons(found []vm.Unretained) []string {
 		case vm.OnceNotRetained:
 			out = append(out, fmt.Sprintf("[%s] once initializer not retained: %s", u.Name, p.decline(blockerName(u), ir.ImplFunc{})))
 		case vm.NoBinding:
-			out = append(out, fmt.Sprintf("[%s] crosses into Go and the VM has no binding for it", hostadapt.DisplayName(u.Name)))
+			out = append(out, fmt.Sprintf("[%s] is a host function, and the VM has no implementation for it", hostadapt.DisplayName(u.Name)))
 		case vm.NoImplementation:
 			out = append(out, fmt.Sprintf("[%s] dispatched, and no implementation was retained", u.Name))
 		}

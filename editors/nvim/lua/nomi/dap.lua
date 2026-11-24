@@ -213,7 +213,8 @@ function M.send_function_breakpoints(session)
   end)
 end
 
--- The commands of nomi-lsp's Debug code lenses (internal/lsp/code_lens.go).
+-- The commands of the language server's Debug code lenses
+-- (internal/lsp/code_lens.go).
 function M.test_uri_line(uri, line)
   local file = vim.uri_to_fname(uri)
   run(M.test_config(file, tonumber(line), require('nomi.runner').root(vim.uri_to_bufnr(uri))))

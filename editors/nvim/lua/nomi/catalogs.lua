@@ -1,7 +1,7 @@
--- The TOML files nomi-lsp reads: a module's nomi.toml, and its phrase
--- catalogs, the TOML files its `phrase` translations live in, under the
--- directory `[i18n].catalogs` names in its nomi.toml (`locales` unless it
--- says otherwise). nomi-lsp attaches to them, and to no other TOML file
+-- The TOML files the language server reads: a module's nomi.toml, and its
+-- phrase catalogs, the TOML files its `phrase` translations live in, under
+-- the directory `[i18n].catalogs` names in its nomi.toml (`locales` unless
+-- it says otherwise). `nomi lsp` attaches to them, and to no other TOML file
 -- (lsp/nomi.lua's root_dir).
 local M = {}
 

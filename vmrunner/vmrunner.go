@@ -379,7 +379,7 @@ func entryMain(entry *ir.Module) *ir.Func {
 func unretainedReason(u vm.Unretained) string {
 	switch u.Kind {
 	case vm.NoBinding:
-		return fmt.Sprintf("[%s] crosses into Go and the VM has no binding for it", hostadapt.DisplayName(u.Name))
+		return fmt.Sprintf("[%s] is a host function, and the VM has no implementation for it", hostadapt.DisplayName(u.Name))
 	case vm.NoImplementation:
 		return fmt.Sprintf("[%s] dispatched, and no implementation was retained", u.Name)
 	case vm.OnceNotRetained:

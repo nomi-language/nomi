@@ -394,7 +394,7 @@ func stdSyntaxDiagnostic(lib *std.StdLib) (protocol.Diagnostic, bool) {
 		Range:    protocol.Range{},
 		Severity: &severity,
 		Source:   &source,
-		Message:  err.Error() + "\nFix it and rebuild nomi-lsp.",
+		Message:  err.Error() + "\nFix it and rebuild nomi.",
 	}, true
 }
 

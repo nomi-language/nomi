@@ -17,8 +17,14 @@ import (
 // reaches a comparison the VM cannot answer (spec §5, "Functions and Iters
 // cannot be compared").
 //
-// A declared struct or enum with its own `impl Equatable` is exempt: its
-// equality is whatever that impl answers. Its type arguments are not.
+// A declared type with an `impl Equatable` whose function has a body is
+// exempt, type arguments and fields alike: its equality is whatever that
+// body answers, and the impl's where bounds are all it asks of the type
+// arguments. A type whose impl answers by its shape (ImplAsksParts: a
+// derive, or std's List, Map, Set and Vector, whose `equal` is a `host
+// fn`) is held through its type arguments, since that impl compares
+// them; its fields are the derive's or the host's to answer for. A type
+// with no impl is held through every part.
 //
 // A handle has no equality either: every std host type that is not a value
 // (rt.StdHandleTypes), `Task<T>`, `Sender<T>`, `Context`, a `Reader`, a
@@ -45,17 +51,59 @@ func (c *checker) noEqualityMessage(t Type, op string) string {
 	return fmt.Sprintf("`%s` cannot compare `%s`: it holds `%s`, and %s has no equality%s", op, t, part, what, fix)
 }
 
+// ownEquality is what a declared type's own impl of Equatable, or of
+// Hashable, answers by.
+type ownEquality uint8
+
+const (
+	// noOwnEquality: the type has no impl; `==` compares every type
+	// argument and field.
+	noOwnEquality ownEquality = iota
+	// equalityByShape: an impl that answers by the type's shape
+	// (ImplAsksParts), which compares the type arguments.
+	equalityByShape
+	// equalityByBody: an impl whose function has a body, which decides
+	// whatever the type's parts hold.
+	equalityByBody
+)
+
+// ownEqualityOf is what an impl answers by: b is the type's impl block,
+// nil where none answers alone, and has whether the type has an impl.
+func ownEqualityOf(has bool, b *ast.ImplBlock) ownEquality {
+	switch {
+	case !has:
+		return noOwnEquality
+	case ImplAsksParts(b):
+		return equalityByShape
+	}
+	return equalityByBody
+}
+
+// ownEquality is what t's own impl of iface, Equatable or Hashable,
+// answers by. The prelude reserves both names, so no program declares a
+// second interface of either name and the name is the interface.
+func (c *checker) ownEquality(t Type, iface string) ownEquality {
+	if !c.hasOwnImpl(t, OriginUnresolved, iface) {
+		return noOwnEquality
+	}
+	return ownEqualityOf(true, c.fa.implBlockFor(t, iface, OriginUnresolved, nil))
+}
+
 // noEqualityPart answers the first part of t with no equality.
 func (c *checker) noEqualityPart(t Type, seen map[Type]bool) (Type, bool) {
-	return noEqualityPartWith(t, c.hasEquatableImpl, seen)
+	return noEqualityPartWith(t, c.ownEquatable, seen)
+}
+
+// ownEquatable is what t's own impl of Equatable answers by.
+func (c *checker) ownEquatable(t Type) ownEquality {
+	return c.ownEquality(t, "Equatable")
 }
 
 // noEqualityPartWith answers the first part of t with no equality, where
-// hasImpl reports whether a declared type carries its own `impl Equatable`.
-// It is the one definition of what `==` accepts, which the checker's
-// operators and the free conformance checks of bounds share
-// (structural_bounds.go).
-func noEqualityPartWith(t Type, hasImpl func(Type) bool, seen map[Type]bool) (Type, bool) {
+// own says what a declared type's own `impl Equatable` answers by. It is
+// the one definition of what `==` accepts, which the checker's operators
+// and the free conformance checks of bounds share (structural_bounds.go).
+func noEqualityPartWith(t Type, own func(Type) ownEquality, seen map[Type]bool) (Type, bool) {
 	t = resolveTypeVar(t)
 	if t == nil || seen[t] {
 		return nil, false
@@ -66,7 +114,7 @@ func noEqualityPartWith(t Type, hasImpl func(Type) bool, seen map[Type]bool) (Ty
 	}
 	among := func(ts []Type) (Type, bool) {
 		for _, t := range ts {
-			if part, ok := noEqualityPartWith(t, hasImpl, seen); ok {
+			if part, ok := noEqualityPartWith(t, own, seen); ok {
 				return part, true
 			}
 		}
@@ -74,11 +122,24 @@ func noEqualityPartWith(t Type, hasImpl func(Type) bool, seen map[Type]bool) (Ty
 	}
 	amongFields := func(fs []FieldDef) (Type, bool) {
 		for _, f := range fs {
-			if part, ok := noEqualityPartWith(f.Type, hasImpl, seen); ok {
+			if part, ok := noEqualityPartWith(f.Type, own, seen); ok {
 				return part, true
 			}
 		}
 		return nil, false
+	}
+	// declared answers for a declared type: nothing past an impl with a
+	// body, the type arguments past one that answers by shape.
+	declared := func(t Type, args []Type) (part Type, none, decided bool) {
+		switch own(t) {
+		case equalityByBody:
+			return nil, false, true
+		case equalityByShape:
+			part, none = among(args)
+			return part, none, true
+		}
+		part, none = among(args)
+		return part, none, none
 	}
 	switch ty := t.(type) {
 	case *FuncType:
@@ -98,32 +159,25 @@ func noEqualityPartWith(t Type, hasImpl func(Type) bool, seen map[Type]bool) (Ty
 	case *TupleType:
 		return among(ty.Elems)
 	case *ListType:
-		return noEqualityPartWith(ty.Elem, hasImpl, seen)
+		return noEqualityPartWith(ty.Elem, own, seen)
 	case *MapType:
 		return among([]Type{ty.Key, ty.Val})
 	case *AnonStructType:
 		return amongFields(ty.Fields)
 	case *StructType:
-		// A type argument first: a generic type's equality, std's
-		// `Option<T>` and `List<T>` among them, compares its elements.
-		if part, ok := among(ty.TypeArgs); ok {
-			return part, true
-		}
-		if hasImpl(ty) {
-			return nil, false
+		// A type argument first: a generic type's equality by shape,
+		// std's `Option<T>` and `Set<T>` among them, compares its
+		// elements.
+		if part, none, decided := declared(ty, ty.TypeArgs); decided {
+			return part, none
 		}
 		return amongFields(ty.Fields)
 	case *EnumType:
-		// A type argument first: a generic type's equality, std's
-		// `Option<T>` and `List<T>` among them, compares its elements.
-		if part, ok := among(ty.TypeArgs); ok {
-			return part, true
-		}
-		if hasImpl(ty) {
-			return nil, false
+		if part, none, decided := declared(ty, ty.TypeArgs); decided {
+			return part, none
 		}
 		for _, v := range ty.Variants {
-			if part, ok := noEqualityPartWith(v.DataType, hasImpl, seen); ok {
+			if part, ok := noEqualityPartWith(v.DataType, own, seen); ok {
 				return part, true
 			}
 			if part, ok := amongFields(v.Fields); ok {
@@ -131,15 +185,11 @@ func noEqualityPartWith(t Type, hasImpl func(Type) bool, seen map[Type]bool) (Ty
 			}
 		}
 	case *DistinctType:
-		// A type argument first, as for a struct: std's `Vector<T>` has
-		// its own `impl Equatable`, which compares its elements.
-		if part, ok := among(ty.TypeArgs); ok {
-			return part, true
+		// As for a struct: std's `Vector<T>` compares its elements.
+		if part, none, decided := declared(ty, ty.TypeArgs); decided {
+			return part, none
 		}
-		if hasImpl(ty) {
-			return nil, false
-		}
-		return noEqualityPartWith(ty.Inner, hasImpl, seen)
+		return noEqualityPartWith(ty.Inner, own, seen)
 	}
 	return nil, false
 }
@@ -147,14 +197,27 @@ func noEqualityPartWith(t Type, hasImpl func(Type) bool, seen map[Type]bool) (Ty
 // hasEquatableImpl reports whether a declared type carries its own
 // `impl Equatable`, written or derived.
 func (c *checker) hasEquatableImpl(t Type) bool {
-	if c == nil || c.fa == nil {
+	if c == nil || c.fa == nil || concreteTypeName(t) == "" {
 		return false
 	}
-	name := concreteTypeName(t)
-	if name == "" {
-		return false
-	}
-	return c.hasOwnEqualityImpl(t, "Equatable")
+	return c.hasOwnImpl(t, OriginUnresolved, "Equatable")
+}
+
+// holdsNoEqualityOutsideDeclaredTypes reports whether t is or holds a
+// function, an Iter or a handle in a part other than a declared type's
+// field: a type argument, an element, a tuple's or a record's part. A
+// declared type whose impl has a body answers for its type arguments too
+// (noEqualityPartWith).
+func (c *checker) holdsNoEqualityOutsideDeclaredTypes(t Type) bool {
+	_, none := noEqualityPartWith(t, func(t Type) ownEquality {
+		if own := c.ownEquatable(t); own != noOwnEquality {
+			return own
+		}
+		// A declared type with no impl is reported by name, with its
+		// own help.
+		return equalityByShape
+	}, map[Type]bool{})
+	return none
 }
 
 // noEqualityWhat names the kind of value part is, for a diagnostic.
@@ -200,6 +263,10 @@ func isStdIterType(t Type) bool {
 // the first Set or Map a literal, call or pipe builds whose element or key
 // has no equality. Other nodes only pass such a value along, so reporting at
 // the node that built it, once per collection type per body, is enough.
+// Where every key has equality, the node demands Equatable and Hashable at
+// each as `==` demands Equatable at its operand (RecordingKindEqualityOperator),
+// which asks no impl of a key's type and the where bounds of a written impl
+// the machine compares or hashes it through.
 
 // keyWithoutEqualityReport identifies one reported collection type in one
 // body.
@@ -226,6 +293,12 @@ func (c *checker) rejectKeyWithoutEquality(node ast.Node, ty Type) Type {
 	}
 	coll, key, part, ok := c.keyWithoutEquality(ty)
 	if !ok {
+		line, col := nodeLineCol(node)
+		for _, k := range keysIn(ty) {
+			for _, iface := range [...]string{"Equatable", "Hashable"} {
+				c.recordConformanceRecording(k, iface, Recording{Pos: c.recPos(line, col), Kind: RecordingKindEqualityOperator, Op: "=="})
+			}
+		}
 		return ty
 	}
 	report := keyWithoutEqualityReport{body: c.currentFnDecl, coll: coll.String()}
@@ -266,8 +339,31 @@ func (c *checker) keyWithoutEqualityMessage(coll, key, part Type) string {
 // key has no equality: the collection, its element or key, and the part of
 // that with no equality.
 func (c *checker) keyWithoutEquality(t Type) (coll, key, part Type, ok bool) {
+	eachKeyIn(t, func(p, k Type) bool {
+		if without, bad := c.noEqualityPart(k, map[Type]bool{}); bad {
+			coll, key, part, ok = p, resolveTypeVar(k), without, true
+		}
+		return !ok
+	})
+	return coll, key, part, ok
+}
+
+// keysIn is the element of each Set and the key of each Map within t.
+func keysIn(t Type) []Type {
+	var keys []Type
+	eachKeyIn(t, func(_, k Type) bool {
+		keys = append(keys, k)
+		return true
+	})
+	return keys
+}
+
+// eachKeyIn calls each with every Set or Map coll within t and its element
+// or key k, until each answers false.
+func eachKeyIn(t Type, each func(coll, k Type) bool) {
+	more := true
 	walkType(t, func(p Type) bool {
-		if ok {
+		if !more {
 			return false
 		}
 		var k Type
@@ -285,13 +381,10 @@ func (c *checker) keyWithoutEquality(t Type) (coll, key, part Type, ok bool) {
 			}
 		}
 		if k != nil {
-			if without, bad := c.noEqualityPart(k, map[Type]bool{}); bad {
-				coll, key, part, ok = p, resolveTypeVar(k), without, true
-			}
+			more = each(p, k)
 		}
-		return !ok
+		return more
 	})
-	return coll, key, part, ok
 }
 
 // isStdSetType reports whether t is std's `Set<T>`.

@@ -15,9 +15,10 @@ import (
 // rule for matching one field twice, so each is an error.
 //
 // It also reports a name declared twice in one declaration, at the second
-// name, with the first as a related location: a field of a struct or of a struct-shaped enum variant, a variant of
-// an enum, a function of an interface, and a parameter of a function, host
-// function, interface function or lambda. Nothing else rejects these: the
+// name, with the first as a related location: a field of a struct or of a
+// struct-shaped enum variant, a variant of an enum, a function of an
+// interface or of an interface impl block, and a parameter of a function,
+// host function, interface function or lambda. Nothing else rejects these: the
 // checker keeps one of the two, and the IR builder declines what it meets
 // later. (An anonymous record type's repeated field is the type resolver's
 // error.)
@@ -102,6 +103,22 @@ func CheckRepeatedFields(nodes []ast.Node) []TypeError {
 					paramNames(m.Params, fmt.Sprintf("`fn %s`", m.Name))
 				}
 				names("function", fmt.Sprintf("interface `%s`", n.Name), fns)
+			case *ast.ImplBlock:
+				if n.Interface == nil {
+					// An inherent block's function names are the type's,
+					// which detectInherentImplCollisions holds to once.
+					break
+				}
+				var fns []named
+				for _, item := range n.Items {
+					switch fn := item.(type) {
+					case *ast.FuncDef:
+						fns = append(fns, named{fn.Name, fn.Line, fn.Col})
+					case *ast.ExternFunc:
+						fns = append(fns, named{fn.Name, fn.Line, fn.Col})
+					}
+				}
+				names("function", fmt.Sprintf("`impl %s for %s`", n.Interface.TypeString(), n.Receiver.TypeString()), fns)
 			case *ast.FuncDef:
 				paramNames(n.Params, fmt.Sprintf("`fn %s`", n.Name))
 			case *ast.ExternFunc:

@@ -684,6 +684,77 @@ var dispatchEdits = []editStep{
 	restore("impl back", "main"),
 }
 
+// unseenInterfaceProject is a project where lib, which declares its own
+// `Sized` and implements it for shape's `Box`, sees the impl other writes
+// of iface's `Sized` for `Box` and imports neither file: lib's check reads
+// iface whole through that impl (ProgramReads.Closure). util imports
+// nothing, so no edit here reaches it.
+func unseenInterfaceProject() incrementalProject {
+	return incrementalProject{name: "unseen interface", entry: "main", texts: map[string]string{
+		"main": `import
+    iface.{Sized}
+    lib
+    other
+    shape.{Box}
+    util
+end
+
+fn main()
+    dbg lib.count() + util.one()
+    dbg Sized.len(Box{n: 1})
+end
+`,
+		"shape": "pub struct Box\n    n: Int\nend\n",
+		"iface": `pub interface Sized
+    fn len(value: self) -> Int
+end
+`,
+		"other": `import
+    iface.{Sized}
+    shape.{Box}
+end
+
+impl Sized for Box
+    fn len(b: Box) -> Int
+        b.n
+    end
+end
+`,
+		"lib": `import shape.{Box}
+
+interface Sized
+    fn size(value: self) -> Int
+end
+
+impl Sized for Box
+    fn size(b: Box) -> Int
+        b.n
+    end
+end
+
+pub fn count() -> Int
+    Box.size(Box{n: 2})
+end
+`,
+		"util": "pub fn one() -> Int\n    1\nend\n",
+	}}
+}
+
+// unseenInterfaceEdits edit iface, which lib reads only through other's
+// impl, and that impl: a default `size` added to iface's `Sized` makes
+// `Box.size` ambiguous in lib, and a function added changes iface's
+// interface alone; both are checked with the files that read iface. The
+// impl removed and put back is seen by lib, which imports neither file.
+var unseenInterfaceEdits = []editStep{
+	replace("default added to an interface a file reads through an impl [dependents]", "iface",
+		"    fn len(value: self) -> Int\n",
+		"    fn len(value: self) -> Int\n\n    fn size(value: self) -> Int\n        Sized.len(value)\n    end\n"),
+	appendText("function added to that interface's file [dependents]", "iface", "\npub fn twice(n: Int) -> Int\n    2 * n\nend\n"),
+	restore("default and function removed [dependents]", "iface"),
+	setText("impl removed from a file lib does not import", "other", "pub fn nothing() -> Int\n    0\nend\n"),
+	restore("impl back", "other"),
+}
+
 // appTypeBoot is the entry boot of the corpus project app_field_permission,
 // which makes `Settings`, declared in a file the entry imports, the
 // application type that project's other files read fields of.
@@ -907,6 +978,19 @@ func TestIncrementalMatchesFull(t *testing.T) {
 	})
 	t.Run("signal", func(t *testing.T) {
 		runChecked(t, signalProject(), signalEdits, recheck)
+	})
+	t.Run("an interface read through an impl", func(t *testing.T) {
+		p := unseenInterfaceProject()
+		texts := maps.Clone(p.texts)
+		texts["iface"], _ = unseenInterfaceEdits[0].change(texts["iface"], texts["iface"])
+		var found []string
+		for _, e := range fullCheck(p, texts).Errors["lib"] {
+			found = append(found, fmt.Sprintf("%d:%d %s", e.Line, e.Col, e.Message))
+		}
+		if want := "14:9 type 'Box' impl 'iface.Sized' and 'lib.Sized', which each declare 'size'"; len(found) != 1 || !strings.HasPrefix(found[0], want) {
+			t.Fatalf("after the default is added, lib's errors are %q, want one starting %q", found, want)
+		}
+		runChecked(t, p, unseenInterfaceEdits, recheck)
 	})
 	t.Run("anonymous fields", func(t *testing.T) {
 		runChecked(t, anonFieldsProject(), anonFieldsEdits, recheck)

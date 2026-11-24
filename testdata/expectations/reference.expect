@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population reference
 what one record per stdlib reference page carrying interactive tests, each editor run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an editor's outcome and its label: the entry heading, its impl context, and #n for an entry's later editors, and `[not run in the browser: <classes>]` for a prompt the page shows as code since it reaches an effect the browser lacks; it runs here natively. N is the page's editor count.
-records 88
-declared-cases 1290
+records 97
+declared-cases 1471
 failing 0
 C actors
 E 0
@@ -31,12 +31,14 @@ H cfa5368eb0bd9ab3c4ab1fd3a7dcbb8f9c859baf107c74a5335c1c4058d45b5b
 T ok interface Averageable
 C base64
 E 0
-N 4
-H 7dfb337b4b6cf525575a7d1403d5def7e43961fe0acd678e4243b1575bf3a207
+N 6
+H 58e938630576f255f2e014cc9f08101497f7ed95b799be099610cf8f654119ee
 T ok base64.encode
 T ok base64.decode
+T ok base64.decode_bytes
 T ok base64.encode_url
 T ok base64.decode_url
+T ok base64.decode_url_bytes
 C bits
 E 0
 N 8
@@ -57,9 +59,11 @@ T ok enum Bool
 T ok Bool.inspect (impl Debug for Bool)
 C bytes
 E 0
-N 76
-H 5e6502d9139dc49a96e1d315d65421a67a38d266d6b772d2e458fd47e1076aa7
+N 85
+H f9e995ba9e445aa60b6ccd06ed7ce84dfb6c4d129aab532e21814cc1c12cf94c
 T ok Byte.to_int
+T ok Byte.wrapping_shift_left
+T ok Byte.wrapping_shift_right
 T ok Byte.to_string (impl Display for Byte)
 T ok Byte.inspect (impl Debug for Byte)
 T ok Byte.bitwise_and (impl BitwiseAnd<Byte, Byte> for Byte)
@@ -79,9 +83,11 @@ T ok Bytes.concat_all
 T ok Bytes.index_of
 T ok Bytes.index_of_byte
 T ok Bytes.index_of_any
+T ok Bytes.index_of_none
 T ok Bytes.last_index_of
 T ok Bytes.last_index_of_byte
 T ok Bytes.last_index_of_any
+T ok Bytes.last_index_of_none
 T ok Bytes.contains_bytes
 T ok Bytes.starts_with
 T ok Bytes.ends_with
@@ -107,6 +113,11 @@ T ok Bytes.float64_be_at
 T ok Bytes.float64_le_at
 T ok Bytes.uvarint_at
 T ok Bytes.varint_at
+T ok Bytes.code_point_at
+T ok Bytes.xor
+T ok Bytes.xor_repeating
+T ok Bytes.fill
+T ok Bytes.reverse
 T ok Bytes.each_while (impl Iter for Bytes)
 T ok Bytes.contains (impl Contains for Bytes)
 T ok Bytes.add (impl Add<Bytes, Bytes> for Bytes)
@@ -258,8 +269,8 @@ T ok type TimePattern
 T ok type DateTimePattern
 C channels
 E 0
-N 14
-H a926e6d5688ae47385eff24860d39718802d0f4937ad3612f338331be18e08cb
+N 15
+H 56414fcd928cd51dd00d10f3e59399ce9bd15c1a37a0097dc18a40c7e4a1accd
 T ok Channel.buffered
 T ok Channel.unbuffered
 T ok Channel.select
@@ -269,11 +280,49 @@ T ok Sender.close_on_drain
 T ok Sender.inspect (impl Debug for Sender<T>)
 T ok Receiver.receive
 T ok Receiver.receive_within
+T ok Receiver.iter
 T ok Receiver.inspect (impl Debug for Receiver<T>)
 T ok Arm.receive
 T ok Arm.send
 T ok Arm.after
 T ok Arm.inspect (impl Debug for Arm<R>)
+C checksum
+E 0
+N 14
+H 931d3fce8ab2cef9960f1423fb30df7b4731c586d95891da19f16b325d6661a6
+T ok checksum.crc32
+T ok checksum.crc32_update
+T ok checksum.crc32c
+T ok checksum.crc32c_update
+T ok checksum.crc64_iso
+T ok checksum.crc64_iso_update
+T ok checksum.crc64_ecma
+T ok checksum.crc64_ecma_update
+T ok checksum.adler32
+T ok checksum.adler32_update
+T ok checksum.fnv1a_32
+T ok checksum.fnv1a_32_update
+T ok checksum.fnv1a_64
+T ok checksum.fnv1a_64_update
+C cipher
+E 0
+N 15
+H 51c0c5832fa8d742e871ca6fd624e5b750320b6f2fc0f1f161e8dcec8c74d93d
+T ok Error.to_string (impl Display for Error)
+T ok Key.generate
+T ok Key.from_bytes
+T ok Key.inspect (impl Debug for Key)
+T ok Key.equal (impl Equatable for Key)
+T ok cipher.seal
+T ok cipher.seal #2
+T ok cipher.open
+T ok cipher.seal_with_nonce
+T ok cipher.seal_with_nonce #2
+T ok cipher.open_with_nonce
+T ok cipher.aes_ctr_unauthenticated
+T ok cipher.key_length
+T ok cipher.nonce_length
+T ok cipher.tag_length
 C code_points
 E 0
 N 19
@@ -321,6 +370,22 @@ T ok compiler.format
 T ok compiler.run
 T ok compiler.hover
 T ok compiler.check_project
+C compress
+E 0
+N 12
+H 8fc337a2a2b996951f654e9e6e77127ba88189a5423446e113814dac21f737c4
+T ok Format.to_string (impl Display for Format)
+T ok Error.to_string (impl Display for Error)
+T ok compress.encode
+T ok compress.decode
+T ok compress.decode #2
+T ok compress.decode_prefix
+T ok compress.gzip_header
+T ok compress.gzip_members
+T ok compress.reader
+T ok compress.writer
+T ok compress.writer #2
+T ok compress.encoding_reader
 C contains
 E 0
 N 1
@@ -515,8 +580,8 @@ T ok type NonNegativeFloat
 T ok type PositiveFloat
 C fs
 E 0
-N 64
-H 02a8f8892b45dd19056d30f62520e71937e5e789c981c7eafa2970883fb89f06
+N 84
+H e2c68093404eb06485a5b315b9098b8f6bbba895b44e664a5d1e872fe7bcbe04
 T ok enum WriteMode
 T ok fs.read
 T ok fs.read_text
@@ -546,6 +611,16 @@ T ok fs.link_metadata
 T ok fs.create_symlink
 T ok fs.read_link
 T ok fs.set_mode
+T ok fs.set_times
+T ok fs.touch
+T ok fs.create_link
+T ok fs.set_owner
+T ok fs.set_link_owner
+T ok fs.user_name
+T ok fs.group_name
+T ok fs.disk_usage
+T ok fs.truncate
+T ok fs.same_file
 T ok fs.exists
 T ok fs.temp_dir
 T ok fs.make_temp_dir
@@ -576,11 +651,21 @@ T ok Dir.link_metadata
 T ok Dir.create_symlink
 T ok Dir.read_link
 T ok Dir.set_mode
+T ok Dir.set_times
+T ok Dir.touch
+T ok Dir.create_link
+T ok Dir.set_owner
+T ok Dir.set_link_owner
+T ok Dir.disk_usage
+T ok Dir.truncate
+T ok Dir.same_file
 T ok Dir.exists
 T ok Dir.make_temp_dir
 T ok Dir.make_temp_file
 T ok Dir.subdir
 T ok Dir.close
+T ok Dir.watch_each
+T ok fs.watch_each
 C fs/testing
 E 0
 N 5
@@ -592,8 +677,18 @@ T ok testing.text
 T ok testing.conformance
 C hash
 E 0
-N 15
-H d2a96f502c7404fd4e4c7f9514a44cd2019f64e72c6ca7f205cceb1fd071325e
+N 33
+H 8da268a297b8aa6756e814b258f82958f5da91be2255c5112529aaefa950d45f
+T ok enum Algorithm
+T ok hash.digest
+T ok hash.digest_hex
+T ok hash.hmac
+T ok hash.of_reader
+T ok type Hasher
+T ok Hasher.new
+T ok Hasher.new_hmac
+T ok Hasher.update
+T ok Hasher.finish
 T ok hash.sha256
 T ok hash.sha256_hex
 T ok hash.sha512
@@ -607,14 +702,23 @@ T ok hash.hmac_sha256
 T ok hash.hmac_sha256 #2
 T ok hash.hmac_sha512
 T ok hash.hmac_sha512 #2
+T ok hash.shake128
+T ok hash.shake256
 T ok hash.equal_in_constant_time
 T ok hash.pbkdf2_sha256
+T ok hash.hkdf
+T ok hash.hkdf #2
+T ok hash.hkdf_extract
+T ok hash.hkdf_expand
+T ok hash.hkdf_sha256
+T ok hash.hkdf_sha512
 C hex
 E 0
-N 2
-H 28e33cf39d24ca75107c3747b15aff1c5a0b49742f2edc42c4ca3049804b2500
+N 3
+H b8fcd06d400f6fae83f8c221af9397ca029dfc48ce759cdb4b5f35c074d417a7
 T ok hex.encode
 T ok hex.decode
+T ok hex.decode_bytes
 C html
 E 0
 N 16
@@ -728,8 +832,8 @@ T ok testing.with_server [not run in the browser: listen]
 T ok testing.open_websocket
 C instant
 E 0
-N 10
-H 47c53b5dcd1e7e41502b88b8bb77fa88b5f4671e72e0d956288398cf1f4d45ed
+N 17
+H 10aa2f3d0d4c4b5357cb33929d1195e31f3b05e5a2afb520d8ed7b1f7d9ab55a
 T ok type Instant
 T ok Instant.from_seconds
 T ok Instant.to_seconds
@@ -740,6 +844,13 @@ T ok Instant.is_before
 T ok Instant.add (impl Add<Duration, Instant> for Instant)
 T ok Instant.subtract Subtract<Duration, Instant> (impl Subtract<Duration, Instant> for Instant)
 T ok Instant.subtract Subtract<Instant, Duration> (impl Subtract<Instant, Duration> for Instant)
+T ok type Monotonic
+T ok Monotonic.elapsed
+T ok Monotonic.between
+T ok Monotonic.inspect (impl Debug for Monotonic)
+T ok Monotonic.add (impl Add<Duration, Monotonic> for Monotonic)
+T ok Monotonic.subtract Subtract<Duration, Monotonic> (impl Subtract<Duration, Monotonic> for Monotonic)
+T ok Monotonic.subtract Subtract<Monotonic, Duration> (impl Subtract<Monotonic, Duration> for Monotonic)
 C int
 E 0
 N 58
@@ -804,8 +915,8 @@ T ok type Radix
 T ok type Int64
 C io
 E 0
-N 36
-H ae8aa59b511d76617b68e792d70cef90aa08e691a7ea530ffdc0454dc654f4a5
+N 38
+H 0f9ec06c5bda7cbb90e7cdd88fa68bc33341e9d0116ea5a5db12828023334a95
 T ok enum Error
 T ok io.print
 T ok io.write
@@ -840,6 +951,8 @@ T ok Writer.write_lines
 T ok Writer.from_fn
 T ok Writer.collect
 T ok io.stdout
+T ok Stream.descriptor
+T ok io.is_terminal
 T ok io.capture
 T ok io.replay
 C iter
@@ -952,14 +1065,27 @@ T ok interface ToJson
 T ok interface FromJson
 C jwt
 E 0
-N 6
-H 7d2b88112dd2c2c86e0ae96833a42e95b99db67fc570f953f7b1de84d82dccc7
+N 7
+H 6a19b075651c60534f8263ef9e1db0f603b6b2756c21d3f0cefdcc78ed279e8a
 T ok SigningKey.hs256
 T ok SigningKey.eddsa
+T ok SigningKey.with_private
 T ok jwt.sign
 T ok jwt.sign_as
 T ok jwt.verify
 T ok jwt.verify_as
+C key_exchange
+E 0
+N 8
+H 4982c59f68896ad41025d92a5cec6674839d6521510be5b3f068160c380da31e
+T ok PrivateKey.generate
+T ok PrivateKey.from_bytes
+T ok PrivateKey.public_key
+T ok PrivateKey.inspect (impl Debug for PrivateKey)
+T ok PublicKey.from_bytes
+T ok PublicKey.inspect (impl Debug for PublicKey)
+T ok key_exchange.shared_secret
+T ok key_exchange.shared_secret #2
 C lists
 E 0
 N 34
@@ -1051,13 +1177,14 @@ H c008be3c7de9225e7a0bceab63db906bfaa863b4f47dbef9aaa91d1a4ff1a9da
 T ok testing.run
 C mail
 E 0
-N 10
-H 94359a37cffee0f223ae406711ae9a21bf9bf648a33679a1fa1c7e78826c17fd
+N 11
+H 5898992d50f93febd4c8968755e68fa8479f9812bf74c4f58cd479f620f2db31
 T ok struct Address
 T ok Address.new
 T ok Address.parse
 T ok Error.is_temporary
 T ok Error.to_string (impl Display for Error)
+T ok struct Credentials
 T ok mail.smtp [not run in the browser: connect listen]
 T ok mail.render
 T ok mail.quoted_printable
@@ -1137,14 +1264,16 @@ T ok Error.to_string (impl Display for Error)
 T ok CurrencyMismatch.to_string (impl Display for CurrencyMismatch)
 C net
 E 0
-N 6
-H 8fc62dd9a02d65a59cd1662aca81b9b633a3803b56e7921358eb6cbb87ea24d5
+N 8
+H ba8f9c25d24bd3f7f142c978ea396bad9c687e9208854bbc956bb46d482bb75d
 T ok Error.to_string (impl Display for Error)
 T ok net.pipe
 T ok net.split_host_port
 T ok net.join_host_port
 T ok net.lookup_host [not run in the browser: connect]
 T ok net.lookup_port [not run in the browser: connect]
+T ok net.listen_unix [not run in the browser: connect listen]
+T ok net.inherited_listeners [not run in the browser: listen]
 C option
 E 0
 N 14
@@ -1222,17 +1351,22 @@ T ok Presence.to_json (impl ToJson for Presence<T>)
 T ok Presence.from_json (impl FromJson for Presence<T>)
 C process
 E 0
-N 9
-H e6d69d80921668b9f69be1739db26eb45e469331db6f07048319470b173bdf53
+N 14
+H 0300e61acf2880a754c465429f18865ea21ad5d6e699fb690ca4d7f1b511231d
 T ok struct Exit
 T ok type ExitCode
 T ok struct Command
 T ok Status.is_success
 T ok Status.code
 T ok Status.to_string (impl Display for Status)
+T ok Signal.to_string (impl Display for Signal)
 T ok process.output
 T ok process.run
 T ok process.spawn
+T ok process.id
+T ok Child.id
+T ok Child.signal
+T ok Child.stop
 C process/testing
 E 0
 N 2
@@ -1305,11 +1439,22 @@ E 0
 N 1
 H 1f8a2911d85fc0c2cc46801fd1c76e17bfc099aade578f10dd10c6fab6ee2113
 T ok struct Reverse
+C secret
+E 0
+N 6
+H 31aeb415cd868246ca0b803bdd9db95687a72532821cc57d9a9d4864730f1b3c
+T ok Secret.new
+T ok Secret.expose
+T ok Secret.inspect (impl Debug for Secret)
+T ok Secret.equal (impl Equatable for Secret)
+T ok Secret.hash (impl Hashable for Secret)
+T ok Secret.from_json (impl FromJson for Secret)
 C sessions
 E 0
-N 4
-H bd129b65ee74c521448f73c243ab33d6c285c13261d7c5c83eadedb4876d5608
+N 5
+H b9b3cc9baf096349d0dd3bc78a102f315bc7f0af1455446689ae485d0a4a2ddf
 T ok SessionKey.derive
+T ok SessionKey.inspect (impl Debug for SessionKey)
 T ok Session.new
 T ok sessions.with_session
 T ok sessions.write
@@ -1338,12 +1483,23 @@ T ok NonEmptySet.map
 T ok NonEmptySet.to_list
 T ok NonEmptySet.insert
 T ok NonEmptySet.union
+C signals
+E 0
+N 3
+H 5295a1d1c4b1427b98a149321e26d8bd70197a8b3838fab334778946be8c3ca4
+T ok Signal.to_string (impl Display for Signal)
+T ok Error.to_string (impl Display for Error)
+T ok signals.receiver
 C signatures
 E 0
-N 11
-H eedfc1142d0323e16ac8d7194b2e74f0356804b01593d73c94490961ba2207f6
+N 17
+H a78244797a1dde3e4917314289de6ae587862852afb688cf3758d8b47fd5a240
+T ok KeyKind.to_string (impl Display for KeyKind)
+T ok Scheme.key_kind
 T ok PrivateKey.generate_ed25519
 T ok PrivateKey.generate_ecdsa_p256
+T ok PrivateKey.generate_ecdsa_p384
+T ok PrivateKey.generate_ecdsa_p521
 T ok PrivateKey.generate_rsa
 T ok PrivateKey.from_pem
 T ok PrivateKey.from_ed25519_seed
@@ -1353,6 +1509,8 @@ T ok signatures.sign
 T ok signatures.sign_with
 T ok signatures.is_valid
 T ok signatures.is_valid_with
+T ok signatures.encrypt
+T ok signatures.decrypt
 C sql
 E 0
 N 20
@@ -1416,8 +1574,8 @@ T ok testing.invalid_keys
 T ok testing.odd_keys
 C strings
 E 0
-N 52
-H c2de30045d6fd132d4681b3885568620afcb14fc9d478f6dc4e31b574b6945a8
+N 56
+H 82dfd68cdfed92e93a79e3eee520bde08e9071e966b95113552e623114fcacdc
 T ok String.contains Contains<String> (impl Contains<String> for String)
 T ok String.contains Contains<Regex<C>> (impl Contains<Regex<C>> for String)
 T ok String.contains Contains<Codepoint> (impl Contains<Codepoint> for String)
@@ -1453,6 +1611,10 @@ T ok String.find
 T ok String.captures
 T ok String.captures_all
 T ok String.words
+T ok String.word_segments
+T ok String.sentences
+T ok String.display_width
+T ok String.wrap
 T ok String.lines
 T ok String.trim
 T ok String.to_int
@@ -1475,16 +1637,51 @@ E 0
 N 1
 H 57e0560ff1b64382f11ec0b75f1ffccd8a59ff54c9c93390556f7c5a784c51ac
 T ok interface Summable
+C system
+E 0
+N 15
+H 1c5645cfc6a302ae27afde73055ce4bdd67988f4570aa812bd6172933a3de472
+T ok Os.to_string (impl Display for Os)
+T ok Arch.to_string (impl Display for Arch)
+T ok Error.to_string (impl Display for Error)
+T ok system.os
+T ok system.arch
+T ok system.cpu_count
+T ok system.hostname
+T ok system.executable
+T ok system.home_dir
+T ok system.cache_dir
+T ok system.config_dir
+T ok system.data_dir
+T ok system.user
+T ok system.memory
+T ok system.runtime
 C tasks
 E 0
-N 6
-H 5fd7adebcbc1c09350ba28519c065411142f3c308843ffbf5f755f527c801be5
+N 10
+H 51ff0ea2a1318bde0c2711cd0821722a67c836ebd03bc38e970fa0bfcd06c807
 T ok Task.spawn
 T ok Task.await
 T ok Task.spawn_all
 T ok Task.await_all
+T ok Task.try_await_all
+T ok Task.race
+T ok Task.within
+T ok Task.stream
 T ok Task.outcome
 T ok Task.inspect (impl Debug for Task<T>)
+C terminal
+E 0
+N 8
+H 9d2ab240303118ff592a718832061cd5d9b2c22c8941d5f489180928ce01b3b0
+T ok Error.to_string (impl Display for Error)
+T ok terminal.size
+T ok terminal.size_of
+T ok terminal.supports_color
+T ok terminal.read_password
+T ok terminal.raw_mode
+T ok terminal.read_key
+T ok terminal.read_key_within
 C testing
 E 0
 N 1
@@ -1492,18 +1689,21 @@ H 6398852afff1a9f28089291a1efc524b98c389acc9dc39228bc270b4fb7929f2
 T ok testing.check
 C timer
 E 0
-N 1
-H d32ee0ffb81943e76ef7703be67e41e793ba900ec933672de8b19741ddfeb05f
+N 2
+H 772936954fc7749f3b81fbcc65ca15ef3b1ec6dc521d3baa6890758365706329
 T ok timer.sleep
+T ok timer.every
 C tls
 E 0
-N 5
-H ef26942a2c7dea3ac4df7170edc49a9f864eee07ab2b073e2f07866812a3ff9d
+N 7
+H 22a423dd49812eb4333203f5c4d2d528172c0de3e034640ed3215993fdd6e87d
 T ok Version.to_string (impl Display for Version)
 T ok Curve.to_string (impl Display for Curve)
 T ok CipherSuite.secure
 T ok CipherSuite.name_of
 T ok Error.to_string (impl Display for Error)
+T ok tls.export_keying_material
+T ok ChannelBinding.name
 C toml
 E 0
 N 10
@@ -1523,6 +1723,22 @@ E 0
 N 1
 H 4abe712169587202f6b743ac40ad1fc9f6bef8490a568f2879d57aa6bf84d3eb
 T ok Type.inspect (impl Debug for Type<T>)
+C udp
+E 0
+N 12
+H 6406715f274f50b6011e1ec723e6f133da414593b9bb50d845e623aca22a594c
+T ok Address.to_string (impl Display for Address)
+T ok Socket.send_to [not run in the browser: listen]
+T ok Socket.receive [not run in the browser: listen]
+T ok Socket.read_buffer [not run in the browser: listen]
+T ok Socket.set_broadcast [not run in the browser: listen]
+T ok Socket.set_ttl [not run in the browser: listen]
+T ok Socket.set_multicast_ttl [not run in the browser: listen]
+T ok Socket.set_multicast_loopback [not run in the browser: listen]
+T ok Socket.set_multicast_interface [not run in the browser: listen]
+T ok udp.dial [not run in the browser: connect]
+T ok udp.bind_unix [not run in the browser: listen]
+T ok udp.inherited_sockets [not run in the browser: listen]
 C unit
 E 0
 N 1
@@ -1627,14 +1843,15 @@ T ok wasm.instantiate
 T ok wasm.run
 C websocket
 E 0
-N 6
-H ae072e861ace1b3ac51c19fdc97607f14b2d05745e59c64ff9dc619609b65c25
+N 7
+H 546b09058307acea3dbe0bc6c49f176fd088a6b63b0fe6ccd46720a6d4305d86
 T ok Error.to_string (impl Display for Error)
 T ok WebSocket.each
 T ok WebSocket.close
 T ok websocket.accept
 T ok websocket.is_upgrade
 T ok websocket.connect [not run in the browser: connect listen]
+T ok websocket.connect #2 [not run in the browser: connect listen]
 C xml
 E 0
 N 17

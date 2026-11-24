@@ -4,7 +4,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 )
@@ -90,10 +89,6 @@ func TestBuildCommand_EmbeddedFilesTravelInWasmModules(t *testing.T) {
 	if err != nil {
 		t.Skip("no node on PATH to run the modules")
 	}
-	goroot, err := exec.Command("go", "env", "GOROOT").Output()
-	if err != nil {
-		t.Fatalf("go env GOROOT: %v", err)
-	}
 	env := buildEnv(t.TempDir())
 	entry := writeEmbedProject(t)
 	dir := filepath.Dir(entry)
@@ -109,8 +104,9 @@ func TestBuildCommand_EmbeddedFilesTravelInWasmModules(t *testing.T) {
 		t.Fatal(err)
 	}
 	elsewhere := t.TempDir()
-	got := runNode(t, env, elsewhere, "", node, filepath.Join(strings.TrimSpace(string(goroot)), "lib", "wasm", "wasm_exec_node.js"), jsMod)
-	if got.exit != 0 || got.stdout != embedProgramOutput {
+	if bin, nodeEnv, why := nodeWithoutGo(t, node, env); bin == "" {
+		t.Logf("not running the js/wasm module: %s", why)
+	} else if got := runNode(t, nodeEnv, elsewhere, "", bin, filepath.Join(out, "nomi-node.mjs"), jsMod); got.exit != 0 || got.stdout != embedProgramOutput {
 		t.Fatalf("the js/wasm module: exit %d\n%s", got.exit, got.transcript())
 	}
 	if nodeMajor(t, node) < 20 {
@@ -119,7 +115,7 @@ func TestBuildCommand_EmbeddedFilesTravelInWasmModules(t *testing.T) {
 	}
 	script := filepath.Join(t.TempDir(), "wasi.mjs")
 	mustWrite(t, script, wasiNodeScript)
-	got = runNode(t, env, elsewhere, "", node, "--no-warnings", script, wasiMod)
+	got := runNode(t, env, elsewhere, "", node, "--no-warnings", script, wasiMod)
 	if got.exit != 0 || got.stdout != embedProgramOutput {
 		t.Fatalf("the wasip1 module: exit %d\n%s", got.exit, got.transcript())
 	}

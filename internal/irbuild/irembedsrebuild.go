@@ -429,26 +429,13 @@ func (bl *irScalarBuilder) rebuildVariant(at ast.Node, x ir.Temp, hd *typeDef, h
 	return ir.NoTemp, false
 }
 
-// rebuildPayloadRead reads payload j of hv off x. A zero-sized payload has no
-// slot; a marker or Unit is made where it is needed, and any other one
-// declines.
+// rebuildPayloadRead reads payload j of hv off x. A payload with no slot,
+// Unit or a marker, is made from its type.
 func (bl *irScalarBuilder) rebuildPayloadRead(at ast.Node, x ir.Temp, hd *typeDef, hv *variantDef, j int) (ir.Temp, bool) {
 	part := hv.payloads[j]
 	pos := bl.g.irNodePos(at)
 	if part.slot < 0 {
-		switch {
-		case part.k == kindUnit:
-			c := ir.NewUnit(pos, bl.f.NewTemp())
-			bl.b.Append(c)
-			bl.side(c.Dst(), irScalarSide{k: part.k})
-			return c.Dst(), true
-		case part.k.tag == tagNamed && part.k.def != nil && irRetainedMarker(part.k.def):
-			c := ir.NewMarker(pos, bl.f.NewTemp(), bl.g.irTypeSym(part.k.def))
-			bl.b.Append(c)
-			bl.side(c.Dst(), irScalarSide{k: part.k})
-			return c.Dst(), true
-		}
-		return ir.NoTemp, false
+		return bl.irSlotlessValue(at, part.k), true
 	}
 	var p *ir.Proj
 	if hv.kind == "struct" {

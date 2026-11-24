@@ -11,7 +11,7 @@ import (
 
 // TestExistentialDebugImplsAreInSourceOrder lowers one program several times
 // in one process and requires the same bytes each time. Its Debug of a struct
-// holding an interface value names the derived Debug body of every type
+// holding an interface value names the written Debug body of every type
 // the checker saw enter the interface (checkedErasures), and the order of
 // those names is encoded: read in the checker record's map order, it changed
 // from one lowering to the next, and so did the std bundle's listed section
@@ -21,7 +21,7 @@ func TestExistentialDebugImplsAreInSourceOrder(t *testing.T) {
 	var b strings.Builder
 	b.WriteString("import std::io\n\ninterface Shape\n    fn area(s: self) -> Int\nend\n")
 	for i := range shapes {
-		fmt.Fprintf(&b, "\nstruct S%d\n    x: Int\nend\n\nimpl Shape for S%d\n    fn area(s: S%d) -> Int\n        s.x\n    end\nend\n\nderive Debug for S%d\n", i, i, i, i)
+		fmt.Fprintf(&b, "\nstruct S%d\n    x: Int\nend\n\nimpl Shape for S%d\n    fn area(s: S%d) -> Int\n        s.x\n    end\nend\n\nimpl Debug for S%d\n    fn inspect(s: S%d) -> String\n        \"S${s.x}\"\n    end\nend\n", i, i, i, i, i)
 	}
 	b.WriteString("\nstruct Holder\n    shape: Shape\nend\n\nfn main()\n")
 	for i := range shapes {

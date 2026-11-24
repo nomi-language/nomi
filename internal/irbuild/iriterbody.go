@@ -601,12 +601,12 @@ func (bl *irScalarBuilder) iterReduceCall(t *ast.Call, method string) (ir.Temp, 
 
 // seqElemOf is the kind of T when t is std's `Iter<T>`, the push sequence
 // over T, which is how `project` answers it: `seqKindIn` of the element, as
-// typeOf answers the annotation. Identity is the anchor's, not
-// the spelling's.
+// typeOf answers the annotation. Identity is the checker's (origin, name),
+// not the spelling's, so it needs no gen: with none (projectShared) a
+// sequence over a shared kind is the shared one.
 func (g *gen) seqElemOf(t analysis.Type) (kind, bool) {
 	it, ok := t.(*analysis.InterfaceType)
-	if !ok || len(it.TypeArgs) != 1 || !g.iterOwns("Iter") || g.iter.ty == nil ||
-		it.Name != g.iter.ty.Name || it.Origin != g.iter.ty.Origin {
+	if !ok || len(it.TypeArgs) != 1 || it.Name != "Iter" || it.Origin != "std/iter" {
 		return kindInvalid, false
 	}
 	return g.project(it.TypeArgs[0]), true

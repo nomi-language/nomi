@@ -813,9 +813,9 @@ func (d *decoder) instr(r *rbuf) Instr {
 		n := &Render{pos: d.pos(r), dst: r.temp(), src: r.temp(), kind: RenderKind(r.byte1()),
 			erased: r.bool1()}
 		if k, isNil := r.slen(); !isNil {
-			n.impls = make([]DebugImpl, k)
+			n.impls = make([]PartImpl, k)
 			for i := range n.impls {
-				n.impls[i] = DebugImpl{Type: d.str(r.uv()), Inst: d.str(r.uv()), Fn: d.sym(r.uv())}
+				n.impls[i] = PartImpl{Type: d.str(r.uv()), Inst: d.str(r.uv()), Fn: d.sym(r.uv())}
 			}
 		}
 		return n

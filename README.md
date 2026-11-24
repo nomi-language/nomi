@@ -31,7 +31,7 @@ The same VM runs `nomi run`, `nomi test`, the REPL, executables written by
 `nomi build`, the examples in the browser tour, and applications that embed
 Nomi. Nomi is implemented in Go. A Go program, or a program in any language
 with a WebAssembly runtime, can host Nomi and supply the `host fn`s it
-declares; Nomi source itself calls no Go.
+declares.
 
 ## Status
 
@@ -58,21 +58,18 @@ exercised; concurrency, embedding and module management are younger.
 
 ## Getting started
 
-You need git and Go 1.21 or newer. If your Go is older than the version Nomi
-builds with, the first build downloads that version for you.
-
-Clone the repository and install `nomi` and the language server `nomi-lsp`:
+`nomi` is one file: the compiler, the test runner, the formatter, the
+language server (`nomi lsp`) and the debugger (`nomi dap`). No release is
+published yet, so today you build it from source with git and Go 1.21 or
+newer:
 
 ```sh
 git clone https://github.com/nomi-language/nomi.git
-cd nomi
-go install ./cmd/nomi ./cmd/nomi-lsp
+go install -C nomi ./cmd/nomi
 ```
 
-`go install` puts both in `$(go env GOPATH)/bin` (usually `~/go/bin`); make
-sure that directory is on your `PATH`. Keep the checkout: editor support is
-installed from it. [`docs/install.md`](docs/install.md) covers the rest,
-including `go install ...@latest` without a clone.
+[Installing Nomi](docs/install.md) covers the rest: putting `nomi` on your
+`PATH`, keeping the checkout, and Windows.
 
 Write a first program in a directory of your own, outside the checkout. Save
 this as `~/hello-nomi/hello.nomi`:
@@ -90,7 +87,8 @@ nomi run hello.nomi        # prints Hello, Nomi!
 nomi                       # or try expressions in the REPL
 ```
 
-Then set up your editor from [Editor support](#editor-support) below.
+Then set up your editor with `nomi editor install helix` (or `nvim`,
+`vscode`, `zed`), as [Editor support](#editor-support) below says.
 
 ## Usage
 
@@ -118,69 +116,27 @@ nomi help run                              # a command's usage, as nomi run --he
 
 ## Editor support
 
-Every editor launches `nomi-lsp` from `PATH`. Helix, Neovim and Zed parse with
-the tree-sitter grammar in [`tree-sitter-nomi/`](tree-sitter-nomi/); VS Code
-and bat highlight with regex grammars instead (VS Code's is derived from
-bat's). The tree-sitter grammar is also published read-only at
+`nomi editor install <editor>` sets up Helix, Neovim, VS Code or Zed: the
+language server (`nomi lsp`), highlighting, run and test lenses and the
+debugger (`nomi dap`). [Installing Nomi](docs/install.md#set-up-your-editor)
+lists what each editor also needs, and the tooling reference's
+[Editors and debugger](docs/tooling.md#editors-and-debugger) says what each
+install writes and what the language server and debugger do. Each editor's
+directory has its README:
+
+| Editor | Directory |
+|---|---|
+| Helix | [`editors/helix/`](editors/helix/) |
+| Neovim 0.11+ | [`editors/nvim/`](editors/nvim/) |
+| VS Code | [`editors/vscode/`](editors/vscode/) |
+| Zed | [`editors/zed/`](editors/zed/) |
+| bat (and syntect users) | [`editors/bat/`](editors/bat/) |
+
+Helix, Neovim and Zed parse with the tree-sitter grammar in
+[`tree-sitter-nomi/`](tree-sitter-nomi/), published read-only at
 [nomi-language/tree-sitter-nomi](https://github.com/nomi-language/tree-sitter-nomi).
-Run each command from the repository root, and again after `git pull`. The
-Helix and Neovim setups compile the grammar, so they need `make`, `python3`
-and a C compiler (on macOS, the Xcode Command Line Tools:
-`xcode-select --install`).
-
-| Editor | Directory | Setup |
-|---|---|---|
-| Helix | [`editors/helix/`](editors/helix/) | `make install-helix`. It ends with `hx --health nomi`, which should find the parser, the queries, `nomi-lsp` and the `nomi` formatter. Its README has the manual route. |
-| Neovim 0.11+ | [`editors/nvim/`](editors/nvim/) | `make install-nvim`. Its README covers lazy.nvim. |
-| VS Code | [`editors/vscode/`](editors/vscode/) | `make install-vscode`, which needs Node 22+ and npm. It builds `editors/vscode/nomi.vsix` and installs it with `code`; its README has the details. |
-| Zed | [`editors/zed/`](editors/zed/) | `scripts/sync-zed-grammar.sh`, then run "zed: install dev extension" in Zed and select `editors/zed/`. Zed compiles the extension, which needs Rust installed through rustup. |
-| bat (and syntect users) | [`editors/bat/`](editors/bat/) | See its README. |
-
-Helix, Neovim, VS Code and Zed draw attached tests (`//!` lines) dimmed, so they do
-not compete with the code they test; their diagnostics are drawn at full
-strength. Neovim and VS Code show the attached test under the cursor normally
-(their READMEs have the settings). In Zed, if you turn semantic tokens on, the
-extension's `semantic_token_rules.json` keeps their identifiers dimmed too.
-
-VS Code, Neovim, Zed and Helix debug Nomi through `nomi dap`, a Debug Adapter
-Protocol server: breakpoints with conditions, hit counts and logpoints,
-stepping, the call stack, locals, each pipeline stage's value, watches, hovers
-and a debug console that evaluate Nomi in the paused frame, restart frame,
-function breakpoints, step into target, go to a variable's binding, and step
-back and reverse continue (by replaying the program with the input, clock and
-randomness it recorded), for a program's `main` or a single test. VS Code
-and Neovim put a Debug lens beside each Run lens; VS Code needs nothing more, and Neovim needs
-[nvim-dap](https://github.com/mfussenegger/nvim-dap). Zed's extension
-registers the adapter and gives each `nomi run` and `nomi test` task a debug
-entry. Helix's `languages.toml` block adds run and test templates to
-`:debug-start`. The VS Code and Neovim READMEs have the launch settings.
-
-Each editor also attaches `nomi-lsp` to a module's `nomi.toml`, for the
-errors `nomi check` reports there and completion in its `[effects]`
-lists, and to its phrase catalogs, the TOML files under its
-`[i18n].catalogs` directory (`locales/` unless the manifest names another),
-for their diagnostics, completion, hover and quick fixes. The file keeps
-the editor's TOML highlighting. VS Code and Neovim attach to every
-`nomi.toml`, and read each one to attach to its module's catalogs only.
-Helix's `languages.toml` adds a `nomi-catalog` language for `nomi.toml` and
-`locales/**/*.toml`, using Helix's TOML grammar. Zed attaches a server by
-language, not by path, so the server is sent every TOML buffer and responds
-only for a `nomi.toml` and catalogs; `"languages": { "TOML": {
-"language_servers": ["!nomi-lsp", "..."] } }` turns that off.
-
-Comments wrap at 100 columns, `nomi fmt`'s line width. Neovim sets
-`textwidth=100`, so a comment breaks as you type and `gw` reflows it (`gq`
-goes to the formatter in most LSP setups, and `nomi fmt` leaves comments
-alone), and
-Helix sets `text-width = 100` for `:reflow`. A Zed extension cannot set a
-line length, so add it to your Zed settings for "editor: rewrap":
-`"languages": { "Nomi": { "preferred_line_length": 100 } }`.
-
-To work on Nomi itself, run `make dev-editors` instead. It installs `nomi` and
-`nomi-lsp` from the checkout and makes each installed editor read the
-checkout: Helix's queries are linked rather than copied, Neovim loads
-`editors/nvim` through lazy.nvim with a parser compiled beside it, and it says
-when Zed's dev extension needs reinstalling.
+To run each editor against a checkout while working on Nomi, see
+[`editors/README.md`](editors/README.md).
 
 ## Contributing
 

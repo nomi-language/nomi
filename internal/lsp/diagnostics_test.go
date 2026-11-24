@@ -504,7 +504,7 @@ func TestMissingImportPublishesOnTheImportLine(t *testing.T) {
 	}
 	for _, tc := range []struct{ file, want string }{
 		{"main.nomi", "3:8-3:11: no module `lib`: no file lib.nomi in this file's directory, and nomi.toml has no dependency named `lib`\n" +
-			"help: run `nomi add <module path>` to add a published module, or `nomi add <directory>` for one on disk"},
+			"help: run `nomi add <repository>` to add a published module, such as `nomi add github.com/owner/name`, or `nomi add <directory>` for one on disk"},
 		{"helper.nomi", "1:8-1:13: no module `utlis`: no file utlis.nomi in this file's directory\nhelp: did you mean 'utils'?"},
 	} {
 		if got := published(tc.file); got != tc.want {

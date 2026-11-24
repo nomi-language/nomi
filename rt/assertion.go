@@ -201,8 +201,9 @@ func (e *AssertionFailure) Error() string {
 //
 // Expr is the ending expression as the formatter renders it and Value is the
 // value it produced, already rendered: for a `?` that is the row rendering
-// (RowText) of the whole `Err(e)`/`None`, which is the structural rendering (sorted struct
-// fields, strings quoted) and not Display and not Debug.
+// of the whole `Err(e)`/`None`, as an assertion's `values:` row renders a
+// value (RowTextWith, with the engine's hook for a written `impl Debug`):
+// structural (sorted struct fields, strings quoted), not Display.
 type EarlyReturnFailure struct {
 	Line  int
 	Expr  string
@@ -392,13 +393,13 @@ func RecordOperand(trace *[]AssertionValueContext, expr, value string, suppressR
 // kinds; it calls down here for the scalar rows rather than restating them, so
 // the quoting rule has one home.
 //
-// # Inspect is not `impl Display`, and it is not `Debug` either
+// # Inspect is not `impl Display`
 //
 // The two are different renderings of the same value. A `values:` row is
-// RowText, a purely structural rendering with no Nomi dispatch in it at all. A
-// user's `impl Display for Point` changes `${p}` and does not change the row,
-// which stays `Point{x: 1, y: 2}`; a user's `impl Debug for Point` does not
-// change it either.
+// RowText, a structural rendering whose leaves are Debug's. A user's `impl
+// Display for Point` changes `${p}` and does not change the row, which stays
+// `Point{x: 1, y: 2}`; a hand-written `impl Debug for Point` does change it,
+// through the engine's hook (RowTextWith).
 //
 // The consequence for a composite is that the structure is shared with Format*
 // and only the element rendering differs: `FormatListCells(xs, StringLiteral)`

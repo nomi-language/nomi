@@ -461,9 +461,7 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 			// value (ownerfuncref.go).
 			return bl.ctorFuncRef(t)
 		}
-		c := ir.NewBool(bl.g.irPos(line, col), bl.f.NewTemp(), v)
-		bl.b.Append(c)
-		return c.Dst(), kindBool, true, true
+		return bl.boolConst(line, col, v)
 
 	case *ast.Lambda:
 		return bl.lambda(t)
@@ -567,6 +565,9 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 		}
 		if index, ok := bl.g.srcFA().TupleItems[t]; ok {
 			return bl.tupleRead(t, index)
+		}
+		if dst, k, mobile, ok := bl.boolVariant(t); ok {
+			return dst, k, mobile, true
 		}
 		if _, typeOwner := t.Object.(*ast.TypeIdent); typeOwner {
 			if dst, k, mobile, ok := bl.variantBare(t); ok {
@@ -922,7 +923,7 @@ type intrinsicArm int
 const (
 	armNone intrinsicArm = iota
 	// armChannel is channelCall: every function of Channel, Sender,
-	// Receiver and Arm.
+	// Receiver and Arm, and std/signals' Signal.subscribe.
 	armChannel
 	// armTask is taskCall: every function of Task.
 	armTask
@@ -932,9 +933,10 @@ const (
 	armReader
 )
 
-// stdIntrinsicOwners are the std types whose own functions (an inherent
-// block's, not an impl's) an intrinsic arm of call lowers: every one, or
-// those members names.
+// stdIntrinsicOwners are the std types whose own host functions (an
+// inherent block's, not an impl's) an intrinsic arm of call lowers: every
+// one, or those members names. A function with a Nomi body is lowered from
+// its body, whatever its owner.
 var stdIntrinsicOwners = []struct {
 	owner   analysis.StdType
 	arm     intrinsicArm
@@ -945,11 +947,13 @@ var stdIntrinsicOwners = []struct {
 	{analysis.StdType{Module: "std/channels", Name: "Sender"}, armChannel, nil},
 	{analysis.StdType{Module: "std/channels", Name: "Receiver"}, armChannel, nil},
 	{analysis.StdType{Module: "std/channels", Name: "Arm"}, armChannel, nil},
-	// `Supervisor.new` and `flush` are Nomi-bodied with defaults, and take
-	// the ordinary qualified-call route.
+	// `new_exact` and `flush_bounded`, the host functions under `new` and
+	// `flush`, take the ordinary route.
 	{analysis.StdType{Module: "std/supervisors", Name: "Supervisor"}, armSupervisor, []string{"spawn", "spawn_all"}},
 	// Every other Reader function takes the ordinary route.
 	{analysis.StdType{Module: "std/io", Name: "Reader"}, armReader, []string{"from_chunks", "from_text_chunks"}},
+	// The feed from the process's signals, over a Sender (channelFuncs).
+	{analysis.StdType{Module: "std/signals", Name: "Signal"}, armChannel, []string{"subscribe"}},
 }
 
 // intrinsicArm is the arm of call that lowers t, and the std function t
@@ -958,10 +962,12 @@ var stdIntrinsicOwners = []struct {
 // spelling. A program's own type of an intrinsic owner's name reaches no
 // arm, an owner imported under another name (`Channel as C`) reaches its
 // own, and an impl's function on an intrinsic owner (`Debug.inspect(ch)`)
-// takes the ordinary route. armNone for any other call.
+// and a Nomi-bodied one (`Task.race`) take the ordinary route. armNone for
+// any other call.
 func (g *gen) intrinsicArm(t *ast.Call) (intrinsicArm, analysis.StdFunc) {
-	id := g.calleeOf(t).Std
-	if id.IsZero() || id.Impl != "" {
+	callee := g.calleeOf(t)
+	id := callee.Std
+	if _, bodied := callee.Decl.(*ast.FuncDef); id.IsZero() || id.Impl != "" || bodied {
 		return armNone, analysis.StdFunc{}
 	}
 	for _, o := range stdIntrinsicOwners {
@@ -1237,7 +1243,7 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 			// `import std::io.print` then `print(x)`: io.print itself.
 			return bl.hostOutputKey(t, key)
 		}
-		if f := bl.g.stdInsts.stdInstFuncOf(target.Std); f != nil && target.Std.Owner == "" {
+		if f := bl.g.stdInsts.stdTemplateOf(target.Std); f != nil && target.Std.Owner == "" {
 			// `import std::io.capture` then `capture(...)`: the generic
 			// stdlib function, instantiated as `io.capture(...)` is.
 			if v, k, mobile, ok, handled := bl.stdInstCallAt(t, f, kindInvalid, nil); handled {

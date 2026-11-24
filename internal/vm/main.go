@@ -145,6 +145,17 @@ func (m *Machine) entry(ctx context.Context, args []string, handleSignals bool, 
 				err = &Fault{err: fatal}
 			}
 		}
+		// A SIGINT or SIGTERM started the drain (rt.InstallShutdownSignals):
+		// the program ends with that signal's status whatever main answered,
+		// as the signal's own goroutine ends it when main is still running.
+		// A failure main reported is kept as the exit's message.
+		if status := rt.ShutdownStatus(); status != 0 {
+			exit := &Exit{Code: status}
+			if err != nil {
+				exit.Message = err.Error()
+			}
+			err = exit
+		}
 		// rt's supervisor registry is process-wide and a drained one takes
 		// no new work, so it is dropped for the next program this process
 		// runs — the REPL's next input, the tour's next block.

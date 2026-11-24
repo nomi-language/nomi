@@ -320,8 +320,24 @@ func (h htmlPositions) start(i int) (int, int) {
 func (c *checker) checkHtmlLiteral(n *ast.TaggedString, expansion ast.Node) Type {
 	if expansion != nil {
 		before := len(c.errors)
+		// A demand a slot's value makes is the template slot's, not the
+		// parameter's of the std/html function the slot calls (argSite).
+		slots := htmlSlotCalls(expansion)
+		if c.htmlSlotTags == nil && len(slots) > 0 {
+			c.htmlSlotTags = map[ast.Node]string{}
+		}
+		for _, slot := range slots {
+			if len(slot.Args) > 0 {
+				c.htmlSlotTags[slot.Args[len(slot.Args)-1]] = n.Tag
+			}
+		}
 		c.chooseHtmlTextSlots(expansion)
 		t := c.checkNode(expansion)
+		for _, slot := range slots {
+			if len(slot.Args) > 0 {
+				delete(c.htmlSlotTags, slot.Args[len(slot.Args)-1])
+			}
+		}
 		c.htmlSlotHelp(expansion, before)
 		c.recordHtmlLiteral(n, expansion)
 		return t
@@ -359,7 +375,7 @@ func (c *checker) chooseHtmlTextSlots(expansion ast.Node) {
 		c.checkedSlots[arg] = ty
 		if *name != "slot_text" {
 			line, col := exprStartLineCol(arg)
-			if inner := optionPayload(ty); inner != nil && c.htmlSlotWritesInner(inner, c.recPos(line, col)) {
+			if inner := optionPayload(ty); inner != nil && c.htmlSlotWritesInner(inner, c.slotSite(c.htmlSlotTags[arg], line, col)) {
 				if optionPayload(inner) != nil {
 					e := errAt(arg, fmt.Sprintf("this slot does not show an `%s`", ty))
 					e.Hints = []string{htmlNestedOptionHelp}
@@ -370,7 +386,7 @@ func (c *checker) chooseHtmlTextSlots(expansion ast.Node) {
 			continue
 		}
 		line, col := exprStartLineCol(arg)
-		if c.htmlTextTakesDisplay(ty, c.recPos(line, col)) {
+		if c.htmlTextTakesDisplay(ty, c.slotSite(c.htmlSlotTags[arg], line, col)) {
 			c.retargetHtmlSlot(slot, "slot_text_display")
 		}
 	}
@@ -380,11 +396,11 @@ func (c *checker) chooseHtmlTextSlots(expansion ast.Node) {
 // writes a `Display` value's text moves to the slot's `_option` function:
 // inner is `Display`, or not yet known. Another keeps the slot's own
 // function, whose argument check says what the slot takes.
-func (c *checker) htmlSlotWritesInner(inner Type, at Pos) bool {
+func (c *checker) htmlSlotWritesInner(inner Type, at Recording) bool {
 	if _, ok := resolveTypeVar(inner).(*TypeVar); ok {
 		return true
 	}
-	return c.typeImplementsInterface(inner, "Display", OriginUnresolved, at, RecordingKindCallSite)
+	return c.typeImplementsInterface(inner, "Display", OriginUnresolved, at)
 }
 
 // htmlDisplaySlots is the slot functions that write a `Display` value's
@@ -402,7 +418,7 @@ var htmlDisplaySlots = map[string]bool{
 // implement `ToHtml` and does implement `Display`, and is not an `Option`, a
 // `Result` or a collection, whose text is not the value's. A value of
 // interface type goes by its interface; a type parameter keeps `ToHtml`.
-func (c *checker) htmlTextTakesDisplay(t Type, at Pos) bool {
+func (c *checker) htmlTextTakesDisplay(t Type, at Recording) bool {
 	switch r := resolveTypeVar(t).(type) {
 	case nil, *TypeVar:
 		return false
@@ -415,10 +431,10 @@ func (c *checker) htmlTextTakesDisplay(t Type, at Pos) bool {
 			return false
 		}
 	}
-	if c.typeImplementsInterface(t, "ToHtml", OriginUnresolved, at, RecordingKindCallSite) || htmlTextShape(t) != htmlTextScalar {
+	if c.typeImplementsInterface(t, "ToHtml", OriginUnresolved, at) || htmlTextShape(t) != htmlTextScalar {
 		return false
 	}
-	return c.typeImplementsInterface(t, "Display", OriginUnresolved, at, RecordingKindCallSite)
+	return c.typeImplementsInterface(t, "Display", OriginUnresolved, at)
 }
 
 // retargetHtmlSlot makes slot call std/html's function named name. The

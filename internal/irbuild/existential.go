@@ -95,7 +95,7 @@ func (g *gen) mirrorIface(o *typeOwner) *ifaceDef {
 // # What it answers
 //
 // This file's own declaration and a sibling file's mirror; a std
-// interface is stdSharedIface's or stdProgSolved's. An annotation and an
+// interface is stdSharedIface's or the registry's (stdDeclaredIface). An annotation and an
 // inferred position reach one def, since both are the checker's types. The
 // cross-check in projectreason_test.go holds the two in agreement.
 //
@@ -186,19 +186,14 @@ func (g *gen) importIfaceKind(src *ifaceDef) (kind, bool) {
 		// carries its def and declaration.
 		panic("irbuild: importIfaceKind: an interface kind with no declaration, or no registry to mirror it through")
 	}
-	if src.stdOrigin != "" {
-		// A std interface held in another file: this file's def of the
-		// same declaration (stdprogiface.go).
-		if d := g.stdProgIfaceAt(src.stdOrigin, src.decl.Name); d == nil || d.decl != src.decl {
-			g.importWhy = "std interface signature"
+	if src.stdOrigin != "" && src.instOf == nil {
+		// A std interface held in another file: the process's one def
+		// (stdprogiface.go).
+		if !src.lowerable {
+			g.importWhy = src.why
 			return kindInvalid, false
-		} else if src.instOf == nil {
-			if !d.lowerable {
-				g.importWhy = d.why
-				return kindInvalid, false
-			}
-			return existential(d), true
 		}
+		return existential(src), true
 	}
 	if src.instOf != nil {
 		// `Gets<String>` held in another file: its instance here.

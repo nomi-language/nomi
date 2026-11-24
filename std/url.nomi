@@ -1,5 +1,5 @@
 //# URLs (RFC 3986): parsed into parts, built from literals, and
-//# percent-encoded. Parsing and writing follow Go's `net/url`.
+//# percent-encoded. `Url.parse` says which text it reads as a URL.
 //#
 //# A `Url` is a parsed URL whose fields hold decoded text. `Url.parse` reads
 //# text and returns a `UrlError` for text that is not a URL, and `Display`
@@ -163,8 +163,11 @@ derive Equatable for Query
 derive Hashable for Query
 
 impl Url
-    /// `text` read as a URL, absolute or relative, as Go's `url.Parse`
-    /// reads it.
+    /// `text` read as a URL, absolute or relative, by RFC 3986, except that
+    /// a path, query or fragment may hold any character but a control
+    /// character: a space there is read as written. A control character, a
+    /// malformed `%` escape, a host, port or user part RFC 3986 does not
+    /// allow, or a relative URL whose first segment holds `:` is an `Err`.
     //! import std::url.Url
     //!
     //! u = Url.parse("https://ann:pw@example.com:8080/a%20b?q=1#top")!
@@ -183,7 +186,7 @@ impl Url
     end
 
     /// `text` read as the target of an HTTP request: an absolute URL or an
-    /// absolute path, with no fragment. Go's `url.ParseRequestURI`.
+    /// absolute path, in which a `#` starts no fragment.
     //! import std::url.Url
     //!
     //! assert Url.parse_request_uri("/users?id=7")!.path == "/users"
@@ -266,8 +269,8 @@ impl Url
         host.redacted_parts(to_parts(url))
     end
 
-    /// The URL's query read into pairs. A pair Go cannot read is left
-    /// out; `Query.parse` reports it instead.
+    /// The URL's query read into pairs. A pair `Query.parse` refuses (a
+    /// `;` or a bad escape) is left out; `Query.parse` reports it instead.
     //! import std::url.{Query, Url}
     //!
     //! assert Url.query_values(Url"https://example.com/?a=1&b=2&a=3") == Query[
@@ -312,8 +315,8 @@ impl Url
         Url.parse(reference) |> Result.map(fn r -> Url.resolve(base, r))
     end
 
-    /// The URL with `segments` joined to its path, as Go's `JoinPath`
-    /// joins them, and `.` and `..` cleaned from the result. A `/` in a
+    /// The URL with `segments` joined to its path, each after a `/`, and
+    /// `.` and `..` cleaned from the result. A `/` in a
     /// segment separates segments; escape one with
     /// `url.escape_path_segment` to keep it whole.
     //! import std::url.Url
@@ -327,7 +330,7 @@ impl Url
 end
 
 impl Display for Url
-    /// The URL written back, escaped as Go's `URL.String` writes it.
+    /// The URL written back, each decoded part escaped; the query as held.
     //! import std::url.Url
     //!
     //! assert "${Url.parse("https://example.com/a b?q=1#x y")!}" == "https://example.com/a%20b?q=1#x%20y"

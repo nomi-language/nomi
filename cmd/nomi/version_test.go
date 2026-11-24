@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"runtime/debug"
 	"strings"
 	"testing"
@@ -86,18 +87,52 @@ func TestVersionToken(t *testing.T) {
 	}
 }
 
-// TestVersionLineFor_ARelease names its tag and keeps its revision.
+// TestVersionLineFor_ARelease names its tag and keeps its revision, and
+// names the platform and no Go toolchain unless asked for one.
 func TestVersionLineFor_ARelease(t *testing.T) {
 	info := &debug.BuildInfo{
 		Main:     debug.Module{Version: "(devel)"},
 		Settings: []debug.BuildSetting{{Key: "vcs.revision", Value: "e8635380091fdebf6ee103ebbd8a47a70eeb0fea"}},
 	}
-	got := versionLineFor("v0.1.0", info)
-	if !strings.HasPrefix(got, "nomi v0.1.0 (e8635380091f, go") {
-		t.Fatalf("a release's version line is %q", got)
+	platform := runtime.GOOS + "/" + runtime.GOARCH
+	for _, c := range []struct{ release, toolchain, want string }{
+		{"v0.1.0", "", "nomi v0.1.0 (e8635380091f, " + platform + ")"},
+		{"", "", "nomi e8635380091f (" + platform + ")"},
+		{"v0.1.0", "go1.27.0", "nomi v0.1.0 (e8635380091f, go1.27.0 " + platform + ")"},
+		{"", "go1.27.0", "nomi e8635380091f (go1.27.0 " + platform + ")"},
+	} {
+		if got := versionLineFor(c.release, info, c.toolchain); got != c.want {
+			t.Errorf("versionLineFor(%q, _, %q) = %q, want %q", c.release, c.toolchain, got, c.want)
+		}
 	}
-	if got := versionLineFor("", info); !strings.HasPrefix(got, "nomi e8635380091f (go") {
-		t.Fatalf("a non-release version line is %q", got)
+}
+
+// TestVersion_TheToolchainOnlyForWorkOnTheCompiler: `nomi version` and the
+// REPL's banner name no Go toolchain, and NOMI_DEBUG_VERSION adds the one
+// that built `nomi`.
+func TestVersion_TheToolchainOnlyForWorkOnTheCompiler(t *testing.T) {
+	for _, c := range []struct {
+		env  string
+		want bool
+	}{{"", false}, {"0", false}, {"1", true}} {
+		env := append(os.Environ(), versionToolchainEnv+"="+c.env)
+		for _, args := range [][]string{{"version"}, {}} {
+			cmd := exec.Command(nomiBin, args...)
+			cmd.Env = env
+			cmd.Stdin = strings.NewReader("")
+			out, err := cmd.Output()
+			if err != nil {
+				t.Fatalf("nomi %v with %s=%q: %v\n%s", args, versionToolchainEnv, c.env, err, out)
+			}
+			line, _, _ := strings.Cut(string(out), "\n")
+			if got := strings.Contains(line, runtime.Version()); got != c.want {
+				t.Errorf("nomi %v with %s=%q printed %q; naming %s is %t, want %t",
+					args, versionToolchainEnv, c.env, line, runtime.Version(), got, c.want)
+			}
+			if !strings.HasSuffix(line, runtime.GOOS+"/"+runtime.GOARCH+")") {
+				t.Errorf("nomi %v printed %q, which does not end with the platform", args, line)
+			}
+		}
 	}
 }
 

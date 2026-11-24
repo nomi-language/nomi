@@ -77,10 +77,8 @@ Lua and Python do. Each function becomes bytecode the first time it runs:
 
 ## How Nomi is built
 
-The compiler and runtime are written in Go, and you can see it in the
-practical choices: garbage collection, builds for other platforms, one file
-to ship, a formatter and tooling that come with the language. The language
-itself is not Go and does not call Go. You don't need Go installed.
+The compiler and runtime are written in Go. You don't need Go to write, run
+or ship Nomi.
 
 - A module is a directory tree with a manifest, `nomi.toml`, versioned and
   used as one unit. Inside a module you import a file, and `pub` controls

@@ -6,14 +6,14 @@ package irbuild
 //
 //   - by dispatch: two interface values compare by their run-time types,
 //     through the impl of the value each holds (ir.ValIface);
-//   - by shape: a type with no block of Equatable, a tuple, a record, a
+//   - by shape: a type with no block of Equatable or a derived one, which
+//     writes no function (Bool's among them), a tuple, a record, a
 //     declared type with no impl (spec §5 *Equality bounds*), and an impl
-//     the machine computes by shape (machineImpls: List's, Unit's, a
-//     derived struct's, enum's or distinct's), compared as shapeEquality
-//     says;
+//     the machine computes by shape (machineImpls: List's, Unit's),
+//     compared as shapeEquality says;
 //   - by an impl the machine computes natively (machineImpls: Int's,
-//     Float's, String's, Bool's and Decimal's), one ir.Compare of the
-//     scalar or the Decimal;
+//     Float's, String's and Decimal's), one ir.Compare of the scalar or
+//     the Decimal;
 //   - by any other impl, a call of the one the record names: the
 //     program's (equatableImplCall), or std's own (recordedCallPlan).
 //
@@ -57,9 +57,8 @@ func (bl *irScalarBuilder) equality(t *ast.Binary, op ir.CompareOp, lhs, rhs ir.
 	case machine == routeNative && (irScalarLeafKind(k) || isDecimalKind(k)):
 		return bl.equalityCompare(t, op, irParamShape(k), lhs, rhs), true
 	case form == analysis.OperatorStructural || machine != routeUnset:
-		// By shape, and an impl the machine computes natively over a value
-		// it holds as no scalar: std/bool's True or False bound by
-		// `Bool.False(x)`, a marker of one value.
+		// By shape, and an impl the machine computes by shape (List's,
+		// Unit's).
 		if v, ok := bl.shapeEquality(t, op, lhs, rhs, k); ok {
 			return v, true
 		}
@@ -72,8 +71,8 @@ func (bl *irScalarBuilder) equality(t *ast.Binary, op ir.CompareOp, lhs, rhs ir.
 	return ir.NoTemp, false
 }
 
-// shapeEquality compares two values of kind k by their shape: Unit and a
-// marker, which have one value, by a constant; an enum by its variant; a
+// shapeEquality compares two values of kind k by their shape: a Bool as
+// the scalar it is; Unit and a marker, which have one value, by a constant; an enum by its variant; a
 // record, a struct and a container (a List, a Map, a Set, a Vector, a
 // Byte or Bytes, a Regex's handle, a Dynamic, a `Type<T>` witness, a
 // Range over scalars) as one comparison rt.Equal answers; a tuple and a
@@ -83,6 +82,9 @@ func (bl *irScalarBuilder) shapeEquality(t *ast.Binary, op ir.CompareOp, lhs, rh
 	d := k.def
 	named := k.tag == tagNamed && d != nil
 	switch {
+	case irScalarLeafKind(k):
+		// A Bool, whose Equatable is derived: the scalar's own comparison.
+		return bl.equalityCompare(t, op, irParamShape(k), lhs, rhs), true
 	case k == kindUnit:
 		c := ir.NewBool(bl.g.irPos(t.Line, t.Col), bl.f.NewTemp(), op == ir.OpEq)
 		bl.b.Append(c)
@@ -258,11 +260,10 @@ func (bl *irScalarBuilder) structuralEqual(t *ast.Binary, lhs, rhs ir.Temp, k ki
 // impl the checker's record of `Equatable.equal` at st names
 // (recordedIfaceFnOf, the resolution a comparator and a nested Debug body
 // read), which the builder calls, as `==` on the part does. written is
-// false where the record answers by shape or by dispatch, by an impl
-// machineImpls computes (a derived impl among them: machineImpls is the
-// one place that decides a derived Equatable is its type's shape), or by
-// std's own impl, which rt reaches through the key table
-// (irRecordStdKey): the part is then compared by its shape. ok is false
+// false where the record answers by shape (a derived impl among them,
+// which writes no function) or by dispatch, by an impl machineImpls
+// computes, or by std's own impl, which rt reaches through the key table
+// (irRecordStdWritten): the part is then compared by its shape. ok is false
 // for an impl the builder cannot call. A part with no checker type, or
 // with a record its instance leaves unresolved, is compared by its shape
 // and counted (noteElemImpl).
@@ -437,7 +438,7 @@ func irScalarRangeElem(elem kind) bool {
 // (irErases), and renders as itself. A box whose value holds k itself (a
 // `List<Display>` boxed into Display) names k's implementers once: the
 // walk that reaches k again inside them adds nothing.
-func (bl *irScalarBuilder) existentialDebugImpls(k kind) ([]ir.DebugImpl, bool) {
+func (bl *irScalarBuilder) existentialDebugImpls(k kind) ([]ir.PartImpl, bool) {
 	if irConjKind(k) {
 		// A conjunction holds a value of a type implementing every member,
 		// so the implementers of one name its Debug.
@@ -456,8 +457,8 @@ func (bl *irScalarBuilder) existentialDebugImpls(k kind) ([]ir.DebugImpl, bool) 
 		// A std instance's body at a program's interface or at std's
 		// Display or Debug (`List.inspect<Show>`, `List.inspect<Debug>`):
 		// the implementers and boxes are the program's, in every unit.
-		var impls []ir.DebugImpl
-		seen := map[ir.DebugImpl]bool{}
+		var impls []ir.PartImpl
+		seen := map[ir.PartImpl]bool{}
 		held := false
 		for _, og := range s.program {
 			if og == nil {
@@ -485,7 +486,7 @@ func (bl *irScalarBuilder) existentialDebugImpls(k kind) ([]ir.DebugImpl, bool) 
 		// The program's other files implement and box into the interface
 		// too: `struct Pool { conn: Conn }` in the file that declares
 		// Conn, and `impl Conn for Memory` in the file that builds one.
-		seen := make(map[ir.DebugImpl]bool, len(impls))
+		seen := make(map[ir.PartImpl]bool, len(impls))
 		for _, im := range impls {
 			seen[im] = true
 		}
@@ -514,7 +515,7 @@ func (bl *irScalarBuilder) existentialDebugImpls(k kind) ([]ir.DebugImpl, bool) 
 // impl of the interface is one of its declaration at k's arguments. found
 // says the unit implements or boxes into the interface; ok is false when
 // some implementer's Debug cannot be named.
-func (bl *irScalarBuilder) unitExistentialDebugImpls(k kind, same bool) (impls []ir.DebugImpl, found, ok bool) {
+func (bl *irScalarBuilder) unitExistentialDebugImpls(k kind, same bool) (impls []ir.PartImpl, found, ok bool) {
 	of := func(d *ifaceDef) bool {
 		if same {
 			return d == k.iface
@@ -533,11 +534,7 @@ func (bl *irScalarBuilder) unitExistentialDebugImpls(k kind, same bool) (impls [
 		if !of(implIface(d)) || d.recv.tag != tagNamed || d.recv.def == nil {
 			continue
 		}
-		nested, ok := bl.nestedDebugImpls(nil, named(d.recv.def), d.recvType)
-		if !ok {
-			// An `embeds` enum enters the interface boxed under its name.
-			nested, ok = bl.boxedEnumDebugImpls(named(d.recv.def))
-		}
+		nested, ok := bl.heldDebugImpls(named(d.recv.def), d.recvType)
 		if !ok && !irDebugValueKind(d.recv) {
 			// A std container instance with no declared leaf (an impl for
 			// `Option<Int>` or `Vector<Int>`) renders structurally.
@@ -553,10 +550,7 @@ func (bl *irScalarBuilder) unitExistentialDebugImpls(k kind, same bool) (impls [
 		if p := bl.g.boxes.plans[key]; p == nil || !of(key.iface) {
 			continue
 		}
-		nested, ok := bl.nestedDebugImpls(nil, key.have, nil)
-		if !ok {
-			nested, ok = bl.boxedEnumDebugImpls(key.have)
-		}
+		nested, ok := bl.heldDebugImpls(key.have, nil)
 		if !ok && !irDebugValueKind(key.have) {
 			return nil, false, false
 		}
@@ -573,17 +567,17 @@ func (bl *irScalarBuilder) unitExistentialDebugImpls(k kind, same bool) (impls [
 	// Every value the checker typed entering the interface in this unit's
 	// source, whether or not the body that boxes it is lowered yet: a body
 	// lowered before the one that boxes a List into it (a derived Debug, a
-	// function declared first) names the same implementers.
+	// function declared first) names the same implementers. Each is named
+	// at the type the checker recorded entering, so its body is the one
+	// the record of `Debug.inspect` at that type names: a std type's
+	// written Debug (`SessionKey(<hidden>)`) as a program type's.
 	for _, e := range bl.g.checkedErasures() {
 		if !of(e.iface) {
 			continue
 		}
-		for _, have := range e.kinds {
-			nested, ok := bl.nestedDebugImpls(nil, have, nil)
-			if !ok {
-				nested, ok = bl.boxedEnumDebugImpls(have)
-			}
-			if !ok && !irDebugValueKind(have) {
+		for _, v := range e.values {
+			nested, ok := bl.heldDebugImpls(v.k, v.typ)
+			if !ok && !irDebugValueKind(v.k) {
 				return nil, false, false
 			}
 			impls = append(impls, nested...)
@@ -591,6 +585,39 @@ func (bl *irScalarBuilder) unitExistentialDebugImpls(k kind, same bool) (impls [
 		}
 	}
 	return impls, len(impls) != 0 || boxed, true
+}
+
+// heldDebugImpls is what a Debug rendering of an interface value names for
+// a held value of kind have, of checker type ht (nil where none is known),
+// whose position's static type the machine cannot know. A value that
+// renders by its shape and holds a position an `embeds` enum fills
+// (irHoldsBoxedEnum) renders through the thunk whose body is `Debug.inspect`
+// at have (stdRenderThunk), whose rendering knows each position's static
+// type: named under its box's name for a container, a tuple or a record,
+// which enter boxed (irShapeHoldsBoxedEnum), and under its own for a
+// declared type. Any other names its parts' bodies (nestedDebugImpls), and
+// an `embeds` enum its own body under its name (boxedEnumDebugImpls).
+func (bl *irScalarBuilder) heldDebugImpls(have kind, ht analysis.Type) ([]ir.PartImpl, bool) {
+	var key ir.PartImpl
+	switch {
+	case irShapeHoldsBoxedEnum(have):
+		if vt := bl.g.irValType(have); vt != nil && !vt.Erased() {
+			key = ir.PartImpl{Type: vt.String()}
+		}
+	case have.tag == tagNamed && have.def != nil && !irBoxedEnum(have) && irHoldsBoxedEnum(have) && bl.g.debugByShape(have, ht):
+		key = ir.PartImpl{Type: bl.g.irTypeSym(have.def).Name(), Inst: bl.g.irValType(have).InstanceKey()}
+	}
+	if key.Type != "" {
+		key.Fn = bl.g.stdRenderThunk(stdDebug, "inspect", have, ht)
+		if key.Fn != nil {
+			return []ir.PartImpl{key}, true
+		}
+	}
+	nested, ok := bl.nestedDebugImpls(nil, have, ht)
+	if !ok {
+		nested, ok = bl.boxedEnumDebugImpls(have)
+	}
+	return nested, ok
 }
 
 // resolvedEnumType is ty, through solved inference variables, as an enum.

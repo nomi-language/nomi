@@ -262,7 +262,7 @@ func (s *shapes) written(in Instr, depth int) ValShape {
 			return ValString
 		case ConstMarker:
 			return ValDistinct
-		case ConstEmptyList, ConstEmptySet, ConstEmptyVector:
+		case ConstEmptyList:
 			return ValContainer
 		}
 		return ValUnknown

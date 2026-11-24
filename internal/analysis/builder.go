@@ -319,21 +319,25 @@ func implItemClaimsInterface(scope *Scope, item ast.Node, ifaceName string) bool
 
 // RecordingKind classifies where a (Iface, Type) recording originated.
 // Surfaced through Recording.Kind so the missing-impl diagnostic can
-// describe the demand site in user-relevant terms ("required by a tagged
-// literal slot", "required by `@derive Display` on …") instead of just
-// dumping a position. The checker stores the kind; DetectMissingImpls
-// renders it.
+// describe the demand site in the program's terms ("required by parameter
+// `x` of `shown`", "required via `derive Display for Wrapper`, field `u`")
+// instead of just dumping a position. The checker stores the kind;
+// requiredClause renders it.
 type RecordingKind int
 
 const (
-	// RecordingKindCallSite is the catch-all for plain call-site
-	// recordings — argMatchesParam, recordInterfaceConformanceFromParam,
-	// etc. The Recording's
-	// Pos is the call expression's source position.
+	// RecordingKindCallSite is the catch-all for a demand no other kind
+	// names: a qualified call (`Display.to_string(m)`, `Option.hash(x)`),
+	// whose Callee is the function as the call writes it (callSiteOf), a
+	// typed literal's demand of its handler, whose Tag is the literal's
+	// (literalSite), `dbg`, a collection literal's element. The Recording's
+	// Pos is the site's source position.
 	RecordingKindCallSite RecordingKind = iota
 	// RecordingKindTypedLiteralSlot marks a recording produced inside
 	// a `<tag>"..."` Dynamic slot's conformance check against the tag
-	// module's per-slot interface. Pos is the slot expression's site.
+	// module's per-slot interface, or by the value of an `Html` template's
+	// slot (argSite). Tag is the literal's tag as written (slotSite). Pos
+	// is the slot expression's site.
 	RecordingKindTypedLiteralSlot
 	// RecordingKindGenericBoundCheck marks a recording produced when a
 	// generic call's solved type-param binding is checked against the
@@ -342,17 +346,17 @@ const (
 	// expression.
 	RecordingKindGenericBoundCheck
 	// RecordingKindInterfaceTypedParam marks a recording produced when
-	// a concrete value flows into an interface-typed parameter or
-	// interface-typed struct field (`Effects{ logger: ProdLogger{} }`,
-	// `Iter.to_list(xs)` where to_list takes `Iter<T>`). Pos is the
-	// argument or field-value expression.
+	// a concrete value flows into a place declared with an interface type
+	// other than an argument (RecordingKindArgument): a struct field
+	// (`Effects{ logger: ProdLogger{} }`), a returned value, an annotated
+	// binding, a default. Pos is the value's expression.
 	RecordingKindInterfaceTypedParam
-	// RecordingKindDeriveSynth marks a recording produced by
-	// CheckDeriveBounds when it walks a `@derive Iface` type's component
-	// types (struct fields, enum variant payloads, distinct inner). The
-	// Recording's Derive carries the @derive decorator's position plus
-	// the offending component's name+position. Pos is the @derive arg's
-	// site (matches the existing diagnostic anchor for these checks).
+	// RecordingKindDeriveSynth marks a derive's demand of its interface at
+	// a part of the type it is for (checkDerivedParts): a struct's field,
+	// a variant's payload, a distinct type's inner type. The Recording's
+	// Derive carries the derive's position and the part's name and
+	// position. Pos is the part's, or the derive's for a type another file
+	// declares.
 	RecordingKindDeriveSynth
 	// RecordingKindDerivePayload marks the catch-all (String, Display)
 	// recording the Display/Debug @derive synthesizer emits because the
@@ -373,7 +377,10 @@ const (
 	// always what the user meant). `DetectMissingImpls` skips groups
 	// whose recordings are *all* of this kind so distinct types and
 	// enums without an `impl Equatable` block (e.g. `pub type Id Int`)
-	// keep working with `==`.
+	// keep working with `==`. A Set element and a Map key, which the
+	// machine finds by `==`, are demanded so too. The where bounds of a
+	// written impl the demand reaches are an ordinary demand
+	// (recordImplReceiverBoundConformances).
 	RecordingKindEqualityOperator
 	// RecordingKindOrderingOperator marks an *ordinary (strong)*
 	// demand recorded by an ordering operator (`<`, `>`, `<=`, `>=`)
@@ -391,6 +398,20 @@ const (
 	// types. The interface impl determines both the accepted right-hand
 	// operand type and the result type.
 	RecordingKindOperator
+	// RecordingKindArgument marks a recording produced when an argument
+	// flows into a parameter of an interface type (`shown(m)` with `fn
+	// shown(x: Display)`, `log.any("k", m)`). The Recording's Callee,
+	// Param and Arg name the function and the parameter (argSite). Pos is
+	// the argument's position.
+	RecordingKindArgument
+	// RecordingKindInterpolation marks the demand of Display a string
+	// interpolation makes of each value it interpolates (`"${m}"`). Pos is
+	// the interpolated expression's.
+	RecordingKindInterpolation
+
+	// recordingKinds is the number of kinds, for the test that holds
+	// requiredClause to each (TestEveryRecordingKindSaysWhatRequiredIt).
+	recordingKinds
 )
 
 // DeriveCtx attaches `@derive`-specific provenance to a Recording. It
@@ -405,11 +426,11 @@ type DeriveCtx struct {
 	DerivePos Pos
 	FieldName string
 	FieldPos  Pos
-	// NoEquality is, for an Equatable or Hashable demand, the part of the
-	// component with no equality that the derive found (`` `(Int) ->
-	// Int`, a function value ``), or "" when the component is itself the
-	// type with none or its declaration was out of reach. The missing-impl
-	// help says what the component holds only when this names it.
+	// NoEquality is what the part's type holds that has no equality
+	// (heldWithoutEquality: "`(Int) -> Int`, a function value"), or ""
+	// when it holds none or is itself the type with none. The missing-impl
+	// help of an Equatable or Hashable demand says what the type holds only
+	// when this names it.
 	NoEquality string
 }
 
@@ -458,6 +479,42 @@ type Recording struct {
 	// the impl block to write (`impl Scale<N> for Other`) from the stored
 	// demand alone.
 	IfaceTypeParams string
+	// Callee, Param and Arg name what an argument's demand is made by
+	// (RecordingKindArgument): the function as the call writes it
+	// (`shown`, `log.any`), the parameter the argument fills by its
+	// declared name, or "" for a parameter with none, and the parameter's
+	// 1-based position. A call's own demand (RecordingKindCallSite) names
+	// its function in Callee alone.
+	Callee string
+	Param  string
+	Arg    int
+	// Tag is the tag of the typed literal whose slot holds the value, as
+	// the literal writes it (`Sql`, `Html`) (RecordingKindTypedLiteralSlot),
+	// or of the typed literal whose handler is demanded
+	// (RecordingKindCallSite).
+	Tag string
+	// Bound is the where bound of an impl that asked this demand of a part
+	// of the value the site holds (recordImplReceiverBoundConformances):
+	// `Measure<P>`'s `Display` impl asking `P: Unit2` of the Bare in a
+	// Measure<Bare>. Zero for a demand the site makes itself.
+	Bound ImplBound
+}
+
+// ImplBound is a where bound of an impl, as the impl block writes it: the
+// receiver (`Measure<P>`), the interface it implements (`Display`), the
+// bounded parameter (`P`) and the bound (`Unit2`).
+type ImplBound struct {
+	Receiver string
+	Iface    string
+	Param    string
+	Bound    string
+}
+
+// demand is r with the nominal identities of a demand's two halves: the
+// type it is for and the interface it is of (TypeOrigin, IfaceOrigin).
+func (r Recording) demand(typeOrigin, ifaceOrigin string) Recording {
+	r.TypeOrigin, r.IfaceOrigin = typeOrigin, ifaceOrigin
+	return r
 }
 
 // LookupTypeMethod returns the impl-block method symbol for (typeName,
@@ -552,10 +609,10 @@ func (fa *FileAnalysis) RecordManifest(typeName, ifaceName string, rec Recording
 	// (Line >= synthLineBase). Synth bodies are generated to make the
 	// type-checker happy; their internal call sites record (Iface, T) demands
 	// with bogus line numbers that would leak into user-facing diagnostics.
-	// The DeriveSynth/DerivePayload recording emitted at checkDeriveComponentTypes
-	// already carries the real @derive/field source position for the same
-	// (Iface, T) pair, so dropping the synth-body record loses no information
-	// the user can act on. See synthLineBase in derive_synthesis.go.
+	// A derive's demand at each part (checkDerivedParts) carries the real
+	// derive and field positions for the pairs its body demands, so
+	// dropping a synth-body record loses no information the user can act
+	// on. See synthLineBase in derive_synthesis.go.
 	if rec.Pos.Line >= synthLineBase {
 		return
 	}
@@ -1450,10 +1507,8 @@ func (b *builder) buildModule(nodes []ast.Node, scope *Scope) {
 	// interface defaults are genuinely unmet across all impl blocks for a
 	// (type, iface).
 	b.registerImplDefaults(scope)
-	// The derive field/payload bound check (CheckDeriveBounds) does not run
-	// here: a file built on its own has no impl index, and without one the
-	// check would flag every primitive-typed field. A project build runs it
-	// over its own files with the index (Sweep B-bounds).
+	// A derive's parts are checked by the checker (checkDerivedParts), and
+	// its JSON gates by a project build (Sweep B-bounds).
 	// Validate inline `pub opaque type ...` / `opaque type ...`
 	// declarations — the parser preserves the keyword on whatever node it
 	// produced (TypeDef / StructDef / EnumDef); this is where the rule

@@ -32,6 +32,14 @@ func (g *gen) irStdTypeSym(origin, nomi string) *ir.Symbol {
 func (g *gen) irValType(k kind) *ir.ValType {
 	if v, ok := g.irValTypeMemo[k]; ok {
 		if v == nil && g.irValTypeBusy[k] {
+			if k.comp != nil {
+				// A structural type entered again through a declared struct
+				// or enum it holds (`List<Value>` mapped first, and Value's
+				// `Array(List<Value>)` mapped under it). The declaration is
+				// memoized before its fields are mapped, so mapping the
+				// parts again ends there, and the field keeps its type.
+				return g.irValTypeOf(k)
+			}
 			// A type reaching itself through something other than a declared
 			// struct's or enum's field, which enters itself before recursing.
 			// No such Nomi type lowers today; answer the erased type rather
@@ -210,7 +218,7 @@ func (g *gen) irNamedValType(k kind) *ir.ValType {
 		if inner == nil {
 			return nil
 		}
-		v := ir.NewDistinctType(g.irTypeSym(d), inner)
+		v := ir.NewDistinctType(g.irTypeSym(d), inner, as...)
 		if d.spread && inner.Kind() == ir.KindTuple {
 			v.SetSpread()
 		}

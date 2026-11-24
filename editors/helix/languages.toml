@@ -1,5 +1,7 @@
-[language-server.nomi-lsp]
-command = "nomi-lsp"
+# `nomi lsp`, the language server.
+[language-server.nomi]
+command = "nomi"
+args = ["lsp"]
 
 [[language]]
 name = "nomi"
@@ -13,7 +15,7 @@ comment-tokens = ["//", "///", "//!"]
 indent = { tab-width = 4, unit = "    " }
 text-width = 100
 formatter = { command = "nomi", args = ["fmt"] }
-language-servers = ["nomi-lsp"]
+language-servers = ["nomi"]
 
 # `nomi dap`: Helix's :debug-start (space-G) offers these templates.
 [language.debugger]
@@ -37,9 +39,9 @@ completion = [
 ]
 args = { mode = "test", program = "{0}", line = "{1}" }
 
-# The TOML files nomi-lsp reads: a module's nomi.toml, and its phrase
-# catalogs, the TOML files under `locales/`. Helix's TOML grammar, and
-# nomi-lsp for their diagnostics, completion, hover and quick fixes. Helix
+# The TOML files the language server reads: a module's nomi.toml, and its
+# phrase catalogs, the TOML files under `locales/`. Helix's TOML grammar,
+# and `nomi lsp` for their diagnostics, completion, hover and quick fixes. Helix
 # picks a language by path, so a module whose `[i18n].catalogs` names
 # another directory adds its own glob here.
 [[language]]
@@ -50,8 +52,8 @@ file-types = [{ glob = "nomi.toml" }, { glob = "locales/**/*.toml" }]
 roots = ["nomi.toml"]
 comment-tokens = ["#"]
 indent = { tab-width = 2, unit = "  " }
-language-servers = ["nomi-lsp"]
+language-servers = ["nomi"]
 
 [[grammar]]
 name = "nomi"
-source = { git = "https://github.com/nomi-language/tree-sitter-nomi", rev = "21751ff58d0b1d5636a7d40b58822e0501158873" }
+source = { git = "https://github.com/nomi-language/tree-sitter-nomi", rev = "1c887dfc5079bbb3340b71b35a028edf531f72a8" }

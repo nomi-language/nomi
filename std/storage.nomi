@@ -904,6 +904,8 @@ fn io_code(error: io.Error) -> String
         .DirectoryNotEmpty{} -> "DirectoryNotEmpty"
         .InvalidPath{}       -> "InvalidPath"
         .InvalidText{}       -> "InvalidText"
+        .Corrupt{}           -> "Corrupt"
+        .Truncated{}         -> "Truncated"
         .NoSpace{}           -> "NoSpace"
         .ReadOnly{}          -> "ReadOnly"
         .TooManyOpen         -> "TooManyOpen"

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/modcache"
 )
 
 // Project is the result of a discovery walk: every user-module file
@@ -115,6 +116,13 @@ func discoverProjectStd(entryNodes []ast.Node, projectRoot string, loader FileLo
 			manifestErr = err
 		}
 	}
+	// A module that needs a later nomi, the project or one it depends
+	// on, stops the walk: its files are written for that nomi, so nothing
+	// is read or checked, and the build reports that one error.
+	if tooOld := (*modcache.NomiVersionError)(nil); errors.As(manifestErr, &tooOld) {
+		tooOld.Module += " (this project)"
+		return p, tooOld
+	}
 	// The module index comes from the module graph (BuildModuleIndex).
 	// No nomi.toml is an empty index, which single-file mode keeps, and so
 	// is a manifest the graph cannot read, whose error is returned as a
@@ -122,6 +130,8 @@ func discoverProjectStd(entryNodes []ast.Node, projectRoot string, loader FileLo
 	if projectRoot != "" {
 		if idx, err := BuildModuleIndex(projectRoot); err == nil {
 			p.ModuleIndex = idx
+		} else if tooOld := (*modcache.NomiVersionError)(nil); errors.As(err, &tooOld) {
+			return p, tooOld
 		} else if manifestErr == nil {
 			manifestErr = err
 		}

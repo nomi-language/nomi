@@ -11,7 +11,7 @@ import
     display.Display
     equatable.Equatable
     hashable.Hashable
-    int.{Int, Int64, NonNegativeInt}
+    int.{Int, Int64, NonNegativeInt, PositiveInt}
     iter.Iter
     lists.List
     locale.Locale
@@ -282,10 +282,11 @@ impl String
     pub host fn camel_case(s: String) -> String
 
     /// Replaces every non-overlapping match of `old` with `new`. `old` is any
-    /// `Matcher`. With a `Regex`, `new` expands the match's groups as Go's
-    /// `regexp` does: `$1` or `${1}` is group 1, `${name}` a named group, `$0`
-    /// the whole match and `$$` a literal `$`; a reference to no group is
-    /// empty. With any other matcher, `new` is literal text.
+    /// `Matcher`. With a `Regex`, `new` expands groups: `$1` or `${1}` is group
+    /// 1, `$name` or `${name}` a named group, `$0` the whole match and `$$` a
+    /// `$`. Braces end a name: `$1x` names a group `1x`, and `${1}x` is group 1
+    /// then `x`. A reference to no group is empty. With any other matcher,
+    /// `new` is literal text.
     //! import std::regex.Regex
     //!
     //! assert String.replace("a.b.c", ".", "-") == "a-b-c"
@@ -589,6 +590,60 @@ impl String
     //! assert String.words("a\u{a0}b\u{3000}c") == ["a", "b", "c"]
     //
     pub host fn words(s: String) -> List<String>
+
+    /// `s` cut at its word boundaries, as Unicode's text segmentation (UAX
+    /// #29) places them: each piece is a word, a run of spaces, or a
+    /// punctuation mark, and the pieces joined are `s`. A word keeps an
+    /// apostrophe or a decimal point inside it (`isn't`, `3.14`), and each
+    /// Chinese or Japanese ideograph is a piece of its own. `String.words`
+    /// splits on whitespace instead.
+    //! assert String.word_segments("Hi, you!") == ["Hi", ",", " ", "you", "!"]
+    //! assert String.word_segments("isn't 3.14") == ["isn't", " ", "3.14"]
+    //! assert String.word_segments("") == []
+    //
+    pub host fn word_segments(s: String) -> List<String>
+
+    /// `s` cut at its sentence boundaries, as Unicode's text segmentation
+    /// (UAX #29) places them. Each sentence keeps the spaces after it, so the
+    /// pieces joined are `s`. The rules are Unicode's and know no
+    /// abbreviations: `Mr. Smith` is two sentences.
+    //! assert String.sentences("One. Two?  Three") == ["One. ", "Two?  ", "Three"]
+    //! assert String.sentences("") == []
+    //
+    pub host fn sentences(s: String) -> List<String>
+
+    /// The number of cells `s` takes in a terminal or other monospace text:
+    /// each grapheme cluster takes 1, except a wide or fullwidth East Asian
+    /// character and an emoji, which take 2. A combining mark or a
+    /// zero-width joiner adds nothing to its cluster, a flag or an emoji
+    /// sequence is one cluster, and a control character takes 0. A tab is a
+    /// control character: how far it reaches depends on the column it
+    /// starts at, which `s` alone does not say, so expand tabs first.
+    //! assert String.display_width("hello") == 5
+    //! assert String.display_width("日本語") == 6
+    //! assert String.display_width("é") == 1
+    //! assert String.display_width("👩‍💻") == 2
+    //! assert String.display_width("🇯🇵") == 2
+    //! assert String.display_width("a\tb") == 2
+    //
+    pub host fn display_width(s: String) -> NonNegativeInt
+
+    /// `s` as lines at most `width` cells wide, measured as
+    /// `String.display_width` measures them, for text in a terminal. Lines
+    /// break where Unicode's line-breaking rules (UAX #14) allow, after a
+    /// space or a hyphen and between Chinese or Japanese characters, as late
+    /// as each line fits. A line break in `s` always ends a line, and no line
+    /// keeps it. The spaces at the end of a line are dropped. A word wider
+    /// than `width` is broken between characters, never inside one, and a
+    /// character wider than `width` gets a line of its own. A line break at
+    /// the end of `s` adds no empty last line, as with `String.lines`.
+    //! assert String.wrap("the quick brown fox", width: 10) == ["the quick", "brown fox"]
+    //! assert String.wrap("well-known words", width: 6) == ["well-", "known", "words"]
+    //! assert String.wrap("abcdefghij", width: 4) == ["abcd", "efgh", "ij"]
+    //! assert String.wrap("日本語のテキスト", width: 6) == ["日本語", "のテキ", "スト"]
+    //! assert String.wrap("a\n\nb\n", width: 10) == ["a", "", "b"]
+    //
+    pub host fn wrap(s: String, width: PositiveInt) -> List<String>
 
     /// The lines of `s`, split on `\n` or `\r\n` with the terminator removed.
     /// Unlike `split(s, "\n")`, a final terminator does not add an empty last
@@ -971,6 +1026,9 @@ impl Display for String
 end
 
 impl Add<String, String> for String
+    /// `a + b` copies both strings into a new one, so adding a piece at a
+    /// time to a growing String is quadratic: join the pieces once with
+    /// `String.join`.
     host fn add(lhs: String, rhs: String) -> String
 end
 
@@ -1004,8 +1062,10 @@ impl Equatable for String
 end
 
 impl Hashable for String
-    /// The FNV-1a 64-bit hash of the UTF-8 bytes, as an Int. It is not
-    /// cryptographic.
+    /// SipHash-1-3 of the UTF-8 bytes under a key each run draws at
+    /// random, as an Int. Equal Strings hash alike within a run, and a
+    /// String's hash differs between runs, so text from outside cannot be
+    /// chosen to collide.
     host fn hash(s: String) -> Int
 end
 

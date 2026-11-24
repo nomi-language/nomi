@@ -749,8 +749,12 @@ bool tree_sitter_nomi_external_scanner_scan(void *payload, TSLexer *lexer, const
     }
 
     // Inside a string that spans the lines of a `//!` group, a line break
-    // may lead to the next line's prompt.
-    if ((valid_symbols[ATTACHED_COMMENT_TEST_PROMPT] ||
+    // may lead to the next line's prompt. Only a line break does: spaces
+    // and tabs before anything else are the string's content. As in the Go
+    // lexer (skipAttachedTestPromptPrefix), a prompt there takes one space
+    // or tab after its `!`, and the rest of the line is the string's.
+    if ((lexer->lookahead == '\n' || lexer->lookahead == '\r') &&
+        (valid_symbols[ATTACHED_COMMENT_TEST_PROMPT] ||
          valid_symbols[ATTACHED_COMMENT_TEST_LINE_PROMPT] ||
          valid_symbols[ATTACHED_TEST_PROMPT_GROUP_END]) &&
         scanner != NULL && scanner->in_attached_test_prompt_group) {
@@ -760,6 +764,11 @@ bool tree_sitter_nomi_external_scanner_scan(void *payload, TSLexer *lexer, const
             skip(lexer);
         }
         if (scan_attached_comment_marker(scanner, lexer, valid_symbols, newlines)) {
+            if (lexer->result_symbol != ATTACHED_TEST_PROMPT_GROUP_END &&
+                (lexer->lookahead == ' ' || lexer->lookahead == '\t')) {
+                advance(lexer);
+                lexer->mark_end(lexer);
+            }
             return true;
         }
     }

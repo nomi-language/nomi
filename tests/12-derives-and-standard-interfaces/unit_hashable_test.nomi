@@ -17,14 +17,14 @@ end
 test "unit is equatable and always hashes the same"
     assert Equatable.equal(Unit, Unit)
     assert Unit.equal(Unit, Unit)
-    assert Hashable.hash(Unit) == 0
+    assert Hashable.hash(Unit) == Hashable.hash(Unit)
     assert Unit.hash(Unit) == Hashable.hash(Unit)
     assert same(Unit, Unit)
-    assert digest(Unit) == 0
+    assert digest(Unit) == Hashable.hash(Unit)
 end
 
 test "tuples holding unit hash through unit's impl"
-    assert Hashable.hash(('a', Unit)) == 3007
+    refute Hashable.hash(('a', Unit)) == Hashable.hash(('b', Unit))
     assert Hashable.hash((1, Unit, "x")) == Hashable.hash((1, Unit, "x"))
     assert digest(('a', Unit)) == Hashable.hash(('a', Unit))
     assert ('a', Unit) == ('a', Unit)

@@ -32,9 +32,10 @@ import
     std::io.{self, Reader, Writer}
     std::net.{self, Connection, DialOptions}
     std::random
+    std::secret.Secret
     std::sql
-    std::tls.{self, Certificate, ClientConfig, Roots}
-    postgres::auth.{self, Scram, ScramProof}
+    std::tls.{self, Certificate, ChannelBinding, ClientConfig, Roots}
+    postgres::auth.{self, Binding, Scram, ScramProof}
     postgres::cell.Cell
     postgres::config.Config
     postgres::messages.{self, Field, Message, TxStatus}
@@ -73,12 +74,34 @@ pub struct Link
 end
 
 /// What a cancel request needs: where to send it and how, and the key the
-/// server gave the connection.
+/// server gave the connection. Its `Debug` shows `secret: <hidden>` in
+/// place of the key's bytes.
 pub struct CancelKey
     config:  Config
     tls:     Bool
     process: Int
     secret:  Bytes
+end
+
+impl Debug for CancelKey
+    /// Every field but the secret, which reads `<hidden>`.
+    //! import std::assertions.AssertionFailure
+    //! import std::testing
+    //!
+    //! key = CancelKey{config: Config{}, tls: False, process: 7, secret: Bytes.from_list([18, 52])}
+    //!
+    //! assert String.ends_with(Debug.inspect(key), ", tls: False, process: 7, secret: <hidden>}")
+    //! refute String.contains(Debug.inspect(key), "<<")
+    //!
+    //! assert Err(failure) = testing.check([key] == [])
+    //! report = AssertionFailure.format(failure)
+    //! assert String.contains(report, "secret: <hidden>}]")
+    //! refute String.contains(report, "<<")
+    //
+    fn inspect(key: CancelKey) -> String
+        config = Debug.inspect(key.config)
+        "CancelKey{config: ${config}, tls: ${key.tls}, process: ${key.process}, secret: <hidden>}"
+    end
 end
 
 /// What changes as a link is used.
@@ -127,8 +150,12 @@ end
 
 /// A link to the server `config` names, opened now: TLS as its `sslmode`
 /// says, then the startup message and the password the server asks for.
+/// Over a Unix socket there is no TLS, whatever `sslmode` says, as libpq
+/// does.
 pub fn open(config: Config) -> Result<Link, sql.Error>
     deadline = Instant.now() + Option.with_default(config.connect_timeout, open_timeout)
+
+    if Config.is_socket(config) then return start(config, plain(config)?, False, deadline)
 
     case config.ssl_mode
         .Disable ->
@@ -157,8 +184,14 @@ end
 fn plain(config: Config) -> Result<Connection, sql.Error>
     options = DialOptions{timeout: Some(Option.with_default(config.connect_timeout, open_timeout))}
 
-    net.dial(Config.address(config), options)
-    |> Result.map_err(fn e -> unreachable_server(config, "${e}"))
+    dialed =
+        if Config.is_socket(config) then
+            net.dial_unix(Config.address(config), options)
+        else
+            net.dial(Config.address(config), options)
+        end
+
+    dialed |> Result.map_err(fn e -> unreachable_server(config, "${e}"))
 end
 
 // A TLS connection: the request that asks the server whether it speaks
@@ -342,9 +375,19 @@ fn answer(link: Link, config: Config, message: Message, at: Opening) -> Result<O
                 )
             end
 
-            started = Scram.start(base64.encode(random.secure_bytes(18)))
+            started = Scram.start(
+                base64.encode(random.secure_bytes(18)),
+                binding(link.conn, mechanisms),
+            )
+
             _ = password(config)?
-            send(link, messages.sasl_initial(scram_mechanism, Scram.first_message(started)), 0)?
+
+            send(
+                link,
+                messages.sasl_initial(Scram.mechanism(started), Scram.first_message(started)),
+                0,
+            )?
+
             Ok({..at, scram: Some(started)})
 
         .AuthenticationSaslContinue{data:} ->
@@ -394,12 +437,28 @@ end
 
 once scram_mechanism = "SCRAM-SHA-256"
 
+// How SCRAM binds to `conn`, as libpq chooses: SCRAM-SHA-256-PLUS over
+// `tls-server-end-point` when the connection is TLS and the server offers
+// it, `y` when the connection is TLS and the server does not, and `n` on a
+// plain connection, or when the server's certificate gives no binding data
+// (one signed with Ed25519 names no hash for it).
+fn binding(conn: Connection, mechanisms: List<String>) -> Binding
+    if Option.is_none(tls.state(conn)) then return Binding.Unsupported
+    if not Iter.contains(mechanisms, "SCRAM-SHA-256-PLUS") then return Binding.NotOffered
+
+    case tls.channel_binding(conn, ChannelBinding.ServerEndPoint)
+        Ok(data) -> Binding.Bound{name: ChannelBinding.name(ChannelBinding.ServerEndPoint), data:}
+        Err(_)   -> Binding.Unsupported
+    end
+end
+
 fn refused(config: Config, reason: String) -> sql.Error
     sql.Error.Connection{message: "${Config.address(config)} refused ${config.user}: ${reason}"}
 end
 
 fn password(config: Config) -> Result<String, sql.Error>
     config.password
+    |> Option.map(Secret.expose)
     |> Option.to_result(
         sql.Error.Connection{
             message: "${Config.address(config)} asks ${config.user} for a password, and the connection string has none",

@@ -41,7 +41,7 @@ func (e *noOwnImage) Error() string {
 		return fmt.Sprintf("it found no module file to look in for a program `nomi build` added: %v", e.err)
 	}
 	return fmt.Sprintf("it could not read its own module %q to look for a program `nomi build` added (%v). "+
-		"A loader must set globalThis.nomiImage, or the module must be readable by its own path, as with `node wasm_exec_node.js %s`",
+		"A loader must set globalThis.nomiImage, or the module must be readable by its own path, as with `node nomi-node.mjs %s`",
 		e.path, e.err, e.path)
 }
 

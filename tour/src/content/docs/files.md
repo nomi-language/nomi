@@ -257,12 +257,12 @@ their bytes as they are read.
 - A read that waits, on standard input or a slow stream, is a safe point. A
   task cancelled while it waits stops there, and its `defer` closes the
   stream.
-- A call into Go that reads is not interrupted. The task stops once the
-  call returns.
+- Reading a file, as `fs.read_text` does, is one call, and it is not
+  interrupted. The task stops once the call returns.
 - `io.capture` and `io.replay` reach tasks the captured function starts:
   what a task prints goes to the capture, not the terminal.
-- A `Writer` passed to Go is written through the same buffer as the
-  program's own writes, so the two stay in order.
+- A std function that writes to a `Writer`, as `Reader.copy_to` does, writes
+  through the same buffer as the program's own writes, so the two stay in order.
 
 Spec: [Safe points](/spec/concurrency/#safe-points). [`std::io`](/reference/io/)
 has the stream functions.

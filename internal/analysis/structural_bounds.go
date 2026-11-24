@@ -3,6 +3,8 @@ package analysis
 import (
 	"fmt"
 	"strings"
+
+	"github.com/nomi-language/nomi/internal/ast"
 )
 
 // Interface bounds over the types that have no declaration to hang an impl
@@ -138,19 +140,31 @@ func structuralConformance(t Type, iface *InterfaceType, part func(Type, *Interf
 // then `==`'s, which compares field by field and reaches any nested type's
 // own `impl Equatable`, and its hash is the structural hash a Map key gets.
 // A type with an impl of the interface meets it through that impl, decided
-// by the impl tables as before.
+// by the impl tables. A type that holds a value with no equality outside
+// what an impl with a body answers for meets neither bound, whatever its
+// impls say: `List<(Int) -> Int>` is no more Equatable than `[inc] ==
+// [inc]` compiles, since std's `impl Equatable for List<T>` answers by its
+// shape (ImplAsksParts).
 
 // structuralEqualityConformance answers whether t meets iface, std's
-// Equatable or Hashable, by its structural equality: decided is true when t
-// is a declared struct, enum or distinct type with no impl of iface of its
-// own (hasImpl, by declared type and interface name). arg decides each
-// type argument, so a type parameter meets the bound only through its own
-// bounds. Every other type and interface is left undecided.
-func structuralEqualityConformance(t Type, iface *InterfaceType, hasImpl func(t Type, iface string) bool, arg func(Type) bool) (implements, decided bool) {
+// Equatable or Hashable, by its structural equality. decided is true and
+// implements false when t holds a part with no equality, at any depth
+// (noEqualityPartWith, where a declared type's own impl of Equatable
+// exempts its fields, and its type arguments too when the impl has a
+// body, as for `==`). decided is true when t is a declared struct, enum or
+// distinct type with no impl of iface of its own (own, by declared type
+// and interface name). arg decides each type argument, so a type
+// parameter meets the bound only through its own bounds. Every other type
+// and interface is left undecided.
+func structuralEqualityConformance(t Type, iface *InterfaceType, own func(t Type, iface string) ownEquality, arg func(Type) bool) (implements, decided bool) {
 	if !isStdInterfaceNamed(iface, "Equatable") && !isStdInterfaceNamed(iface, "Hashable") {
 		return false, false
 	}
 	resolved := resolveTypeVar(t)
+	ownEquatable := func(t Type) ownEquality { return own(t, "Equatable") }
+	if _, none := noEqualityPartWith(resolved, ownEquatable, map[Type]bool{}); none {
+		return false, true
+	}
 	var name string
 	var args []Type
 	switch ty := resolved.(type) {
@@ -163,12 +177,8 @@ func structuralEqualityConformance(t Type, iface *InterfaceType, hasImpl func(t 
 	default:
 		return false, false
 	}
-	if name == "" || hasImpl(resolved, iface.Name) {
+	if name == "" || own(resolved, iface.Name) != noOwnEquality {
 		return false, false
-	}
-	hasEquatable := func(t Type) bool { return hasImpl(t, "Equatable") }
-	if _, none := noEqualityPartWith(resolved, hasEquatable, map[Type]bool{}); none {
-		return false, true
 	}
 	for _, a := range args {
 		if ContainsTypeParam(a) && !arg(a) {
@@ -189,19 +199,32 @@ func partMeetsInterfaceValue(p Type, iface *InterfaceType, impls []ImplTables, i
 	}); decided {
 		return implements
 	}
-	if _, byEquality := structuralEqualityConformance(p, iface, implementedIn(impls), func(Type) bool { return true }); byEquality {
+	if _, byEquality := structuralEqualityConformance(p, iface, ownEqualityIn(impls, implTypeArgs), func(Type) bool { return true }); byEquality {
 		return false
 	}
 	return typeSatisfiesInterfaceForImplMatch(p, iface, impls, implTypeArgs, nil)
 }
 
-// implementedIn is structuralEqualityConformance's hasImpl over impls, by
-// type name.
-func implementedIn(impls []ImplTables) func(Type, string) bool {
-	return func(t Type, iface string) bool {
+// ownEqualityIn is structuralEqualityConformance's own over impls and the
+// impl blocks implTypeArgs records, by type name.
+func ownEqualityIn(impls []ImplTables, implTypeArgs []map[string]map[string][]*ImplTypeArgs) func(Type, string) ownEquality {
+	return func(t Type, iface string) ownEquality {
 		name := interfaceImplName(t)
-		return name != "" && interfaceImplemented(t, iface, "", impls)
+		return ownEqualityNamed(name != "" && interfaceImplemented(t, iface, "", impls), name, iface, implTypeArgs)
 	}
+}
+
+// ownEqualityNamed is ownEqualityOf for the type name, which has an impl
+// of iface when has is set, its block found by name in implTypeArgs.
+func ownEqualityNamed(has bool, name, iface string, implTypeArgs []map[string]map[string][]*ImplTypeArgs) ownEquality {
+	if !has {
+		return noOwnEquality
+	}
+	var b *ast.ImplBlock
+	if info := lookupImplTypeArgs(name, iface, implTypeArgs); info != nil {
+		b = info.Block
+	}
+	return ownEqualityOf(true, b)
 }
 
 // hasOwnImpl reports whether t has an impl of the interface iface declared
@@ -219,14 +242,6 @@ func (c *checker) hasOwnImpl(t Type, ifaceOrigin, iface string) bool {
 	}
 	p := c.fa.Program()
 	return p.ImplIndex.suppliesReceiver(t, name, ifaceOrigin, iface, p.unindexed())
-}
-
-// hasOwnEqualityImpl is structuralEqualityConformance's hasImpl for the
-// checker: hasOwnImpl of Equatable or Hashable, which the prelude reserves,
-// so no program declares a second interface of either name and the name is
-// the interface.
-func (c *checker) hasOwnEqualityImpl(t Type, iface string) bool {
-	return c.hasOwnImpl(t, OriginUnresolved, iface)
 }
 
 // isStdInterfaceNamed reports whether iface is std's interface name, declared
@@ -315,10 +330,11 @@ func (c *checker) mismatchHint(want, have Type) string {
 				_, help := c.typeParamBoundOwner(tp, iface.String())
 				return help
 			}
-		case *StructType, *EnumType, *DistinctType, *PrimitiveType:
+		case *StructType, *EnumType, *DistinctType, *PrimitiveType, *ListType, *MapType:
 			// A value of a type that does not implement the interface: the
-			// help a bound gives the same type (`derive`, an impl block, or
-			// the types that implement a std interface), so a parameter
+			// help a bound gives the same type (`derive`, an impl block, the
+			// types that implement a std interface, or the part its impl
+			// asks the interface of, as an `Option<Foo>`'s), so a parameter
 			// written as an interface value explains a wrong argument as a
 			// type parameter bounded by it does.
 			if h := mismatchHint(want, have); h != "" {

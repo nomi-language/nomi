@@ -1,0 +1,44 @@
+//# The Go-backed half of std::terminal: the size of the terminal a
+//# standard stream is, the colour rule, a password read with echo off, raw
+//# mode, and standard input a byte at a time (internal/stdterminal). A
+//# stream is its descriptor: 0 for standard input, 1 for output and 2 for
+//# error. std::terminal answers NotATerminal before it crosses where
+//# standard input is no terminal. It is internal; a program imports
+//# std::terminal.
+
+import
+    bool.Bool
+    int.{Int, Int64}
+    io.Error
+    option.Option
+    results.Result
+    strings.String
+    unit.Unit
+end
+
+/// The columns and rows of the terminal `stream` is, or `(0, 0)` when it is
+/// none or its size cannot be read.
+pub host fn size(stream: Int64) -> (Int, Int)
+
+/// Whether colour suits `stream`: never for a stream that is no file, else
+/// as the environment chooses (`NOMI_COLOR`, `NO_COLOR`, `TERM=dumb`,
+/// `CLICOLOR_FORCE`), else whether it is a terminal.
+pub host fn supports_color(stream: Int64) -> Bool
+
+/// Writes `prompt` to standard error, reads a line of standard input with
+/// echo off, turns echo back on and ends the line. `Ok(None)` at the end
+/// of the input.
+pub host fn read_password(prompt: String) -> Result<Option<String>, Error>
+
+/// Puts standard input's terminal in raw mode, keeping its signal keys or
+/// its output processing when asked, and answers the token `leave_raw`
+/// restores its mode with.
+pub host fn enter_raw(keep_signals: Bool, keep_output_processing: Bool) -> Result<Int, Error>
+
+/// Restores the mode `enter_raw` found. A second call does nothing.
+pub host fn leave_raw(token: Int) -> Unit
+
+/// The next byte of standard input, waiting at most `within` nanoseconds,
+/// or as long as it takes when `within` is negative: the byte, `-1` when
+/// none came in time, `-2` at the end of the input.
+pub host fn read_byte(within: Int) -> Result<Int, Error>

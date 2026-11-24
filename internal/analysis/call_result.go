@@ -20,7 +20,7 @@ type CallShape struct {
 
 // CallResultType is the result type of a call to a function of type ft,
 // with the callee's type parameters solved from the arguments' types as
-// checkGenericCall and checkPipe solve them: each argument is routed to its
+// checkGenericCall solves them: each argument is routed to its
 // parameter (placeArgs) and its type is
 // unified against the parameter's under the file's impl tables, so a List
 // argument solves an `Iter<T>` parameter.

@@ -15,18 +15,19 @@ impl zed::Extension for NomiExtension {
         NomiExtension
     }
 
+    /// The language server is `nomi lsp`, speaking LSP over stdio.
     fn language_server_command(
         &mut self,
         _language_server_id: &zed::LanguageServerId,
         worktree: &zed::Worktree,
     ) -> Result<zed::Command, String> {
-        let path = worktree.which("nomi-lsp").ok_or_else(|| {
-            "nomi-lsp not found on PATH. Install with: go install ./cmd/nomi-lsp/".to_string()
+        let path = worktree.which("nomi").ok_or_else(|| {
+            "nomi not found on PATH. Install with: go install ./cmd/nomi/".to_string()
         })?;
 
         Ok(zed::Command {
             command: path,
-            args: vec![],
+            args: vec!["lsp".to_string()],
             env: Default::default(),
         })
     }

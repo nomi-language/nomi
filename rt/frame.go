@@ -274,8 +274,17 @@ func stopFlag(ctx context.Context) *atomic.Bool {
 
 // Stopping reports whether the task or deadline fr answers to has ended, so
 // the next SafePoint raises. One atomic load; false at once on a frame
-// nothing can stop.
+// nothing can stop. The flag is set by a context.AfterFunc goroutine, so it
+// can lag the cancel: a safe point that misses it stops at the next one,
+// but code that decides how to run after a stop reads Ended.
 func (fr *Frame) Stopping() bool { return fr != nil && fr.stop != nil && fr.stop.Load() }
+
+// Ended reports whether the context fr answers to has ended: its task was
+// cancelled, its deadline passed, or a test case's time ran out. It reads
+// the context, so it holds from the cancel on, where Stopping's flag may
+// not be set yet. A task woken from a wait by its cancel unwinds before the
+// flag is set, and its deferred calls choose their frame by this.
+func (fr *Frame) Ended() bool { return fr != nil && fr.ctx != nil && fr.ctx.Err() != nil }
 
 // Stoppable reports whether anything can stop fr while it computes: it runs
 // in a task or under a deadline.

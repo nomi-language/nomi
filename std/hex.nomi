@@ -33,3 +33,13 @@ pub host fn encode(data: Bytes) -> String
 //! assert hex.decode("66g6") == Err("invalid hex digit 'g' at byte 2")
 //
 pub host fn decode(text: String) -> Result<Bytes, String>
+
+/// The bytes `data` spells as pairs of hexadecimal digits, as `decode`
+/// reads them from text: for digits read straight from a file or a wire,
+/// with no check that they are UTF-8 first. A byte past ASCII is no digit.
+//! import std::hex
+//!
+//! assert hex.decode_bytes(String.to_bytes("00ff10")) == Ok(Bytes.from_list([0, 255, 16]))
+//! assert hex.decode_bytes(Bytes.from_list([0x36, 0xff])) == Err("invalid hex digit at byte 1")
+//
+pub host fn decode_bytes(data: Bytes) -> Result<Bytes, String>

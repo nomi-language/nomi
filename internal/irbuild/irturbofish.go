@@ -31,18 +31,17 @@ func (bl *irScalarBuilder) turbofishOnInterface(t *ast.Call) bool {
 }
 
 // turbofishDispatch lowers `Iface.method<T>(args)` as the call at T, the
-// type argument, which is what selects the impl
+// first type argument, the implementor, which is what selects the impl
 // (`FromJson.from_json<Int>(json)` declares Self only in its result): a
 // scalar's or a declared type's impl, or a generic std container's
 // instantiated at the argument's components (stdKindQualCall). At a
 // scalar, handled is false: the call is lowered as written, planned from
 // its record, which names the scalar's impl. A type argument none of
-// those answers declines. The caller has asked turbofishOnInterface.
+// those answers declines. The function's own type arguments, after T, are
+// in the record the plan reads. The caller has asked turbofishOnInterface
+// of a call with type arguments.
 func (bl *irScalarBuilder) turbofishDispatch(t *ast.Call) (ir.Temp, kind, bool, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool, bool) { return ir.NoTemp, kindInvalid, false, false, true }
-	if len(t.TypeArgs) != 1 {
-		return no()
-	}
 	fa := t.Func.(*ast.FieldAccess)
 	// kindInvalid: lookup — an argument with no kind declines.
 	if k := bl.g.typeOf(t.TypeArgs[0]); k != kindInvalid {

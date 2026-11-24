@@ -58,7 +58,12 @@ import (
 // own `impl Sized for List<Int>` does not resolve through another file's
 // `Sized`, and under a block import of std's `Duration` a file's own
 // `Duration.seconds` does not resolve (TestOwnerDecl_BlockImportRebindsAStdType
-// in internal/irbuild); and a type function the program's entry declares
+// in internal/irbuild); and a file sees another file's impl for a type
+// it can name though it imports neither the impl's file nor its
+// interface's, so two files that each declare a `Sized` and implement it
+// for `List<Int>` make `List.size` ambiguous in both
+// (TestAnImplOfAnUnimportedInterfaceIsSeen, and the fuzz seed
+// f10fd4161b11a4be); and a type function the program's entry declares
 // names no module for the runtime to load, though a file's build reads
 // the entry by its module key (TestTheEntryProvidesNoTypeMethod); and an
 // in-memory project's directory is one whether or not the program read a
@@ -190,6 +195,9 @@ func FuzzCheckFromInterfacesMatchesFull(f *testing.F) {
 			}
 		}
 	}
+	for _, s := range handSeeds(projects) {
+		f.Add(s.project, s.file, s.src)
+	}
 	f.Fuzz(func(t *testing.T, project, file uint, src string) {
 		if !utf8.ValidString(src) || len(src) > 2*fuzzSeedText {
 			t.Skip()
@@ -300,6 +308,9 @@ func TestCheckFromInterfacesMatchesFull(t *testing.T) {
 	t.Run("phrases", func(t *testing.T) { interfaceSteps(t, phrasesProject(t), phrasesEdits) })
 	t.Run("dispatch", func(t *testing.T) { interfaceSteps(t, dispatchProject(), dispatchEdits) })
 	t.Run("local type argument", func(t *testing.T) { interfaceSteps(t, rateProject(), rateEdits) })
+	t.Run("an interface read through an impl", func(t *testing.T) {
+		interfaceSteps(t, unseenInterfaceProject(), unseenInterfaceEdits)
+	})
 	t.Run("same names in two files", func(t *testing.T) {
 		interfaceSteps(t, sameNamesProject(), nil)
 	})
@@ -407,6 +418,74 @@ func TestUndefinedTypeOwnerReadsNoOtherFile(t *testing.T) {
 	}
 	if !strings.Contains(want, "undefined type or variant 'Box'") {
 		t.Fatalf("the reproducer no longer names an undefined Box:\n%s", want)
+	}
+}
+
+// TestAnImplOfAnUnimportedInterfaceIsSeen holds a file that declares its
+// own `Sized` and implements it for `List<Int>` (lib) to the same check
+// from source and against interfaces when another file it does not import
+// implements another `Sized` for `List<Int>`: `List.size` in lib is
+// ambiguous in both, the error naming each interface through its file.
+// The other `Sized` is declared beside its impl (in main), or in a third
+// file lib never imports (iface, implemented in other), whose default
+// `twice` then answers `List.twice` in lib. Checked against interfaces,
+// lib read no impl whose interface was declared outside its import
+// closure. FuzzCheckFromInterfacesMatchesFull found it in
+// 11-interfaces-and-impls/container_impls.
+func TestAnImplOfAnUnimportedInterfaceIsSeen(t *testing.T) {
+	sized := `interface Sized
+    fn size(value: self) -> Int
+end
+
+impl Sized for List<Int>
+    fn size(xs: List<Int>) -> Int
+        Iter.count(xs)
+    end
+end
+`
+	for _, c := range []struct {
+		name, other string
+		texts       map[string]string
+	}{
+		{"beside its impl", "main.Sized", map[string]string{
+			"main": "import lib\n\n" + sized + "\nfn main()\n    dbg lib.count()\nend\n",
+			"lib":  sized + "\npub fn count() -> Int\n    List.size([1, 2])\nend\n",
+		}},
+		{"in a third file", "iface.Sized", map[string]string{
+			"main": "import\n    lib\n    other\nend\n\nfn main()\n    dbg lib.count()\nend\n",
+			"iface": `pub interface Sized
+    fn size(value: self) -> Int
+
+    fn twice(value: self) -> Int
+        2 * Sized.size(value)
+    end
+end
+`,
+			"other": `import iface.{Sized}
+
+impl Sized for List<Int>
+    fn size(xs: List<Int>) -> Int
+        Iter.count(xs)
+    end
+end
+`,
+			"lib": sized + "\npub fn count() -> Int\n    List.size([1, 2]) + List.twice([1])\nend\n",
+		}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			p := incrementalProject{name: c.name, entry: "main", texts: c.texts}
+			var found []string
+			for _, e := range fullCheck(p, p.texts).Errors["lib"] {
+				found = append(found, fmt.Sprintf("%d:%d %s", e.Line, e.Col, e.Message))
+			}
+			want := fmt.Sprintf("12:10 type 'List' impl '%s' and '%s', which each declare 'size'", min(c.other, "lib.Sized"), max(c.other, "lib.Sized"))
+			if len(found) != 1 || !strings.HasPrefix(found[0], want) {
+				t.Fatalf("lib's errors are %q, want one starting %q", found, want)
+			}
+			if diff := fromInterfacesDiff(p, p.texts); diff != "" {
+				t.Fatalf("checked against interfaces differs from a full check:\n%s", diff)
+			}
+		})
 	}
 }
 

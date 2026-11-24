@@ -116,7 +116,7 @@ func (g *gen) ifaceInstAtTyped(tpl *ast.InterfaceDef, subst map[string]kind, typ
 		// that file (ifacedefault.go), which it reaches through these.
 		d.foreign, d.unit = o.fileKey, o.unit
 	}
-	if t := g.stdProgIfaces[tpl]; t != nil {
+	if t := g.stdRegistryIface(tpl); t != nil {
 		// A std generic interface's instance (stdprogiface.go).
 		d.stdOrigin = t.stdOrigin
 	}
@@ -127,7 +127,7 @@ func (g *gen) ifaceInstAtTyped(tpl *ast.InterfaceDef, subst map[string]kind, typ
 		g.ifaceInsts = map[ifaceInstKey]*ifaceInst{}
 	}
 	g.ifaceInsts[key] = inst
-	g.pushIfaceSubst(substIfaceImpl, tpl, subst, types)
+	g.pushIfaceSubst(substIface, tpl, subst, types)
 	g.resolveIface(d)
 	g.popIfaceSubst()
 	return inst
@@ -259,6 +259,22 @@ func (g *gen) pushIfaceSubst(entry substEntry, owner any, subst map[string]kind,
 }
 
 func (g *gen) popIfaceSubst() { g.popSubst() }
+
+// enterIfaceCode enters the frame of the generic interface block d
+// implements, at d's arguments, for the code d takes from the interface's
+// declaration: an inherited default's signature and body. It returns the
+// exit. The frame opens (substIfaceImpl): the block's own type parameters,
+// which may share a spelling with the interface's (`impl Holds<List<T>>
+// for Box<T>`), are not in scope where the interface is written. The
+// block's own functions cannot name the interface's parameters and are
+// never under it.
+func (g *gen) enterIfaceCode(d *implDef) func() {
+	if d.ifaceSubst == nil {
+		return func() {}
+	}
+	g.pushIfaceSubst(substIfaceImpl, d, d.ifaceSubst, d.ifaceSubstTypes)
+	return g.popIfaceSubst
+}
 
 // ifaceMethodTypeParamIsOpen reports whether this interface method mentions a
 // type parameter NOTHING HAS BOUND.

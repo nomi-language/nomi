@@ -5,12 +5,16 @@ reads a JPEG, PNG or WebP file into an `Image`, `Image.fit` scales one
 down into a box, and `Image.encode_jpeg` and `Image.encode_png` write it
 back out. The codecs are C libraries compiled to WebAssembly, which ship
 inside the module and run through std::wasm ([How it runs](#how-it-runs)),
-so a program that uses it needs no Go and no C compiler, and every
-function here is pure.
+so a program that uses it needs no C compiler, and every function here
+is pure.
 
 ```sh
 nomi add github.com/nomi-language/nomi/lib/image
 ```
+
+A release `nomi` adds it with that command; before the first release, or with a
+`nomi` built from source, add it by its directory in a checkout of the
+repository: `nomi add ../nomi/lib/image`.
 
 ```nomi
 import image.{self, Image}

@@ -70,7 +70,7 @@ end
 /// repeated `/`s become one, each `.` goes, and each `..` takes away the
 /// name before it. A `..` at the start of a relative path stays, and one
 /// right after the root goes. A trailing `/` goes, except on `/` itself. An
-/// empty path is `"."`. It cleans as Go's `path.Clean` does.
+/// empty path is `"."`.
 ///
 /// ```nomi
 /// path.clean("a/./b/../c") // "a/c"

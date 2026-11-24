@@ -46,15 +46,15 @@ func (d *Debugger) RestartFrame(frameID int) (string, error) {
 	}
 	ref := d.frames[frameID-1]
 	if ref.via || ref.fr == nil {
-		return "", errors.New("this frame is a call into Go; restart the Nomi frame below it")
+		return "", errors.New("this frame is a host function's call, which cannot restart; restart the Nomi frame below it")
 	}
 	th, target := ref.th, ref.fr
 	switch {
 	case d.killed:
 		return "", errors.New("the program has ended")
 	case th == nil || th.at == nil:
-		return "", errors.New("this thread is inside a call into Go (waiting for input, a channel or a task), " +
-			"and Go's stack cannot be unwound; restart it once it stops at a statement")
+		return "", errors.New("this thread is inside a call into the runtime (waiting for input, a channel or a task), " +
+			"which cannot be unwound; restart it once it stops at a statement")
 	case !th.restartable:
 		return "", errors.New("`main` has returned, so its frame cannot run again")
 	case target.tail:
@@ -68,8 +68,8 @@ func (d *Debugger) RestartFrame(frameID int) (string, error) {
 			return "", errors.New("this frame is not on the stopped thread's stack")
 		}
 		if fr.via != "" || fr.stk != target.stk {
-			return "", errors.New("a call from Go (" + viaName(fr) + ") is between this frame and the top " +
-				"of the stack, and Go's stack cannot be unwound")
+			return "", errors.New("a host function's call (" + viaName(fr) + ") is between this frame and the top " +
+				"of the stack, and it cannot be unwound")
 		}
 		if len(fr.deferred) > 0 || len(fr.releases) > 0 {
 			return "", errors.New(frameName(fr.fn) + " above this frame has deferred calls pending, " +

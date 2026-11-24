@@ -1,15 +1,14 @@
 package analysis
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// implFuncDef builds a minimal impl-method FuncDef fixture for
-// detectImplCollisions: `fn <name>(_: <recvType>)`. The collision check reads
-// the method name and the receiver base name (Params[0].TypeAnnotation); the
+// implFuncDef builds a minimal impl-method FuncDef fixture for the impl
+// index and the orphan rule: `fn <name>(_: <recvType>)`. They read the
+// method name and the receiver base name (Params[0].TypeAnnotation); the
 // owning interface comes from the index key the caller builds, not the FuncDef.
 // The `iface` arg is accepted for call-site readability but isn't stored.
 func implFuncDef(name, iface, recvType string) *ast.FuncDef {
@@ -19,69 +18,6 @@ func implFuncDef(name, iface, recvType string) *ast.FuncDef {
 		Params: []ast.Param{
 			{Name: "_", TypeAnnotation: &ast.SimpleType{Name: recvType}},
 		},
-	}
-}
-
-func TestDetectImplCollisions_TwoModulesSamePair(t *testing.T) {
-	fnA := implFuncDef("to_string", "Display", "Int")
-	fnB := implFuncDef("to_string", "Display", "Int")
-	index := map[string]map[string][]*ast.FuncDef{
-		"Display": {"to_string": {fnA, fnB}},
-	}
-	files := map[*ast.FuncDef]string{fnA: "app/widgets", fnB: "app/legacy"}
-
-	errs := detectImplCollisions(index, files, nil, nil, nil, nil)
-	if len(errs) != 1 {
-		t.Fatalf("expected 1 collision error, got %d: %v", len(errs), errs)
-	}
-	msg := errs[0].Message
-	for _, want := range []string{"Display", "Int", "to_string", "app/widgets", "app/legacy"} {
-		if !strings.Contains(msg, want) {
-			t.Errorf("error message missing %q: %s", want, msg)
-		}
-	}
-}
-
-func TestDetectImplCollisions_MultiReceiverNotACollision(t *testing.T) {
-	// impl Speech for Dog { fn speak } + impl Speech for Cat { fn speak } —
-	// different receiver base names, the intended polymorphic-dispatch shape.
-	fnDog := implFuncDef("speak", "Speech", "Dog")
-	fnCat := implFuncDef("speak", "Speech", "Cat")
-	index := map[string]map[string][]*ast.FuncDef{
-		"Speech": {"speak": {fnDog, fnCat}},
-	}
-	files := map[*ast.FuncDef]string{fnDog: "animals", fnCat: "animals"}
-
-	if errs := detectImplCollisions(index, files, nil, nil, nil, nil); len(errs) != 0 {
-		t.Fatalf("expected no collision for multi-receiver impl, got: %v", errs)
-	}
-}
-
-func TestDetectImplCollisions_MultiMethodOneImplNotACollision(t *testing.T) {
-	// impl Comparable for Foo providing both compare and equals — distinct
-	// methods, one impl.
-	fnCompare := implFuncDef("compare", "Comparable", "Foo")
-	fnEquals := implFuncDef("equals", "Comparable", "Foo")
-	index := map[string]map[string][]*ast.FuncDef{
-		"Comparable": {"compare": {fnCompare}, "equals": {fnEquals}},
-	}
-	files := map[*ast.FuncDef]string{fnCompare: "m", fnEquals: "m"}
-
-	if errs := detectImplCollisions(index, files, nil, nil, nil, nil); len(errs) != 0 {
-		t.Fatalf("expected no collision for multi-method impl, got: %v", errs)
-	}
-}
-
-func TestDetectImplCollisions_NoReceiverTypeSkipped(t *testing.T) {
-	// A FuncDef with no first-param type annotation can't be keyed by
-	// receiver — skip it rather than crash or mis-group.
-	fn := implFuncDef("to_string", "Display", "Int")
-	fn.Params[0].TypeAnnotation = nil
-	index := map[string]map[string][]*ast.FuncDef{"Display": {"to_string": {fn}}}
-	files := map[*ast.FuncDef]string{fn: "m"}
-
-	if errs := detectImplCollisions(index, files, nil, nil, nil, nil); len(errs) != 0 {
-		t.Fatalf("expected no error for receiver-less FuncDef, got: %v", errs)
 	}
 }
 
@@ -247,10 +183,9 @@ func TestPopulateQualifiedReceivers_IndexesAllImplMethods(t *testing.T) {
 	}
 }
 
-// The collision check's grouping key is the receiver's declaring module and
-// its whole name. A namespaced receiver keeps its namespace: the check sees
-// std/json's `Json.DecodeError` and another module's `DecodeError` as two
-// types.
+// A qualified receiver is the receiver's declaring module and its whole
+// name. A namespaced receiver keeps its namespace: std/json's
+// `Json.DecodeError` and another module's `DecodeError` are two types.
 func TestPopulateQualifiedReceivers_KeepsNamespaceSegment(t *testing.T) {
 	fn := implFuncDef("to_string", "Display", "Json.DecodeError")
 	home := &FileAnalysis{ModuleScope: NewScope(nil)}
@@ -269,45 +204,5 @@ func TestPopulateQualifiedReceivers_KeepsNamespaceSegment(t *testing.T) {
 	got := idx.QualifiedReceiver[fn]
 	if got != "std/json"+receiverOriginSep+"Json.DecodeError" || receiverDisplay(got) != "json.Json.DecodeError" {
 		t.Fatalf("qualified receiver = %q (shown %q), want std/json's Json.DecodeError, shown json.Json.DecodeError", got, receiverDisplay(got))
-	}
-}
-
-func TestDetectImplCollisions_NamespacedAndBareReceiverAreDistinct(t *testing.T) {
-	// impl Display for Json.DecodeError (std/json) alongside
-	// impl Display for DecodeError (app/errors). Two types, two slots.
-	fnJSON := implFuncDef("to_string", "Display", "Json.DecodeError")
-	fnBare := implFuncDef("to_string", "Display", "DecodeError")
-	index := map[string]map[string][]*ast.FuncDef{
-		"Display": {"to_string": {fnJSON, fnBare}},
-	}
-	files := map[*ast.FuncDef]string{fnJSON: "std/json", fnBare: "app/errors"}
-	receivers := map[*ast.FuncDef]string{
-		fnJSON: "json.Json.DecodeError",
-		fnBare: "errors.DecodeError",
-	}
-
-	if errs := detectImplCollisions(index, files, receivers, nil, nil, nil); len(errs) != 0 {
-		t.Fatalf("expected no collision between Json.DecodeError and DecodeError, got: %v", errs)
-	}
-}
-
-func TestDetectImplCollisions_TwoImplsForOneNamespacedReceiver(t *testing.T) {
-	fnA := implFuncDef("to_string", "Display", "Json.DecodeError")
-	fnB := implFuncDef("to_string", "Display", "Json.DecodeError")
-	index := map[string]map[string][]*ast.FuncDef{
-		"Display": {"to_string": {fnA, fnB}},
-	}
-	files := map[*ast.FuncDef]string{fnA: "std/json", fnB: "app/patches"}
-	receivers := map[*ast.FuncDef]string{
-		fnA: "json.Json.DecodeError",
-		fnB: "json.Json.DecodeError",
-	}
-
-	errs := detectImplCollisions(index, files, receivers, nil, nil, nil)
-	if len(errs) != 1 {
-		t.Fatalf("expected 1 collision error, got %d: %v", len(errs), errs)
-	}
-	if !strings.Contains(errs[0].Message, "json.Json.DecodeError") {
-		t.Errorf("error message missing the namespaced receiver: %s", errs[0].Message)
 	}
 }

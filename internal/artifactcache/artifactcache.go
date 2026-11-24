@@ -233,14 +233,20 @@ func Prune(dir, keep string, unused time.Duration) {
 		if err != nil {
 			continue
 		}
-		limit := unused
-		if strings.HasPrefix(name, TempPrefix) {
-			limit = time.Hour
-		}
-		if now.Sub(info.ModTime()) >= limit {
+		if Expired(name, info, unused, now) {
 			os.RemoveAll(filepath.Join(dir, name))
 		}
 	}
+}
+
+// Expired reports whether the cache entry name, whose file info is info,
+// has gone unused long enough at now for a prune to remove it: unused for
+// a kept entry, an hour for a temporary one (TempPrefix).
+func Expired(name string, info os.FileInfo, unused time.Duration, now time.Time) bool {
+	if strings.HasPrefix(name, TempPrefix) {
+		unused = time.Hour
+	}
+	return now.Sub(info.ModTime()) >= unused
 }
 
 // dueMarker is the file in a pruned directory whose modification time is

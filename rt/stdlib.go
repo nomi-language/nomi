@@ -168,19 +168,12 @@ func StringCompare(a, b string) int64 {
 	return 0
 }
 
-// StringHash is `Hashable.hash` for String: FNV-1a 64-bit over the UTF-8 bytes,
-// reinterpreted as int64 so the full bit pattern survives. Stable within one
-// process; not cryptographic and not stable across runs.
-func StringHash(s string) int64 {
-	const offset64 = uint64(14695981039346656037)
-	const prime64 = uint64(1099511628211)
-	h := offset64
-	for i := 0; i < len(s); i++ {
-		h ^= uint64(s[i])
-		h *= prime64
-	}
-	return int64(h)
-}
+// StringHash is `Hashable.hash` for String: SipHash-1-3 over the UTF-8
+// bytes under the process's key (hash.go, "Keyed by the process"),
+// reinterpreted as int64 so the full bit pattern survives. The same within
+// one process, and different between processes unless NOMI_HASH_SEED fixes
+// the key.
+func StringHash(s string) int64 { return int64(sipHash13(hashKey.sip0, hashKey.sip1, s)) }
 
 // --- std/int ---------------------------------------------------------------
 
@@ -259,7 +252,7 @@ func IntBitLength(n Int) int64 {
 // maxShift bounds Int.shift_left's count and Int.pow's result: an Int of more
 // bits than this does not fit in memory a program can have, so a request for
 // one faults with a reason rather than running out of memory.
-const maxShift = 1 << 34
+const maxShift int64 = 1 << 34
 
 // IntPow is `Int.pow`: n multiplied by itself exp times, exact. exp is a
 // NonNegativeInt in Nomi; a negative one, which only rt's own callers could

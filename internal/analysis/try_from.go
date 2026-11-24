@@ -5,9 +5,11 @@ package analysis
 // declares `Result<_, F>` with an E that does not inhabit F applies F's
 // `impl From<E>` on the Err path: the boundary returns `Err(F.from(e))`.
 //
-// The impl is looked up on F, at exactly E: one conversion, never a chain
-// through a third type, and no identity impl, since equal types never reach
-// here. Only a DECLARED boundary converts; an inferred one (a lambda with no
+// The impl is F's that the call `F.from(e)` takes (selectImpl): the one at
+// E, or, when E converts into another impl's argument (a Circle into the
+// Shape that embeds it), the most specific that takes E. It is one
+// conversion, never a chain through a third type's `From`, and no identity
+// impl, since equal types never reach here. Only a DECLARED boundary converts; an inferred one (a lambda with no
 // declared result, a `concurrent` block) has no F to look up, and
 // checkTryBoundary never reaches here for it.
 //
@@ -41,33 +43,46 @@ func (tc *TryConversion) Label() string {
 }
 
 // applyTryFrom records the conversion a `?` at line:col applies, when the
-// boundary's error type want has a `From` impl at the propagated error type
-// got, and reports whether it found one.
+// boundary's error type want has a `From` impl that takes the propagated
+// error type got, and reports whether it found one. The impl is the one
+// `want.from(e)` calls (selectImpl): at got's own type, or, where got
+// converts into another candidate's (a Circle into the Shape that embeds
+// it), the most specific one that takes it.
 func (c *checker) applyTryFrom(want, got Type, line, col int) bool {
 	if containsTypeVar(want) || containsTypeVar(got) {
 		return false
 	}
-	for _, cand := range c.implCandidates(want, "From", fromInterfaceOrigin) {
-		if len(cand.args) != 1 || !TypesEqual(resolveTypeVar(cand.args[0]), got) {
-			continue
-		}
-		impl := implBlockMethod(cand.info.Block, "from")
-		if impl == nil {
-			return false
-		}
-		c.recordBoundConformance(want, "From", OriginUnresolved, c.recPos(line, col), RecordingKindCallSite)
-		if sym := c.fa.References[Pos{Line: line, Col: col}]; sym != nil && sym.Kind == SymbolTryOp && sym.TryOp != nil {
-			info := *sym.TryOp
-			info.Convert = &TryConversion{From: got, To: want}
-			proxy := *sym
-			proxy.TryOp = &info
-			proxy.DispatchImpl = impl
-			proxy.DispatchReceiver = want
-			c.fa.References[Pos{Line: line, Col: col}] = &proxy
-		}
-		return true
+	iface := lookupInterfaceType(c.fa, c.reg, "From")
+	if iface == nil || len(iface.Methods) != 1 {
+		return false
 	}
-	return false
+	// A `?` writes no type arguments, so an impl generic in its own
+	// (`impl<C> From<Box<C>> for F`) is not one it applies.
+	var cands []implCandidate
+	for _, cand := range c.implCandidates(want, "From", fromInterfaceOrigin) {
+		if !c.containsForeignTypeParam(&TupleType{Elems: cand.args}) {
+			cands = append(cands, cand)
+		}
+	}
+	choice := c.selectImpl(cands, iface, &iface.Methods[0], want, []Type{got}, nil)
+	if choice.chosen == nil {
+		return false
+	}
+	impl := implBlockMethod(choice.chosen.info.Block, "from")
+	if impl == nil {
+		return false
+	}
+	c.recordBoundConformance(want, "From", OriginUnresolved, c.site(line, col, RecordingKindCallSite))
+	if sym := c.fa.References[Pos{Line: line, Col: col}]; sym != nil && sym.Kind == SymbolTryOp && sym.TryOp != nil {
+		info := *sym.TryOp
+		info.Convert = &TryConversion{From: got, To: want}
+		proxy := *sym
+		proxy.TryOp = &info
+		proxy.DispatchImpl = impl
+		proxy.DispatchReceiver = want
+		c.fa.References[Pos{Line: line, Col: col}] = &proxy
+	}
+	return true
 }
 
 // fromImplAdmissible reports whether a program could write `impl From<got>

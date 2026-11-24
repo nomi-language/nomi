@@ -111,29 +111,30 @@ end
 // generic body's type parameter (`List<T>`, a derived `Box<T>`) is
 // answered at each instance, written as an operator or called by name,
 // as on a type parameter itself, and the instance's answer is the impl
-// the same use written at the instance's type reaches.
+// the same use written at the instance's type reaches. Box derives
+// Comparable, whose derive writes the function the answer names.
 func TestCallReceiver_AReceiverHoldingATypeParameterIsPerInstance(t *testing.T) {
 	fa, errs := checkEntry(t, `struct Box<T>
     v: T
 end
 
-derive Equatable for Box<T> where T: Equatable
+derive Comparable for Box<T> where T: Comparable
 
-fn same<T>(xs: List<T>, ys: List<T>, a: Box<T>, b: Box<T>) -> (Bool, Bool, Bool, Bool) where T: Equatable
+fn same<T>(xs: List<T>, ys: List<T>, a: Box<T>, b: Box<T>) -> (Bool, Ordering, Bool, Ordering) where T: Comparable
     (
-        xs == ys,
-        Equatable.equal(xs, ys),
-        a == b,
-        Equatable.equal(a, b),
+        xs < ys,
+        Comparable.compare(xs, ys),
+        a < b,
+        Comparable.compare(a, b),
     )
 end
 
-fn run() -> (Bool, Bool, Bool, Bool)
+fn run() -> (Bool, Ordering, Bool, Ordering)
     same([1], [1], Box{v: 1}, Box{v: 1})
 end
 
-fn written() -> (Bool, Bool)
-    (Equatable.equal([1], [1]), Equatable.equal(Box{v: 1}, Box{v: 1}))
+fn written() -> (Ordering, Ordering)
+    (Comparable.compare([1], [1]), Comparable.compare(Box{v: 1}, Box{v: 1}))
 end
 `)
 	if len(errs) > 0 {

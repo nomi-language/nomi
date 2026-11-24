@@ -6,9 +6,10 @@ import (
 	"testing"
 )
 
-// `Hashable.hash` over a record is the derive mix over its fields in name
-// order, and `Equatable.equal` over two tuples or two records is `==`,
-// called directly and through a generic bound.
+// `Hashable.hash` over a record hashes alike whatever order its fields are
+// written in, directly and through a generic bound, and `Equatable.equal`
+// over two tuples or two records is `==`, called directly and through a
+// generic bound.
 func TestIRStructuralHashAndEqual_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
@@ -26,7 +27,7 @@ end
 fn main()
     io.inspect(Hashable.hash({name: "r", n: 1}) == Hashable.hash({n: 1, name: "r"}))
     io.inspect(Hashable.hash({name: "r", n: 1}) == Hashable.hash({n: 2, name: "r"}))
-    io.inspect(Hashable.hash({name: "r", n: 1}) == Hashable.hash(1) * 31 + Hashable.hash("r"))
+    io.inspect(Hashable.hash({name: "r", n: 1}) == h({n: 1, name: "r"}))
     io.inspect(h({name: "r", n: 1}) == Hashable.hash({name: "r", n: 1}))
     io.inspect(same((1, 2), (1, 2)))
     io.inspect(same((1, 2), (1, 3)))

@@ -514,26 +514,26 @@ entry_points = ["main"]
 
 - A program's configuration and dependencies are one app struct. The entry
   file's `fn boot(startup: Startup) -> Result<App, E>` builds it from the
-  arguments and environment and returns it in `Ok`. An `Err` stops the program
-  before `main`. The struct has at most one `Context` field, which boot builds
-  with `Context.root()`.
+  arguments and environment. An `Err` stops the program before `main`. The
+  struct has at most one `Context` field, built with `Context.root()`.
 - Code reads a field as `App.field`. `with App.field = value` replaces
   one field to the end of the block. A closure keeps the fields in force
   where it is made.
-- `test "name"` blocks, closed by `end`, sit beside the code. `assert`
-  checks a `Bool`, `Some` or `Ok`, or a pattern; `refute` the opposite.
-  `nomi test` runs them.
-- A `group` holds at most one `clock`, `boot` and `setup`, in that order, then
-  its tests. Groups do not nest. `boot server.boot(startup)` calls an entry's
-  boot; a test may also call `server.boot(startup)` itself to assert on the
-  `Result`. A test binds the setup value with a pattern:
-  `test "loads rows", db`. Each test runs clock, boot, setup and body
-  afresh. `clock Clock.Virtual` makes waits instant.
-- Tasks start only in a `concurrent` block, `concurrent` alone on its
-  line and `end`, which waits for them:
-  `Task.spawn(fn -> ...)` and `Task.await(task)`, from `std::tasks`. Every task
-  is awaited. `std::channels` splits a channel into a `Sender` and a
-  `Receiver`. A `Supervisor` is created only during `boot`.
+- `test "name"` blocks sit beside the code. `assert` checks a `Bool`,
+  `Some` or `Ok`, or a pattern; `refute` the opposite. `nomi test` runs
+  them.
+- A `group` holds at most one `clock`, `boot` and `setup`, in that order,
+  then its tests. Groups do not nest. `boot server.boot(startup)` calls an
+  entry's boot, which a test may call to check its `Result`. A test binds
+  the setup value with a pattern: `test "loads rows", db`. Each test runs
+  clock, boot, setup and body afresh. `clock Clock.Virtual` makes waits
+  instant.
+- Tasks start only in a `concurrent` block (on its own line, to `end`),
+  which waits for them: `Task.spawn(fn -> ...)` and `Task.await(task)`, from
+  `std::tasks`. Await or cancel each task; `Task.try_await_all`, `Task.race`
+  and `Task.within` cancel the rest. `std::channels` splits a channel into a
+  `Sender` and `Receiver`. A `Supervisor` is made only in `boot`;
+  std::actors's `Agent` owns a value.
 
 ```nomi-run
 import

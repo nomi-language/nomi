@@ -7,28 +7,34 @@ import (
 
 // Nomi's three renderings of a Value, over the runtime's representations.
 //
-//	RowText      the assertion report's `values:` row
-//	DisplayText  a value's structural Display
-//	DebugText    the structural Debug.inspect          (internal/vm's debugTextWith)
+//	RowText           the assertion report's `values:` row (DisplayText under it)
+//	DisplayShapeText  a value's Display by its shape (a derived Display's)
+//	DebugText         the structural Debug.inspect
 //
-// They are three functions because they disagree, and the disagreements are
-// the contract. internal/ir/render.go records six:
+// DisplayShapeText and DebugText are one walk of a value's shape
+// (shapeText) with Display's leaves and Debug's: a String raw or quoted, a
+// Decimal `1.50` or `1.50d`. The row's leaves are Debug's: a String reads as
+// its literal, a Decimal as `1.50d` and a Dynamic as the value it holds
+// (DecimalInspect and DynamicInspect, the machine's rendering of std's
+// written `impl Debug` of each), at any depth. RowText holds that leaf
+// rule, and RowTextWith and a debugger's variable (inspectText) render
+// their leaves through it. The row and Debug differ only where the spec
+// says they do, which internal/ir/render.go records:
 //
-//	a Decimal   Row `1.50`               Debug `1.50d`
-//	a Dynamic   Row `<dynamic: string>`  Debug the value it holds (DynamicInspect)
-//	a String    Row and Debug `"a\"b"` (StringLiteral), and Display is raw
-//	a struct    Row sorted fields        Debug declaration order, as the
+//	a struct      Row sorted fields      Debug declaration order, as the
 //	                                     literal that builds it is written
-//	a record    Row Row leaves           Debug Debug leaves (both sorted by name)
-//	a hand impl Row honours a user's      Debug honours it, through the hook
-//	            (RowTextWith's hook)
+//	a host value  Row `<Handle>`         Debug `Handle`, when its type has
+//	                                     no written `impl Debug`
+//	a hand impl   RowText ignores it     RowTextWith and Debug honour it,
+//	                                     through the hook
 //
-// Each row is kept by construction below rather than by a special case: Row
-// and Display recurse through RowText, Debug recurses through DebugText, and
-// only DebugText and RowTextWith take a hook. The engine's row hook owns a
-// user's hand-written `impl Debug` and nothing else, so a std type's Debug
-// (Decimal's `d`) and a derived or universal one never reach a row. rt/render_test.go pins all six, and the golden
-// files in testdata/expectations pin what programs print.
+// Row recurses through RowText, Debug and Display through shapeText, and
+// only shapeText and RowTextWith take a hook. The engine's row hook owns a
+// hand-written `impl Debug` of a type whose values are records or host
+// handles (a Regex), a std type's as a program's, and nothing else, so a
+// derived or universal one never reaches a row. rt/render_test.go pins the
+// differences and the agreements, and the golden files in
+// testdata/expectations pin what programs print.
 //
 // They agree on a declared type's call form: each writes a payload-carrying
 // variant or a distinct value through callText, so a payload written as a
@@ -36,12 +42,18 @@ import (
 // a Display, a Debug and a debugger's variable alike.
 
 // RowText is how a Value reads in an assertion's `values:` row: a String is
-// its literal (StringLiteral) and everything else is its DisplayText. Nested
-// values render by this same rule, so a String inside a List is quoted too.
+// its literal (StringLiteral), a Decimal its Debug (DecimalInspect, `1.50d`)
+// and everything else its DisplayText. Nested values render by this same
+// rule, so a String or a Decimal inside a List reads as at the top. It is
+// the row's one leaf rule: RowTextWith's elements and a debugger's variable
+// (inspectText) render their leaves through it.
 func RowText(v any) string {
 	v = Unbox(v)
-	if s, ok := v.(string); ok {
-		return StringLiteral(s)
+	switch x := v.(type) {
+	case string:
+		return StringLiteral(x)
+	case Decimal:
+		return DecimalInspect(x)
 	}
 	return DisplayText(v)
 }
@@ -65,22 +77,20 @@ func RowTextWith(v any, hook DebugHook) (string, error) {
 			return s
 		}
 		x = Unbox(x)
-		if s, ok := x.(string); ok {
-			return StringLiteral(s)
-		}
 		switch x.(type) {
 		case *List[any], Vector[any], Map[any, any], *Record:
 			return DisplayTextWith(x, elem)
 		}
-		return DisplayText(x)
+		return RowText(x)
 	}
 	s := elem(v)
 	return s, first
 }
 
-// DisplayText is a Value's structural Display: a top-level String is itself,
-// and a container renders its elements by RowText. A user's `impl Display`
-// is the engine's to dispatch before reaching this.
+// DisplayText is the row's text of a Value (RowText) with Display's leaf at
+// the top: a top-level String is itself and a top-level Decimal its digits,
+// `1.50`. A struct's fields are sorted by name, and a container renders its
+// elements by RowText. A value's Display by its shape is DisplayShapeText.
 func DisplayText(v any) string {
 	v = Unbox(v)
 	switch x := v.(type) {
@@ -106,7 +116,7 @@ func DisplayText(v any) string {
 		// A `Type<T>` witness renders as its Debug does, `Type<TraceId>`.
 		return TypeWitnessInspect(x)
 	case Dynamic:
-		return InspectDynamic(x)
+		return DynamicInspect(x)
 	case *List[any]:
 		return FormatListCells[any, List[any]](x, RowText)
 	case Vector[any]:
@@ -131,13 +141,10 @@ func DisplayText(v any) string {
 	return fmt.Sprintf("<%T>", v)
 }
 
-// DisplayTextWith is Display's container rule: DisplayText's shapes, with
+// DisplayTextWith is the row's container rule: DisplayText's shapes, with
 // every nested value — a tuple's components, a record's fields, a list's,
-// vector's or map's elements, a variant's payload — rendered by elem, which is
-// the engine's Display over a nested value (a declared type's `impl Display`,
-// or this again). The spec's intrinsics table: `(Display(a), Display(b))`,
-// `{f: Display(v)}`, `[Display(v1), ...]`, `Some(Display(v))`. DisplayText is
-// the assertion row's rendering, whose nested Strings are quoted.
+// vector's or map's elements, a variant's payload — rendered by elem
+// (RowTextWith's, which honours a hand-written `impl Debug`).
 func DisplayTextWith(v any, elem func(any) string) string {
 	v = Unbox(v)
 	switch x := v.(type) {
@@ -258,11 +265,53 @@ func FormatMapPairs(keys, vals []string) string {
 	return "{" + strings.Join(parts, ", ") + "}"
 }
 
-// DebugHook renders a nominal value through the Debug impl the program linked
-// for its type. It answers owned=false for a value it does not own, and the
-// structural rendering then applies. The engine supplies it; rt cannot call
-// Nomi code.
-type DebugHook func(v any) (text string, owned bool, err error)
+// DebugHook renders a nominal value through the impl the program linked for
+// it, at one position of the value a rendering walks. Render answers
+// owned=false for a value it does not own, and the structural rendering
+// then applies. Part is the hook for a part of the value at that position
+// (step), so an engine that knows the static type at each position answers
+// each part by it: a value of an `embeds` enum is its embedded value at run
+// time, and only the position says which of the two types' impls renders
+// it. The engine supplies it; rt cannot call Nomi code.
+type DebugHook interface {
+	Render(v any) (text string, owned bool, err error)
+	Part(step Step) DebugHook
+}
+
+// HookFunc is a DebugHook that answers every position alike.
+type HookFunc func(v any) (text string, owned bool, err error)
+
+// Render implements DebugHook.
+func (f HookFunc) Render(v any) (string, bool, error) { return f(v) }
+
+// Part implements DebugHook: every part is answered by f too.
+func (f HookFunc) Part(Step) DebugHook { return f }
+
+// Step is how a rendering by shape descends from a value to one of its
+// parts: an element of a List, a Vector or a Set, a Map's key or value, a
+// tuple's slot (Index), a struct's or an anonymous record's field (Name), a
+// variant's payload (Name the variant, Field one of its fields or "" for
+// its one payload), a distinct's inner value, a view's source.
+type Step struct {
+	Kind  StepKind
+	Name  string
+	Field string
+	Index int
+}
+
+// StepKind is the kind of a Step.
+type StepKind uint8
+
+const (
+	StepElem StepKind = iota + 1
+	StepKey
+	StepValue
+	StepSlot
+	StepField
+	StepPayload
+	StepInner
+	StepSource
+)
 
 // hookBoxFirst asks hook to render v. A box is offered as it is first, so
 // an impl recorded under the box's name (an `embeds` enum's own Debug, for
@@ -270,11 +319,11 @@ type DebugHook func(v any) (text string, owned bool, err error)
 // holds is offered.
 func hookBoxFirst(v any, hook DebugHook) (string, bool, error) {
 	if Boxed(v) {
-		if s, owned, err := hook(v); owned || err != nil {
+		if s, owned, err := hook.Render(v); owned || err != nil {
 			return s, owned, err
 		}
 	}
-	return hook(Unbox(v))
+	return hook.Render(Unbox(v))
 }
 
 // DebugText is the structural `Debug.inspect` of a Value, consulting hook
@@ -287,12 +336,39 @@ func hookBoxFirst(v any, hook DebugHook) (string, bool, error) {
 // placeholder of an opaque value (a task, a channel half). An opaque type's
 // `<opaque T>` is its synthesized impl's, which the hook owns.
 func DebugText(v any, hook DebugHook) (string, error) {
+	return shapeText(v, hook, false)
+}
+
+// DisplayShapeText is a value's Display by its shape, consulting hook first
+// at every level: what a derived Display renders (spec §12 *Derive*). It is
+// DebugText's shape with Display's leaves: a String is its raw text and a
+// Decimal its digits (`1.50`, where Debug writes `1.50d`). A part whose
+// type has a written Display renders through it, which the hook owns, as a
+// Bytes value's and a host value's do.
+func DisplayShapeText(v any, hook DebugHook) (string, error) {
+	return shapeText(v, hook, true)
+}
+
+// shapeText renders v as the literal that builds it, each leaf by Debug,
+// or by Display when display is set.
+func shapeText(v any, hook DebugHook, display bool) (string, error) {
 	if hook != nil {
 		if s, owned, err := hookBoxFirst(v, hook); owned || err != nil {
 			return s, err
 		}
 	}
 	v = Unbox(v)
+	// part renders x, which sits at the position steps below v's.
+	part := func(x any, steps ...Step) (string, error) {
+		h := hook
+		for _, s := range steps {
+			if h != nil {
+				h = h.Part(s)
+			}
+		}
+		return shapeText(x, h, display)
+	}
+	elem := func(x any) (string, error) { return part(x, Step{Kind: StepElem}) }
 	switch t := v.(type) {
 	case Unit:
 		// std/unit.nomi declares `host type Unit` with no explicit Debug, so
@@ -306,6 +382,9 @@ func DebugText(v any, hook DebugHook) (string, error) {
 	case Bytes:
 		return InspectBytes(t), nil
 	case Decimal:
+		if display {
+			return t.Display(), nil
+		}
 		return DecimalInspect(t), nil
 	case int64:
 		return FormatInt(t), nil
@@ -316,6 +395,9 @@ func DebugText(v any, hook DebugHook) (string, error) {
 	case bool:
 		return FormatBool(t), nil
 	case string:
+		if display {
+			return t, nil
+		}
 		return StringLiteral(t), nil
 	case *List[any]:
 		var renderErr error
@@ -323,7 +405,7 @@ func DebugText(v any, hook DebugHook) (string, error) {
 			if renderErr != nil {
 				return ""
 			}
-			s, err := DebugText(element, hook)
+			s, err := elem(element)
 			renderErr = err
 			return s
 		})
@@ -334,7 +416,7 @@ func DebugText(v any, hook DebugHook) (string, error) {
 			if renderErr != nil {
 				return ""
 			}
-			s, err := DebugText(element, hook)
+			s, err := elem(element)
 			renderErr = err
 			return s
 		})
@@ -344,11 +426,11 @@ func DebugText(v any, hook DebugHook) (string, error) {
 		keys := make([]string, len(entries))
 		vals := make([]string, len(entries))
 		for i, e := range entries {
-			k, err := DebugText(e.Key, hook)
+			k, err := part(e.Key, Step{Kind: StepKey})
 			if err != nil {
 				return "", err
 			}
-			v, err := DebugText(e.Val, hook)
+			v, err := part(e.Val, Step{Kind: StepValue})
 			if err != nil {
 				return "", err
 			}
@@ -356,11 +438,12 @@ func DebugText(v any, hook DebugHook) (string, error) {
 		}
 		return FormatMapPairs(keys, vals), nil
 	case *Record:
-		return debugRecord(t, hook)
+		return shapeRecord(t, part)
 	case HostHandle:
 		// A host type's Debug is its own `impl Debug`, which the hook owns
 		// (std/regex's renders the typed literal). With none, the universal
-		// default is the bare type name, as the front end synthesizes it.
+		// default is the bare type name, as the front end synthesizes it,
+		// and so is a host type's derived Display.
 		return ShortTypeName(t.TypeName), nil
 	case Dynamic:
 		// std/dynamic's `impl Debug for Dynamic` is this host function; a
@@ -374,7 +457,7 @@ func DebugText(v any, hook DebugHook) (string, error) {
 	case Seq[any]:
 		if t.Src != nil {
 			// A view of a source is that source (see Seq).
-			return DebugText(t.Src, hook)
+			return part(t.Src, Step{Kind: StepSource})
 		}
 		// A lazy Iter, for the same reason, and without running it.
 		return InspectSeq(t), nil
@@ -394,13 +477,15 @@ func DebugText(v any, hook DebugHook) (string, error) {
 	return "", fmt.Errorf("Debug on an unrepresented receiver (%T)", v)
 }
 
-func debugRecord(r *Record, hook DebugHook) (string, error) {
+// shapeRecord renders a record as the literal that builds it, each part by
+// part, at its step below the record.
+func shapeRecord(r *Record, part func(any, ...Step) (string, error)) (string, error) {
 	switch r.Desc.Kind {
 	case KindTuple:
 		l := r.Layout()
 		parts := make([]string, len(l.Fields))
 		for i := range l.Fields {
-			s, err := DebugText(r.slot(&l.Fields[i]), hook)
+			s, err := part(r.slot(&l.Fields[i]), Step{Kind: StepSlot, Index: i})
 			if err != nil {
 				return "", err
 			}
@@ -409,13 +494,16 @@ func debugRecord(r *Record, hook DebugHook) (string, error) {
 		return FormatTuple(parts), nil
 	case KindEnum:
 		v := r.Variant()
+		payload := Step{Kind: StepPayload, Name: v.Name}
 		switch v.Shape {
 		case VariantBare:
 			return v.Name, nil
 		case VariantEmbedded:
-			return DebugText(r.Field(0), hook)
+			return part(r.Field(0), payload)
 		case VariantFields:
-			parts, err := declaredDebugParts(r, &v.Layout, hook)
+			parts, err := declaredParts(r, &v.Layout, func(x any, field string) (string, error) {
+				return part(x, Step{Kind: StepPayload, Name: v.Name, Field: field})
+			})
 			if err != nil {
 				return "", err
 			}
@@ -423,20 +511,20 @@ func debugRecord(r *Record, hook DebugHook) (string, error) {
 		}
 		// A positional variant is the call that builds it, a payload of a
 		// struct named as the variant among them: `Click(Click{x: 1})`.
-		return debugCall(v.Name, r.Field(0), v.Spread, hook)
+		return shapeCall(v.Name, r.Field(0), v.Spread, payload, part)
 	case KindDistinct:
 		if r.NumFields() == 0 {
 			return r.Desc.Short, nil
 		}
-		return debugCall(r.Desc.Short, r.Field(0), r.Desc.Spread, hook)
+		return shapeCall(r.Desc.Short, r.Field(0), r.Desc.Spread, Step{Kind: StepInner}, part)
 	}
 	if r.Desc.Name == "sets.Set" {
-		return debugSet(r, hook)
+		return shapeSet(r, part)
 	}
 	if r.Desc.Kind == KindAnon || r.Desc.Name == "" {
 		// An anonymous record's field order is its sorted names, which is
 		// its descriptor's layout order.
-		parts, err := sortedDebugParts(r, hook)
+		parts, err := sortedParts(r, part)
 		if err != nil {
 			return "", err
 		}
@@ -444,37 +532,44 @@ func debugRecord(r *Record, hook DebugHook) (string, error) {
 	}
 	// A named struct reads as the literal that builds it, `Point{x: 1, y:
 	// 2}`, its fields in declaration order, which is its layout's.
-	parts, err := declaredDebugParts(r, r.Layout(), hook)
+	parts, err := declaredParts(r, r.Layout(), func(x any, field string) (string, error) {
+		return part(x, Step{Kind: StepField, Name: field})
+	})
 	if err != nil {
 		return "", err
 	}
 	return StructOpen(r.Desc.Short) + strings.Join(parts, ", ") + "}", nil
 }
 
-// debugCall is callText with each part rendered by DebugText, stopping at
-// the first error.
-func debugCall(name string, payload any, spread bool, hook DebugHook) (string, error) {
-	var first error
-	s := callText(name, payload, spread, func(x any) string {
-		if first != nil {
-			return ""
+// shapeCall is callText with each part rendered by part at its step below
+// the call's value: the payload at step, and a payload written as a tuple
+// of its parts each at its slot below that, stopping at the first error.
+func shapeCall(name string, payload any, spread bool, step Step, part func(any, ...Step) (string, error)) (string, error) {
+	if t, ok := payload.(*Record); spread && ok && t != nil && t.Desc.Kind == KindTuple {
+		l := t.Layout()
+		parts := make([]string, len(l.Fields))
+		for i := range l.Fields {
+			s, err := part(t.slot(&l.Fields[i]), step, Step{Kind: StepSlot, Index: i})
+			if err != nil {
+				return "", err
+			}
+			parts[i] = s
 		}
-		s, err := DebugText(x, hook)
-		first = err
-		return s
-	})
-	if first != nil {
-		return "", first
+		return name + FormatTuple(parts), nil
 	}
-	return s, nil
+	s, err := part(payload, step)
+	if err != nil {
+		return "", err
+	}
+	return FormatVariant(name, s), nil
 }
 
-// declaredDebugParts renders the fields l lays out in r, `name: value`, in
-// l's order.
-func declaredDebugParts(r *Record, l *Layout, hook DebugHook) ([]string, error) {
+// declaredParts renders the fields l lays out in r, `name: value`, in l's
+// order.
+func declaredParts(r *Record, l *Layout, part func(x any, field string) (string, error)) ([]string, error) {
 	parts := make([]string, len(l.Fields))
 	for i := range l.Fields {
-		s, err := DebugText(r.slot(&l.Fields[i]), hook)
+		s, err := part(r.slot(&l.Fields[i]), l.Fields[i].Name)
 		if err != nil {
 			return nil, err
 		}
@@ -483,7 +578,7 @@ func declaredDebugParts(r *Record, l *Layout, hook DebugHook) ([]string, error) 
 	return parts, nil
 }
 
-func sortedDebugParts(r *Record, hook DebugHook) ([]string, error) {
+func sortedParts(r *Record, part func(any, ...Step) (string, error)) ([]string, error) {
 	l := r.Layout()
 	idx := make([]int, len(l.Fields))
 	for i := range idx {
@@ -496,7 +591,7 @@ func sortedDebugParts(r *Record, hook DebugHook) ([]string, error) {
 	}
 	parts := make([]string, len(idx))
 	for i, fi := range idx {
-		s, err := DebugText(r.slot(&l.Fields[fi]), hook)
+		s, err := part(r.slot(&l.Fields[fi]), Step{Kind: StepField, Name: l.Fields[fi].Name})
 		if err != nil {
 			return nil, err
 		}
@@ -505,10 +600,9 @@ func sortedDebugParts(r *Record, hook DebugHook) ([]string, error) {
 	return parts, nil
 }
 
-// debugSet is std's Set Debug: `[a, b]` over the elements in insertion order,
-// each through the structural Debug without the caller's hook, which is how
-// the VM renders a set.
-func debugSet(r *Record, hook DebugHook) (string, error) {
+// shapeSet is std's Set rendering, `Set[a, b]` over the members in
+// insertion order, each by part.
+func shapeSet(r *Record, part func(any, ...Step) (string, error)) (string, error) {
 	keys, ok := setMembers(r)
 	if !ok {
 		raw, _ := r.FieldNamed("items")
@@ -519,7 +613,7 @@ func debugSet(r *Record, hook DebugHook) (string, error) {
 		if renderErr != nil {
 			return ""
 		}
-		s, err := DebugText(element, hook)
+		s, err := part(element, Step{Kind: StepElem})
 		renderErr = err
 		return s
 	})

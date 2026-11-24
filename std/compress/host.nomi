@@ -1,0 +1,81 @@
+//# The Go-backed half of std::compress: gzip, zlib and raw deflate over
+//# Go's compress packages (internal/stdcompress). A format is 0 for gzip,
+//# 1 for zlib and 2 for raw deflate, and a level is -1 for the default, 0
+//# for stored and 1 to 9. A failure is a kind (0 none, 1 corrupt, 2
+//# truncated, 3 too large, 4 another format), the format the header shows
+//# and a reason. It is internal; a program imports std::compress.
+
+import
+    bytes.Bytes
+    int.{Int, Int64}
+    io.{Reader, Writer}
+    option.Option
+    strings.String
+end
+
+/// `data` compressed: a gzip stream with the header's fields, a zlib or
+/// raw deflate one with `dictionary` preset.
+pub host fn encode(
+    format:     Int64,
+    data:       Bytes,
+    level:      Int64,
+    name:       String,
+    comment:    String,
+    modified:   Int,
+    os:         Int,
+    dictionary: Option<Bytes>,
+) -> Bytes
+
+/// What `data` decompresses to, up to `max_length` bytes, and a failure.
+pub host fn decode(
+    format:     Int64,
+    data:       Bytes,
+    max_length: Int,
+    dictionary: Option<Bytes>,
+) -> (Bytes, Int, Int, String)
+
+/// The header of the gzip member at `offset` in `data`: its name, comment,
+/// modification time in Unix seconds (0 for none) and OS, read without
+/// decoding its data, and a failure.
+pub host fn gzip_header(data: Bytes, offset: Int) -> (String, String, Int, Int, Int, Int, String)
+
+/// What the stream at `offset` in `data` decompresses to, up to
+/// `max_length` bytes (a gzip stream's first member only), the offset just
+/// past the stream's end, and a failure.
+pub host fn decode_at(
+    format:     Int64,
+    data:       Bytes,
+    offset:     Int,
+    max_length: Int,
+    dictionary: Option<Bytes>,
+) -> (Bytes, Int, Int, Int, String)
+
+/// A reader of what `source` decompresses to. Closing it leaves `source`
+/// open.
+pub host fn reader(format: Int64, source: Reader, dictionary: Option<Bytes>) -> Reader
+
+/// A writer that compresses into `sink`. Its flush flushes the compressor
+/// and `sink`; closing it writes the format's end and leaves `sink` open.
+pub host fn writer(
+    format:     Int64,
+    sink:       Writer,
+    level:      Int64,
+    name:       String,
+    comment:    String,
+    modified:   Int,
+    os:         Int,
+    dictionary: Option<Bytes>,
+) -> Writer
+
+/// A reader of `source`'s bytes compressed, each read of `source` flushed
+/// through. Closing it leaves `source` open.
+pub host fn encoding_reader(
+    format:     Int64,
+    source:     Reader,
+    level:      Int64,
+    name:       String,
+    comment:    String,
+    modified:   Int,
+    os:         Int,
+    dictionary: Option<Bytes>,
+) -> Reader

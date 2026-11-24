@@ -1,22 +1,12 @@
 -- Default client config for `vim.lsp.enable('nomi')` (Neovim 0.11+).
 -- Override any field with `vim.lsp.config('nomi', { ... })`.
 
--- Prefer `nomi-lsp` on PATH; fall back to where `go install` puts it.
-local cmd = 'nomi-lsp'
-if vim.fn.executable(cmd) == 0 then
-  local gobin = vim.env.GOBIN
-  if not gobin or gobin == '' then
-    gobin = vim.fs.joinpath(vim.env.GOPATH or vim.fs.joinpath(vim.env.HOME, 'go'), 'bin')
-  end
-  local candidate = vim.fs.joinpath(gobin, 'nomi-lsp')
-  if vim.fn.executable(candidate) == 1 then
-    cmd = candidate
-  end
-end
+-- The server is `nomi lsp`, from the `nomi` on PATH, as the runner and the
+-- debugger find it.
 
 ---@type vim.lsp.Config
 return {
-  cmd = { cmd },
+  cmd = { 'nomi', 'lsp' },
   -- A TOML buffer only when it is a module's nomi.toml or one of its
   -- phrase catalogs.
   filetypes = { 'nomi', 'toml' },

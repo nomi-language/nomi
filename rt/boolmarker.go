@@ -48,7 +48,7 @@ package rt
 //
 // The consequences are the marker consequences and they are all forced rather
 // than chosen: two are always equal because there is nothing to differ, the hash
-// is the unit hash, and `zeroSized()` is true. That is the opposite of rt.Bytes,
+// is the unit hash, and an enum payload of one has no slot. That is the opposite of rt.Bytes,
 // which looks like a marker from the builder's side and has a payload rt owns —
 // see internal/irbuild's `rtOpaque` field for the wrong answers that shape
 // gives without the flag.

@@ -70,6 +70,15 @@ func (c *checker) recordTypeQualifiedImplDemand(n *ast.Call, fa *ast.FieldAccess
 		return
 	}
 	ifaceName, ifaceOrigin := providers[0].Name, providers[0].Origin
+	if ifaceOrigin == OriginUnresolved {
+		// A derive's block names its interface by the prelude's name, which
+		// the receiver's impl bounds resolve: the demand names the
+		// declaration too, so the demand it carries to a type argument and
+		// the one those bounds record are one (RecordManifest).
+		if it := c.implementedInterface(ownerBase, providers[0]); it != nil {
+			ifaceOrigin = it.Origin
+		}
+	}
 	recv := receiverArgTypeForOwner(ft, subs, ownerBase)
 	if recv == nil {
 		return
@@ -116,7 +125,24 @@ func (c *checker) recordTypeQualifiedImplDemand(n *ast.Call, fa *ast.FieldAccess
 	if declaresInterfaceBound(ft, subs, providers[0]) {
 		return
 	}
-	c.recordBoundConformance(recv, ifaceName, ifaceOrigin, c.recPos(n.Line, n.Col), RecordingKindCallSite)
+	// The demand below reaches only named types, and the callee may have
+	// no bound that checks the call: a derive's block that writes no
+	// function (derivesByShape) has no function at all, and std's `impl
+	// Equatable for List<T>` names no bound on T. So the call is checked
+	// as its interface-qualified spelling is (reportSelfUnmet), and
+	// `Option.hash(Some(inc))` and `List.equal([inc], [inc])` are refused
+	// as `Hashable.hash(Some(inc))` and `Equatable.equal([inc], [inc])`
+	// are.
+	if it := c.implementedInterface(ownerBase, providers[0]); it != nil && c.reportSelfUnmet(n, recv, it, ownerBase+"."+fa.Field.Name) {
+		return
+	}
+	// A function the block writes is the callee: the block's bounds are
+	// its own, which the call's bound check reports (`List.contains([inc],
+	// inc)`'s `T: Equatable`), so the demand does not report them again.
+	saved := c.boundsCheckedByCall
+	c.boundsCheckedByCall = implBlockMethod(c.fa.implBlockFor(recv, ifaceName, ifaceOrigin, nil), fa.Field.Name) != nil
+	c.recordBoundConformance(recv, ifaceName, ifaceOrigin, c.callSiteOf(n, n.Line, n.Col))
+	c.boundsCheckedByCall = saved
 }
 
 // typeQualifiedOwnerBaseName returns the base name of the TYPE a

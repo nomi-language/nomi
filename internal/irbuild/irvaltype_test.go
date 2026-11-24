@@ -129,3 +129,56 @@ func TestIRValType_EveryTemporaryCarriesTheCheckersType(t *testing.T) {
 		t.Fatal("register classes are wrong")
 	}
 }
+
+// A declared type that holds itself through a List, a Map or a tuple states
+// that field's type, whichever the builder maps first: here `values` is a
+// List<Value> before any Value is typed alone, and the layout Value states
+// under it holds the List, the Map and the tuple again, never the erased
+// type. The reachability walk reads these fields for the bodies a value may
+// run (vm's heldTypes), and an erased one stands for every body.
+func TestIRValType_ASelfHoldingTypeStatesItsFields(t *testing.T) {
+	const src = `import std::io
+
+enum Value
+  Leaf Int
+  Array List<Value>
+  Table Map<String, Value>
+  Pair (Value, Value)
+end
+
+fn count(values: List<Value>) -> Int
+  Iter.count(values)
+end
+
+fn main()
+  io.print(count([Value.Leaf(1)]))
+end
+`
+	fns := irRetainedFuncs(t, src)
+	count := fns["count"]
+	if count == nil {
+		t.Fatalf("count was not retained; retained: %v", fns)
+	}
+	list := count.TempType(count.Params()[0].Temp)
+	if list == nil || list.Kind() != ir.KindList {
+		t.Fatalf("count's parameter is typed %v, want a List", list)
+	}
+	value := list.Elem(0)
+	if value.Kind() != ir.KindEnum || value.Layout() == nil {
+		t.Fatalf("the List's element is %v with layout %v, want the Value enum with its variants", value, value.Layout())
+	}
+	for _, v := range value.Layout().Variants[1:] {
+		held := v.Fields[0].Type
+		if held.Kind() == ir.KindAny {
+			t.Errorf("Value.%s holds the erased type", v.Name)
+			continue
+		}
+		for i := range held.NumElems() {
+			if e := held.Elem(i); e.Kind() == ir.KindAny {
+				t.Errorf("Value.%s is %v, whose part %d is erased", v.Name, held, i)
+			} else if e.Kind() == ir.KindEnum && e != value {
+				t.Errorf("Value.%s holds a Value typed apart from the one it is in", v.Name)
+			}
+		}
+	}
+}

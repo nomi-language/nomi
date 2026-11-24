@@ -24,7 +24,7 @@ package analysis
 // generic call's type argument or a where clause's subject was checked
 // against while the variable was still open, or a demand an interface call
 // or an interpolation placed on it (openBounds, recorded by
-// typeImplementsInterface and recordBoundConformanceRecording). A variable
+// typeImplementsInterface and recordConformanceRecording). A variable
 // no candidate satisfies stays open, and the elaboration gate reports it.
 //
 // Closed is for lowering only. The checker and every display (hover,

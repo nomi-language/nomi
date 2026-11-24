@@ -1,0 +1,340 @@
+// std's helpers over tasks and channels: each is timed by the virtual
+// clock, so an elapsed time says which task the helper waited for.
+import
+    std::channels.{Channel, Receiver, Sender, TimedOut}
+    std::duration.Duration
+    std::instant.Monotonic
+    std::tasks.{Failure, Outcome, Task}
+    std::testing.Clock
+    std::timer
+end
+
+// Answers `value` after `seconds` of the clock.
+fn after<T>(seconds: Int, value: T) -> T
+    timer.sleep(Duration.seconds(seconds))
+    value
+end
+
+// Traps after `seconds` of the clock.
+fn trap_after(seconds: Int) -> Result<Int, String>
+    timer.sleep(Duration.seconds(seconds))
+    Ok(Iter.find([1], &(&1 > 5))!)
+end
+
+// Sleeps `seconds`, then answers `Ok(seconds)`, or `Err` for 2; it says on
+// `stopped` that it ended, however it ended.
+fn job(seconds: Int, stopped: Sender<Int>) -> Result<Int, String>
+    defer tell(stopped, seconds)
+    timer.sleep(Duration.seconds(seconds))
+    if seconds == 2 then Err("two") else Ok(seconds)
+end
+
+fn tell(out: Sender<Int>, value: Int)
+    _ = Sender.send(out, value)
+end
+
+fn elapsed_seconds(start: Monotonic) -> Int
+    Duration.as_seconds(Monotonic.elapsed(start))
+end
+
+group "Task.try_await_all"
+    clock Clock.Virtual
+
+    test "every Ok answers in the order of the tasks"
+        start = Monotonic.now()
+
+        got =
+            concurrent
+                [3, 1, 2]
+                |> Task.spawn_all(fn n -> after(n, Ok(n * 10)), max_running: 3)
+                |> Task.try_await_all()
+            end
+
+        result: Result<List<Int>, String> = got
+        assert result == Ok([30, 10, 20])
+        assert elapsed_seconds(start) == 3
+    end
+
+    test "the first Err to finish answers, not the first in the list"
+        start = Monotonic.now()
+
+        got =
+            concurrent
+                [(5, Err("late")), (1, Err("early")), (9, Ok(0))]
+                |> Task.spawn_all(fn (n, answer) -> after(n, answer), max_running: 3)
+                |> Task.try_await_all()
+            end
+
+        assert got == Err("early")
+        assert elapsed_seconds(start) == 1
+    end
+
+    test "an Err cancels the tasks still running and waits for them"
+        stopped = Channel.buffered<Int>(4)
+        start = Monotonic.now()
+
+        got =
+            concurrent
+                [10, 2, 30]
+                |> Task.spawn_all(fn n -> job(n, stopped.sender), max_running: 3)
+                |> Task.try_await_all()
+            end
+
+        assert got == Err("two")
+        assert elapsed_seconds(start) == 2
+        // Each task ran its defer before the answer came back.
+        Sender.close(stopped.sender)
+        assert Receiver.iter(stopped.receiver) |> Iter.to_list() |> Iter.sort() == [2, 10, 30]
+    end
+
+    test "no tasks is Ok with no values"
+        got =
+            concurrent
+                none: List<Int> = []
+
+                none
+                |> Task.spawn_all(fn n -> after(n, Ok(n)), max_running: 1)
+                |> Task.try_await_all()
+            end
+
+        result: Result<List<Int>, String> = got
+        assert result == Ok([])
+    end
+
+    test "a task that traps stops the wait with its fault"
+        start = Monotonic.now()
+
+        ended =
+            concurrent
+                waiter = Task.spawn(fn ->
+                    concurrent
+                        [fn -> trap_after(1), fn -> after(9, Ok(0))]
+                        |> Task.spawn_all(fn run -> run(), max_running: 2)
+                        |> Task.try_await_all()
+                    end
+                end)
+
+                Task.outcome(waiter)
+            end
+
+        assert Outcome.Failed(Failure.Errored(fault)) = ended
+        assert String.contains(fault, "found nothing")
+        assert elapsed_seconds(start) == 1
+    end
+end
+
+group "Task.race"
+    clock Clock.Virtual
+
+    test "the first body to finish answers"
+        start = Monotonic.now()
+        winner = Task.race([fn -> after(5, "five"), fn -> after(2, "two"), fn -> after(9, "nine")])
+
+        assert winner == "two"
+        assert elapsed_seconds(start) == 2
+    end
+
+    test "the losers are cancelled and waited for"
+        stopped = Channel.buffered<Int>(3)
+        start = Monotonic.now()
+
+        winner = Task.race(
+            [
+                fn -> job(10, stopped.sender),
+                fn -> job(1, stopped.sender),
+                fn -> job(30, stopped.sender),
+            ]
+        )
+
+        assert winner == Ok(1)
+        assert elapsed_seconds(start) == 1
+        Sender.close(stopped.sender)
+        assert Receiver.iter(stopped.receiver) |> Iter.to_list() |> Iter.sort() == [1, 10, 30]
+    end
+
+    test "a body that traps first ends the race with its fault"
+        start = Monotonic.now()
+
+        ended =
+            concurrent
+                racer = Task.spawn(fn -> Task.race([fn -> trap_after(1), fn -> after(5, Ok(5))]))
+                Task.outcome(racer)
+            end
+
+        assert Outcome.Failed(Failure.Errored(fault)) = ended
+        assert String.contains(fault, "found nothing")
+        assert elapsed_seconds(start) == 1
+    end
+
+    test "a loser is cancelled before it can trap"
+        winner = Task.race([fn -> trap_after(3), fn -> after(1, Ok(1))])
+
+        assert winner == Ok(1)
+    end
+
+    test "cancelling the caller cancels every body"
+        stopped = Channel.buffered<Int>(2)
+        start = Monotonic.now()
+
+        ended =
+            concurrent
+                racer = Task.spawn(fn ->
+                    Task.race([fn -> job(10, stopped.sender), fn -> job(20, stopped.sender)])
+                end)
+
+                timer.sleep(Duration.seconds(1))
+                Task.cancel(racer)
+                Task.outcome(racer)
+            end
+
+        assert ended == Outcome.Cancelled
+        assert elapsed_seconds(start) == 1
+        Sender.close(stopped.sender)
+        assert Receiver.iter(stopped.receiver) |> Iter.to_list() |> Iter.sort() == [10, 20]
+    end
+end
+
+group "Task.within"
+    clock Clock.Virtual
+
+    test "a body that finishes in time answers Ok"
+        start = Monotonic.now()
+
+        assert Task.within(Duration.seconds(5), fn -> after(2, "done")) == Ok("done")
+        assert elapsed_seconds(start) == 2
+    end
+
+    test "a wait that runs out answers TimedOut and stops the body"
+        stopped = Channel.buffered<Int>(1)
+        start = Monotonic.now()
+
+        assert Task.within(Duration.seconds(3), fn -> job(10, stopped.sender)) == Err(TimedOut)
+        assert elapsed_seconds(start) == 3
+        Sender.close(stopped.sender)
+        assert Receiver.iter(stopped.receiver) |> Iter.to_list() == [10]
+    end
+
+    test "a body that traps in time ends the call with its fault"
+        ended =
+            concurrent
+                waiter = Task.spawn(fn -> Task.within(Duration.seconds(5), fn -> trap_after(1)))
+                Task.outcome(waiter)
+            end
+
+        assert Outcome.Failed(Failure.Errored(fault)) = ended
+        assert String.contains(fault, "found nothing")
+    end
+end
+
+// A job for `timer.every`: says on `runs` when it started, then takes
+// `seconds`.
+fn tick(runs: Sender<Int>, start: Monotonic, seconds: Int) -> Unit
+    tell(runs, elapsed_seconds(start))
+    timer.sleep(Duration.seconds(seconds))
+end
+
+// Runs `job` every `interval` seconds until `stop_at` seconds have passed,
+// then cancels it, and answers how it ended.
+fn every_until(interval: Int, stop_at: Int, job: () -> Unit) -> Outcome<Unit>
+    concurrent
+        ticker = Task.spawn(fn -> timer.every(Duration.seconds(interval), job))
+        timer.sleep(Duration.seconds(stop_at))
+        Task.cancel(ticker)
+        Task.outcome(ticker)
+    end
+end
+
+group "timer.every"
+    clock Clock.Virtual
+
+    test "a quick job runs on the interval"
+        runs = Channel.buffered<Int>(8)
+        start = Monotonic.now()
+
+        assert every_until(5, 12, fn -> tick(runs.sender, start, 0)) == Outcome.Cancelled
+        Sender.close(runs.sender)
+        assert Receiver.iter(runs.receiver) |> Iter.to_list() == [0, 5, 10]
+    end
+
+    test "the wait starts when the job ends"
+        runs = Channel.buffered<Int>(8)
+        start = Monotonic.now()
+
+        assert every_until(5, 20, fn -> tick(runs.sender, start, 3)) == Outcome.Cancelled
+        Sender.close(runs.sender)
+        assert Receiver.iter(runs.receiver) |> Iter.to_list() == [0, 8, 16]
+    end
+
+    test "cancelling the caller stops the wait at once"
+        start = Monotonic.now()
+
+        assert every_until(60, 1, fn -> Unit) == Outcome.Cancelled
+        assert elapsed_seconds(start) == 1
+    end
+
+    test "a job that traps ends every with its fault"
+        ended =
+            concurrent
+                ticker = Task.spawn(fn ->
+                    timer.every(Duration.seconds(1), fn ->
+                        _ = trap_after(2)
+                    end)
+                end)
+
+                Task.outcome(ticker)
+            end
+
+        assert Outcome.Failed(Failure.Errored(fault)) = ended
+        assert String.contains(fault, "found nothing")
+    end
+end
+
+// Sends 1, 2 and 3 a second apart, then closes the channel.
+fn count_out(out: Sender<Int>) -> Unit
+    defer Sender.close(out)
+
+    [1, 2, 3]
+    |> Iter.each(fn n ->
+        timer.sleep(Duration.seconds(1))
+        tell(out, n)
+    end)
+end
+
+group "Receiver.iter"
+    clock Clock.Virtual
+
+    test "a walk reads each value as it arrives, until the channel closes"
+        numbers = Channel.unbuffered<Int>()
+        start = Monotonic.now()
+
+        arrivals =
+            concurrent
+                producer = Task.spawn(fn -> count_out(numbers.sender))
+
+                read =
+                    Receiver.iter(numbers.receiver)
+                    |> Iter.map(fn n -> (n, elapsed_seconds(start)))
+                    |> Iter.to_list()
+
+                Task.await(producer)
+                read
+            end
+
+        assert arrivals == [(1, 1), (2, 2), (3, 3)]
+    end
+
+    test "a consumer that stops early leaves the rest on the channel"
+        numbers = Channel.buffered<Int>(3)
+
+        first =
+            concurrent
+                producer = Task.spawn(fn -> count_out(numbers.sender))
+                found = Receiver.iter(numbers.receiver) |> Iter.first()
+                Task.await(producer)
+                found
+            end
+
+        assert first == Some(1)
+        assert Receiver.iter(numbers.receiver) |> Iter.to_list() == [2, 3]
+    end
+end

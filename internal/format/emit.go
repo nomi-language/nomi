@@ -3142,8 +3142,9 @@ func emitCallArg(n ast.Node) Doc {
 //   - Empty body: "fn params -> {}".
 //   - A braced body whose first statement the source starts on a line
 //     below the `{` (lambdaKeepsBlock): a block, however short.
-//   - Exactly one ExprStmt: emit the expression inline ("fn params -> expr"),
-//     flat-or-break via Group.
+//   - Exactly one ExprStmt, or one discard (isBareDiscard): emit it inline
+//     ("fn params -> expr", "fn params -> _ = expr"), flat-or-break via
+//     Group.
 //   - Otherwise: emit a block ("fn params -> {\n  stmt1\n  stmt2\n}").
 func emitLambda(v *ast.Lambda) Doc {
 	return emitLambdaKeepingBraces(v, false)
@@ -3232,7 +3233,7 @@ func emitLambdaKeepingBraces(v *ast.Lambda, keepBlock bool) Doc {
 				endWhenBroken(),
 			))
 		}
-		if !isInlineBranch(body.Stmts[0]) || statementOrBlockHasComment(body, body.Stmts[0]) {
+		if !isInlineBranch(body.Stmts[0]) && !isBareDiscard(body.Stmts[0]) || statementOrBlockHasComment(body, body.Stmts[0]) {
 			return emitLambdaBlock(header, body)
 		}
 		return Group(Concat(
@@ -3244,6 +3245,14 @@ func emitLambdaKeepingBraces(v *ast.Lambda, keepBlock bool) Doc {
 
 	// Multi-statement body: always below the parameters, closed by `end`.
 	return emitLambdaBlock(header, body)
+}
+
+// isBareDiscard reports whether stmt is `_ = expr`, the one statement a
+// lambda's body may be on its `->`'s line (parseLambda). Written there, it
+// stays there while it fits, as an expression body does.
+func isBareDiscard(stmt ast.Node) bool {
+	b, ok := stmt.(*ast.Binding)
+	return ok && b.Name == "_" && b.TypeAnnotation == nil
 }
 
 // lambdaLiteralBody is the body of a lambda that stays on the parameters'
@@ -3666,12 +3675,7 @@ func emitPatternNode(n ast.Node) Doc {
 		// formatter convention (mirroring ListSpreadLit) is to emit
 		// spread patterns flat regardless.
 		if len(v.Tails) > 0 {
-			// `[first, ..mid, last]` is written as a vector pattern is.
-			rest := v.TailSpread
-			if v.BareRest {
-				rest = nil
-			}
-			return emitSeqPattern(v, open, v.Heads, true, rest, v.Tails, v.EndTrivia)
+			return emitSeqPattern(open, v.Heads, v.TailSpread, v.BareRest, v.Tails, v.EndTrivia)
 		}
 		if v.TailSpread != nil {
 			// A comment is the exception, which no flat form can hold.
@@ -6065,48 +6069,32 @@ func emitListSpreadLit(v *ast.ListLit) Doc {
 	return bracedList(open, "]", elems, lastComma)
 }
 
-// emitSeqPattern writes a vector pattern, or a list pattern with elements
-// after its `..`: open, the heads, the `..` with its rest (nil for a bare
-// `..`) when spread is set, and the tails.
-func emitSeqPattern(v ast.Node, open string, heads []ast.Node, spread bool, rest ast.Node, tails []ast.Node, endTrivia []ast.Trivia) Doc {
-	items := append([]ast.Node{}, heads...)
-	if spread && rest != nil {
-		items = append(items, rest)
-	}
-	items = append(items, tails...)
+// emitSeqPattern writes a list pattern with elements after its `..`: open,
+// the heads, the `..` with its rest pattern, and the tails. A bare `..`
+// writes no rest pattern, but the wildcard the parser puts at it is its
+// item, so a comment written at the `..` stays there.
+func emitSeqPattern(open string, heads []ast.Node, rest ast.Node, bare bool, tails []ast.Node, endTrivia []ast.Trivia) Doc {
+	items := append(append(append([]ast.Node{}, heads...), rest), tails...)
 	elems, cs, commented := patternItems(items)
-	if spread {
-		// The `..` stands between the heads and the tails, with its rest
-		// pattern's Doc when there is one.
-		at := len(heads)
-		spread := Text("..")
-		if rest != nil {
-			spread = Concat(Text(".."), elems[at])
-			elems = append(elems[:at:at], append([]Doc{spread}, elems[at+1:]...)...)
-		} else {
-			elems = append(elems[:at:at], append([]Doc{spread}, elems[at:]...)...)
-			if cs != nil {
-				cs = append(cs[:at:at], append([]*ast.ItemComments{nil}, cs[at:]...)...)
-			}
-		}
-		if commented || trailingHasComment(endTrivia) {
-			return emitCommentedList(open, "]", elems, cs, endTrivia)
-		}
-		parts := make([]Doc, 0, len(elems)*2+2)
-		parts = append(parts, Text(open))
-		for i, e := range elems {
-			if i > 0 {
-				parts = append(parts, Text(", "))
-			}
-			parts = append(parts, e)
-		}
-		parts = append(parts, Text("]"))
-		return Concat(parts...)
+	at := len(heads)
+	if bare {
+		elems[at] = Text("..")
+	} else {
+		elems[at] = Concat(Text(".."), elems[at])
 	}
-	if trailingHasComment(endTrivia) || commented || tooDeep(v, len(heads)) || itemsBrokenAfterOpen(v.LineNum(), heads) {
+	if commented || trailingHasComment(endTrivia) {
 		return emitCommentedList(open, "]", elems, cs, endTrivia)
 	}
-	return emitBracedList(open, "]", elems)
+	parts := make([]Doc, 0, len(elems)*2+2)
+	parts = append(parts, Text(open))
+	for i, e := range elems {
+		if i > 0 {
+			parts = append(parts, Text(", "))
+		}
+		parts = append(parts, e)
+	}
+	parts = append(parts, Text("]"))
+	return Concat(parts...)
 }
 
 // taggedOnOneLine reports whether v, a triple-quoted typed literal, was

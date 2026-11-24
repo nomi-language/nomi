@@ -2,13 +2,15 @@ package rt
 
 import "bytes"
 
-// Writers whose bytes the program takes as they are written:
-// `Writer.from_fn` (a function the writer hands each chunk to) and the
-// in-memory writer `Writer.collect` gives its body.
+// Writers whose bytes are taken as they are written: `Writer.from_fn` (a
+// function the writer hands each chunk to), a writer an adapter makes over
+// another stream (std::compress's, which writes the Writer it wraps), and
+// the in-memory writer `Writer.collect` gives its body.
 //
-// A from_fn writer's function is program code. It runs on the frame of the
-// operation that sends the bytes on (pushWriter.fr, set under the handle's
-// lock before each write, flush and close), so a chunk written inside
+// A from_fn writer's function is program code, and an adapter's writes to
+// the Writer it wraps may run some. Each runs on the frame of the operation
+// that sends the bytes on (pushWriter.fr, set under the handle's lock
+// before each write, flush and close), so a chunk written inside
 // `io.capture` prints into that capture, as a pulled reader's chunks do. A
 // buffered writer sends bytes on when its buffer fills, on flush and on
 // close; an unbuffered one on each write.
@@ -46,9 +48,24 @@ func (p *pushWriter) Write(b []byte) (int, error) {
 // unbuffered, it receives each write as it is made. An Err from either is
 // the io.Error the operation answers.
 func WriterFromFn(write func(fr *Frame, chunk Bytes) Result[Unit, IOError], closeFn func(fr *Frame) Result[Unit, IOError], unbuffered bool) Writer {
+	return NewPushWriter("<fn>", write, nil, closeFn, unbuffered)
+}
+
+// NewPushWriter is a Writer named name that hands what is written to write,
+// as WriterFromFn's does. flush, when not nil, runs at Writer.flush once the
+// buffer has reached write, for a write that holds bytes itself (a
+// compressor); closeFn runs at Writer.close after the last chunk. Each runs
+// on the frame of the operation, and none runs once the program no longer
+// holds the writer or has ended.
+func NewPushWriter(
+	name string,
+	write func(fr *Frame, chunk Bytes) Result[Unit, IOError],
+	flush, closeFn func(fr *Frame) Result[Unit, IOError],
+	unbuffered bool,
+) Writer {
 	p := &pushWriter{push: write}
-	w := NewWriter(WriteSink{
-		Name: "<fn>",
+	sink := WriteSink{
+		Name: name,
 		W:    p,
 		Close: func() error {
 			if res := closeFn(p.fr); res.Tag != TagOk {
@@ -57,7 +74,16 @@ func WriterFromFn(write func(fr *Frame, chunk Bytes) Result[Unit, IOError], clos
 			return nil
 		},
 		Unbuffered: unbuffered,
-	})
+	}
+	if flush != nil {
+		sink.Flush = func() error {
+			if res := flush(p.fr); res.Tag != TagOk {
+				return IOFailure{E: res.Err}
+			}
+			return nil
+		}
+	}
+	w := NewWriter(sink)
 	w.h.st.push = p
 	return w
 }

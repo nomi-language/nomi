@@ -39,6 +39,13 @@ func (bl *irScalarBuilder) fileFuncRef(t *ast.FieldAccess, owner *ast.Ident) (ir
 		return v, k, mobile, ok, true
 	}
 	if g.files != nil {
+		if g.namesOwnFile(owner) {
+			// `sessions.write` in a `//!` prompt of std/sessions: the
+			// file's own function, read as its bare name is, which the
+			// field is (ownModuleCall's reason).
+			v, k, mobile, ok := bl.lowerNode(t.Field)
+			return v, k, mobile, ok, true
+		}
 		if to, isSibling := g.lookupQualifier(owner); isSibling {
 			f := g.siblingFuncAt(to, t.Field)
 			if f == nil {

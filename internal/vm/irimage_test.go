@@ -34,6 +34,7 @@ import (
 	"time"
 
 	"github.com/nomi-language/nomi/internal/expectation"
+	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/ir"
 	"github.com/nomi-language/nomi/internal/irbuild"
 	"github.com/nomi-language/nomi/internal/vm"
@@ -248,10 +249,11 @@ func TestIRImage_StdlibTestIRRoundTrips(t *testing.T) {
 // its cases are in and the lowering, or a nil module when path declares no
 // tests or the lowering is refused.
 func stdlibTestUnit(path string) (string, *ir.Module, *irbuild.Result) {
-	module := irbuild.StdlibTestModule(path)
-	if module == "" {
+	key, _, ok, _ := frontend.StdlibFile(path)
+	if !ok {
 		return "", nil, nil
 	}
+	module := strings.TrimPrefix(key, "std/")
 	prog, res, err := irbuild.GenerateStdlibTestIR(module, nil, nil, irbuild.DeclineHooks{})
 	if err != nil {
 		return module, nil, nil

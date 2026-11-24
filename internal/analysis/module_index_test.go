@@ -5,6 +5,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/nomi-language/nomi/internal/modcache"
+	"github.com/nomi-language/nomi/internal/modfetch/modfetchtest"
 )
 
 // writeFile is a small helper that mkdir-p's the parent and writes
@@ -70,10 +73,10 @@ func TestBuildModuleIndex_NoManifest(t *testing.T) {
 // never downloads; an import of it reports it missing
 // (TestShortNameImport_FromTheModuleCacheAndMissingFromIt).
 func TestBuildModuleIndex_NotInTheModuleCache(t *testing.T) {
-	t.Setenv("GOMODCACHE", t.TempDir())
+	modfetchtest.Cache(t)
 	tmp := t.TempDir()
 	writeFile(t, filepath.Join(tmp, "nomi.toml"),
-		"[module]\nname = \"todo\"\n\n[dependencies]\nremote = { module = \"example.com/remote\", version = \"v1.2.3\" }\n")
+		"[module]\nname = \"todo\"\n\n[dependencies]\nremote = { repo = \"example.com/remote\", version = \"v1.2.3\" }\n")
 	idx, err := BuildModuleIndex(tmp)
 	if err != nil {
 		t.Fatalf("BuildModuleIndex: %v", err)
@@ -146,16 +149,14 @@ func TestBuildModuleIndex_NamesArePerModule(t *testing.T) {
 	tmp := t.TempDir()
 	app := filepath.Join(tmp, "app")
 	writeFile(t, filepath.Join(app, "nomi.toml"), "[module]\nname = \"app\"\n\n[dependencies]\n"+
-		"kit = { module = \"example.com/kit\", version = \"v0.1.0\", dir = \"../kit\" }\n"+
-		"words = { module = \"example.com/text\", version = \"v0.1.0\", dir = \"../text\" }\n")
-	writeFile(t, filepath.Join(tmp, "kit", "nomi.toml"), "[module]\nname = \"kit\"\npath = \"example.com/kit\"\n\n[dependencies]\n"+
-		"pad = { module = \"example.com/pad\", version = \"v0.1.0\" }\n"+
-		"text = { module = \"example.com/text\", version = \"v0.1.0\" }\n")
-	writeFile(t, filepath.Join(tmp, "text", "nomi.toml"), "[module]\nname = \"text\"\npath = \"example.com/text\"\n")
-	cache := t.TempDir()
-	t.Setenv("GOMODCACHE", cache)
-	writeFile(t, filepath.Join(cache, "example.com", "pad@v0.1.0", "nomi.toml"), "[module]\nname = \"pad\"\npath = \"example.com/pad\"\n")
-	writeFile(t, filepath.Join(cache, "cache", "download", "example.com", "pad", "@v", "v0.1.0.ziphash"), "h1:x\n")
+		"kit = { repo = \"example.com/kit\", version = \"v0.1.0\", dir = \"../kit\" }\n"+
+		"words = { repo = \"example.com/text\", version = \"v0.1.0\", dir = \"../text\" }\n")
+	writeFile(t, filepath.Join(tmp, "kit", "nomi.toml"), "[module]\nname = \"kit\"\n\n[dependencies]\n"+
+		"pad = { repo = \"example.com/pad\", version = \"v0.1.0\" }\n"+
+		"text = { repo = \"example.com/text\", version = \"v0.1.0\" }\n")
+	writeFile(t, filepath.Join(tmp, "text", "nomi.toml"), "[module]\nname = \"text\"\n")
+	cache := modfetchtest.Cache(t)
+	modfetchtest.CacheRepo(t, cache, "example.com/pad", "v0.1.0", map[string]string{"nomi.toml": "[module]\nname = \"pad\"\n"})
 
 	idx, err := BuildModuleIndex(app)
 	if err != nil {
@@ -171,25 +172,29 @@ func TestBuildModuleIndex_NamesArePerModule(t *testing.T) {
 	if _, ok := idx.Names[""]["pad"]; ok {
 		t.Errorf("app names pad, which only kit names")
 	}
-	sameDirs(t, "pad", idx.Roots["pad"], filepath.Join(cache, "example.com", "pad@v0.1.0"))
+	sameDirs(t, "pad", idx.Roots["pad"], modcache.RepoDir(cache, "example.com/pad", "v0.1.0"))
 }
 
 // TestLoadManifest_DependencyEntries: each [dependencies] entry is held to
 // its form, at its line, with a message that names it.
 func TestLoadManifest_DependencyEntries(t *testing.T) {
 	for _, tc := range []struct{ body, want string }{
-		{"a = { module = \"example.com/a\", version = \"v1.0.0\" }\nb = { module = \"example.com/a\", version = \"v1.1.0\" }\n",
+		{"a = { repo = \"example.com/a\", version = \"v1.0.0\" }\nb = { repo = \"example.com/a\", version = \"v1.1.0\" }\n",
 			"nomi.toml:7: [dependencies] a and b both name example.com/a; keep one"},
 		{"shop = { dir = \"../x\" }\n", "nomi.toml:6: [dependencies] shop is this module's own name; name the dependency another way"},
-		{"a = { module = \"example.com/a\", version = \"v1.2\" }\n", "nomi.toml:6: [dependencies] a: \"v1.2\" is not a full version such as v1.2.3"},
-		{"a = { module = \"example.com/a\" }\n", "nomi.toml:6: [dependencies] a needs a `version`"},
-		{"a = { version = \"v1.0.0\" }\n", "nomi.toml:6: [dependencies] a has a version but no `module`"},
-		{"a = {}\n", "nomi.toml:6: [dependencies] a needs `module` and `version`, or `dir`"},
+		{"a = { repo = \"example.com/a\", version = \"v1.2\" }\n", "nomi.toml:6: [dependencies] a: \"v1.2\" is not a version a tag names, such as v1.2.3"},
+		{"a = { repo = \"https://example.com/a\", version = \"v1.0.0\" }\n", "nomi.toml:6: [dependencies] a: \"https://example.com/a\" is not a repository: write it with no scheme"},
+		{"a = { repo = \"example.com/a\", subdir = \"../b\", version = \"v1.0.0\" }\n", "nomi.toml:6: [dependencies] a: \"../b\" is not a directory in a repository"},
+		{"a = { repo = \"example.com/a\" }\n", "nomi.toml:6: [dependencies] a needs a `version`"},
+		{"a = { version = \"v1.0.0\" }\n", "nomi.toml:6: [dependencies] a has a version but no `repo`"},
+		{"a = {}\n", "nomi.toml:6: [dependencies] a needs `repo` and `version`, or `dir`"},
 		{"Big = { dir = \"../x\" }\n", "nomi.toml:6: [dependencies] \"Big\" is not a dependency name"},
-		{"a = { module = \"example.com/a\", verison = \"v1.0.0\" }\n", "nomi.toml:6: [dependencies.a] has no key `verison`; did you mean `version`?"},
+		{"a = { repo = \"example.com/a\", verison = \"v1.0.0\" }\n", "nomi.toml:6: [dependencies.a] has no key `verison`; did you mean `version`?"},
+		{"a = { module = \"example.com/a\", version = \"v1.0.0\" }\n", "nomi.toml:6: [dependencies.a] has no key `module`"},
 	} {
 		dir := t.TempDir()
-		writeFile(t, filepath.Join(dir, "nomi.toml"), "[module]\nname = \"shop\"\npath = \"example.com/shop\"\n\n[dependencies]\n"+tc.body)
+		writeFile(t, filepath.Join(dir, "nomi.toml"), "[module]\nname = \"shop\"\n# The shop.\n\n[dependencies]\n"+tc.body)
+
 		_, err := LoadManifest(dir)
 		if err == nil {
 			t.Errorf("LoadManifest admits\n%s", tc.body)

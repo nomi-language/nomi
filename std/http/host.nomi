@@ -29,12 +29,14 @@ pub host type Handle
 /// A client made from options. A duration is in nanoseconds and a count of
 /// 0 is Go's default; `redirects` is -1 to follow none, else the most to
 /// follow; `proxy` is 0 for the environment's, 1 for none and 2 for
-/// `proxy_url`.
+/// `proxy_url`; `unix_socket`, "" for none, is the path every connection
+/// goes to.
 pub host fn new_client(
     timeout:                   Int,
     redirects:                 Int,
     proxy:                     Int,
     proxy_url:                 String,
+    unix_socket:               String,
     tls_handshake_timeout:     Int,
     keep_alives:               Bool,
     compression:               Bool,
@@ -141,7 +143,8 @@ pub host type Listener
 /// One request a server received, waiting for its response.
 pub host type Incoming
 
-/// Binds `address` and starts serving. `durations` are the read,
+/// Binds `address`, or takes `listener` when it is given, and starts
+/// serving. `durations` are the read,
 /// read-header, write, idle and shutdown timeouts in nanoseconds, 0 for
 /// Go's default (none); `limits` the most header bytes and header values,
 /// 0 for Go's; `flags` keep-alives, responding to `OPTIONS *`, and client
@@ -152,6 +155,7 @@ pub host type Incoming
 /// `Err` is an `http.Error` variant's name and its fields.
 pub host fn listen(
     address:            String,
+    listener:           Option<TcpListener>,
     durations:          List<Int>,
     limits:             List<Int>,
     flags:              List<Bool>,
@@ -375,10 +379,11 @@ pub host type Certificate
 /// Go's TLS configuration, built from a std::tls config for one use.
 pub host type TlsConfig
 
-/// A network connection, TCP or TLS over TCP, for std::net.
+/// A socket: a stream connection, TCP, Unix or TLS over either, for
+/// std::net, or a datagram socket, UDP or Unix, for std::udp.
 pub host type Conn
 
-/// A listening TCP socket, for std::net.
+/// A listening TCP or Unix socket, for std::net.
 pub host type TcpListener
 
 /// Go's `X509KeyPair`. An `Err` is a `tls.Error` variant's name and fields.
@@ -433,10 +438,12 @@ pub host fn cipher_suites(insecure: Bool) -> List<List<String>>
 /// Go's `CipherSuiteName`.
 pub host fn cipher_suite_name(id: Int) -> String
 
-/// A TCP connection to `address`, with std::net's DialOptions. A duration
-/// is in nanoseconds, 0 Go's default; `local` is "" for any. An `Err` is a
+/// A stream connection on `network` ("tcp", or "unix" for a Unix socket's
+/// path) to `address`, with std::net's DialOptions. A duration is in
+/// nanoseconds, 0 Go's default; `local` is "" for any. An `Err` is a
 /// `net.Error` variant's name and fields.
 pub host fn dial_with(
+    network:             String,
     address:             String,
     timeout:             Int,
     local:               String,
@@ -446,6 +453,8 @@ pub host fn dial_with(
     keep_alive_interval: Int,
     keep_alive_count:    Int,
     multipath:           Bool,
+    reuse_address:       Bool,
+    reuse_port:          Bool,
 ) -> Result<Conn, List<String>>
 
 /// `dial`, then a TLS client handshake.
@@ -503,14 +512,32 @@ pub host fn tracer_events(tracer: Handle) -> List<List<List<String>>>
 /// "" when `host` matches the peer's certificate, else why not.
 pub host fn tls_verify_hostname(conn: Conn, host: String) -> String
 
-/// A TCP listener on `address`, with std::net's ListenOptions.
+/// `length` bytes exported from the connection's TLS session under `label`
+/// and, when `has_context`, `context`, or why not.
+pub host fn tls_export_keying_material(
+    conn:        Conn,
+    label:       String,
+    context:     Bytes,
+    has_context: Bool,
+    length:      NonNegativeInt,
+) -> Result<Bytes, String>
+
+/// The hash of the server's certificate for `tls-server-end-point`, or why
+/// there is none.
+pub host fn tls_server_end_point(conn: Conn) -> Result<Bytes, String>
+
+/// A listener on `network` ("tcp", or "unix" for a Unix socket's path) at
+/// `address`, with std::net's ListenOptions.
 pub host fn net_listen_with(
+    network:             String,
     address:             String,
     keep_alive:          Bool,
     keep_alive_idle:     Int,
     keep_alive_interval: Int,
     keep_alive_count:    Int,
     multipath:           Bool,
+    reuse_address:       Bool,
+    reuse_port:          Bool,
 ) -> Result<TcpListener, List<String>>
 
 /// An accept waiting past `at` (Unix nanoseconds, 0 for none) times out.
@@ -524,6 +551,68 @@ pub host fn conn_linger(conn: Conn, seconds: Int) -> Unit
 
 pub host fn conn_keep_alive(conn: Conn, enabled: Bool, idle: Int, interval: Int, count: Int) -> Unit
 pub host fn conn_multipath(conn: Conn) -> Bool
+
+/// The listening stream sockets the process was started with (systemd's
+/// socket activation), in order, those named `name` alone when it is
+/// given; each is wrapped once for the process.
+pub host fn inherited_listeners(name: Option<String>) -> Result<List<TcpListener>, List<String>>
+
+/// The datagram sockets the process was started with, as
+/// `inherited_listeners`.
+pub host fn inherited_sockets(name: Option<String>) -> Result<List<Conn>, List<String>>
+
+/// Sends the socket's multicast datagrams out of the interface named, ""
+/// for the one the system picks.
+pub host fn socket_multicast_interface(
+    conn:           Conn,
+    interface_name: String,
+) -> Result<Unit, List<String>>
+
+/// Sets the socket option `name` (broadcast, read_buffer, write_buffer,
+/// ttl, multicast_ttl, multicast_loopback) to `value`, a Bool as 0 or 1.
+pub host fn socket_set(conn: Conn, name: String, value: Int) -> Result<Unit, List<String>>
+
+/// The socket option `name`'s value, a Bool as 0 for off.
+pub host fn socket_get(conn: Conn, name: String) -> Result<Int, List<String>>
+
+/// Joins the multicast `group`, or leaves it, on the interface named, ""
+/// for the one the system picks.
+pub host fn socket_group(
+    conn:           Conn,
+    join:           Bool,
+    group:          String,
+    interface_name: String,
+) -> Result<Unit, List<String>>
+
+/// A datagram socket on `network` ("udp", or "unixgram" for a Unix
+/// socket's path) bound to `address`.
+pub host fn udp_bind(
+    network:       String,
+    address:       String,
+    reuse_address: Bool,
+    reuse_port:    Bool,
+) -> Result<Conn, List<String>>
+
+/// A datagram socket on `network` connected to `address`.
+pub host fn udp_dial(network: String, address: String) -> Result<Conn, List<String>>
+
+/// The next datagram of at most `max` bytes, `True` and its sender's
+/// parts (`["Ip", host, port]` or `["Unix", path]`); or empty bytes,
+/// `False` and a `net.Error`'s parts.
+pub host fn udp_receive(conn: Conn, max: Int) -> (Bytes, Bool, List<String>)
+
+/// Sends `data` as one datagram: to the socket's peer when `address` is ""
+/// and `unix` is `False`, else to `address`, a path when `unix` is set.
+pub host fn udp_send(
+    conn:    Conn,
+    data:    Bytes,
+    unix:    Bool,
+    address: String,
+) -> Result<Unit, List<String>>
+
+/// The socket's own address, or its peer's when `remote` is set, as
+/// `udp_receive` gives a sender's; none for an unconnected socket's peer.
+pub host fn udp_address(conn: Conn, remote: Bool) -> List<String>
 
 /// Two connected ends in memory: Go's `net.Pipe`.
 pub host fn pipe() -> List<Conn>
@@ -553,6 +642,7 @@ pub host fn net_listener_close(listener: TcpListener) -> Unit
 /// `listen`, serving HTTPS with `config`.
 pub host fn listen_tls(
     address:            String,
+    listener:           Option<TcpListener>,
     durations:          List<Int>,
     limits:             List<Int>,
     flags:              List<Bool>,
@@ -632,22 +722,6 @@ pub host fn chunked_reader(r: Reader) -> Reader
 
 pub host fn chunked_writer(w: Writer) -> Writer
 
-/// `data` compressed with gzip at `level`, 1 to 9; any other level is
-/// Go's default.
-pub host fn gzip_bytes(data: Bytes, level: Int) -> Bytes
-
-/// The bytes gzip `data` holds, or why it is not gzip.
-pub host fn gunzip(data: Bytes) -> Result<Bytes, String>
-
-/// A writer that compresses into `w` with gzip at `level`. Its flush
-/// flushes the compressor and `w`; closing it writes gzip's end and leaves
-/// `w` open.
-pub host fn gzip_writer(w: Writer, level: Int) -> Writer
-
-/// A reader of `r`'s bytes compressed with gzip at `level`, each read of
-/// `r` flushed through.
-pub host fn gzip_reader(r: Reader, level: Int) -> Reader
-
 /// Go's `multipart.Reader` over `r`; `raw` leaves parts undecoded.
 pub host fn multipart_reader(r: Reader, boundary: String, raw: Bool) -> Handle
 
@@ -667,15 +741,6 @@ pub host fn multipart_write(w: Writer, boundary: String, parts: List<Bytes>) -> 
 /// `CloseClientConnections` does.
 pub host fn close_connections(listener: Listener) -> Unit
 
-/// `data` encrypted and authenticated under a 32-byte `key` with
-/// AES-256-GCM, `label` as additional data: a random nonce, then the
-/// ciphertext and its tag (`rt.Seal`). A key of another length is an Err.
-pub host fn seal(key: Bytes, data: Bytes, label: Bytes) -> Result<Bytes, String>
-
-/// What `seal` sealed under `key` and `label`, or `None` for anything
-/// else (`rt.Open`).
-pub host fn open_sealed(key: Bytes, sealed: Bytes, label: Bytes) -> Option<Bytes>
-
 /// Sec-WebSocket-Accept for a Sec-WebSocket-Key (RFC 6455).
 pub host fn ws_accept_key(key: String) -> String
 
@@ -684,7 +749,18 @@ pub host fn ws_valid_key(key: String) -> Bool
 
 /// A WebSocket over `conn`, its handshake done; durations in nanoseconds,
 /// 0 for none, and a `max` message size of 0 or less for no limit.
-pub host fn ws_open(conn: Conn, client: Bool, max: Int, ping: Int, idle: Int) -> Handle
+pub host fn ws_open(
+    conn:    Conn,
+    client:  Bool,
+    deflate: Bool,
+    max:     Int,
+    ping:    Int,
+    idle:    Int,
+) -> Handle
+
+/// The Sec-WebSocket-Extensions value that takes one of a client's
+/// permessage-deflate offers, or "" for none it can take.
+pub host fn ws_deflate_response(offers: List<String>) -> String
 
 /// A client's opening handshake over `conn`; `headers` alternate name and
 /// value. An Err is a websocket.Error variant's name and fields.
@@ -694,6 +770,7 @@ pub host fn ws_connect(
     target:    String,
     headers:   List<String>,
     protocols: List<String>,
+    compress:  Bool,
     max:       Int,
     ping:      Int,
     idle:      Int,

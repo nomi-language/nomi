@@ -13,7 +13,7 @@ The canonical references:
 | [`docs/spec.md`](docs/spec.md) | The spec: what the language does. A feature there without a `Status: not yet implemented` callout works. |
 | [`docs/style.md`](docs/style.md) | How to write Nomi well (idiom, not semantics). |
 | [`docs/cheatsheet.md`](docs/cheatsheet.md) | The rules most often written wrong, with checked examples: the short form for a reader or a model. |
-| [`docs/tooling.md`](docs/tooling.md) | The `nomi` command and its flags, `nomi.toml`, modules and dependencies, the test runner, `nomi fmt`'s layout, builds, the Go toolchain, environment variables, editors and the debugger. |
+| [`docs/tooling.md`](docs/tooling.md) | The `nomi` command and its flags, `nomi.toml`, modules and dependencies, the test runner, `nomi fmt`'s layout, builds, environment variables, editors and the debugger. |
 | Package docs (`doc.go`) | How the implementation is built and why: each package's doc comment holds its design, the invariants it shares with other packages, and pointers to the harnesses that hold it. Read it (`go doc ./internal/<pkg>`, or the file) before working in a package. |
 | [`docs/feature-status.md`](docs/feature-status.md) | What is not built yet: aspirational spec sections, gaps in shipped features, tooling capabilities, known defects. |
 | [`docs/roadmap.md`](docs/roadmap.md) | Open big-ticket work and its order. Done items leave it. |
@@ -35,24 +35,25 @@ The repository root is the compiler's Go module,
 
 | Path | What it is |
 |---|---|
-| `cmd/` | Binaries: `nomi` (the CLI), `nomi-lsp`, `nomi-vm` (the VM binary: what `nomi build` appends a program to, and what runs a `.nomic` file), `nomi-vm-reactor` (the wasip1 reactor a program with an `export fn` is appended to; with none appended it loads a `.nomic` through `nomi_load`), `nomi-wasm` (the browser build), `nomi-docgen` (stdlib reference). |
+| `cmd/` | Binaries: `nomi` (the CLI, with the language server as `nomi lsp`, the debugger as `nomi dap` and the compiler's tools for coding agents as `nomi mcp`), `nomi-vm` (the VM binary: what `nomi build` appends a program to, and what runs a `.nomic` file; a release `nomi` carries its platform's two builds of it), `nomi-vm-reactor` (the wasip1 reactor a program with an `export fn` is appended to; with none appended it loads a `.nomic` through `nomi_load`), `nomi-wasm` (the browser build), `nomi-docgen` (stdlib reference). |
 | `vmhost/` | The public embedding API. |
 | `vmrunner/` | What `nomi-vm` and a built executable run. An embedder runs compiled programs with it. |
 | `hostadapt/` | Support package for host tables: std's generated adapters and an embedder's own functions. |
-| `internal/` | Everything else. Syntax: `lexer`, `parser`, `ast`, `token`, `strlit`. `analysis` (resolution and the type checker), `frontend` (the whole front end as one call), `dap` (`nomi dap`), `mcp` (`nomi mcp`, the compiler as Model Context Protocol tools), `irbuild` (IR builder), `ir` (IR, lint, image encoding), `vm` (bytecode VM), `lsp`, `format`, `runners` (finding, downloading, building and caching the runners `nomi build` appends to), `modcache` and `modfetch` (dependencies), `artifactcache` (what the compiler builds once and reads back: the std bundle), `std*` (Go-backed stdlib adapters), `websocket` (the WebSocket protocol under std/websocket), `mf2` (MessageFormat 2) and `catalog` (phrase catalogs), and the tooling behind them. |
+| `internal/` | Everything else. Syntax: `lexer`, `parser`, `ast`, `token`, `strlit`. `analysis` (resolution and the type checker), `frontend` (the whole front end as one call), `dap` (`nomi dap`), `editors` (`nomi editor`: each editor's Nomi support, written from the files the packages in `editors/` and `tree-sitter-nomi/` embed), `mcp` (`nomi mcp`, the compiler as Model Context Protocol tools), `irbuild` (IR builder), `ir` (IR, lint, image encoding), `vm` (bytecode VM), `lsp`, `format`, `runners` (finding, unpacking, downloading, building and caching the runners `nomi build` appends to), `modcache` and `modfetch` (dependencies), `artifactcache` (what the compiler builds once and reads back: the std bundle), `std*` (Go-backed stdlib adapters), `websocket` (the WebSocket protocol under std/websocket), `mf2` (MessageFormat 2) and `catalog` (phrase catalogs), and the tooling behind them. |
 | `std/` | The standard library's `.nomi` sources, embedded into the binaries. A module that helps test another is nested in that module's directory: `std/fs/testing.nomi` is `std::fs::testing`. |
-| `lib/` | First-party Nomi modules outside std, each with its own `nomi.toml` and a `go.mod` that makes it a module of its own to Go's module proxy and leaves it out of the compiler module's zip (internal/modfetch package doc, "go.mod"): `lib/sql/sqlite` (the SQLite driver: SQLite compiled to WebAssembly in the module, run by std::wasm, its file layer in Nomi over std::fs), `lib/sql/postgres` (the Postgres driver, in Nomi over std::net and std::tls), `lib/sql/migrate` (migrations), `lib/sql/sqlkit` (checked SQL), `lib/sql/examples/shop`, `lib/markdown` (Markdown to std/html's `Html`, in Nomi), `lib/image` (decoding, resizing and encoding JPEG, PNG and WebP: C codecs compiled to WebAssembly in the module, run by std::wasm), `lib/jobs/postgres` (std/jobs's queue in a Postgres table), `lib/jobs/examples/notify`, `lib/storage/s3` (std/storage's backend for S3-protocol servers), `lib/storage/minio` (its tests against a MinIO server). The compiler's module neither contains nor requires them. |
+| `lib/` | First-party Nomi modules outside std, each a directory with its own `nomi.toml`, versioned with the compiler by the repository's one release tag and naming its neighbors by `dir` (internal/modcache package doc): `lib/sql/sqlite` (the SQLite driver: SQLite compiled to WebAssembly in the module, run by std::wasm, its file layer in Nomi over std::fs), `lib/sql/postgres` (the Postgres driver, in Nomi over std::net and std::tls), `lib/sql/migrate` (migrations), `lib/sql/sqlkit` (checked SQL), `lib/sql/examples/shop`, `lib/markdown` (Markdown to std/html's `Html`, in Nomi), `lib/image` (decoding, resizing and encoding JPEG, PNG and WebP: C codecs compiled to WebAssembly in the module, run by std::wasm), `lib/jobs/postgres` (std/jobs's queue in a Postgres table), `lib/jobs/examples/notify`, `lib/storage/s3` (std/storage's backend for S3-protocol servers), `lib/storage/minio` (its tests against a MinIO server). They hold no Go, so the compiler's Go module contains their files and builds none of them. |
 | `rt/` | The runtime library, `github.com/nomi-language/nomi/rt`. The VM runs over it and built executables link it. It may import only the standard library and `github.com/rivo/uniseg` (`TestRuntimeImportsOnlyItsAllowlist`). |
 | `docs/` | The spec, style guide, cheat sheet, tooling reference, feature status, roadmap and install guide. |
 | `tour/` | The Astro Starlight site at nomi-lang.org: the tour and the generated stdlib reference. |
 | `tests/` | The test corpus. |
 | `testdata/expectations/` | Golden files. |
 | `benchmarks/` | Engine benchmark programs. |
-| `tree-sitter-nomi/` | The tree-sitter grammar, source of truth for editor parsing. The generated `src/` and `tree-sitter-nomi.wasm` are committed. Published read-only to github.com/nomi-language/tree-sitter-nomi by `scripts/publish-grammar.sh`. |
+| `tree-sitter-nomi/` | The tree-sitter grammar, source of truth for editor parsing. The generated `src/` and `tree-sitter-nomi.wasm` are committed. Published read-only to github.com/nomi-language/tree-sitter-nomi by `scripts/publish-grammar.sh`, which leaves out `embed.go`, the Go package that carries the C and the wasm into `nomi` for `nomi editor install`. |
 | `editors/zed/` | Zed extension (highlighting, LSP launch, the `nomi dap` debug adapter and a locator for the run and test tasks; `cargo test --manifest-path editors/zed/Cargo.toml` tests the locator). |
 | `editors/helix/` | Helix language config and runtime queries. |
+| `editors/*/embed.go` | In `zed/`, `helix/` and `nvim/`: a Go package whose only job is to `//go:embed` the files `nomi editor install` writes (`internal/editors` package doc). |
 | `editors/nvim/` | Neovim 0.11+ plugin: filetype, LSP config, generated queries, test runner, neotest adapter, nvim-dap adapter. |
-| `editors/vscode/` | VS Code extension (TypeScript): language configuration, a TextMate grammar derived from the bat syntax, the `nomi-lsp` client, run and test commands, the `nomi` debugger. |
+| `editors/vscode/` | VS Code extension (TypeScript): language configuration, a TextMate grammar derived from the bat syntax, the `nomi lsp` client, run and test commands, the `nomi` debugger. |
 | `editors/bat/` | `bat`/syntect syntax definition. |
 | `scripts/` | Tour wasm build, release and its tags, grammar publish, full check, publish to `main`, the js/wasm test runner, the tree-sitter wrapper, git hooks, and editor sync scripts. |
 
@@ -114,8 +115,10 @@ the same in the background. Details:
   [host functions](internal/stdlibbindings/doc.go),
   [files](internal/stdio/doc.go),
   [processes](internal/stdprocess/doc.go),
-  [HTTP, TLS and TCP](internal/stdhttp/doc.go) (`std/http`,
-  `std/tls` and `std/net` over `internal/stdhttp`),
+  [terminals](internal/stdterminal/doc.go) (`std/terminal` and
+  `io.is_terminal`),
+  [HTTP, TLS and sockets](internal/stdhttp/doc.go) (`std/http`,
+  `std/tls`, `std/net` and `std/udp` over `internal/stdhttp`),
   [WebAssembly](internal/stdwasm/doc.go) (`std/wasm`, modules run by
   wazero, their machine code kept in the artifact cache, and in a js
   build by the host's own engine; `scripts/test-js.sh` runs a package's
@@ -131,20 +134,25 @@ the same in the background. Details:
   REPL and tour wasm use, and through which a Go program hosts Nomi and
   answers its `host fn` declarations from host tables. Nomi source binds
   no Go code. `internal/modcache` and `internal/modfetch` find the
-  dependencies each `nomi.toml` names and fetch and lock them in
-  `nomi.lock`, with no `go` command. Details:
+  dependencies each `nomi.toml` names, fetch each repository's tag from
+  its host (or through git) into Nomi's module cache and lock them in
+  `nomi.lock`, with no `go` command and no go.mod. Details:
   [embedding](vmhost/doc.go),
   [modules](internal/modcache/doc.go).
 - **`nomi build` and the REPL.** `nomi build` appends a pruned IR image to
   `nomi-vm` or the wasip1 reactor, or writes a browser folder or a `.nomic`.
-  `internal/runners` finds the runner beside `nomi` or in a release, or
-  builds it from the compiler's source, and caches it. A release `nomi`
-  never builds one: its release ships every runner, std/compiler's
-  in an archive of its own per target.
-  Each runner has a lean variant (`nomi-vm-nonet`), built with every
+  `internal/runners` takes the runner a release `nomi` carries for its own
+  platform, or finds it beside `nomi` or in a release, or builds it from
+  the compiler's source, and caches it. A release is one file per
+  platform: `nomi`, built with the `nomi_hostrunners` tag, carries that
+  platform's two runners gzipped, and never builds one; the release ships
+  each platform's runners in a `_runners` archive for `--target`, and
+  std/compiler's in a `_compiler` archive. The runners come in two tiers,
+  never a combination: the lean one (`nomi-vm-nonet`), built with every
   optional family's tag (`nomi_nonet`, `nomi_nowasm`), with no net/http,
   crypto/tls, net or wazero, which a program that reaches no family's
-  crossing is appended to; `go generate ./internal/stdlibadapters` writes
+  crossing is appended to, and the full one, which has every family; a new
+  family joins the full one. `go generate ./internal/stdlibadapters` writes
   the split. No wasip1 runner has WebAssembly modules. The same walk holds a
   program to the effects nomi.toml's `[effects]` lists and an
   embedding host's `vmhost.WithEffects` allow, in `check`, `run`,
@@ -160,20 +168,18 @@ From the repository root:
 
 ```sh
 go build -o nomi ./cmd/nomi   # local CLI at ./nomi (gitignored)
-go install ./cmd/nomi         # `nomi` on PATH
-go install ./cmd/nomi-lsp     # the language server editors launch
+go install ./cmd/nomi         # `nomi` on PATH, and the language server editors launch as `nomi lsp`
 make build                    # all of the above plus tour wasm and editor queries
 ```
 
-On a Mac with Xcode's command line tools, `make build-cli`, `build-lsp` and
-`dev-editors` link `nomi` and `nomi-lsp` with `CGO_ENABLED=1
--ldflags=-linkmode=external`: the system linker writes chained fixups, so
-`nomi` reaches `main` about 1 ms sooner. On macOS cgo picks no different std
-files. Releases are cross-built with `CGO_ENABLED=0` on one Linux runner and
+On a Mac with Xcode's command line tools, `make build-cli` and `dev-editors`
+link `nomi` with `CGO_ENABLED=1 -ldflags=-linkmode=external`: the system
+linker writes chained fixups, so `nomi` reaches `main` about 1 ms sooner. On
+macOS cgo picks no different std files. Releases are cross-built with `CGO_ENABLED=0` on one Linux runner and
 keep Go's linker, and so does every `nomi-vm`, which gains nothing measurable.
 
 The stdlib is embedded with `//go:embed`, so after editing `std/`
-rebuild both `nomi` and `nomi-lsp`, and restart the running language server
+rebuild `nomi`, and restart the running language server
 (reinstalling the Zed dev extension restarts it). When the server has no
 source tree to point at, go-to-definition into std opens the embedded std
 written to `~/.cache/nomi/std/<version>/`, one directory per std version
@@ -213,9 +219,9 @@ and `TestTestCommand_VMStdlib` run `nomi test tests` and `nomi test std` and
 require no failed or blocked case, and as many passing cases as
 `corpus.expect` and `stdlib.expect` declare. A case is a test, or each row of
 the `subtests` tables a test runs (`rt.CountCases`), so a test of nine rows
-counts nine. The modules under `lib/` hold no Go, and each has a go.mod of
-its own, so root `go test ./...` never reaches them; `TestLibModules`
-(`cmd/nomi`) runs their Nomi tests.
+counts nine. The modules under `lib/` hold no Go, so `go test ./...`
+finds no package there; `TestLibModules` (`cmd/nomi`) runs their Nomi
+tests.
 
 **Harnesses.** Fuzzers and tests hold the implementation to properties.
 Each harness's doc comment, in the file named here, gives its inputs, its
@@ -376,11 +382,6 @@ corpus by default and every input under the variable
   derived bodies without one; `TestElaborationCensus`,
   `NOMI_ELAB_CENSUS=1`, `NOMI_ELAB_DIR` count the rest (derived bodies,
   implicit operations) (`vmhost/elaboration_census_test.go`).
-- A Debug body the front end synthesizes prints what rt's structural
-  rendering prints for the same value: the Debug probe, a build with
-  `-tags nomi_debugprobe`, which with `NOMI_DEBUG_PROBE=<file>` and
-  `NOMI_NO_INLINE=1` writes both renderings of every call of such a body
-  (`internal/vm/debugprobe_on.go`).
 - `nomi fmt` keeps meaning: `FuzzFormatKeepsMeaning`, `knownFormatGaps`
   (`vmhost/format_meaning_test.go`).
 - An incremental check matches a full one: `FuzzIncrementalMatchesFull`
@@ -671,7 +672,10 @@ until you do).
    the machine gets `Pure`, so a refinement rule or a typed literal's
    handler may call it; unset, a call to it is an effect. A `Pure` function
    whose one call costs more as an operand's value grows also gets
-   `Unbounded`, and those evaluations refuse it as unbounded. A row that is not
+   `Unbounded`, and those evaluations refuse it as unbounded. A `Pure`
+   function whose answer is a hash keyed by the run's seed also gets
+   `Seeded`, and a refinement rule, a typed literal's handler and a `check`
+   refuse it, since their answer must hold in every run. A row that is not
    `Pure` sets `World: Inside` or `World: Outside`, whether a call to it
    acts on or reads from anything outside the machine (the
    `internal/stdlibbindings` package doc, "Effects and World");
@@ -764,9 +768,12 @@ than the https URL (for example over ssh). `make publish-main` runs it, over
 ssh, whenever `tree-sitter-nomi/` differs between `origin/main` and `next`,
 and commits the two pins on `next`.
 
-**Local editors.** `make dev-editors` installs `nomi` and `nomi-lsp` from this
-checkout and sets up each editor's dev install. `make enable-hooks` enables,
-once per clone, the `post-merge` hook, which does the parts of that a merge
+**Local editors.** A user sets up an editor with `nomi editor install
+<editor>` (`internal/editors`); `make install-helix`, `install-nvim`,
+`install-vscode` and `install-zed` run it from this checkout, building the
+VS Code and Zed extensions first. `make dev-editors` installs `nomi` from
+this checkout and sets up each editor's dev install. `make enable-hooks` enables, once per
+clone, the `post-merge` hook, which does the parts of that a merge
 into `main` needs, and the `pre-push` hook, which refuses any push to `main`
 (the grammar mirror's excepted) that `make publish-main` does not make.
 Per-editor setup (the Zed dev extension, Helix, Neovim, VS Code, bat) is in
@@ -993,8 +1000,8 @@ Rules enforced by something in the repository:
   command read or kept nothing.
 - The build cache of runners (`internal/runners`) refuses the real user
   cache under `go test`; set
-  `NOMI_RUNNER_CACHE_ROOT`. A module download refuses a `GOMODCACHE`
-  the test did not set.
+  `NOMI_RUNNER_CACHE_ROOT`. The module cache refuses the real user
+  cache under `go test`; set `NOMI_MODULE_CACHE`.
 - The tree-sitter CLI reads a global parser-directories config that may point
   at another checkout; `scripts/tree-sitter.sh` runs it from this checkout's
   `tree-sitter-nomi/`.

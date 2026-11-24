@@ -36,7 +36,7 @@ func TestPublishedDiagnostics_MissingImplOfABuiltinTypeSaysOnlyStdCanWriteIt(t *
 	src := "import std::io\n\nfn main()\n    io.print(\"${Unit}\")\n    io.inspect(\"a\" % \"b\")\nend\n"
 	diags := publishedFor(t, NewServer(), src, true)
 	for _, c := range []struct{ headline, help string }{
-		{"no impl of `Display` for `Unit` (required via call site)",
+		{"no impl of `Display` for `Unit` (required to interpolate it)",
 			"help: only std can implement `Display` for `Unit`; wrap it in a type of your own that implements `Display`"},
 		{"no impl of `Remainder` for `String` (required via remainder operator `%`)",
 			"help: only std can implement `Remainder` for `String`; wrap it in a type of your own that implements `Remainder`"},

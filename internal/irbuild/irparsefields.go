@@ -11,8 +11,7 @@ import (
 // std/parse's `ParseFields` at an anonymous struct (spec §12 *Tuples,
 // anonymous structs and functions*). No impl can be written for an
 // anonymous struct, so its three functions are lowered here, where the
-// instance binds `P` to the record, as `Hashable.hash` over a record is
-// (irtuplehash.go):
+// instance binds `P` to the record:
 //
 //   - `P.field_names()` is the list of its field names, in the canonical
 //     (sorted) order a record's kind keeps them in;

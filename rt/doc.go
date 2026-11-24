@@ -71,7 +71,30 @@
 // A literal too long for int64 is carried through the AST and IR as a big
 // constant, and the image encodes it as base-10 text.
 //
-// `derive Hashable`'s mixers and `Int.wrapping_add`, `wrapping_sub` and
-// `wrapping_mul` ([IntWrapAdd] and its siblings, over [Wrap64]) return the low 64 bits of
-// the exact result as a signed int64, so a hash stays a 64-bit number.
+// `Int.wrapping_add`, `wrapping_sub` and `wrapping_mul` ([IntWrapAdd] and
+// its siblings, over [Wrap64]) return the low 64 bits of the exact result as
+// a signed int64, so a hash a program writes stays a 64-bit number.
+//
+// # Hashing
+//
+// Every structural hash, `String.hash` and `Bytes.hash` among them, is keyed
+// by a 128-bit key each process draws from crypto/rand when it starts, so
+// nobody outside the process can choose keys that collide; NOMI_HASH_SEED
+// fixes it, and a test binary fixes it for itself and its children
+// (hashkey.go). Strings and Bytes hash by SipHash-1-3, composites fold
+// through a keyed non-linear mix, and an Int and a Float keep their own
+// bits (hash.go).
+//
+// # Signals
+//
+// SIGINT and SIGTERM are shutdown's (shutdown.go): they drain the
+// supervisors, run boot's cleanup and exit, and nothing else takes them.
+// Every other signal the process catches goes through one registry
+// (signals.go): a watch per signal number, registered with signal.Notify
+// for that number alone, hands each arrival to the feeds that want it, and
+// a feed sends a value on a channel its subscriber reads
+// (SubscribeSignals). std::signals' receivers are feeds; another runtime
+// feature a signal drives subscribes the same way, with the value computed
+// at each arrival. A feed closes with the frame that made it and at the
+// drain, and a signal no feed wants gets its default action back.
 package rt

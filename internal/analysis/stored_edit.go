@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"slices"
-	"sort"
 	"strings"
 	"sync/atomic"
 
@@ -165,40 +164,34 @@ func (dm *DocumentManager) advanceStored(sp *storedProgram, changed map[string]s
 			return "the program's files changed"
 		}
 	}
-	// The files to check again.
+	// The files to check again: the edited ones and the files whose checks
+	// read a changed interface or see a changed impl (Readers).
 	recheck := map[string]bool{}
 	for _, key := range keys {
 		recheck[key] = true
 	}
 	ifaceKeys := slices.Sorted(maps.Keys(ifaceChanged))
-	for key := range pi.Importers(ifaceKeys) {
-		recheck[key] = true
-	}
 	implsChanged := false
 	var headers []ImplHeader
 	for _, key := range ifaceKeys {
 		was, now := rec.Files[key].Iface.Headers, pi.ImplHeadersOf(key)
-		if !sameImplHeaderFiles(was, now) {
+		if !SameImplHeaders(was, now) {
 			implsChanged = true
 			headers = append(append(headers, was...), now...)
 		}
 	}
-	if len(headers) > 0 {
-		for key := range reach {
-			visible := pi.ImportClosure(key)
-			for _, h := range headers {
-				if h.relevantTo(visible) {
-					recheck[key] = true
-					break
-				}
-			}
+	for key := range pi.Readers(ifaceKeys, headers) {
+		if reach[key] {
+			recheck[key] = true
 		}
 	}
 	if len(recheck) > maxStoredRechecked && len(recheck)*4 > len(reach) {
 		return fmt.Sprintf("the edit reaches %d of the program's %d files", len(recheck), len(reach))
 	}
 	// An open document rechecked must be analyzed again by the edit's
-	// propagation, which reaches the files that import a changed file.
+	// propagation, which reaches the files that import a changed file, not
+	// one that reads it, or sees a changed impl, through another file's
+	// impl alone.
 	open := dm.openKeys(rec.Root)
 	for key := range recheck {
 		if !open[key] || key == building || changed[key] != "" {
@@ -210,7 +203,7 @@ func (dm *DocumentManager) advanceStored(sp *storedProgram, changed map[string]s
 			reaches = reaches || closure[k]
 		}
 		if !reaches {
-			return "an open document that imports no changed file sees a changed impl"
+			return "an open document that imports no changed file reads what the edit changed through an impl"
 		}
 	}
 	appTypes := len(rec.AppTypes) > 0
@@ -410,10 +403,11 @@ func (dm *DocumentManager) advanceStored(sp *storedProgram, changed map[string]s
 		}
 		next.Files[key] = f
 	}
-	// A document's lowering reads every file it imports.
+	// A document's lowering reads every file its check reads whole.
+	reads := pi.programReads("")
 	next.Lowered = map[string]bool{}
 	for doc := range rec.Lowered {
-		closure := pi.ImportClosure(doc)
+		closure := reads.Closure(doc)
 		reached := false
 		for key := range checks {
 			reached = reached || closure[key]
@@ -577,20 +571,6 @@ func expandsKeywords(nodes []ast.Node) bool {
 		}
 	}
 	return false
-}
-
-// sameImplHeaderFiles reports whether two lists of a file's impl headers
-// name the same files, impl by impl, whatever their ordinals.
-func sameImplHeaderFiles(a, b []ImplHeader) bool {
-	key := func(hs []ImplHeader) []string {
-		out := make([]string, len(hs))
-		for i, h := range hs {
-			out[i] = strings.Join(h.Files, "\x00")
-		}
-		sort.Strings(out)
-		return out
-	}
-	return slices.Equal(key(a), key(b))
 }
 
 // ChecksAfterEdits counts the checks of open documents an edit of a

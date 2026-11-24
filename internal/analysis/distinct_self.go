@@ -210,7 +210,7 @@ func (c *checker) checkSelfCall(n *ast.Call) Type {
 	if ContainsTypeParam(inner) {
 		matches = c.unify(inner, argTy, map[*TypeParam_]Type{}) == nil
 	} else {
-		matches = c.argMatchesParam(argTy, inner, c.recPos(line, col), RecordingKindCallSite)
+		matches = c.argMatchesParam(argTy, inner, c.site(line, col, RecordingKindCallSite))
 	}
 	if !matches {
 		c.addError(line, col, fmt.Sprintf("`self` wraps %s, so self(...) takes %s %s; got %s",

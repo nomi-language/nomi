@@ -1,49 +1,64 @@
 package runners
 
-// Prebuilt runners: how `nomi build` finds a runner without building one, the
-// way `deno compile` copies the `denort` that ships with Deno.
+// Prebuilt runners: how `nomi build` finds a runner without building one,
+// the way `deno compile` uses the `denort` that ships with Deno.
 //
-// A release archive carries `nomi-vm` and `nomi-vm-nonet` beside `nomi` and
-// `nomi-lsp`, built from the same commit (scripts/release.sh). A runner of
-// any variant is looked up in this order (Runner):
+// The runners come in two tiers, never a combination: the lean one
+// (nomi-vm-nonet) has no optional family, and the full one (nomi-vm) has
+// every family. A new family joins the full tier and adds no runner.
+// std/compiler's runner (nomi-vm-compiler) is the full one with the front
+// end linked.
 //
-//  1. The variant's runner beside this `nomi`, and beside the file it
+// A release `nomi` carries its own platform's two runners, gzipped
+// (embeddedRunners, built in by scripts/release.sh with the
+// nomi_hostrunners tag). A runner of any variant is looked up in this order
+// (Runner):
+//
+//  1. The runner this `nomi` carries, when the target is its own platform:
+//     unpacked once into (4)'s directory and taken from there after.
+//  2. The variant's runner beside this `nomi`, and beside the file it
 //     resolves to when it is a symlink, when that runner is built for the
 //     target.
-//  2. Not in a release `nomi`: a source checkout of the compiler. Build the
+//  3. Not in a release `nomi`: a source checkout of the compiler. Build the
 //     runner with `go build` and cache it, as a development tree always has.
 //     A versioned `nomi` that is not a release archive (`go install
 //     ...@version`) builds it the same way from that version in the module
 //     cache, which Go fetches.
-//  3. A runner downloaded earlier for this release and target, under the
-//     cache root's `nomi-vm/<version>/<goos>_<goarch>/`.
-//  4. Download: the archive that holds the variant, from the release this
+//  4. A runner unpacked or downloaded earlier for this release and target,
+//     under the cache root's `nomi-vm/<version>/<goos>_<goarch>/`.
+//  5. Download: the archive that holds the variant, from the release this
 //     `nomi` was cut as, verified against the release's checksum file, with
-//     only that runner extracted into (3).
+//     only that runner extracted into (4).
 //
-// Every prebuilt runner (1, 3 and 4) must come from the same commit as this
-// `nomi` and be the variant asked for: each carries Go's VCS stamp and its
-// build tags in its build info, which internal/gobuildinfo reads from a
-// binary of any platform, a WebAssembly module included, without running it.
-// The tags tell the variants apart (Variant.buildTags), so a plain runner is
-// never taken for std/compiler's. A mismatch is refused. In a source checkout
-// a mismatched or dirty sibling is passed over instead, because step 2 can
-// build the right one.
+// Every runner taken from a file (2, 4 and 5) must come from the same commit
+// as this `nomi` and be the variant asked for: each carries Go's VCS stamp
+// and its build tags in its build info, which internal/gobuildinfo reads
+// from a binary of any platform, a WebAssembly module included, without
+// running it. The tags tell the variants apart (Variant.buildTags), so a
+// plain runner is never taken for std/compiler's. A mismatch is refused. In
+// a source checkout a mismatched or dirty sibling is passed over instead,
+// because step 3 can build the right one. The runner a `nomi` carries was
+// built from its commit by construction, so (1) checks only what it finds
+// already unpacked.
 //
-// A release also ships a runner-only archive for js/wasm and wasip1/wasm. The
-// js/wasm one carries wasm_exec.js beside the runner, from the Go that built
-// it, and the download caches both (WasmExec). The wasip1 one also carries
-// `nomi-vm-reactor`, the reactor a program with an `export fn` is appended
-// to (Variant); each runner is looked up, cached and checked under its own
-// name, and its build info must name its own main package.
+// A release publishes each platform's two runners in an archive of their
+// own, `nomi_<version>_<goos>_<goarch>_runners.tar.gz` (releaseArchiveName),
+// which another platform's `nomi` downloads for `--target`; the platform's
+// main archive holds `nomi` alone. js/wasm and wasip1/wasm, where `nomi`
+// does not run, have no main archive. The js/wasm runners archive carries wasm_exec.js beside the runners,
+// from the Go that built them, and the download caches both (WasmExec). The
+// wasip1 one also carries `nomi-vm-reactor` and `nomi-vm-reactor-nonet`, the
+// reactors a program with an `export fn` is appended to (Variant); each
+// runner is looked up, cached and checked under its own name, and its build
+// info must name its own main package.
 //
-// std/compiler's variants link the whole front end: 16.7 MB stripped against
-// the plain runner's 9.5 MB and `nomi`'s 21.3 MB (6.5, 3.7 and 8.3 MB gzipped)
-// on darwin/arm64. They ship in an archive of their own per target,
-// `nomi_<version>_<goos>_<goarch>_compiler.tar.gz` (releaseArchiveName), so
-// the main archives stay their size: `nomi-vm-compiler` and its lean
-// variant, and for wasip1 the reactor's two, with wasm_exec.js in the js/wasm
-// one.
+// On darwin/arm64 the full runner is 17.2 MB stripped and the lean one
+// 9.9 MB (6.7 and 3.9 MB gzipped, as `nomi` carries them). std/compiler's
+// runners link the whole front end: 38.2 MB (13.8 MB gzipped). They ship in
+// an archive of their own per target,
+// `nomi_<version>_<goos>_<goarch>_compiler.tar.gz`: `nomi-vm-compiler`, and
+// for wasip1 also `nomi-vm-reactor-compiler`, with wasm_exec.js in the
+// js/wasm one.
 
 import (
 	"archive/tar"
@@ -65,6 +80,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nomi-language/nomi/internal/artifactcache"
 	"github.com/nomi-language/nomi/internal/gobuildinfo"
 )
 
@@ -72,9 +88,9 @@ import (
 // sets it with `-ldflags -X github.com/nomi-language/nomi/internal/runners.ReleaseVersion=<tag>`; it is
 // empty for every other build. It names the release a cross-target runner is
 // downloaded from, which the VCS stamp cannot: a commit is not a tag. When it
-// is a release's semantic version, it is also the version `nomi add` and
-// `nomi update` take the first-party lib/ modules at (cmd/nomi's
-// libRelease).
+// is a release's semantic version, it is also the release a module's
+// [module].nomi is held to and the version `nomi add` and `nomi update` take
+// the first-party lib/ modules at (cmd/nomi's release, modcache.Release).
 var ReleaseVersion string
 
 // releaseBaseURLEnv overrides where releases are downloaded from. Tests point
@@ -283,9 +299,34 @@ func siblingRunner(target Target, v Variant, haveSource bool) (string, error) {
 	return "", nil
 }
 
+// embeddedRunner answers the gzipped runner of variant v this `nomi`
+// carries for target, or nil: a release `nomi` carries its own platform's
+// full and lean runners (embeddedRunners).
+func embeddedRunner(target Target, v Variant) []byte {
+	if target != HostTarget() {
+		return nil
+	}
+	return embeddedRunners[v.BinaryName()]
+}
+
+// unpackRunner writes the gzipped runner gz to bin. A variable so a test can
+// count the runners unpacked.
+var unpackRunner = func(gz []byte, bin string) error {
+	zr, err := gzip.NewReader(bytes.NewReader(gz))
+	if err != nil {
+		return err
+	}
+	data, err := io.ReadAll(zr)
+	if err != nil {
+		return err
+	}
+	return writeFileAtomic(bin, data, 0o755)
+}
+
 // releaseRunner answers the runner of variant v for target from this
-// `nomi`'s release: the cached download when there is one, otherwise a fresh
-// download.
+// `nomi`'s release: the cached one when there is one, otherwise the one this
+// `nomi` carries, unpacked, or a fresh download. Answering one marks the
+// release's directory used (useRelease).
 func releaseRunner(target Target, v Variant, progress io.Writer) (string, error) {
 	version := ReleaseVersion
 	if version == "" {
@@ -301,7 +342,38 @@ func releaseRunner(target Target, v Variant, progress io.Writer) (string, error)
 	if err != nil {
 		return "", err
 	}
-	dir := filepath.Join(root, "nomi-vm", version, target.GOOS+"_"+target.GOARCH)
+	releases := filepath.Join(root, "nomi-vm")
+	bin, err := releaseRunnerIn(filepath.Join(releases, version, target.GOOS+"_"+target.GOARCH), version, target, v, progress)
+	if err != nil {
+		return "", err
+	}
+	useRelease(releases, version)
+	return bin, nil
+}
+
+// useRelease marks version's directory under releases used
+// (artifactcache.Touch), and at most once a day (sweepEvery,
+// artifactcache.Due) removes the other releases' directories nothing has
+// used for artifactcache.Unused (artifactcache.Prune). A release whose
+// directory is removed unpacks or downloads its runners again the next time
+// a build needs one. Windows removes no file another process holds open,
+// such as a runner a build of that release is copying: the prune leaves
+// what it cannot remove, and that release unpacks or downloads what is
+// missing when it next needs it.
+func useRelease(releases, version string) {
+	dir := filepath.Join(releases, version)
+	if info, err := os.Stat(dir); err == nil {
+		artifactcache.Touch(dir, info)
+	}
+	if artifactcache.Due(releases, sweepEvery) {
+		artifactcache.Prune(releases, version, artifactcache.Unused)
+	}
+}
+
+// releaseRunnerIn answers the runner of variant v for target in dir, the
+// cache's directory for target under version: the one there, else the one
+// this `nomi` carries, unpacked, else a fresh download.
+func releaseRunnerIn(dir, version string, target Target, v Variant, progress io.Writer) (string, error) {
 	bin := filepath.Join(dir, exeName(v.BinaryName(), target.GOOS))
 	self := selfIdentity()
 	if _, err := os.Stat(bin); err == nil {
@@ -314,6 +386,12 @@ func releaseRunner(target Target, v Variant, progress io.Writer) (string, error)
 	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", fmt.Errorf("creating %s: %w", dir, err)
+	}
+	if gz := embeddedRunner(target, v); gz != nil {
+		if err := unpackRunner(gz, bin); err != nil {
+			return "", fmt.Errorf("unpacking the %s this nomi carries into %s: %w", v.BinaryName(), dir, err)
+		}
+		return bin, nil
 	}
 	if err := downloadRunner(releaseBaseURL(), version, target, v, bin, progress); err != nil {
 		return "", err
@@ -337,14 +415,14 @@ func releaseBaseURL() string {
 }
 
 // releaseArchiveName is the archive scripts/release.sh writes for target that
-// holds the runner of variant v: std/compiler's variants are in an archive
-// of their own.
+// holds the runner of variant v: the target's runners archive, or for
+// std/compiler's variants its compiler archive.
 func releaseArchiveName(version string, target Target, v Variant) string {
 	ext := ".tar.gz"
 	if target.GOOS == "windows" {
 		ext = ".zip"
 	}
-	suffix := ""
+	suffix := "_runners"
 	if v.Compiler {
 		suffix = "_compiler"
 	}
@@ -356,7 +434,7 @@ func releaseChecksumsName(version string) string {
 	return fmt.Sprintf("nomi_%s_checksums.txt", version)
 }
 
-// maxArchiveBytes bounds a download. A release archive is about 20 MB, and
+// maxArchiveBytes bounds a download. A runners archive is about 10 MB, and
 // a WebAssembly target's compiler archive about 30 MB.
 const maxArchiveBytes = 512 << 20
 

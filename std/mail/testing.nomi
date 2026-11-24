@@ -36,6 +36,7 @@ import
     net.{self, Connection, Listener}
     option.Option.{self, None, Some}
     results.Result.{self, Err, Ok}
+    secret.Secret
     strings.String
     tasks.Task
     tls.{self, Certificate, ClientConfig, Roots, ServerConfig}
@@ -202,7 +203,7 @@ end
 //!     text: Some("hi"),
 //! }
 //!
-//! credentials = Some(Credentials{username: "u", password: "p"})
+//! credentials = Some(Credentials{username: "u", password: Secret.new("p")})
 //!
 //! (sent, received) = with_smtp_server(starttls: True, credentials:, fn server ->
 //!     (Mailer.send(mail.smtp(SmtpServer.config(server)), message), SmtpServer.received(server))
@@ -526,7 +527,7 @@ fn authenticate(peer: Peer, rules: Rules, argument: String) -> Option<Peer>
 
     case (rules.credentials, pair)
         (Some(expected), Some((user, password))) when expected.username == user
-            and expected.password == password ->
+            and expected.password == Secret.new(password) ->
             answer({..peer, username: Some(user)}, "235 authenticated")
 
         (None, _) ->
@@ -587,7 +588,7 @@ end
 //! assert conformance(memory) == []
 //!
 //! smtp = with_smtp_server(starttls: True, credentials: Some(
-//!     mail.Credentials{username: "u", password: "p"}
+//!     mail.Credentials{username: "u", password: Secret.new("p")}
 //! ), fn server ->
 //!     conformance(fn ->
 //!         before = Iter.count(SmtpServer.received(server))

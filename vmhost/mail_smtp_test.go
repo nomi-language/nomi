@@ -250,6 +250,7 @@ const mailProgram = `import
     std::html.Html
     std::io
     std::mail.{self, Address, Attachment, Credentials, Mailer, Message, Security, SmtpConfig}
+    std::secret.Secret
     std::tls.{ClientConfig, Roots}
 end
 
@@ -262,7 +263,7 @@ end
 
 fn main()
     trusted = ClientConfig{roots: Roots.Files(["CERT"])}
-    credentials = Some(Credentials{username: "user", password: "secret"})
+    credentials = Some(Credentials{username: "user", password: Secret.new("secret")})
 
     message = Message{
         from: Address.new("no-reply@example.com", name: "Example Updates")!,
@@ -297,7 +298,7 @@ fn main()
     rejected = {..message, to: [Address.new("reject@example.com")!], cc: [], bcc: []}
     io.print("rejected ${show(Mailer.send(mail.smtp(off), rejected))}")
 
-    wrong = Some(Credentials{username: "user", password: "wrong"})
+    wrong = Some(Credentials{username: "user", password: Secret.new("wrong")})
     io.print("wrong password ${show(Mailer.send(mail.smtp({..starttls, credentials: wrong}), message))}")
 
     untrusted = {..starttls, tls: ClientConfig{}}

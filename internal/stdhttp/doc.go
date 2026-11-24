@@ -1,11 +1,12 @@
 // Package stdhttp is std/http/host and std/signatures/host: the HTTP
-// client and server over Go's net/http, TLS and TCP for std/tls and
-// std/net, the WebSocket crossings, and signing keys. HTTP, TLS and TCP
-// share this one adapter package. internal/hostgen/stdtable's
+// client and server over Go's net/http, TLS, stream sockets and datagram
+// sockets for std/tls, std/net and std/udp, the WebSocket crossings, and
+// signing keys. HTTP, TLS and every socket share this one adapter
+// package. internal/hostgen/stdtable's
 // alsoImplements names it as both modules', and the adapter generator
 // moves it to the runner with the network (`nomi-vm`, not `nomi-vm-nonet`).
 //
-// std/url, std/http, std/tls and std/net are lowered with each program
+// std/url, std/http, std/tls, std/net and std/udp are lowered with each program
 // (`programStdModules`), so their structs can stand in public signatures.
 // std/url crosses through std/url/host (rt/url.go, pure), the others through
 // std/http/host here.
@@ -32,13 +33,23 @@
 // which owns the pool; `http.default_client()` is one Go client per
 // process. `send` carries the `network` class, which wasip1 lacks. On
 // js/wasm the transport sets no dial function so Go keeps its `fetch` path
-// (transport_js.go).
+// (transport_js.go). A transport's `unix_socket` replaces the dial function
+// with one that connects to that path whatever host a request names
+// (unixDial), and drops the proxy.
 //
 // `std::http::testing.run` is three VM crossings (internal/vm/network.go):
 // `run_on` installs the `answer` function on the frame (rt.EnterNetwork),
 // `answer_on` calls it and records the request, and `recorded_on` returns
 // the requests. The builder lowers them like the file `run_on` (`answerOn`,
 // `recordedOn` in internal/irbuild/ircapture.go).
+//
+// Every request the program sends names nomi, never Go: a request, a
+// proxy's `CONNECT`, a WebSocket handshake and a request written as a
+// client sends it get `nomi/<version>` from a release and `nomi` from any
+// other build (userAgent, buildversion.Release) when their headers name no
+// `User-Agent`, and one of `""` sends none, as Go's writers read it. Go
+// copies the headers to each redirect. On js/wasm the browser's fetch
+// names its own agent, so `send` adds none there (fetchNamesTheAgent).
 //
 // With `Redirects.Decide` the Go client follows nothing and
 // `send_following` follows on the calling task, since Go would run the
@@ -69,7 +80,12 @@
 // absolute-form target and `OPTIONS *` are left as Go read them.
 //
 // `std::http::host.listen` carries the `listen` class (not on js/wasm or
-// wasip1). A listener registers a drain hook (rt.OnDrain), so draining runs
+// wasip1). It binds the server's address, or serves on the std::net
+// `Listener` a `Server.listener` gives (a Unix one, or one the process
+// inherited): a netListener is a net.Listener whose Accept takes the
+// connections its own goroutine accepted, so Go's server and
+// `Listener.accept` share one listener, and a TLS one's configuration
+// serves HTTPS. A listener registers a drain hook (rt.OnDrain), so draining runs
 // `Server.Shutdown` before any grace period: accepting stops, taken requests
 // finish, `serve` returns and the drain ends. Go's Shutdown waits for no
 // request whose connection is hijacked, so the listener holds each request
@@ -147,14 +163,16 @@
 //
 // Each middleware (`timeout`, `cross_origin_protection`, `cors`,
 // `log_requests`, `security_headers`, `request_id` and the rest) is a Nomi
-// function taking the handler first and returning one. Only `compress`
-// crosses to Go (compress.go): a whole body goes through
-// `std::http::host.gzip_bytes`; a `Body.Stream` through `gzip_reader`, which
-// flushes the compressor after each source read so a slow stream is not
-// held; a `Body.Produce` writes into `gzip_writer`, whose
-// `rt.WriteSink.Flush` flushes the compressor and the writer under it at
-// each `Writer.flush`. `std::http::testing.decompressed` reads back through
-// `std::http::host.gunzip`. `method_override` reads a URL-encoded `POST` body
+// function taking the handler first and returning one. `compress` gzips
+// through std::compress (internal/stdcompress), outside this package: a
+// whole body through `compress.encode`; a `Body.Stream` through
+// `compress.encoding_reader`, which flushes the compressor after each
+// source read so a slow stream is not held; a `Body.Produce` writes into
+// `compress.writer`, whose flush flushes the compressor and the writer under
+// it at each `Writer.flush`. `std::http::testing.decompressed` reads back
+// through `compress.reader`. A client's response is decoded by Go's
+// Transport when `Transport.compression` asked for gzip, and
+// `Response.uncompressed` says so. `method_override` reads a URL-encoded `POST` body
 // through `read_capped` and passes on a request whose body is those bytes.
 // `cross_origin_protection` builds one `Router` per bypass pattern
 // (overlaps are fine there; one router refuses them) and asks
@@ -163,25 +181,80 @@
 // and headers, not `Request.incoming`, since an earlier middleware may have
 // changed the headers.
 //
-// # TLS and TCP
+// # TLS and sockets
 //
-// std/tls and std/net cross through std/http/host too (tls.go, netconn.go).
-// A `ClientConfig` or `ServerConfig` is a Nomi value; each use builds Go's
-// *tls.Config (`std::http::host.tls_config`, then `tls_with_certificate` per
+// std/tls, std/net and std/udp cross through std/http/host too (tls.go,
+// netconn.go, datagram.go, sockopt.go). A `ClientConfig` or `ServerConfig`
+// is a Nomi value; each use builds Go's *tls.Config
+// (`std::http::host.tls_config`, then `tls_with_certificate` per
 // certificate) as a `TlsConfig` handle. A `Certificate` is a handle over
-// tls.Certificate, its key never read back. A `Connection` (rt.NetConn)
-// wraps a net.Conn (TCP or *tls.Conn) with one rt `Reader` and one
-// unbuffered `Writer`; a context.AfterFunc on the dialing task's context
-// sets a past deadline when it ends, so a cancelled task's I/O stops. A
-// listener (rt.NetListener) accepts on a goroutine into a channel, so
-// `Listener.accept` can stop for cancellation or an accept deadline, and
-// registers a drain hook that closes it. `net.Error` sorts Go errors by the
-// errno they carry as stdio.Errno reads it, which names a Windows code by
-// the Unix errno for the same failure, so a refused or reset connection is
-// the same variant on every system.
-// `dial_with`, `tls_dial` and `lookup` carry the `connect` class (not on
-// js/wasm, which offers only `fetch`, or wasip1), where each returns the
-// no-sockets error (`noSocketsMessage`).
+// tls.Certificate, its key never read back.
+//
+// Every socket is one `Conn` (rt.NetConn) over a net.Conn: a TCP or Unix
+// stream connection, a *tls.Conn over either, or a UDP or Unix datagram
+// socket, so deadlines, close, addresses and options are one set of
+// crossings for all of them. A stream connection is read and written
+// through one rt `Reader` and one unbuffered `Writer`; a context.AfterFunc
+// on the opening task's context sets a past deadline when it ends, so a
+// cancelled task's I/O stops. `dial_with` and `net_listen_with` take the
+// network ("tcp" or "unix"), and the datagram crossings take "udp" or
+// "unixgram": the same Go dialer, listen config and address resolution
+// serve every family (dialer, resolveAddr). A listener (rt.NetListener)
+// accepts on a goroutine into a channel, so `Listener.accept` can stop for
+// cancellation or an accept deadline, and registers a drain hook that
+// closes it; a Unix listener's close removes its socket file, as Go's
+// does. A bound datagram socket is like a listener: tied to no task, and
+// closed by the drain (its Unix file removed when it closes). A dialed one
+// is like a dialed connection. A receive whose task is stopped answers
+// Closed, as an accept does: a past read deadline wakes it, and the socket
+// then takes back the read deadline the program set (conn.readDeadline),
+// so another task's receive, woken by the same deadline, waits again.
+// A receive reads into max+1 bytes, so a datagram longer than max is
+// `Truncated` rather than cut short.
+//
+// The sockets a service manager starts the process with (systemd's socket
+// activation: LISTEN_PID, LISTEN_FDS, LISTEN_FDNAMES, read from the
+// process's environment) are wrapped on the first `inherited_listeners` or
+// `inherited_sockets` call, once for the process (inheritedSockets): each
+// descriptor from 3 on becomes a listener (net.FileListener) or a bound
+// datagram socket (net.FilePacketConn, boundSocket) over a copy, and the
+// original is closed. Every call answers those same values, so no
+// descriptor is wrapped twice. A Unix one's file stays when it closes,
+// since the service manager made it. The environment read is the
+// process's, not the program's `Startup.env`, since the descriptors are
+// the process's state. Windows has no such protocol and answers none.
+//
+// Socket options (sockopt.go) are a table of the system's numbers per
+// option and family, set and read through the socket's syscall.RawConn
+// with golang.org/x/sys (sockopt_unix.go, sockopt_windows.go; none on
+// js/wasm, wasip1 or Solaris). The same table gives a listener, a dialer
+// and a bound datagram socket SO_REUSEADDR and SO_REUSEPORT before they
+// bind (bindControl). A buffer size is read back through the same rows
+// that set it. The multicast options that name an interface (a group's
+// membership, the interface sends go out of) name it by its first IPv4
+// address on an IPv4 socket and by its index on an IPv6 one
+// (onMulticast). What a system or a kind of socket lacks (Windows'
+// SO_REUSEPORT and Unix datagram sockets, a TTL on a Unix socket) is
+// `net.Error.Unsupported`.
+//
+// `net.Error` sorts Go errors by the errno they carry as stdio.Errno reads
+// it, which names a Windows code by the Unix errno for the same failure,
+// so a refused or reset connection is the same variant on every system.
+// A read or write of a stream this package makes (a connection, a request
+// or response body, a chunked body, a part) fails with the `io.Error`
+// streamFailure gives: it names the errors of net/http and net (a body the
+// server closed, a hijacked response and a closed connection are
+// `Closed`) and hands every other to stdio.Classify.
+//
+// `dial_with`, `tls_dial`, `udp_dial` and `lookup` carry the `connect`
+// class and `net_listen_with`, `tls_listen`, `udp_bind`,
+// `inherited_listeners` and `inherited_sockets` the `listen` class, for a Unix socket as for an IP one (not on js/wasm, which offers
+// only `fetch`, or wasip1), where each returns the no-sockets error
+// (`noSocketsMessage`). There no socket exists, so the crossings that act
+// only on one return it too (`udp_receive`, `udp_send`, `socket_group`),
+// `udp_address` answers no address, and every socket option is
+// Unsupported; each tests the constant `hasSockets` first, which keeps
+// their code out of those builds.
 //
 // # Hooks
 //
@@ -224,7 +297,11 @@
 // over `Connection`. `websocket.accept` checks the handshake in Nomi and
 // returns `Response.upgrade`, so middleware sees an ordinary `101` and the
 // connection runs in `respond` on the request's task after middleware
-// returns (`compress` passes `1xx` untouched). `ws_open` wraps the hijacked
+// returns (`compress` passes `1xx` untouched). permessage-deflate is
+// negotiated in Go either way: `ws_deflate_response` answers a client's
+// offers for `accept`, `ws_connect` offers it and checks the answer, and
+// `ws_open` is told what was agreed (internal/websocket's deflate.go).
+// `ws_open` wraps the hijacked
 // net.Conn and clears Go's deadlines on it. `connect` dials with std/net or
 // std/tls, and `ws_connect` runs the client handshake in Go, reading the
 // response through its own bufio.Reader, which the connection keeps, so no

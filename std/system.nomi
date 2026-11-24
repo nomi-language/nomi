@@ -1,0 +1,310 @@
+//# Facts about the machine and the process: the operating system and the
+//# processor, the CPUs, the machine's name, the running program's path,
+//# the user and the user's directories, the memory the program holds, and
+//# its tasks and garbage collector.
+//#
+//# ```nomi
+//# workers = system.cpu_count()
+//#
+//# config = system.config_dir() |> Result.map(&path.join(&1, "my-tool"))
+//# ```
+//#
+//# Each function reads its answer when it is called. The directories are
+//# the platform's conventions, read from the process's own environment
+//# (`HOME`, `XDG_CONFIG_HOME` and the rest, `AppData` and `LocalAppData` on
+//# Windows), the same environment `Startup.env` holds, so a function that
+//# needs one does not take the program's `Startup`.
+//#
+//# A js/wasm or wasip1 module has no machine name, program path, user or
+//# directories: those functions answer `Error.Unsupported` there, when they
+//# are called, so a program that reads one still builds for the browser.
+//# `os`, `arch`, `cpu_count` (1 there), `memory` and `runtime` answer on
+//# every target.
+//# Every function here has an effect, `std::system` in an effects list.
+
+import
+    display.Display
+    duration.Duration
+    equatable.Equatable
+    int.{Int, PositiveInt}
+    lists.List
+    results.Result.{self, Ok}
+    strings.String
+    system::host
+end
+
+/// An operating system, by the name a build target writes.
+pub enum Os
+    Linux
+    Darwin
+    Windows
+    /// A browser or Node.js, running a js/wasm module.
+    Js
+    /// A WebAssembly runtime with the system interface, running a wasip1
+    /// module.
+    Wasip1
+    /// Any other, by that name (`freebsd`).
+    Other String
+end
+
+derive Equatable for Os
+
+impl Display for Os
+    /// The name: `linux`, `darwin`, `windows`, `js`, `wasip1`.
+    //! assert "${Os.Darwin}" == "darwin"
+    //! assert "${Os.Other("freebsd")}" == "freebsd"
+    //
+    fn to_string(os: Os) -> String
+        case os
+            .Linux       -> "linux"
+            .Darwin      -> "darwin"
+            .Windows     -> "windows"
+            .Js          -> "js"
+            .Wasip1      -> "wasip1"
+            .Other(name) -> name
+        end
+    end
+end
+
+/// A processor architecture, by the name a build target writes.
+pub enum Arch
+    Amd64
+    Arm64
+    /// WebAssembly.
+    Wasm
+    /// Any other, by that name (`riscv64`).
+    Other String
+end
+
+derive Equatable for Arch
+
+impl Display for Arch
+    /// The name: `amd64`, `arm64`, `wasm`.
+    //! assert "${Arch.Arm64}" == "arm64"
+    //! assert "${Arch.Other("riscv64")}" == "riscv64"
+    //
+    fn to_string(arch: Arch) -> String
+        case arch
+            .Amd64       -> "amd64"
+            .Arm64       -> "arm64"
+            .Wasm        -> "wasm"
+            .Other(name) -> name
+        end
+    end
+end
+
+/// The user the process runs as.
+pub struct User
+    /// The login name. On Windows it is `DOMAIN\name`.
+    name: String
+    /// The user's id: the numeric uid on Unix, the account's security
+    /// identifier (`S-1-5-21-...`) on Windows.
+    id: String
+end
+
+derive Equatable for User
+
+/// The memory the program holds, in bytes, for a metrics exporter. Reading
+/// it does not pause the program.
+pub struct Memory
+    /// What the values on the heap occupy, those still in use and those
+    /// the collector has not yet swept.
+    heap: Int
+    /// Everything the runtime has obtained from the operating system: the
+    /// heap, the stacks of the tasks, and the runtime's own structures.
+    obtained: Int
+end
+
+derive Equatable for Memory
+
+/// The program's tasks and its garbage collector, for a metrics exporter.
+/// Reading it does not pause the program.
+pub struct Runtime
+    /// The tasks running now: spawned by `Task.spawn`, `Task.spawn_all` or
+    /// a supervisor and not yet finished, those waiting for a supervisor's
+    /// `max_running` included.
+    tasks: Int
+    /// Every task the process has started.
+    tasks_started: Int
+    /// The supervisors the program made, each kept for its life.
+    supervisors: Int
+    /// The garbage collector's finished cycles.
+    gc_cycles: Int
+    /// How long the collector has stopped the program in all, estimated
+    /// from the runtime's histogram of its pauses.
+    gc_pause: Duration
+end
+
+derive Equatable for Runtime
+
+/// Why a function could not answer.
+pub enum Error
+    /// The target the program runs on has no such thing, as a browser has
+    /// no machine name: `operation` is the function, `target` the target
+    /// (`js/wasm`).
+    Unsupported {operation: String, target: String}
+    /// The system could not answer, as when `HOME` is not set:
+    /// `operation` is the function and `reason` what the system said.
+    Unavailable {operation: String, reason: String}
+end
+
+derive Equatable for Error
+
+impl Display for Error
+    //! unsupported = Error.Unsupported{operation: "system.hostname", target: "js/wasm"}
+    //! assert "${unsupported}" == "system.hostname is not supported on js/wasm"
+    //!
+    //! unset = Error.Unavailable{operation: "system.home_dir", reason: "$HOME is not defined"}
+    //! assert "${unset}" == "system.home_dir: $HOME is not defined"
+    //
+    fn to_string(e: Error) -> String
+        case e
+            .Unsupported{operation:, target:} -> "${operation} is not supported on ${target}"
+            .Unavailable{operation:, reason:} -> "${operation}: ${reason}"
+        end
+    end
+end
+
+impl Error
+    fn from_parts(parts: List<String>) -> Error
+        case parts
+            ["Unsupported", operation, target] -> Error.Unsupported{operation:, target:}
+            [_, operation, reason]             -> Error.Unavailable{operation:, reason:}
+            _                                  -> unreachable "system/host answers three parts"
+        end
+    end
+end
+
+/// The operating system the program runs on.
+//! assert "${system.os()}" != ""
+//
+pub fn os() -> Os
+    case host.os()
+        "linux"   -> Os.Linux
+        "darwin"  -> Os.Darwin
+        "windows" -> Os.Windows
+        "js"      -> Os.Js
+        "wasip1"  -> Os.Wasip1
+        name      -> Os.Other(name)
+    end
+end
+
+/// The processor architecture the program runs on.
+//! assert "${system.arch()}" != ""
+//
+pub fn arch() -> Arch
+    case host.arch()
+        "amd64" -> Arch.Amd64
+        "arm64" -> Arch.Arm64
+        "wasm"  -> Arch.Wasm
+        name    -> Arch.Other(name)
+    end
+end
+
+/// How many logical CPUs the process may use: the machine's, or fewer
+/// when the process is limited to some of them. A pool of workers is
+/// often this size. A js/wasm or wasip1 module answers 1.
+//! assert system.cpu_count() >= 1
+//
+pub fn cpu_count() -> PositiveInt
+    host.cpu_count()
+end
+
+/// The machine's name, as the operating system reports it.
+//! refute system.hostname() is Ok("")
+//
+pub fn hostname() -> Result<String, Error>
+    host.hostname() |> Result.map_err(Error.from_parts)
+end
+
+/// The path of the program running. A program `nomi run` runs is `nomi`
+/// itself; a program `nomi build` built is its own executable.
+//! refute system.executable() is Ok("")
+//
+pub fn executable() -> Result<String, Error>
+    host.executable() |> Result.map_err(Error.from_parts)
+end
+
+/// The user's home directory: `HOME` on Unix, `USERPROFILE` on Windows.
+//! refute system.home_dir() is Ok("")
+//
+pub fn home_dir() -> Result<String, Error>
+    host.home_dir() |> Result.map_err(Error.from_parts)
+end
+
+/// The directory for the user's cached data, which can be deleted and
+/// made again: `XDG_CACHE_HOME`, or `~/.cache`, on Linux and the other
+/// Unix systems, `~/Library/Caches` on macOS, `LocalAppData` on Windows.
+/// A program keeps its files in a directory of its own name under it.
+//! refute system.cache_dir() is Ok("")
+//
+pub fn cache_dir() -> Result<String, Error>
+    host.cache_dir() |> Result.map_err(Error.from_parts)
+end
+
+/// The directory for the user's configuration files: `XDG_CONFIG_HOME`,
+/// or `~/.config`, on Linux and the other Unix systems, `~/Library/Application
+/// Support` on macOS, `AppData` on Windows.
+//! refute system.config_dir() is Ok("")
+//
+pub fn config_dir() -> Result<String, Error>
+    host.config_dir() |> Result.map_err(Error.from_parts)
+end
+
+/// The directory for data a program keeps for the user, which is not
+/// configuration and cannot be made again: `XDG_DATA_HOME`, or
+/// `~/.local/share`, on Linux and the other Unix systems,
+/// `~/Library/Application Support` on macOS, `LocalAppData` on Windows.
+//! refute system.data_dir() is Ok("")
+//
+pub fn data_dir() -> Result<String, Error>
+    host.data_dir() |> Result.map_err(Error.from_parts)
+end
+
+/// The user the process runs as.
+//! refute system.user() is Ok(User{name: ""})
+//
+pub fn user() -> Result<User, Error>
+    parts = host.user() |> Result.map_err(Error.from_parts)?
+
+    case parts
+        [name, id] -> Ok(User{name:, id:})
+        _          -> unreachable "system/host.user answers a name and an id"
+    end
+end
+
+/// The memory the program holds now.
+//! used = system.memory()
+//! assert used.heap > 0
+//! assert used.obtained >= used.heap
+//
+pub fn memory() -> Memory
+    (heap, obtained) = host.memory()
+    Memory{heap:, obtained:}
+end
+
+/// The program's tasks and garbage collector now. Each count only grows but
+/// `tasks`, which falls as tasks finish.
+//! import std::duration.Duration
+//! import std::system
+//! import std::tasks.Task
+//!
+//! before = system.runtime()
+//!
+//! sum =
+//!     concurrent
+//!         Task.spawn(fn -> 1 + 1) |> Task.await()
+//!     end
+//!
+//! assert sum == 2
+//! after = system.runtime()
+//! assert after.tasks_started == before.tasks_started + 1
+//! assert after.tasks == before.tasks
+//! assert after.gc_cycles >= before.gc_cycles
+//! assert after.gc_pause >= Duration.nanoseconds(0)
+//
+pub fn runtime() -> Runtime
+    (tasks, tasks_started, supervisors, gc_cycles, pause) = host.runtime()
+
+    Runtime{tasks:, tasks_started:, supervisors:, gc_cycles:, gc_pause: Duration.nanoseconds(pause)}
+end

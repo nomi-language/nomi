@@ -671,14 +671,15 @@ func MapEqual[K, V any](a, b Map[K, V], hash func(K) uint64, eq func(K, K) bool,
 // keyable value, so `{{"a" => 1} => 2}` is legal
 // Nomi and a Map-keyed Map has to bucket.
 //
-// Order-insensitive, by a commutative fold, because MapEqual is: two maps with
-// the same entries in different orders are equal and must therefore hash alike.
-// It is the one place in the structural hash where the fold may not be
-// sequential.
+// Order-insensitive, by a sum, because MapEqual is: two maps with the same
+// entries in different orders are equal and must therefore hash alike. Each
+// entry is its key's hash and its value's folded through HashMix before it is
+// added, so the sum is of keyed, well-mixed words (hash.go, "Ordered parts
+// fold in order; unordered ones add").
 //
-// Not to be confused with `Hashable.hash(m)`, which std/maps.nomi defines in
-// Nomi over the elements' own `Hashable` impls with a different mix. That one
-// is user-visible and user-overridable; this one is neither. See hash.go.
+// It is also `Hashable.hash(m)`: std's impl for Map is the machine's hash of
+// the value, as a Map key of the type takes, and so is a Set's, whose record
+// holds its backing map.
 func MapHash[K, V any](m Map[K, V], hashKey func(K) uint64, hashVal func(V) uint64) uint64 {
 	var acc uint64
 	mapEvery(m.root, func(e mapEntry[K, V]) bool {

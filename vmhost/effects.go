@@ -1,7 +1,6 @@
 package vmhost
 
 import (
-	"cmp"
 	"fmt"
 	"io"
 	"os"
@@ -1063,16 +1062,17 @@ func (p *Program) projectModules() []string {
 }
 
 // projectModule is the name of the project whose own files [effects.self]
-// holds, as `nomi effects` reports it: its nomi.toml's `[module].path`;
-// without one, its `[module].name`; with neither, its entry's module name,
-// which is the name LoadSource is given (`LoadSource("rule", ...)` is
-// `rule`) and a lone file's name without `.nomi`.
+// holds, as `nomi effects` reports it: its nomi.toml's `[module].name`;
+// without one, its entry's module name, which is the name LoadSource is
+// given (`LoadSource("rule", ...)` is `rule`) and a lone file's name
+// without `.nomi`.
 func (p *Program) projectModule() string {
 	p.projectOnce.Do(func() {
-		if m := programManifest(p.prog.Root, p.cfg.manifest); m != nil && cmp.Or(m.Path, m.Name) != "" {
-			p.project = cmp.Or(m.Path, m.Name)
+		if m := programManifest(p.prog.Root, p.cfg.manifest); m != nil && m.Name != "" {
+			p.project = m.Name
 			return
 		}
+
 		p.project = p.prog.Entry().Name
 	})
 	return p.project

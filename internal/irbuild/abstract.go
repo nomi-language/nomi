@@ -287,9 +287,7 @@ func (g *gen) abstractIfaceImpl(d *implDef) (string, bool) {
 		return held.why + ": " + held.whyDetail, false
 	}
 	defer g.enterTypeScope(held.typeScope)()
-	for _, it := range held.order {
-		g.implFunc(held, it)
-	}
+	g.implFuncs(held)
 	return "", true
 }
 

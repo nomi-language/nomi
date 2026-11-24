@@ -1,4 +1,5 @@
 import
+    std::assertions.AssertionFailure
     std::calendar.OffsetDateTime
     std::channels.{Channel, Receiver, Sender}
     std::duration.Duration
@@ -6,10 +7,11 @@ import
     std::http.{self, Body, Headers, Method, Request, Response, Status}
     std::http::testing as http_testing
     std::instant.Instant
+    std::secret.Secret
     std::storage.{self, Entry, ListOptions, Listing, Store}
     std::storage::testing as storage_testing
     std::storage::testing.Memory
-    std::testing.Clock
+    std::testing.{self, Clock}
     std::url.{Query, Url}
     std::xml.{self, Element, Name, Node}
     s3.{self, Addressing, Config, Credentials, Payload}
@@ -20,7 +22,7 @@ end
 fn example_credentials() -> Credentials
     Credentials{
         access_key: "AKIAIOSFODNN7EXAMPLE",
-        secret_key: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+        secret_key: Secret.new("wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"),
     }
 end
 
@@ -167,7 +169,7 @@ fn config(endpoint: Url = Url"http://localhost:9000") -> Config
     Config{
         endpoint:,
         bucket:      "photos",
-        credentials: Credentials{access_key: "minio", secret_key: "minio123"},
+        credentials: Credentials{access_key: "minio", secret_key: Secret.new("minio123")},
     }
 end
 
@@ -449,7 +451,8 @@ test "a config that cannot work is refused"
         {..good, bucket: "Photos"},
         {..good, bucket: "-photos"},
         {..good, region: ""},
-        {..good, credentials: Credentials{access_key: "", secret_key: "x"}},
+        {..good, credentials: Credentials{access_key: "", secret_key: Secret.new("x")}},
+        {..good, credentials: Credentials{access_key: "minio", secret_key: Secret.new("")}},
         {..good, timeout: Duration.seconds(0)},
         {..good, retries: -1},
         {
@@ -462,6 +465,17 @@ test "a config that cannot work is refused"
     |> subtests c
         assert s3.store(c) is Err(.Backend{code: "InvalidConfig"})
     end
+end
+
+test "a config's secret key never shows"
+    c = config()
+    assert String.contains(Debug.inspect(c), "secret_key: Secret(<hidden>)")
+    refute String.contains(Debug.inspect(c), "minio123")
+
+    assert Err(failure) = testing.check([c] == [])
+    report = AssertionFailure.format(failure)
+    assert String.contains(report, "secret_key: Secret(<hidden>)")
+    refute String.contains(report, "minio123")
 end
 
 test "presigned URLs are on the endpoint and bounded to 7 days"

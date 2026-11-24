@@ -448,8 +448,8 @@ func (m *Module) ImplementDisplay(typ, fn *Symbol) {
 	m.displays = append(m.displays, DisplayImpl{Type: typ, Func: fn})
 }
 
-// ImplementRowDebug records that fn is a user's hand-written `impl Debug`
-// body for values of declared type typ. An assertion report's `values:` rows
+// ImplementRowDebug records that fn is a hand-written `impl Debug` body,
+// a std type's or a program's, for values of declared type typ. An assertion report's `values:` rows
 // render such a value through it, at any depth, as `dbg` does; a derived or
 // universal Debug is not recorded, so every other value reads structurally.
 func (m *Module) ImplementRowDebug(typ, fn *Symbol) {

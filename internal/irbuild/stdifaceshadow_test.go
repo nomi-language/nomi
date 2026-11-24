@@ -530,7 +530,7 @@ end
 	if err == nil {
 		t.Fatal("the front end admits two impls of one interface for one type")
 	}
-	if !strings.Contains(err.Error(), "duplicate impl: `a.Show` is implemented for `User`") {
+	if !strings.Contains(err.Error(), "duplicate impl: `Show` is implemented for `User` twice in this module") {
 		t.Fatalf("the front end rejects the duplicate with another error: %v", err)
 	}
 }

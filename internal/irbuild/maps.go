@@ -19,46 +19,18 @@ import (
 // accumulate-into-a-map fold quadratic, which is the mistake rt/list.go
 // declined for `List`. It is a persistent hash trie.
 //
-// # The key hash and the key equality are NOT the user-facing interfaces
+// # Which keys the machine can hash and compare
 //
-// This is the constraint the whole file is arranged around, and it is a
-// silent-divergence risk rather than a preference.
-//
-// `Hashable` and `Equatable` are Nomi INTERFACES, so a program may implement
-// them, and may implement them inconsistently with each other. A Map key
-// buckets on the structural hash and matches on structural equality, neither
-// of which consults an impl. A Map that dispatched to `Hashable.hash` would
-// behave on every well-behaved key and fail on exactly the programs that got
-// the law wrong: the key would be unretrievable, with no error anywhere. So:
-//
-//	The bucketing hash and the key equality are STRUCTURAL and un-overridable.
-//	They are rt.Hash and rt.Equal for a kind, assembled at the call site.
-//
-// That is why this file has `valueHashes`/`valueEquates`, and they are the
-// builder.s ONE statement of which kinds have a structural equality.
-//
-// # The distinction is POSITION, not KIND
-//
-// Nomi's `==` dispatches to `impl Equatable` at the TOP of a `==`, for a
-// struct, an enum variant or a distinct, and nowhere else. So:
-//
-//   - `p == q` on a STRUCT with an impl dispatches. The operator's own
-//     lowering does that.
-//   - `p == q` on an ENUM or a DISTINCT dispatches when the impl is
-//     HAND-WRITTEN and not when it is derived, which compares by shape
-//     (machineImpls). See equality (irequality.go).
-//   - `[p] == [q]`, `(p, 1) == (q, 1)`, a `p` key inside a Map: never, at any
-//     depth, because each is structural equality from the outermost step down
-//     and structural equality does not dispatch. A `derive Equatable` on a
-//     struct FIELD is likewise not consulted when the containing struct falls
-//     back structurally: for an `Inner` whose impl returns True
-//     unconditionally, `a == b` is True and `Outer{i: a} == Outer{i: b}` is
-//     False.
-//
-// So every caller here wants structural equality and there is nothing left for a second
-// rule to be. The operator's dispatch lives at exactly one site, the
-// operator's lowering (ircompare.go), and everything underneath it is this
-// file.
+// rt.Hash and rt.Equal hash and compare a key by its shape, part by part,
+// and a value of a declared type through that type's hand-written `equal`
+// and `hash` at any depth, which the module records (irRecordKeyImpls) and
+// the machine calls (vm/keys.go): a type whose `equal` is hand-written and
+// whose Hashable is not hashes by its type name alone. `valueHashes` and
+// `valueEquates` are the builder's one statement of which kinds that
+// answers for. A kind whose parts are all keys is one, and so is a declared
+// type whose Equatable impl has a body (keyedByBody), whatever its parts
+// hold: the body decides, and the machine never compares or hashes those
+// parts (analysis.ImplAsksParts, which the checker's equality rule reads).
 //
 // # Base-name laxness cannot be observed through a map key, or through the operator
 //
@@ -171,7 +143,7 @@ func (g *gen) valueHashes(k kind) bool {
 		return g.valueHashes(k.comp.parts[0]) && g.valueHashes(k.comp.parts[1])
 	case tagNamed:
 		// A Vector's def is rt-opaque and a Set's is a struct over its backing
-		// map; both hash by their elements (rt.HashVector, rt.SetHash).
+		// map; both hash by their elements (rt.HashVector, rt.MapHash).
 		if elem, isVec := vectorElem(k); isVec {
 			return g.valueHashes(elem)
 		}
@@ -203,6 +175,11 @@ func (g *gen) allHash(parts []kind) bool {
 // the outer expansion decides it from its other parts. rt.Hash walks the
 // value, which is finite, so the assumption holds at run time.
 func (g *gen) namedHashes(k kind) bool {
+	if g.keyedByBody(k, stdHashable) || g.keyedByBody(k, stdEquatable) {
+		// Its hash is its own `hash`, or with a hand-written `equal`
+		// alone, its type name (vm/keys.go).
+		return true
+	}
 	d := k.def
 	if !g.beginExpand(d) {
 		return true
@@ -237,9 +214,9 @@ func (g *gen) namedHashes(k kind) bool {
 	}
 }
 
-// valueEquates reports whether kind k has a structural equality (rt.Equal),
-// recursive and never dispatching to an impl. See the file comment for why it
-// never dispatches.
+// valueEquates reports whether the machine compares values of kind k
+// (rt.Equal): by their shape, and a declared type with a hand-written
+// `equal` through it (keyedByBody). See the file comment.
 func (g *gen) valueEquates(k kind) bool {
 	if isDecimalKind(k) || isStdHostPrim(k, analysis.TypeByte) || isStdHostPrim(k, analysis.TypeBytes) || irStdHandleKind(k) || irDynamicKind(k) || irTypeWitnessKind(k) {
 		// rt.EqDecimal compares `1.50d == 1.5d` as Nomi does; Byte and Bytes
@@ -275,6 +252,16 @@ func (g *gen) valueEquates(k kind) bool {
 	return false
 }
 
+// keyedByBody reports whether k's impl of iface, std's Equatable or
+// Hashable, is a hand-written body the machine calls for a value of k at a
+// key, in `==` and inside a container (irRecordKeyImpls): one whose
+// function has a body (analysis.ImplAsksParts), which answers whatever k's
+// parts hold.
+func (g *gen) keyedByBody(k kind, iface analysis.StdType) bool {
+	d := g.implsByIface[stdIfaceImplKey(iface)][k]
+	return d != nil && d.lowerable && irKeyImplRecv(k) && !analysis.ImplAsksParts(d.decl)
+}
+
 // allEquate reports whether every one of parts has a structural equality.
 func (g *gen) allEquate(parts []kind) bool {
 	for _, p := range parts {
@@ -288,6 +275,9 @@ func (g *gen) allEquate(parts []kind) bool {
 // namedEquates is valueEquates for a declared struct, enum or distinct type.
 // The shapes and the co-inductive recursion guard mirror namedHashes'.
 func (g *gen) namedEquates(k kind) bool {
+	if g.keyedByBody(k, stdEquatable) {
+		return true
+	}
 	d := k.def
 	if !g.beginExpand(d) {
 		return true

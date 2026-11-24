@@ -128,7 +128,7 @@ func (c *checker) recordCoercions(nodes []ast.Node) {
 func (c *checker) coercionImpl(it *InterfaceType, t Type) *ast.ImplBlock {
 	cands := c.implCandidates(resolveTypeVar(t), it.Name, it.Origin)
 	for _, cand := range cands {
-		if len(it.TypeArgs) > 0 && typesAllEqual(cand.args, it.TypeArgs) {
+		if len(it.TypeArgs) > 0 && sameTypeArgs(cand.args, it.TypeArgs) {
 			return cand.info.Block
 		}
 	}

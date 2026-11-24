@@ -49,7 +49,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/nomi-language/nomi/internal/runners"
 	"github.com/nomi-language/nomi/internal/stdio"
 	"github.com/nomi-language/nomi/vmhost"
 )
@@ -241,7 +240,7 @@ func (d *webDev) rebuild() {
 	d.mu.Unlock()
 	start := time.Now()
 	var report bytes.Buffer
-	err := build(buildArgs{entry: d.entry, out: out, target: runners.Target{GOOS: "js", GOARCH: "wasm"}, web: true, noStatic: true}, &report)
+	err := build(buildArgs{entry: d.entry, out: out, target: jsWasm, web: true, noStatic: true}, &report)
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if err == nil {

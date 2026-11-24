@@ -34,7 +34,7 @@
 -> stackTrace {"threadId":1}
 <- response stackTrace {"stackFrames":[{"column":5,"id":1,"line":6,"name":"add","source":{"name":"restart.nomi","path":"$TESTDATA/restart.nomi"}},{"column":0,"id":1048577,"line":0,"name":"(tail call)","presentationHint":"label"},{"column":62,"id":2,"line":12,"name":"Iter.map","presentationHint":"subtle","source":{"name":"restart.nomi","path":"$TESTDATA/restart.nomi"}},{"column":62,"id":3,"line":12,"name":"main","source":{"name":"restart.nomi","path":"$TESTDATA/restart.nomi"}}],"totalFrames":4}
 -> restartFrame {"frameId":3}
-<- response restartFrame failed "Cannot restart this frame: a call from Go (Iter.map) is between this frame and the top of the stack, and Go's stack cannot be unwound."
+<- response restartFrame failed "Cannot restart this frame: a host function's call (Iter.map) is between this frame and the top of the stack, and it cannot be unwound."
 -> restartFrame {"frameId":1}
 <- response restartFrame failed "Cannot restart this frame: a tail call replaced this frame's function, so its own first statement and arguments are gone."
 -> setBreakpoints {"breakpoints":[],"source":{"path":"$TESTDATA/restart.nomi"}}

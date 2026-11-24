@@ -47,9 +47,9 @@ type StdBase struct {
 	// name a stdlib impl names: the names the stdlib's identity passes look a
 	// primitive's origin up by.
 	names map[string]bool
-	// collisionGroups holds the stdlib's impls by (interface, method) slot
-	// and then by the group detectImplCollisions puts each in.
-	collisionGroups map[string]map[string]map[string][]slotImpl
+	// implBlockGroups holds the stdlib's impl blocks by the key
+	// detectImplCollisions groups each in (implBlockGroupKey).
+	implBlockGroups map[string][]implBlockAt
 	// enumDecls is PopulateEnumDecls' table with each declaration's file key.
 	enumDecls map[string][]keyedSymbol
 	// declModules is declaringModuleIndex over the stdlib's files.
@@ -98,7 +98,7 @@ func BuildStdBase(byName map[string]*FileAnalysis) *StdBase {
 	b.primitives = primitiveOriginIndex(b.files)
 	populateQualifiedReceivers(idx, b.files, b.primitives)
 	PopulateImplIfaceOrigins(idx, b.files)
-	b.covered, b.blocked = recordImplsByIdentity(idx, b.files, b.primitives)
+	b.covered, b.blocked = recordImplsByIdentity(idx, b.files, b.files, b.primitives)
 	idx.implNamesWithIdentity = coveredNotBlocked(b.covered, b.blocked)
 	addImplTypeArgs(idx, b.filesInKeyOrder())
 	PopulateProjectImplFuncTypes(idx, b.files)
@@ -107,11 +107,12 @@ func BuildStdBase(byName map[string]*FileAnalysis) *StdBase {
 	b.enumDecls = keyedEnumDecls(b.files)
 	idx.EnumDecls = flattenEnumDecls(b.enumDecls)
 	b.index = idx
-	if !b.fits() {
+	blocks := programImplBlocks(b.files)
+	if !b.fits(blocks) {
 		return nil
 	}
 	b.names = b.lookupNames()
-	b.collisionGroups = stdCollisionGroups(idx)
+	b.implBlockGroups = stdImplBlockGroups(blocks)
 	b.declModules = declaringModuleIndex(b.files, "", nil)
 	b.demands, b.pairs, b.wanted = stdDemands(b.filesInKeyOrder())
 	for _, fa := range b.files {
@@ -122,10 +123,9 @@ func BuildStdBase(byName map[string]*FileAnalysis) *StdBase {
 
 // fits reports whether every program's build may take the stdlib's share
 // from b: every type-promoted method of the stdlib is typed, so no program
-// method replaces one, and no two stdlib impls collide, so the stdlib's own
-// dispatch slots hold no diagnostic a build would have to place among its
-// own.
-func (b *StdBase) fits() bool {
+// method replaces one, and no two of its impl blocks (blocks) collide, so
+// the stdlib holds no diagnostic a build would have to place among its own.
+func (b *StdBase) fits(blocks []implBlockAt) bool {
 	for _, byMethod := range b.index.TypeMethods {
 		for _, sym := range byMethod {
 			if sym.Type == nil {
@@ -133,8 +133,7 @@ func (b *StdBase) fits() bool {
 			}
 		}
 	}
-	index, files := CollisionImplIndex(nil, nil, b.index)
-	return len(detectImplCollisions(index, files, b.index.QualifiedReceiver, b.index.ImplBlockInterfaceKey, b.index.ImplIfaceOrigin, nil)) == 0
+	return len(detectImplCollisions(blocks, receiverNames{entry: OriginEntry}, nil)) == 0
 }
 
 // filesInKeyOrder answers the base's analyses in module-key order.
@@ -520,7 +519,7 @@ func (s *programShare) populate(idx *ProjectImplIndex, filesByKey map[string]*Fi
 	u := s.index
 	populateQualifiedReceivers(u, filesByKey, s.primitives)
 	PopulateImplIfaceOrigins(u, filesByKey)
-	s.covered, s.blocked = recordImplsByIdentity(u, filesByKey, s.primitives)
+	s.covered, s.blocked = recordImplsByIdentity(u, filesByKey, s.files, s.primitives)
 	addImplTypeArgs(u, typeArgFiles)
 	PopulateProjectImplFuncTypes(u, filesByKey)
 	PopulateProjectTypeMethodSymbols(u, s.files)
@@ -695,92 +694,32 @@ func mergeRecordings(base, over []Recording) []Recording {
 	return out
 }
 
-// implCollisions answers detectImplCollisions' diagnostics for the program
-// whose index is idx: own is the build's impl-method tables and receivers
-// its impls' qualified receivers. Only the (interface, method) slots the
-// build's own impls occupy are grouped. A slot the stdlib's impls alone
-// occupy holds no collision (StdBase.fits), and every slot's diagnostics are
-// placed by its interface, method and receiver, so the rest come out as a
-// grouping of every slot gives them.
-func (s *programShare) implCollisions(idx *ProjectImplIndex, own *implTables, receivers map[*ast.FuncDef]string, pathOf func(key string) string) []TypeError {
-	recvs := map[*ast.FuncDef]string{}
-	keys := map[*ast.FuncDef]string{}
-	note := func(fn *ast.FuncDef) {
-		if recv, ok := receivers[fn]; ok {
-			recvs[fn] = recv
-		} else if recv, ok := idx.QualifiedReceiver[fn]; ok {
-			recvs[fn] = recv
-		}
-		if key, ok := own.ImplBlockInterfaceKey[fn]; ok {
-			keys[fn] = key
-		} else if key, ok := idx.ImplBlockInterfaceKey[fn]; ok {
-			keys[fn] = key
+// implCollisions answers detectImplCollisions' diagnostics for the
+// program: its own impl blocks, grouped with the stdlib's blocks of the
+// same keys. The stdlib's blocks alone hold no collision (StdBase.fits),
+// so only a group a program block joins can hold one.
+func (s *programShare) implCollisions(pathOf func(key string) string) []TypeError {
+	own := programImplBlocks(s.files)
+	keys := map[string]bool{}
+	for _, b := range own {
+		if k, ok := implBlockGroupKey(b.info); ok {
+			keys[k] = true
 		}
 	}
-	slots := &ProjectImplIndex{
-		IfaceMethodImpls: make(map[string]map[string][]*ast.FuncDef, len(s.index.IfaceMethodImpls)),
-		ImplFiles:        make(map[*ast.FuncDef]string),
+	var blocks []implBlockAt
+	for k := range keys {
+		blocks = append(blocks, s.base.implBlockGroups[k]...)
 	}
-	for iface, byMethod := range s.index.IfaceMethodImpls {
-		slots.IfaceMethodImpls[iface] = make(map[string][]*ast.FuncDef, len(byMethod))
-		for method, programFns := range byMethod {
-			// The slot as the program's index holds it is the stdlib's impls
-			// and then the program's. Of the stdlib's, only those in a group
-			// a program impl joins can collide, so only those are grouped,
-			// in their order in the slot.
-			for _, fn := range own.IfaceMethodImpls[iface][method] {
-				note(fn)
-			}
-			for _, fn := range programFns {
-				note(fn)
-			}
-			groups := map[string]bool{}
-			for _, fns := range [][]*ast.FuncDef{own.IfaceMethodImpls[iface][method], programFns} {
-				for _, fn := range fns {
-					groups[collisionGroupKey(iface, fn, recvs, keys)] = true
-				}
-			}
-			var std []slotImpl
-			for group := range groups {
-				std = append(std, s.base.collisionGroups[iface][method][group]...)
-			}
-			sort.Slice(std, func(i, j int) bool { return std[i].at < std[j].at })
-			fns := make([]*ast.FuncDef, 0, len(std)+len(programFns))
-			for _, impl := range std {
-				note(impl.fn)
-				fns = append(fns, impl.fn)
-			}
-			fns = append(fns, programFns...)
-			slots.IfaceMethodImpls[iface][method] = fns
-			for _, fn := range fns {
-				slots.ImplFiles[fn] = idx.ImplFiles[fn]
-			}
-		}
-	}
-	index, files := CollisionImplIndex(own.IfaceMethodImpls, own.IfaceMethodImplFiles, slots)
-	return detectImplCollisions(index, files, recvs, keys, idx.ImplIfaceOrigin, pathOf)
+	return detectImplCollisions(append(blocks, own...), receiverNames{entry: entryOriginOf(s.files), primitives: s.primitives}, pathOf)
 }
 
-// slotImpl is a stdlib impl function and its place in its (interface,
-// method) slot of the stdlib's index.
-type slotImpl struct {
-	fn *ast.FuncDef
-	at int
-}
-
-// stdCollisionGroups answers, for each (interface, method) slot of idx, the
-// impls in each group detectImplCollisions would put them in.
-func stdCollisionGroups(idx *ProjectImplIndex) map[string]map[string]map[string][]slotImpl {
-	out := make(map[string]map[string]map[string][]slotImpl, len(idx.IfaceMethodImpls))
-	for iface, byMethod := range idx.IfaceMethodImpls {
-		out[iface] = make(map[string]map[string][]slotImpl, len(byMethod))
-		for method, fns := range byMethod {
-			groups := map[string][]slotImpl{}
-			for at, fn := range fns {
-				key := collisionGroupKey(iface, fn, idx.QualifiedReceiver, idx.ImplBlockInterfaceKey)
-				groups[key] = append(groups[key], slotImpl{fn: fn, at: at})
-			}
-			out[iface][method] = groups
+// stdImplBlockGroups is blocks by the key detectImplCollisions groups each
+// in (implBlockGroupKey).
+func stdImplBlockGroups(blocks []implBlockAt) map[string][]implBlockAt {
+	out := map[string][]implBlockAt{}
+	for _, b := range blocks {
+		if k, ok := implBlockGroupKey(b.info); ok {
+			out[k] = append(out[k], b)
 		}
 	}
 	return out

@@ -1,0 +1,53 @@
+================================================================================
+A lambda's body on its line may be a discard
+================================================================================
+
+fn f()
+  Iter.each(items, fn i -> _ = Sender.send(out, i))
+  xs |> then fn v -> _ = g(v) |> h()
+  k = fn x -> _
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters)
+    (body
+      (call_expression
+        function: (field_access
+          (type_identifier)
+          (identifier))
+        (identifier)
+        (lambda
+          (lambda_parameter
+            name: (identifier))
+          body: (binding
+            (identifier)
+            (call_expression
+              function: (field_access
+                (type_identifier)
+                (identifier))
+              (identifier)
+              (identifier)))))
+      (pipe_expression
+        (pipe_expression
+          (identifier)
+          (then_stage
+            lambda: (lambda
+              (lambda_parameter
+                name: (identifier))
+              body: (binding
+                (identifier)
+                (call_expression
+                  function: (identifier)
+                  (identifier))))))
+        (call_expression
+          function: (identifier)))
+      (binding
+        (identifier)
+        (lambda
+          (lambda_parameter
+            name: (identifier))
+          body: (identifier))))))

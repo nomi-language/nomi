@@ -19,6 +19,12 @@ package ir
 // requires each such pair to encode identically, so a dropped body is never
 // one that differed.
 //
+// A NAME NO OBJECT DEFINES IS LINKED TOO. A dispatched call names its
+// interface method's symbol, which has no body, and each module records its
+// own entries for it (Module.Implement). Every object that names the symbol
+// links to the one symbol of its name, so a call in one object selects among
+// the entries every linked module records.
+//
 // A LINKER MAY LINK OVER ANOTHER (NewLinkerOver). The objects a process
 // decodes once each, the stdlib's, are linked by one linker, and what is
 // linked against them later (the std modules declared with each program) by
@@ -80,6 +86,10 @@ func (l *Linker) definer(s *Symbol) *Module {
 	}
 	return nil
 }
+
+// Known is the symbol this linker or its base has linked under link, or
+// nil.
+func (l *Linker) Known(link string) *Symbol { return l.known(link) }
 
 // Symbol is the one symbol of written's linkage name: the first one this
 // linker saw, decoded or added, else written.

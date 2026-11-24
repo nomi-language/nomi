@@ -1,6 +1,7 @@
 package analysis
 
 import (
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -8,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/modcache"
 )
 
 // BuildProject is the project-wide build entry point. Given an entry
@@ -168,6 +170,12 @@ type buildInputs struct {
 	// scopeNames are the entry's FileDecls.ScopeNames.
 	scopeNames []string
 }
+
+// NomiVersionCode is the error of a build that reaches a module whose
+// nomi.toml's [module].nomi names a later release than the running nomi
+// (modcache.NomiVersionError). Its Args are the module as the message
+// names it, the release it needs and the running release.
+const NomiVersionCode = "nomi-version"
 
 func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map[string]*Scope, stdlibFAs map[string]*FileAnalysis, projectRoot string, entryAbsPath string, entryModRel string, placeEntry bool, loader FileLoader, mfst *Manifest, in *buildInputs) (*FileAnalysis, map[string]*FileAnalysis, map[string][]ast.Node) {
 	var analyzed func(key string) bool
@@ -368,6 +376,16 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 			cache[key] = fa
 		}
 		return &fileBuilder{key: key, nodes: nodes, fa: fa, builder: b}
+	}
+
+	// A module that needs a later nomi stops the build before any file is
+	// read or checked (discoverProjectStd): the entry answers that one
+	// error, since the module's files are written for that nomi.
+	if tooOld := (*modcache.NomiVersionError)(nil); errors.As(discoverErr, &tooOld) {
+		fa := makeBuilder(nil, "").fa
+		fa.TypeErrors = []TypeError{{Line: 1, Col: 1, Message: tooOld.Error(), Code: NomiVersionCode,
+			Args: []string{tooOld.Module, tooOld.Needs, tooOld.Running}}}
+		return fa, map[string]*FileAnalysis{}, map[string][]ast.Node{}
 	}
 
 	// Auto-prepend the prelude import chain to every non-stdlib file.
@@ -886,20 +904,14 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		}
 	}
 
-	// Sweep B-bounds: the derive field/payload bound check (spec §12
-	// *Derive*). Runs
-	// after Sweep B-ann so every file's own Impls is fully
-	// populated, and AFTER the project impl index has been built
-	// so CheckDeriveBounds can consult it
-	// for cross-file / stdlib impl knowledge. The (T, Iface) entries
-	// for the @derive'd types themselves are also present (registered
-	// by defineImplBlockStub on the synthesizer's emitted
-	// impl block during Sweep A/B-ann), letting recursive types
-	// pass their own self-reference check naturally.
+	// Sweep B-bounds: the JSON derive gates (CheckDeriveBounds), which read
+	// a part's written type through the aliases of every file of the
+	// build. That each part has the derived interface is the checker's
+	// demand (checkDerivedParts).
 	fileOf := buildDeclFiles(filesByKey)
 	for _, fb := range built {
-		fb.fa.TypeErrors = append(fb.fa.TypeErrors, CheckDeriveBounds(fb.fa, fb.nodes, implIndex, fileOf)...)
-		fb.fa.TypeErrors = append(fb.fa.TypeErrors, CheckForeignDeriveBounds(fb.fa, fb.nodes, implIndex, fileOf)...)
+		fb.fa.TypeErrors = append(fb.fa.TypeErrors, CheckDeriveBounds(fb.fa, fb.nodes, fileOf)...)
+		fb.fa.TypeErrors = append(fb.fa.TypeErrors, CheckForeignDeriveBounds(fb.fa, fb.nodes, fileOf)...)
 	}
 
 	// The declarations are done. Each of the build's own files keeps what
@@ -1004,8 +1016,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// The build's files now have their types, and with them the primitives
 	// they declare. One declared under a name the stdlib's identity passes
 	// resolve would change the stdlib's answers, so such a build folds every
-	// file itself after all. The index fold answered holds the same impls,
-	// which is all CheckDeriveBounds read from it.
+	// file itself after all, into the index the fold answered.
 	if share != nil && !share.identitiesFit() {
 		*implIndex = *buildProjectImplIndex(filesByKey, own, owned)
 		share = nil
@@ -1183,19 +1194,9 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		}
 		var programErrs []TypeError
 		if share != nil {
-			programErrs = append(programErrs, share.implCollisions(implIndex, own, qualifiedImplBlockReceivers, pathOf)...)
+			programErrs = append(programErrs, share.implCollisions(pathOf)...)
 		} else {
-			collisionIndex, collisionFiles := CollisionImplIndex(ifaceImpls, ifaceImplFiles, implIndex)
-			collisionIfaceKeys := make(map[*ast.FuncDef]string, len(implBlockInterfaceKeys)+len(implIndex.ImplBlockInterfaceKey))
-			for fn, key := range implIndex.ImplBlockInterfaceKey {
-				collisionIfaceKeys[fn] = key
-			}
-			for fn, key := range implBlockInterfaceKeys {
-				collisionIfaceKeys[fn] = key
-			}
-			programErrs = append(
-				programErrs, detectImplCollisions(collisionIndex, collisionFiles, qualifiedImplBlockReceivers, collisionIfaceKeys, implIndex.ImplIfaceOrigin, pathOf)...,
-			)
+			programErrs = append(programErrs, detectImplCollisions(programImplBlocks(filesByKey), receiverNames{entry: entryOriginOf(filesByKey), primitives: clashPrimitives}, pathOf)...)
 		}
 		// Inherent type-function name collisions (two type-body `fn m` items
 		// for one type after lowering).
@@ -1404,7 +1405,7 @@ func populateProgramIndex(idx *ProjectImplIndex, filesByKey map[string]*FileAnal
 	// `DetectMissingImpls` judges an `Equatable` demand on a user's own
 	// `Error` satisfied by std/calendar's `derive Equatable for Error`, and
 	// accepts a program with no impl of its own. See missing_impl_identity.go.
-	covered, blocked := recordImplsByIdentity(idx, filesByKey, primitives)
+	covered, blocked := recordImplsByIdentity(idx, filesByKey, filesByKey, primitives)
 	idx.implNamesWithIdentity = coveredNotBlocked(covered, blocked)
 	addImplTypeArgs(idx, typeArgFiles)
 	// Now that BuildTypes has populated sym.Type on every impl's owning

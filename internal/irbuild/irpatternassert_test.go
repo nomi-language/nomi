@@ -184,7 +184,7 @@ group "sibling cancellation under a virtual clock"
     outcome = concurrent
       short = Task.spawn(fn -> short_fail())
       long = Task.spawn(fn -> long_sleep())
-      _l = long
+      _l = fn -> Task.outcome(long) // never called: the task stays unawaited
       Ok(Task.await(short)?)
     end
 

@@ -10,10 +10,11 @@ import (
 // A `dbg` renders its operand as `Debug.inspect` does, and the checker
 // records it as that use (FileAnalysis.Operators), by the rule a written
 // `Debug.inspect(e)` is answered by: an impl at a scalar's type and at a
-// struct's with a derived Debug, by shape at a tuple's and at a struct's
-// with no Debug block, by dispatch at an interface value's, per instance
-// at a type parameter's, and for a pipe stage's bare `dbg` at the type of
-// the value piped in.
+// struct's with a written Debug, by shape at a tuple's, at a struct's with
+// a derived Debug (whose block writes no function) and at one with no Debug
+// block, by dispatch at an interface value's, per instance at a type
+// parameter's, and for a pipe stage's bare `dbg` at the type of the value
+// piped in.
 func TestOperatorUses_ADbgIsTheDebugUseAtItsOperand(t *testing.T) {
 	fa, errs := checkEntry(t, `struct P
     x: Int
@@ -43,7 +44,11 @@ fn main()
     _ = P{x: 3} |> dbg
 end
 
-derive Debug for P
+impl Debug for P
+    fn inspect(_: P) -> String
+        "P"
+    end
+end
 
 struct Q
     y: Int
@@ -51,6 +56,16 @@ end
 
 fn bare()
     dbg Q{y: 1}
+end
+
+struct R
+    z: Int
+end
+
+derive Debug for R
+
+fn derived()
+    dbg R{z: 1}
 end
 `)
 	if len(errs) > 0 {
@@ -63,7 +78,8 @@ end
 		23: analysis.OperatorStructural,
 		24: analysis.OperatorDispatched,
 		26: analysis.OperatorByImpl,
-		36: analysis.OperatorStructural,
+		40: analysis.OperatorStructural,
+		50: analysis.OperatorStructural,
 	}
 	got := map[int]*analysis.OperatorUse{}
 	for n, use := range fa.Operators {

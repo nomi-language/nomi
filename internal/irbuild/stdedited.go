@@ -15,6 +15,17 @@ package irbuild
 // reaches the embedded body: its graph names the cached symbol. The re-lowered
 // module is linked after the cached ones, so an interface dispatch on one of
 // this module's types (`Display.to_string(time)`) selects the edited impl.
+//
+// A listed module checked from edited source is lowered with its program
+// instead (generateProgramStdTestIR), since its types are the program's. A
+// shared module's types and interfaces are the process's (stdtypes.go) and
+// the other shared modules link to its symbols, so it is lowered again
+// here, in the scope the shared lowering gave it. Both read the records
+// that name the shared copy's declarations the same way: the edited
+// module's twins (implFuncTwins, stdModuleView.twins), through ownDecl, in
+// every gen built from the module's view, the cases' and the instances'
+// among them. The edited module's dispatch symbols are the ones the shared
+// objects dispatch on (linkImport), as a program's are.
 
 import (
 	"fmt"
@@ -42,6 +53,7 @@ func GenerateEditedStdlibTestIR(module string, nodes []ast.Node, fa *analysis.Fi
 	earlierMods := std.earlierMods[module]
 	earlier := std.filtered(func(m string) bool { return earlierMods[m] })
 	nv := stdModuleContext(module, v.path, v.pkg, nodes, fa, earlier)
+	nv.twins = implFuncTwins(v.nodes, nodes)
 	dc := newDeclineCensus(hooks)
 	funcs, onces, irMod := lowerStdlibModuleIn(nv, earlier, dc)
 	if irMod != nil {

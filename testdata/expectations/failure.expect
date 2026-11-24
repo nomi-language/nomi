@@ -368,7 +368,7 @@ T
 C decimal.nomi
 E 1
 N 14
-H b15c1cb3933fa346b5231f3d7c98c40227d8d55a451788fab4cf5a53e0fa3000
+H 0450cb57b3902ae46951c5fc993a2232ce3bda39250d16a280414b8ac2f94a8c
 T ok <root>/internal/irbuild/testdata/decimal.nomi :: literals keep their scale and render it
 T ok <root>/internal/irbuild/testdata/decimal.nomi :: arithmetic is exact, which is what a Float cannot be
 T ok <root>/internal/irbuild/testdata/decimal.nomi :: equality is scale-insensitive while scale is significant
@@ -387,9 +387,9 @@ T   line 248: assertion failed
 T     assert left == right
 T     values:
 T       left
-T         = 1.50
+T         = 1.50d
 T       right
-T         = 2.25
+T         = 2.25d
 T test result: FAILED. 13 passed, 1 failed
 T
 C erased_operand.nomi

@@ -185,17 +185,26 @@ func (c *checker) instantiateFuncRef(node ast.Node, ty, expected Type) Type {
 		concrete := resolveTypeVar(subs[tp])
 		subs[tp] = concrete
 		for _, bound := range tp.Bounds {
-			if !typeImplementsInterface(c, concrete, bound, c.recPos(line, col), RecordingKindGenericBoundCheck) {
+			if !typeImplementsInterface(c, concrete, bound, c.site(line, col, RecordingKindGenericBoundCheck)) {
 				c.boundError(line, col, concrete, bound, tp.Name_)
 				continue
 			}
-			c.recordBoundConformance(concrete, bound.Name, bound.Origin, c.recPos(line, col), RecordingKindGenericBoundCheck)
+			c.recordBoundConformance(concrete, bound.Name, bound.Origin, c.site(line, col, RecordingKindGenericBoundCheck))
 		}
 	}
 	c.recordWhereBoundDemands(ft, subs, line, col, col)
 	params := make([]Type, len(ft.Params))
 	for i, p := range ft.Params {
 		params[i] = Substitute(p, subs)
+	}
+	if len(params) == 1 && c.fa.stdFuncNamed(node) == StdTestingCheck {
+		// std/testing's check judges its subject as `assert` does, which
+		// its signature's `T` does not say: named as a value at a subject
+		// `assert` cannot take, it is refused as its call is.
+		if _, ok := c.assertionSuccessType(params[0], false, line, col); !ok {
+			c.report(errAt(node, testingCheckSubjectError(params[0])).
+				WithHint("pass a function that checks a Bool, as in `fn n -> testing.check(n > 0)`"))
+		}
 	}
 	inst := &FuncType{Params: params, Return: Substitute(ft.Return, subs), DefaultCount: ft.DefaultCount}
 	c.attachCallTypeArgs(node, inst, subs)

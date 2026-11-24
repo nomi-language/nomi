@@ -376,7 +376,8 @@ func DynamicHas(d Dynamic, name string) bool {
 
 // --- rendering -------------------------------------------------------------
 
-// DynamicInspect backs `impl Debug for Dynamic`.
+// DynamicInspect backs `impl Debug for Dynamic`, and a Dynamic's row in a
+// failure report is the same text (RowText).
 //
 // JSON-shaped, because the commonest source of a Dynamic is a JSON parser and
 // reading the rendering against the source document is the likeliest diagnostic
@@ -454,26 +455,3 @@ func dynamicRender(v any) string {
 // A wrapper over JsonToAny rather than a second walk: the tree conversion is
 // json.go's and this is the one line that gives it the Nomi type.
 func JsonToDynamic(jv Json) Dynamic { return Dynamic{Inner: JsonToAny(jv)} }
-
-// InspectDynamic is how an assertion's `values:` row shows a Dynamic, and it is
-// not DynamicInspect.
-//
-// A failing `assert Debug.inspect(dyn) == "…"` over a Dynamic wrapping the
-// string "hello" reports:
-//
-//	values:
-//	  dyn
-//	    = <dynamic: string>
-//	  Debug.inspect(dyn)
-//	    = ""hello""
-//
-// Two renderings of one value, in one assertion, two lines apart:
-// `Debug.inspect` renders the payload and the row renders the wrapper's Go
-// type. Calling Debug here, which is easy to do because `impl Debug for
-// Dynamic` exists and is bound, would give a wrong answer that only a
-// deliberately failing fixture could catch.
-//
-// One owner for the format: RowText reaches this `%T` for a Dynamic, and
-// `JsonToAny` produces string/int64/float64/bool/[]any/map[string]any, so the
-// `%T` a program sees is fixed by construction.
-func InspectDynamic(d Dynamic) string { return fmt.Sprintf("<dynamic: %T>", d.Inner) }

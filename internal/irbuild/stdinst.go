@@ -37,6 +37,12 @@ import (
 // call inside the closure names that pointer, and the shell the body is built
 // in interns the same token and gets the same pointer back.
 //
+// A generic type the module declares is instantiated in the instance's gen
+// as a program file's is in its own (genericInstance), and its impl blocks
+// are registered at the instance and queued. The gen builds them after the
+// body (build, flushGenericImpls), into the same module, so a body that
+// converts `Streamed<T, U>` to an `Iter<U>` reaches a built `each_while`.
+//
 // # All or nothing per closure
 //
 // Building one body can discover more instances (`List.from_json` at `Int`
@@ -322,7 +328,7 @@ func (s *stdInstances) queue(f *stdFunc, tps []string, args []kind, types []anal
 		return nil, "a generic stdlib function with no retained module view: " + f.key
 	}
 	stdBodies(f.module)
-	g := newStdGen(v.module, v.path, v.pkg, v.nodes, v.fa, v.cands, v.settled, v.onces, s.std)
+	g := v.gen(s.std)
 	g.stdInsts, g.dc = s, s.dc
 	if c := s.caller; c != nil {
 		g.progLinks = c.programLinks()
@@ -363,9 +369,9 @@ func (s *stdInstances) queue(f *stdFunc, tps []string, args []kind, types []anal
 		// destructuring parameters included.
 		view.params = append([]kind(nil), f.params...)
 	} else {
-		// A generic signature names the instance's arguments, and an Iter
-		// or a std interface held as a value has no kind outside a program
-		// (stdProgSigWhy).
+		// A generic signature names the instance's arguments, and one the
+		// index resolved no kind for is read in the instance's gen
+		// (stdOutsideSubsetWhy).
 		view.params = make([]kind, len(inst.fd.Params))
 		for i, p := range inst.fd.Params {
 			if p.TypeAnnotation == nil {
@@ -430,12 +436,18 @@ func (g *gen) stdInstImplFunc(inst *stdInst) *ir.ImplFunc {
 }
 
 // build lowers one instance's body through its own gen, answering why it
-// declined, or "".
+// declined, or "". Then it builds the impl blocks of each generic type of
+// the module the body instantiated (`Streamed<Int, Int>` in
+// `Task.stream<Int, Int>`), as a program's gen does after its module walk
+// (flushGenericImpls): a value of one converted to an interface, or walked
+// as an `Iter`, reaches those blocks' functions by their symbols, and the
+// instances they call join this closure.
 func (s *stdInstances) build(inst *stdInst) string {
 	g := inst.gen
 	prev := s.building
 	s.building = inst
 	defer func() { s.building = prev }()
+	defer g.flushGenericImpls()
 	if inst.slot >= 0 {
 		g.irModule()
 		g.irStdSlotRetain(inst.view, inst.fd, inst.slot)
@@ -518,10 +530,10 @@ func (s *stdInstances) stdUnretainedMonoBody(f *stdFunc) bool {
 // unretainedMono is stdUnretainedMonoBody with the functions whose answer is
 // being worked out, which answer false so a recursive pair terminates.
 func (s *stdInstances) unretainedMono(f *stdFunc, visiting map[*stdFunc]bool) bool {
-	// An abstract lowering also builds a body whose signature no gen
-	// shares (stdUnsharedMonoBody), which nothing runs.
+	// An abstract lowering (StdAbstractBodies) also builds a body whose
+	// signature no gen shares (stdOutsideSubsetWhy), which nothing runs.
 	unshared := f != nil && f.why == stdOutsideSubsetWhy && s.dc != nil && s.dc.abstract
-	if f == nil || (f.why != "" && f.why != stdProgSigWhy && !unshared) || f.rtCall != "" || f.decl == nil || f.decl.Body == nil ||
+	if f == nil || (f.why != "" && !unshared) || f.rtCall != "" || f.decl == nil || f.decl.Body == nil ||
 		len(f.decl.Decorators) > 0 || len(f.decl.TypeParams) > 0 {
 		return false
 	}
@@ -532,23 +544,13 @@ func (s *stdInstances) unretainedMono(f *stdFunc, visiting map[*stdFunc]bool) bo
 	if c.irBody != nil || visiting[f] {
 		return false
 	}
-	if f.why == stdProgSigWhy || unshared {
+	if unshared {
 		return true
 	}
 	visiting[f] = true
 	defer delete(visiting, f)
 	return s.callsGenericSibling(f, visiting)
 }
-
-// stdProgSigWhy is the why of a monomorphic std function a parameter or
-// the result of which has a kind only inside a program (stdProgSigType):
-// an `Iter<T>` (`Reader.lines`, `Writer.write_all`), or a std interface
-// held as a value with no rt table (`String.split(s, separator:
-// Matcher)`, stdprogiface.go). Neither has a shared lowering, so the cache
-// retains no such body and a program builds it as an instance with no
-// arguments (stdUnretainedMonoBody), where the Iter is the builder's own
-// sequence and the interface is the program's def of it.
-const stdProgSigWhy = "stdlib function whose signature has a kind only in a program"
 
 // stdOutsideSubsetWhy is the why of a monomorphic std function a parameter
 // or the result of which has no kind the gens share (`ToJson.Options`, a
@@ -560,39 +562,10 @@ const stdOutsideSubsetWhy = "stdlib function outside the scalar subset"
 // stdSigPerInstance reports whether an instance of f at the type
 // parameters tps reads its signature in the instance's own gen, rather
 // than keeping the one the index resolved: a generic function's, and a
-// monomorphic one's the index resolved no kind for (stdProgSigWhy,
-// stdOutsideSubsetWhy).
+// monomorphic one's the index resolved no kind for
+// (stdOutsideSubsetWhy).
 func stdSigPerInstance(f *stdFunc, tps []string) bool {
-	return len(tps) != 0 || f.why == stdProgSigWhy || f.why == stdOutsideSubsetWhy
-}
-
-// stdProgSigType reports a parameter or result type of a Nomi-bodied std
-// function that has a kind only inside a program (stdProgSigWhy), from the
-// type the checker recorded for it: std's `Iter<T>`, or a std interface
-// written by its bare name that a program holds as a value through its own
-// def (stdProgIfaceOf): not generic, not one with an rt table, std's
-// `Struct`, nor one of a std module lowered with the program, whose
-// interfaces are the program's own.
-func stdProgSigType(fa *analysis.FileAnalysis, t ast.TypeExpr) bool {
-	it, ok := stdTypeExprType(fa, t).(*analysis.InterfaceType)
-	if !ok || !strings.HasPrefix(it.Origin, "std/") {
-		return false
-	}
-	if it.Name == "Iter" && it.Origin == "std/iter" {
-		return true
-	}
-	if _, bare := t.(*ast.SimpleType); !bare {
-		return false
-	}
-	if isProgramStd(strings.TrimPrefix(it.Origin, "std/")) || it.Name == structIfaceName || len(it.TypeParams) > 0 {
-		return false
-	}
-	for _, s := range stdIfaceSpecs {
-		if s.nomi == it.Name && s.module == it.Origin {
-			return false
-		}
-	}
-	return true
+	return len(tps) != 0 || f.why == stdOutsideSubsetWhy
 }
 
 // callsGenericSibling reports whether f's body names, as a bare or
@@ -752,8 +725,11 @@ func stdImplBlockOf(nodes []ast.Node, fd *ast.FuncDef) *ast.ImplBlock {
 }
 
 // stdTemplateParams is the type parameters a template's body may name: its
-// own, then its impl block's receiver parameters, in order and deduplicated.
-// It answers the impl block too, for a receiver-driven solve.
+// own, then those of its impl block's parameters it is generic over
+// (analysis.ImplFuncBlockParams: every one in an interface impl block, and
+// in an inherent block those its signature names, which are all a call
+// determines), in order and deduplicated. It answers the impl block too,
+// for a receiver-driven solve.
 func (s *stdInstances) stdTemplateParams(f *stdFunc) ([]string, *ast.ImplBlock) {
 	var names []string
 	seen := map[string]bool{}
@@ -775,11 +751,12 @@ func (s *stdInstances) stdTemplateParams(f *stdFunc) ([]string, *ast.ImplBlock) 
 		return names, nil
 	}
 	declared := stdDeclared(v.fa)
-	for _, n := range analysis.ReceiverTypeParamNames(ib.Receiver, declared) {
-		add(n)
-	}
+	block := analysis.ReceiverTypeParamNames(ib.Receiver, declared)
 	for _, gp := range ib.Generics {
-		add(gp.Name)
+		block = append(block, gp.Name)
+	}
+	for _, n := range analysis.ImplFuncBlockParams(v.fa, f.decl, ib, block) {
+		add(n)
 	}
 	return names, ib
 }
@@ -1021,12 +998,7 @@ func writesAPrefix(t *ast.Call, plan argPlan) bool {
 // arguments typed by the instance's parameters as a direct call's are.
 func (bl *irScalarBuilder) stdInstCall(t *ast.Call, inst *stdInst) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	params := make([]kind, len(inst.view.params))
-	for i, p := range inst.view.params {
-		// One instance serves the program, built at the first caller's
-		// defs; this file passes a std interface value at its own.
-		params[i] = bl.g.stdProgHere(p)
-	}
+	params := append([]kind(nil), inst.view.params...)
 	args := t.Args
 	var accessors []*stdInst
 	if bl.stdInstPreCall != t && bl.g.leavesDefaults(t, len(params)) {
@@ -1153,25 +1125,11 @@ func (bl *irScalarBuilder) stdGenericFileCall(t *ast.Call) (ir.Temp, kind, bool,
 	if id.Owner != "" {
 		return ir.NoTemp, kindInvalid, false, false, false
 	}
-	f := bl.g.stdInsts.stdInstFuncOf(id)
+	f := bl.g.stdInsts.stdTemplateOf(id)
 	if f == nil {
 		return ir.NoTemp, kindInvalid, false, false, false
 	}
 	return bl.stdInstCallAt(t, f, kindInvalid, nil)
-}
-
-// stdModuleInstFunc is the function `recv.name` of a std module that a
-// program instantiates for itself: a generic template, or a monomorphic
-// function whose signature names an Iter (`io.lines()`) or a std interface
-// held as a value (`String.split`), stdProgSigWhy.
-func stdModuleInstFunc(v *stdModuleView, recv, name string) *stdFunc {
-	if f := stdModuleGenericTemplate(v, recv, name); f != nil {
-		return f
-	}
-	if f := stdModuleMonoFunc(v, recv, name); f != nil && f.why == stdProgSigWhy {
-		return f
-	}
-	return nil
 }
 
 // stdGenericSiblingCall lowers a bare call inside a stdlib body to a generic
@@ -1192,7 +1150,7 @@ func (bl *irScalarBuilder) stdGenericSiblingCall(t *ast.Call, id analysis.StdFun
 		return v, k, mobile, ok, true
 	}
 	v := g.stdInsts.std.views[stdShortModule(id.Module)]
-	f := g.stdInsts.stdInstFuncOf(id)
+	f := g.stdInsts.stdTemplateOf(id)
 	name := id.Name
 	_, iterOwn := irIterOwnArity(name)
 	iterOwn = iterOwn && id.Owner == "Iter" && f != nil
@@ -1358,12 +1316,6 @@ func (bl *irScalarBuilder) stdReceiverlessImplCall(t *ast.Call, k kind) (ir.Temp
 	f := bl.recordedStdFunc(t)
 	if f == nil {
 		return ir.NoTemp, kindInvalid, false, false, false
-	}
-	if f.why == stdProgSigWhy {
-		// `T.mean(source)` at a Decimal: the impl takes an Iter, which has a
-		// kind only in a program, so the program builds the body as an
-		// instance with no arguments, as `Decimal.mean(xs)` does.
-		return bl.stdInstCallAt(t, f, kindInvalid, nil)
 	}
 	args := bl.irQualLowerArgs(t)
 	plan := bl.stdFuncPlan(t, args, f)

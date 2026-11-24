@@ -625,14 +625,19 @@ func (g *gen) projectStdIface(ty *analysis.InterfaceType) (kind, bool) {
 
 // projectSharedStdIface is projectStdIface with no gen (projectShared): the
 // existential of the row whose (module, name) is the solved type's
-// (Origin, Name), when std declares it in the row's shape. The Origin is the
-// identity, as projectStdOpaque's is, so no module's scope is asked and a
-// program's own `Display` (another Origin) never answers.
+// (Origin, Name), when std declares it in the row's shape, else of the
+// interface the registry admitted under that identity (stdDeclaredIface).
+// The Origin is the identity, as projectStdOpaque's is, so a program's own
+// `Display` (another Origin) never answers.
 func projectSharedStdIface(ty *analysis.InterfaceType) kind {
 	if len(ty.TypeArgs) > 0 || len(ty.TypeParams) > 0 {
 		return kindInvalid
 	}
 	if d := stdSpecIface(analysis.StdType{Module: ty.Origin, Name: ty.Name}); d != nil {
+		return existential(d)
+	}
+	var g *gen
+	if d := g.stdDeclaredIface(ty.Origin, ty.Name); d != nil && d.lowerable {
 		return existential(d)
 	}
 	return kindInvalid

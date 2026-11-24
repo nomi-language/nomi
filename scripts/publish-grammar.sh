@@ -8,7 +8,8 @@
 # That repository is written only by this script:
 #
 #   1. Fetch the grammar repository's main. If its tree already equals
-#      HEAD's tree-sitter-nomi/, there is nothing to publish.
+#      HEAD's tree-sitter-nomi/ (without embed.go, below), there is nothing
+#      to publish.
 #   2. Otherwise make one commit whose tree is HEAD's tree-sitter-nomi/ and
 #      whose parent is the fetched main, and push it as main. The push is a
 #      fast-forward by construction and is never forced. Building on the
@@ -58,7 +59,10 @@ grep -qF "repository = \"$URL\"" "$ZED_TOML" || die "$ZED_TOML does not name $UR
 grep -qF "git = \"$URL\"" "$HELIX_TOML" || die "$HELIX_TOML does not name $URL"
 
 HEAD_SHORT="$(git -C "$REPO_ROOT" rev-parse --short HEAD)"
-TREE="$(git -C "$REPO_ROOT" rev-parse "HEAD:tree-sitter-nomi")"
+# The published tree is HEAD's tree-sitter-nomi/ without embed.go, the Go
+# file that carries the grammar into `nomi` for `nomi editor install`, which
+# belongs to this repository only.
+TREE="$(git -C "$REPO_ROOT" ls-tree "HEAD:tree-sitter-nomi" | grep -v $'\tembed\\.go$' | git -C "$REPO_ROOT" mktree)"
 echo ">> Publishing tree-sitter-nomi/ at $HEAD_SHORT (tree $TREE)"
 
 # The fetch writes FETCH_HEAD only; no local ref changes.

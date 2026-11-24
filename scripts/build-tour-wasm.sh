@@ -32,8 +32,8 @@ echo "==> nomi wasm"
 # tree, only the working-tree state differing: plain gave 1846d0a3... then
 # 18f1ccf5..., -buildvcs=false gave d236b169... both times. The gate compares
 # the staged file against a rebuild, so with the stamp in place it went red
-# after every commit. Nothing reads a VCS stamp out of a 25MB browser asset,
-# and it need not publish the commit hash.
+# after every commit. Nothing reads a VCS stamp out of an 80 MB browser
+# asset, and it need not publish the commit hash.
 #
 # -trimpath too, also matched by the rebuild. Without it the binary embeds
 # the absolute path of every Go source file it links, from this checkout and
@@ -141,8 +141,8 @@ SITE_LIB="$ROOT/tour/src/lib"
 mkdir -p "$SITE_NOMI"
 # nomi.wasm ships GZIPPED as nomi.wasm.gz, and the uncompressed file is never
 # staged. Cloudflare Pages refuses any file over 25 MiB; the wasm is about
-# 27 MiB (26.6 MiB even with -ldflags='-s -w') and about 6.4 MiB
-# gzipped. The browser decompresses it itself (run-worker.js), so nothing
+# 77 MiB (80,558,905 bytes) and about 18.5 MiB gzipped (19,356,871 bytes),
+# measured 2026-11-23. The browser decompresses it itself (run-worker.js), so nothing
 # depends on the host setting Content-Encoding. -n drops the name and mtime
 # from the header, so the same wasm always gives the same .gz. The
 # uncompressed build stays in $OUT. `npm run build` (check-dist.mjs) fails on

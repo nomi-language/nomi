@@ -176,3 +176,24 @@ func TestDefaultRoot_UnderTestIsNotTheUserCache(t *testing.T) {
 		t.Fatalf("DefaultRoot() = %s, want %s", got, want)
 	}
 }
+
+// Locate finds the version directory a written file is under, a nested
+// module's included, and no directory for a path that has a version-shaped
+// name anywhere else.
+func TestLocate_FindsTheVersionDirectory(t *testing.T) {
+	dir := New(filepath.Join(t.TempDir(), "std"), stdFS("pub enum Option<T>\n  Some(T)\n  None\nend\n"))
+	for _, rel := range []string{"option.nomi", "_fixtures/nested/deeper/module.nomi"} {
+		got, version, gotRel, ok := Locate(dir.Location(rel))
+		if !ok || got != filepath.Dir(dir.Location("option.nomi")) || version != dir.Version() || gotRel != rel {
+			t.Errorf("Locate(%s) = %s, %s, %s, %v; want the version directory, %s, %s", dir.Location(rel), got, version, gotRel, ok, dir.Version(), rel)
+		}
+	}
+	for _, path := range []string{
+		filepath.Join(t.TempDir(), "std", "option.nomi"),
+		filepath.Join(t.TempDir(), "lib", dir.Version(), "option.nomi"),
+	} {
+		if _, _, _, ok := Locate(path); ok {
+			t.Errorf("Locate(%s) found a version directory", path)
+		}
+	}
+}

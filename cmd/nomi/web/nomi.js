@@ -153,8 +153,17 @@ async function runProgram(init, post, requestLine) {
   installFS();
   if (typeof globalThis.Go !== "function") installGo();
   const go = new globalThis.Go();
-  go.argv = ["app.wasm", ...init.args];
-  go.env = init.env;
+  // wasm_exec.js writes go.argv and go.env into 8 KiB of the module's memory
+  // and refuses to start past that. The arguments and the environment go to
+  // the module as globalThis.nomiArgs and globalThis.nomiEnv, which the
+  // runtime reads as it starts (rt/jsprocess), whatever their size; go.env
+  // holds only the variables the Go runtime reads before that.
+  globalThis.nomiArgs = init.args;
+  globalThis.nomiEnv = init.env;
+  go.argv = ["app.wasm"];
+  go.env = Object.fromEntries(
+    ["GODEBUG", "GOGC", "GOMEMLIMIT", "TMPDIR"].filter((name) => name in init.env).map((name) => [name, init.env[name]]),
+  );
   let exitCode = 0;
   go.exit = (code) => {
     exitCode = code;

@@ -446,13 +446,11 @@ func (p *partnerNames) unqualified(text string) string {
 
 // CheckForeignDeriveBounds is CheckDeriveBounds for the impls fa's file
 // derives for a type another file declares (a partner test's derive, or a
-// REPL input's for an earlier input's type): each component of the
-// declaration must implement the interface, which the declaring file's
-// analysis answers by fileOf, its path's analysis, since the component
-// types are named there. A component without the impl is reported as one
-// of a derive in the declaring file is, naming the derive.
-func CheckForeignDeriveBounds(fa *FileAnalysis, nodes []ast.Node, impls *ProjectImplIndex, fileOf declFiles) []TypeError {
-	if fa == nil || impls == nil || fa.ModuleScope == nil {
+// REPL input's for an earlier input's type). The parts are read in the
+// declaring file's analysis, which fileOf finds by its path, since their
+// types are named there, and reported as a derive's in that file are.
+func CheckForeignDeriveBounds(fa *FileAnalysis, nodes []ast.Node, fileOf declFiles) []TypeError {
+	if fa == nil || fa.ModuleScope == nil {
 		return nil
 	}
 	var errs []TypeError
@@ -483,23 +481,9 @@ func CheckForeignDeriveBounds(fa *FileAnalysis, nodes []ast.Node, impls *Project
 		if declFA == nil {
 			continue
 		}
-		var params []ast.TypeParam
-		switch d := sym.Node.(type) {
-		case *ast.StructDef:
-			params = d.TypeParams
-		case *ast.EnumDef:
-			params = d.TypeParams
-		case *ast.TypeDef:
-			params = d.TypeParams
-		default:
-			continue
+		if name, ok := typeDeclName(sym.Node); ok {
+			errs = append(errs, checkJsonDeriveParts(declFA, fileOf, sym.Node, name, TypeExprBaseName(iface))...)
 		}
-		set := make(map[string]bool, len(params))
-		for _, tp := range params {
-			set[tp.Name] = true
-		}
-		name, _ := typeDeclName(sym.Node)
-		errs = append(errs, checkDeriveComponentTypes(declFA, fa, impls, fileOf, sym.Node, name, TypeExprBaseName(iface), derivePos, set)...)
 	}
 	return errs
 }
@@ -517,6 +501,16 @@ func derivedInterface(blk *ast.ImplBlock) ast.TypeExpr {
 		return nil
 	}
 	return blk.Interface
+}
+
+// derivesByShape reports whether blk is a derive's block that writes no
+// function: `derive Equatable`'s, `derive Hashable`'s, `derive Debug`'s and
+// `derive Display`'s (derivedShapeBlock). A use of the interface at its type is answered by
+// the type's shape (interfaceUse), a hole of it renders so
+// (displayRenderOf), and the block is complete without the functions the
+// interface requires.
+func derivesByShape(blk *ast.ImplBlock) bool {
+	return len(blk.Items) == 0 && derivedInterface(blk) != nil
 }
 
 // implsWritten answers, by receiver and then interface base name, the

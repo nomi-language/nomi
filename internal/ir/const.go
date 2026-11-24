@@ -18,11 +18,13 @@ import (
 //     scalars through `expr` rather than through a dedicated `const` owner,
 //     but a consumer needs both.
 //
-//   - Three owners build an EMPTY CONTAINER: `listMakeOf`, `setMakeOf` and
-//     `vectorMakeOf`, each with no element type. The element type is not
-//     merely unavailable at those positions: `[]` names no `T` at all, and
-//     the type argument arrives later, from the context that discharges the
-//     sentinel.
+//   - One owner builds an EMPTY CONTAINER, the empty List (`emptyOf`), with
+//     no element type. The element type is not merely unavailable at that
+//     position: `[]` names no `T` at all, and the type argument arrives
+//     later, from the context that discharges the sentinel. An empty Vector,
+//     Set or Map is no constant: it is a MakeVector, MakeSet or MakeMap of
+//     no elements, a fresh value each time it runs, which a consumer may
+//     write in place.
 //
 //     So the element type is OPTIONAL. A producer that has one supplies it; a
 //     producer at a position where Nomi fixes no type argument passes nil and
@@ -51,13 +53,8 @@ const (
 	ConstString
 	// ConstMarker is the sole value of a zero-sized distinct type. Owner: markerValue.
 	ConstMarker
-	// ConstEmptyList is the empty List at an element type. Owner: listMakeOf.
+	// ConstEmptyList is the empty List at an element type. Owner: emptyOf.
 	ConstEmptyList
-	// ConstEmptySet is the empty Set at an element type. Owner: setMakeOf.
-	ConstEmptySet
-	// ConstEmptyVector is the empty Vector at an element type. Owner:
-	// vectorMakeOf.
-	ConstEmptyVector
 	// ConstByte is an Int literal written where a Byte is expected: a value
 	// from 0 to 255, which the checker has range-checked.
 	ConstByte
@@ -100,10 +97,6 @@ func (k ConstKind) String() string {
 		return "marker"
 	case ConstEmptyList:
 		return "list"
-	case ConstEmptySet:
-		return "set"
-	case ConstEmptyVector:
-		return "vector"
 	case ConstByte:
 		return "byte"
 	case ConstEmbedded:
@@ -206,16 +199,6 @@ func NewEmptyList(pos Pos, dst Temp, elem *Symbol) *Const {
 	return newContainerConst(pos, dst, ConstEmptyList, elem, "NewEmptyList")
 }
 
-// NewEmptySet is the empty Set, at an element type or undischarged.
-func NewEmptySet(pos Pos, dst Temp, elem *Symbol) *Const {
-	return newContainerConst(pos, dst, ConstEmptySet, elem, "NewEmptySet")
-}
-
-// NewEmptyVector is the empty Vector, at an element type or undischarged.
-func NewEmptyVector(pos Pos, dst Temp, elem *Symbol) *Const {
-	return newContainerConst(pos, dst, ConstEmptyVector, elem, "NewEmptyVector")
-}
-
 // newContainerConst permits a nil element type, which newTypedConst does not.
 // The difference is which fact is absent: a container's type ARGUMENT can be
 // absent in Nomi, and a marker's declaration cannot.
@@ -271,12 +254,12 @@ func (c *Const) Embedded() EmbeddedRef {
 // container.
 func (c *Const) Type() *Symbol { return c.typ }
 
-// Undischarged reports whether this constant is an empty container at NO type
+// Undischarged reports whether this constant is an empty List at NO type
 // argument.
 //
-// It is a property of the language and not of a producer's inference. `[]`,
-// `[]` and `[]` name no element type at their own position;
-// the argument arrives from the context that consumes them, and until it does
+// It is a property of the language and not of a producer's inference. `[]`
+// names no element type at its own position;
+// the argument arrives from the context that consumes it, and until it does
 // the value is a sentinel a consumer must not store or return. The producer
 // and the consumer both need the distinction: the builder refuses an
 // undischarged value at a position with no expected type, and a consumer
@@ -286,11 +269,7 @@ func (c *Const) Type() *Symbol { return c.typ }
 // False for every non-container kind. A marker names a declaration that is
 // always present, which newTypedConst enforces.
 func (c *Const) Undischarged() bool {
-	switch c.kind {
-	case ConstEmptyList, ConstEmptySet, ConstEmptyVector:
-		return c.typ == nil
-	}
-	return false
+	return c.kind == ConstEmptyList && c.typ == nil
 }
 
 func (c *Const) Pos() Pos  { return c.pos }
@@ -319,7 +298,7 @@ func (c *Const) String() string {
 		s += " " + strconv.Quote(c.text)
 	case ConstEmbedded:
 		s += " " + strconv.Quote(c.text) + " " + strconv.FormatInt(c.num, 10) + " bytes"
-	case ConstMarker, ConstEmptyList, ConstEmptySet, ConstEmptyVector:
+	case ConstMarker, ConstEmptyList:
 		if c.typ == nil {
 			s += " <undischarged>"
 			break

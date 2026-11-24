@@ -56,8 +56,22 @@ import (
 // own gen lowers (fieldDefault). A literal elsewhere that omits a
 // defaulted field of one of these types declines.
 //
+// The same gen declares the module's interfaces, and each one std declares
+// in Nomi (not a spec row's, `Struct` or `Iter`) is marked process-wide too
+// (ifaceDef.stdOrigin) before its signatures resolve. A non-generic one is
+// admitted, as a type is, when it lowers and every kind its functions name
+// is package-neutral; a type that holds one of its values is admitted with
+// it, since one fixed point decides the module's types and interfaces
+// together. An admitted interface is the one def every gen holds a value of
+// it through (stdDeclaredIface): the declaring module's
+// shared gen adopts it (adoptedStdIface), and the projection with no gen
+// answers its existential, so a std function that takes or returns one is
+// lowered once for the process. A generic interface's template is marked
+// and kept, not admitted: each gen instantiates it at the arguments it
+// needs (ifaceInstAt), and the instance is that gen's.
+//
 // A module declared with each program (programStdModules) keeps its types
-// in the program's registry, so this answers none of them.
+// and interfaces in the program's registry, so this answers none of them.
 // stdTypesListed, set only by a census test, answers them too, to count
 // what projectShared would answer if those modules were shared.
 
@@ -67,13 +81,15 @@ type stdTypeKey struct{ origin, name string }
 
 // stdTypes is the process's registry: by origin, the gen that built each
 // std module's types (nil for an origin no std module has), whose
-// defsByDecl holds each declaration's def, marked process-wide when it is
-// admitted; and why each declaration with no shared def has none.
+// defsByDecl and ifacesByDecl hold each declaration's def, marked
+// process-wide when it is admitted; each marked interface by its
+// declaration; and why each declaration with no shared def has none.
 var stdTypes = struct {
-	mu    sync.Mutex
-	built map[string]*gen
-	why   map[ast.Node]string
-}{built: map[string]*gen{}, why: map[ast.Node]string{}}
+	mu          sync.Mutex
+	built       map[string]*gen
+	byIfaceDecl map[*ast.InterfaceDef]*ifaceDef
+	why         map[ast.Node]string
+}{built: map[string]*gen{}, byIfaceDecl: map[*ast.InterfaceDef]*ifaceDef{}, why: map[ast.Node]string{}}
 
 // stdTypesListed makes the registry answer the types of the modules
 // declared with each program too. Only TestStdObjects_WhatStopsEachListedModule
@@ -104,14 +120,75 @@ func stdTypeKeyOf(t analysis.Type) (stdTypeKey, bool) {
 	default:
 		return stdTypeKey{}, false
 	}
-	module, inStd := strings.CutPrefix(origin, "std/")
-	if !inStd || analysis.IsBodyOrigin(origin) {
-		return stdTypeKey{}, false
-	}
-	if isProgramStd(module) && (!stdTypesListed.Load() || strings.HasPrefix(module, "_fixtures/")) {
+	if !stdRegistryAnswers(origin) {
 		return stdTypeKey{}, false
 	}
 	return stdTypeKey{origin: origin, name: name}, true
+}
+
+// stdRegistryAnswers reports whether the registry answers for declarations
+// of the module with the given origin: a std module lowered once for the
+// process, or under stdTypesListed one declared with each program.
+func stdRegistryAnswers(origin string) bool {
+	module, inStd := strings.CutPrefix(origin, "std/")
+	if !inStd || analysis.IsBodyOrigin(origin) {
+		return false
+	}
+	return !isProgramStd(module) || stdTypesListed.Load() && !strings.HasPrefix(module, "_fixtures/")
+}
+
+// stdDeclaredIface is the process-wide def of the interface the std module
+// with the given origin declares as name, or nil when it has none: an
+// admitted interface, or a generic one's template. g may be nil
+// (projectShared); a gen building a module's types asks with the
+// registry's lock already held.
+func (g *gen) stdDeclaredIface(origin, name string) *ifaceDef {
+	if !stdRegistryAnswers(origin) {
+		return nil
+	}
+	if g == nil || !g.stdTypesBuild {
+		stdTypes.mu.Lock()
+		defer stdTypes.mu.Unlock()
+	}
+	bg, started := stdTypes.built[origin]
+	if !started {
+		bg = buildStdTypesLocked(origin)
+	}
+	if bg == nil {
+		return nil
+	}
+	if d := bg.ifacesByDecl[bg.declNode(origin, name)]; d != nil && d.stdOrigin != "" {
+		return d
+	}
+	return nil
+}
+
+// stdRegistryIface is the registry's def of the interface declaration decl,
+// or nil: what tells std's generic interface template from a program's,
+// since std's instances dispatch through std-owned symbols
+// (stdProgMethodSym). A gen building a module's types asks with the
+// registry's lock already held.
+func (g *gen) stdRegistryIface(decl *ast.InterfaceDef) *ifaceDef {
+	if !g.stdTypesBuild {
+		stdTypes.mu.Lock()
+		defer stdTypes.mu.Unlock()
+	}
+	d := stdTypes.byIfaceDecl[decl]
+	if d == nil || d.stdOrigin == "" || !stdRegistryAnswers(d.stdOrigin) {
+		return nil
+	}
+	return d
+}
+
+// stdIfaceMarked reports whether the types gen g marks interface id
+// process-wide (declareIfaces): one std declares in Nomi, which no spec
+// row describes, and neither the structural `Struct` nor `Iter`, which
+// keep their own representations.
+func (g *gen) stdIfaceMarked(id *ast.InterfaceDef) bool {
+	if !g.stdTypesBuild || id.Name == structIfaceName || id.Name == "Iter" {
+		return false
+	}
+	return stdSpecIface(analysis.StdType{Module: g.fa.Origin, Name: id.Name}) == nil
 }
 
 // stdDeclaredDef is the process-wide def of the std type t names, or nil
@@ -162,6 +239,11 @@ func buildStdTypesLocked(origin string) *gen {
 	g := newStdTypesGen(module, nodes, fa)
 	stdTypes.built[origin] = g
 	g.declareIfaces(nodes)
+	for _, d := range g.ifaceOrder {
+		if d.stdOrigin != "" {
+			stdTypes.byIfaceDecl[d.decl] = d
+		}
+	}
 	g.buildTypes(nodes)
 	g.resolveIfaces()
 	admitted := map[*typeDef]bool{}
@@ -177,6 +259,18 @@ func buildStdTypesLocked(origin string) *gen {
 		stdTypes.why[d.decl] = why
 		unmarkStdDef(d)
 	}
+	ifaceAdmitted := map[*ifaceDef]bool{}
+	for _, d := range g.ifaceOrder {
+		switch {
+		case d.stdOrigin == "" || stdProgTemplate(d) != nil:
+			// A template stays marked: it is no value's kind.
+		case d.lowerable:
+			ifaceAdmitted[d] = true
+		default:
+			stdTypes.why[d.decl] = d.why
+			unmarkStdIface(d)
+		}
+	}
 	for changed := true; changed; {
 		changed = false
 		for _, d := range g.typeOrder {
@@ -190,6 +284,17 @@ func buildStdTypesLocked(origin string) *gen {
 				changed = true
 			}
 		}
+		for _, d := range g.ifaceOrder {
+			if !ifaceAdmitted[d] {
+				continue
+			}
+			if held, neutral := d.signatureNeutral(); !neutral {
+				delete(ifaceAdmitted, d)
+				unmarkStdIface(d)
+				stdTypes.why[d.decl] = "names " + held.nomi()
+				changed = true
+			}
+		}
 	}
 	return g
 }
@@ -198,6 +303,29 @@ func buildStdTypesLocked(origin string) *gen {
 func unmarkStdDef(d *typeDef) {
 	defer changingTypes()()
 	d.stdOrigin = ""
+}
+
+// unmarkStdIface takes the process-wide mark off an interface that is not
+// admitted.
+func unmarkStdIface(d *ifaceDef) {
+	defer changingTypes()()
+	d.stdOrigin = ""
+}
+
+// signatureNeutral reports whether every kind d's functions name is
+// package-neutral, and the first that is not. A position with no kind (a
+// `self`, or one no erased receiver dispatches over) names nothing a gen
+// holds.
+func (d *ifaceDef) signatureNeutral() (kind, bool) {
+	for _, m := range d.order {
+		for _, k := range append(append([]kind(nil), m.params...), m.result) {
+			// kindInvalid: marker — a position with no kind holds nothing.
+			if k != kindInvalid && !k.packageNeutral() {
+				return k, false
+			}
+		}
+	}
+	return kindInvalid, true
 }
 
 // heldNeutral reports whether every kind d holds (its inner type, fields,
@@ -241,6 +369,20 @@ func stdTypeWhy(key stdTypeKey) string {
 		return ""
 	}
 	return stdTypes.why[g.declNode(key.origin, key.name)]
+}
+
+// adoptedStdIface is the process-wide def this shared std module's
+// declaration of interface id adopts, or nil: adoptedStdTypeDef's rule, by
+// the module and the name, so the module checked from edited source
+// adopts the def of its shared copy's declaration, as its types do.
+func (g *gen) adoptedStdIface(id *ast.InterfaceDef) *ifaceDef {
+	if g.stdModule == "" || g.stdTypesBuild || g.fa == nil || isProgramStd(g.stdModule) {
+		return nil
+	}
+	if d := g.stdDeclaredIface(g.fa.Origin, id.Name); d != nil {
+		return d
+	}
+	return nil
 }
 
 // adoptedStdTypeDef is the process-wide def this shared std module's

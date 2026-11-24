@@ -1,0 +1,245 @@
+// std::signatures' ECDSA P-384 and P-521 and RSA SHA-384, SHA-512 and PSS
+// schemes, and RSA-OAEP. Each scheme checks a signature OpenSSL 3 made
+// (`openssl dgst -sha384 -sign`, PSS with `rsa_padding_mode:pss` and
+// `rsa_pss_saltlen:digest`), the ECDSA ones in DER as OpenSSL wrote them
+// and as r and s, and signs what it then checks. Each OAEP hash decrypts
+// what OpenSSL encrypted and what it encrypted itself.
+import
+    std::hex
+    std::signatures.{self, Encryption, KeyKind, PrivateKey, PublicKey, Scheme}
+end
+
+once message = String.to_bytes("Nomi signs this.")
+
+once p384 = """
+    -----BEGIN PUBLIC KEY-----
+    MHYwEAYHKoZIzj0CAQYFK4EEACIDYgAEBcU7mR4p8hU2apoq6/p7jEIMXkx7iOrW
+    fI9kTGRNIW6HEudxcwn4w6GB3Q2CEUkno3kOpqdnU++V3ZtH2PqJXdnBIKCp7L2r
+    iOkzcE4KVL3l/L7iCQopFSgzxvzeRw4s
+    -----END PUBLIC KEY-----
+    """
+
+once p521 = """
+    -----BEGIN PUBLIC KEY-----
+    MIGbMBAGByqGSM49AgEGBSuBBAAjA4GGAAQAySu9493PJaejkzOu3IGGz8A8UWCL
+    bobu0fAXSVRVYcgmZQQfw0FdwubKKjfDwAzHA+FZu4flfkSbF4L82/ck4h4BdgJ/
+    JRWMM3y3+tRG1Bo9qNdL3u0xdVA+DQnteXRMpzL333tNP4Ry4ijwBy+POwvdQbgO
+    lKmaJ8nP3gLBiQNNYSM=
+    -----END PUBLIC KEY-----
+    """
+
+once rsa = """
+    -----BEGIN PUBLIC KEY-----
+    MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAynnKKMkBB882RlXF++Ob
+    mDVg4P71n/3OJGmkEdCe2P25rReJQjO+xl29oAPzmAXb0Jb2OwvAW3EXmrG1L1gx
+    XNRR/hvgDAu2QsF5UaQPOrjwohm1JgBOs4z9I/ofNnl6XTL3V5SOEmDYYlhGso5n
+    HdY+gk+4Twppi/fdCciOgEBm+P1ImjiaNtf3YlheHRthLfsF/gmKkrzziL77wDUc
+    70W3D3tGm2HU65vmNjoXon+0nR/QEp+WTyWv4/vQnhF+jt0OCAW9MWm3092suYM0
+    /bxPsxMP+z3Ok+wP0CILd26m/G8MRdG7ikvIE12qLXpNd/yq/KRhp0CwEwcB+hPp
+    vQIDAQAB
+    -----END PUBLIC KEY-----
+    """
+
+/// Each fixed signature: the key's PEM, the scheme and the signature.
+fn fixtures() -> List<(String, Scheme, String)>
+    [
+        (
+            p384,
+            .EcdsaSha384Der,
+            "3065023100853b3b3d9ecb4906c17a8d87adaa41e560696a88fe465621fb87abd2b29b614a96cf665b492dc2b602d6e4fcbb4a2b1d02306b9bedc70e912c7bcd1475743d67539c2b770b1f1a71bec057e4c8add5aba762d9ab56a11e3ea7152b0f3fdac45d6347",
+        ),
+        (
+            p384,
+            .EcdsaSha384,
+            "853b3b3d9ecb4906c17a8d87adaa41e560696a88fe465621fb87abd2b29b614a96cf665b492dc2b602d6e4fcbb4a2b1d6b9bedc70e912c7bcd1475743d67539c2b770b1f1a71bec057e4c8add5aba762d9ab56a11e3ea7152b0f3fdac45d6347",
+        ),
+        (
+            p521,
+            .EcdsaSha512Der,
+            "308188024200820d14877ff92432e0001e5da75840ec175e24d390639d74871c2083109d1930082fb5f54b0d38a4435d733c9434a73ffeb59a023c9db3f37391e0ad032e5a800a024201e85404b98143f461d777e4d4324d4da6d927543ac3d36bc892b7b39993afa17741e93e8e8f86c57713d95ce30b3553d50ee1465d43b4b0e5e29d0a1f07835cec94",
+        ),
+        (
+            p521,
+            .EcdsaSha512,
+            "00820d14877ff92432e0001e5da75840ec175e24d390639d74871c2083109d1930082fb5f54b0d38a4435d733c9434a73ffeb59a023c9db3f37391e0ad032e5a800a01e85404b98143f461d777e4d4324d4da6d927543ac3d36bc892b7b39993afa17741e93e8e8f86c57713d95ce30b3553d50ee1465d43b4b0e5e29d0a1f07835cec94",
+        ),
+        (
+            rsa,
+            .RsaPkcs1Sha384,
+            "bea6fbcb8a0dd9c4ee2c743ecf7f92e9bbe6e927359c2b3e5a4f8055ff75d232ecf9e5a7a96c9e5ccce8e1bd2fa2025acd2e76905762c1206c8170a40eb3150251096e54abcdce13e79888db88aa239eeabdfef375cf6163a12240fb977e4cec94ad01cf7da0f8bafb79d53a34a02e42a27c68de231b442897924ca0c12a106dd85c2a3a17adc5a65e26a02bcb248d27718baea82b18d0f4b497b4c1c3df24aec42cae55c8bd49684a08ce4a496d668c3afccd7101688a2bbfd375ef99bf2a87b7447c0e79408c98849bc68082dfdcae078ba8d18be45ce0ab01449458829a76179f4787903da3581c6fe1e292036eb24509f61720c6bed137ff9bac9628c4c2",
+        ),
+        (
+            rsa,
+            .RsaPkcs1Sha512,
+            "47fbf6809cfe4e73f2d4accbf6a19de3b1c3f0c0b261d01c01cf36dc0d04d69c9d22fe46f68934ff530c868adb079f4e14fdca1f3f253a9e4f53958345d2a8f288ff8600f7310c48c01542bc9c4a02e07af28a0f2b1a94c8a1526b80cef7dcbfe6617be739353aed9b8d7495c31d7c86f0e1f78b55ccf6ea1c73c24e5c5007ed871a5b905458a5f17b662423d8a86bb5001d0498eebeb8963902f6612232f3744e47fba14606fe807f697e722ddb27da8d2e950ed16a9bd52c9f877b603679433b99e9f041cced11c0295faa39086d47e7b72c0ab3fd01423d10df9069357850975e1fe53b5ec760ff67f9f6f773fbdfed21a4ddc38962bc12f8e83a5ce830b5",
+        ),
+        (
+            rsa,
+            .RsaPssSha256,
+            "baebea88920bab7c081c6866c795732d5e1431645f09e917d7195ee4bd99b280a6cf22fbc726e7d065b19e3dc62710e1076f8af4a9cb94c14ae5a49ec859f2f92e0cf9c07216cd16f4f1ced217bcfdbc3a69dc65d7807849692cd3e1c8fba26493201344a999f7783c1863225257ab635d393362efc249e9236d0ec96163b4f80566c020e70ead28cdcb64d9bdaad338f70aaacb5449a0e8b53fa1a19c72c8ac8013b533c8cfb079febc93e289aaaa663b35c5361044e042729ce2f7be2b4b705f6c2d99943ef75999c058967b4665fe99a6866138f6092b8d7de6aee51b8245e2af69e79f8f7b6251de5ef8c62ffef21f811b0aa0eda12f1cd294107dcba964",
+        ),
+        (
+            rsa,
+            .RsaPssSha384,
+            "b186c97b94960790729e228b303d54894920f6de5812bd02162cebbf5841efd38cfdfb229ce674b9f44c16d02c2b64a625dc40f2a62f4ca5a841c4a50ce7cea16bf1e62e9b2b30ce4c74b56a538493cc88f7b1fb9164f4205cd3ab80e787a766c66e513d1cc7afb549bb4bccf0e7a2ad2f95f2882c891324b430cae758cc18d438ac9d634b13d0a662e565a6d7c0a70fbb6fde8fa047c05b2a30e770027632f52d4472d81fdddf65125b5c0d6278176f2e32a4971e6fb4689ded90f6aff279850d288dae9963991cd6d3189313e8977f24d1be1791f5a432b7b67f1e513856688bbfd5e4ce550c6acabdbae3672981c591fd9c6e3706b21075948fed9c7278ea",
+        ),
+        (
+            rsa,
+            .RsaPssSha512,
+            "aa4fbcd66b39e9c93d6d14c259450247a139bd2d5d8726ebf5a3aed2a8f9bbe418603355008846533fda86194e180ffcbecbd4955ff416dcfdc0099d99c7e4f5198dca4379f836c6b230a6aa792ca22802d28a16e24ce075bdb54336059304eb5e10627700a79c509fb6c5a849b726530e4740c19e4a120fa049e75973f6e64a3f8a9ea90b012f20a80086b7808d9465329cb1b7a467a3d55b9798fbc143af842d8467ea67cdad55296e24b8b3263bc26edcb73aa8b3864cf3032dbc86db99474e27ca2f1c6aa48bd1bb2cd8f87f71e08b81c96fce5d448c3a518d2ce86e231580176f2c615096941e75314ee5d27358541d2144c564af8c736b648e94e149a3",
+        ),
+    ]
+end
+
+test "each scheme checks a signature OpenSSL made, and only for its message"
+    checked =
+        fixtures()
+        |> Iter.map(fn (pem, scheme, signature) ->
+            key = PublicKey.from_pem(pem)!
+            bytes = hex.decode(signature)!
+
+            (
+                signatures.is_valid_with(key, scheme, message, bytes),
+                signatures.is_valid_with(key, scheme, String.to_bytes("Nomi signs that."), bytes),
+            )
+        end)
+        |> Iter.to_list()
+
+    assert checked == (Iter.repeat((True, False)) |> Iter.take(9) |> Iter.to_list())
+end
+
+test "an ECDSA key's usual scheme is its curve's, and a signature of another hash fails"
+    key = PublicKey.from_pem(p384)!
+    assert PublicKey.kind(key) == KeyKind.EcdsaP384
+    assert PublicKey.kind(PublicKey.from_pem(p521)!) == KeyKind.EcdsaP521
+
+    fixed = hex.decode(
+        "853b3b3d9ecb4906c17a8d87adaa41e560696a88fe465621fb87abd2b29b614a96cf665b492dc2b602d6e4fcbb4a2b1d6b9bedc70e912c7bcd1475743d67539c2b770b1f1a71bec057e4c8add5aba762d9ab56a11e3ea7152b0f3fdac45d6347"
+    )!
+
+    assert signatures.is_valid(key, message, fixed)
+    refute signatures.is_valid_with(key, Scheme.EcdsaSha512, message, fixed)
+end
+
+test "each new scheme signs what it then checks"
+    p384_key = PrivateKey.generate_ecdsa_p384()
+    p521_key = PrivateKey.generate_ecdsa_p521()
+    rsa_key = PrivateKey.generate_rsa()!
+
+    pairs = [
+        (p384_key, Scheme.EcdsaSha384),
+        (p384_key, Scheme.EcdsaSha384Der),
+        (p521_key, Scheme.EcdsaSha512),
+        (p521_key, Scheme.EcdsaSha512Der),
+        (rsa_key,  Scheme.RsaPkcs1Sha384),
+        (rsa_key,  Scheme.RsaPkcs1Sha512),
+        (rsa_key,  Scheme.RsaPssSha384),
+        (rsa_key,  Scheme.RsaPssSha512),
+    ]
+
+    checked =
+        pairs
+        |> Iter.map(fn (key, scheme) ->
+            signature = signatures.sign_with(key, scheme, message)!
+            signatures.is_valid_with(PrivateKey.public_key(key), scheme, message, signature)
+        end)
+        |> Iter.to_list()
+
+    assert checked == (Iter.repeat(True) |> Iter.take(8) |> Iter.to_list())
+    assert Bytes.length(signatures.sign(p521_key, message)) == 132
+
+    assert signatures.sign_with(p384_key, Scheme.EcdsaSha512, message)
+        == Err("an ECDSA P-384 key does not sign with EcdsaSha512")
+end
+
+// The private half of `rsa`, a key made for these tests and nothing else.
+once rsa_private = """
+    -----BEGIN PRIVATE KEY-----
+    MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDKecooyQEHzzZG
+    VcX745uYNWDg/vWf/c4kaaQR0J7Y/bmtF4lCM77GXb2gA/OYBdvQlvY7C8BbcRea
+    sbUvWDFc1FH+G+AMC7ZCwXlRpA86uPCiGbUmAE6zjP0j+h82eXpdMvdXlI4SYNhi
+    WEayjmcd1j6CT7hPCmmL990JyI6AQGb4/UiaOJo21/diWF4dG2Et+wX+CYqSvPOI
+    vvvANRzvRbcPe0abYdTrm+Y2Oheif7SdH9ASn5ZPJa/j+9CeEX6O3Q4IBb0xabfT
+    3ay5gzT9vE+zEw/7Pc6T7A/QIgt3bqb8bwxF0buKS8gTXaotek13/Kr8pGGnQLAT
+    BwH6E+m9AgMBAAECggEAES8I4zE77ye82XdKGDiW6fINyMqamft2VUzJ6eEkuhG+
+    glwu//lYRYmLIFt1fv9wSmGlgBldN+V/NVfDosL/XXt/getntl4AF+ZHn5Am4rrz
+    YS6BWzpHc6GRkk4V/A+PPP2oVDx9Wj3x31bSmTDQu42FPJX7dGnTz1c34S6uOWAX
+    IOoPSSm3whxDYVEot7iVXShszy+CzzQW1GWu+p1QPy8O0UarhiNrGS4IuPSz/c16
+    YyHjtPrP7MVNS7CIiuEbh+B/mKzSs5LaBOQjuqzltUihcnreekZwCkB7mH6ySZHA
+    5SFY5NCzAe1KvX3LNJ3GDkhqOtkxiy17VBKnSVaE2QKBgQDz0pkukOXvUVDlD77s
+    jFfGVxuDfO1Vi9pIejQVE5gGAXcbhmDhiVFi8VN2J83Hit4LkiXv6DmGtlYKgOLR
+    oWbwurQeqIcGXJZvd48o/nrjejaggPFtQN0VMuGwXrjICz+9NcFQFhV8xFPQCWQa
+    K1LMojzcK/gYo7ZFajvIr/coCwKBgQDUloyYjaY1oPJt18aMT/2j9urVdlNBVELF
+    LXLnZaCMRh47yOtpLP4R2Lk1GMJuWsNAQhpsgbu4iKU02jjthh4na5YK18oK25DW
+    x1t3LIFZykuoPZ+cyLItPglGc5tleFUYCcY4W9j5Vhw1CMDq8CirRNX4FsCE1NKQ
+    JUApLjqqVwKBgCgAZSE+pHqe3Ka37prga4YexGTOGiHuz+EUK3dJv6c8lk3tvfdC
+    kBergAXigeA66DL9xzuU3ds8DuGqQ4wg7sKP3v0oqP5iMkwXUWVoWsD3S/8JKJLE
+    EYFo154X7Djln49rQkvhU6UkkJuQ7ttcQDlSZKm6jPl94mmBBE3okKQBAoGBAMkU
+    QZZGXVFalBRLxZSQUMRXWFZiXmtrrOBeldHDsbEc3ZoE+I56LTNqP/y2F6pUFVzh
+    aab6qznnngQ46SHZ+wmkXL6Sz5unhP9yf9Rgd1Ub4KYY67FbsBTVGebWkMTQpgRf
+    sms6jSeCSJntVrSiRoWBTbYkpyK9PxFy+pY5EOpvAoGAfUp2r2aR0Rw9Ae9/iW9i
+    eWmzYFz3pNIfqz1IqQ7PPnv88Wctrm/lgQ/5D+YZZBT98AjVHAsjz79NeQtXzlec
+    5eOVa2wo78qS6+xPLUB+GwmTVM7U0U/YO+B2y5FJNkXFO9DUahlAsG/TYJWQUf58
+    TqgaPhXoq+aPE/3tIG0NYgY=
+    -----END PRIVATE KEY-----
+    """
+
+test "each RSA-OAEP hash decrypts what OpenSSL encrypted, and only with its label"
+    key = PrivateKey.from_pem(rsa_private)!
+    secret = String.to_bytes("a secret for ada")
+    none = Bytes.from_list([])
+
+    // `openssl pkeyutl -encrypt` with `rsa_padding_mode:oaep`, the hash as
+    // both `rsa_oaep_md` and `rsa_mgf1_md`, and the label "nomi" for SHA-256.
+    sha256 = hex.decode(
+        "7bb4bddafd2ffb72f9b0b8adf85edce98b3bdf27136c8eaabe71ce51514a8ae35ca2754400e20b37edaa5ff8f3234f66935af97380413eb06c725a095631755a8410e45b131f51c5caaf323fa9990d4b63751e804b55451a322404a0ef0514a210fe8208221b6fe2ba0d85d2cb0df20e27c2eab7389a33b9b0e5b37c5cdd342c23e5bd7f05d5944276fedf657bf86c6dafb14fcd4dfe77d1173085b06bf97176f6f2696983acfcc2eda795cf5adb53ece6de67ca6c698f5410050d76e36c5394c7a7fa67d05d6ea74c2fb2e95394d78601a897b95f463ece3bfe5162d2c9158341f8381685f5ebadf8e7a05f12e6aa1a37fe3f5d7ee78fc3f401c54b033012dc"
+    )!
+
+    sha384 = hex.decode(
+        "b4b42182710d6d5cf0b47cbfe1ad31be2a3f910ecc1b583dee20e651ffbc7347264bea191ce0006e7c53fe0b625176c4212e3bec964af98b7eb3b5f0d38fef9c2764ad260adae7b1f9165286153e0b577f8e8fdb87dd54ec2b1004e622d4036dcab99ae2df30af4ad50aa187a27b31ed318908f63210ce539dfc35c379adc54fbe3ce6cd2fbae94370582b5efe452dec202a0bcb4c0787695b3dcb2c237eb3510aaca30a4978723324fd09058536f5f3c9c1052b36fa6597e121ba1e481defb97d78cdcb6b89fcf68bbd869292c901ac5d7536dd10979f5c75ecf6540058f27822f28594038c48dc3e82a7ec08e908651f9cc78e4effdd67f3d0b7233aed38bc"
+    )!
+
+    sha512 = hex.decode(
+        "662e014e19f0805b0171269209aacc19dce6025d58acf1746cfdc082e635e8e2ce0c13cc2f25d2e4296a4629462aa50f307f410e123c9e1a087d1e30d573b53887c17d9c93a77be14f13a3f1fced1243c83cdd09e08f4244e0fd00efa3f81e1afbb604ca94aaa4d68c29bf1b534ddb40a066f58d1fd23fbc064ce07e446e5e7566cd17e087727cab9fdf769a97a3028f41e461ce4689b7c61f42d2a69796e09526f3fea26b979a44fbb9637131e7f56aafe311bffdcf82955fa8b2a7f2a82a791cd195b32321770331596107407790d54d84de3cfc1b6e1ba0f8eda309653ac7956be24d2006d30d8a92472631f13a4e4dd07c032b7a87eb91677061d69da3fa"
+    )!
+
+    assert signatures.decrypt(key, Encryption.RsaOaepSha256, sha256, String.to_bytes("nomi"))
+        == Ok(secret)
+
+    assert signatures.decrypt(key, Encryption.RsaOaepSha384, sha384, none) == Ok(secret)
+    assert signatures.decrypt(key, Encryption.RsaOaepSha512, sha512, none) == Ok(secret)
+
+    refused = Err("the ciphertext did not decrypt under this key")
+    assert signatures.decrypt(key, Encryption.RsaOaepSha256, sha256, none) == refused
+    assert signatures.decrypt(key, Encryption.RsaOaepSha256, sha384, none) == refused
+
+    assert signatures.decrypt(key, Encryption.RsaOaepSha512, Bytes.slice(sha512, 1, 256), none)
+        == refused
+
+    assert PrivateKey.public_key(key) == PublicKey.from_pem(rsa)!
+end
+
+test "each RSA-OAEP hash decrypts what it encrypted, and other keys refuse"
+    key = PrivateKey.from_pem(rsa_private)!
+    public = PrivateKey.public_key(key)
+    secret = String.to_bytes("a secret for ada")
+    label = String.to_bytes("label")
+
+    round_trips =
+        [Encryption.RsaOaepSha256, Encryption.RsaOaepSha384, Encryption.RsaOaepSha512]
+        |> Iter.map(fn encryption ->
+            sealed = signatures.encrypt(public, encryption, secret, label)!
+            signatures.decrypt(key, encryption, sealed, label)
+        end)
+        |> Iter.to_list()
+
+    assert round_trips == [Ok(secret), Ok(secret), Ok(secret)]
+
+    ed = PrivateKey.generate_ed25519()
+
+    assert signatures.encrypt(PrivateKey.public_key(ed), Encryption.RsaOaepSha256, secret, label)
+        == Err("an Ed25519 key does not encrypt")
+
+    assert signatures.decrypt(ed, Encryption.RsaOaepSha256, secret, label)
+        == Err("an Ed25519 key does not decrypt")
+end

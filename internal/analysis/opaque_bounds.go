@@ -95,7 +95,7 @@ func (c *checker) withConstructionReason(e TypeError, concrete Type, iface *Inte
 // for building concrete would meet (implementsOnlyByConstruction), as a
 // missing impl is reported (missingImplError), with the reason.
 func (c *checker) constructionDemandError(concrete Type, ifaceName string, rec Recording) {
-	msg := fmt.Sprintf("no impl of `%s` for `%s` (required via %s)", ifaceName, concrete, formatRecordingVia(rec))
+	msg := fmt.Sprintf("no impl of `%s` for `%s` (%s)", ifaceName, concrete, requiredClause(rec))
 	if c.alreadyReported(rec.Pos.Line, rec.Pos.Col, msg) {
 		return
 	}

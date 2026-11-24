@@ -95,12 +95,12 @@ func TestCheckRunner_TheTagsNameTheVariant(t *testing.T) {
 		return buildIdentity{Path: runnerMainPath, Revision: rev, GOOS: "linux", GOARCH: "amd64", Tags: sortedTags(tags)}
 	}
 	compiler := Variant{Compiler: true}
-	lean := Variant{Compiler: true, NoNetwork: true}
+	lean := Variant{NoNetwork: true}
 	if err := checkRunner(self, built(compiler.buildTags()), "/r/nomi-vm-compiler", target, compiler); err != nil {
 		t.Fatalf("the compiler runner was refused: %v", err)
 	}
-	if err := checkRunner(self, built("nomi_nowasm,nomi_nonet,nomi_compiler"), "/r/nomi-vm-compiler-nonet", target, lean); err != nil {
-		t.Fatalf("the lean compiler runner, its tags in another order, was refused: %v", err)
+	if err := checkRunner(self, built("nomi_nowasm,nomi_nonet"), "/r/nomi-vm-nonet", target, lean); err != nil {
+		t.Fatalf("the lean runner, its tags in another order, was refused: %v", err)
 	}
 	cases := []struct {
 		name   string
@@ -112,10 +112,10 @@ func TestCheckRunner_TheTagsNameTheVariant(t *testing.T) {
 			"/r/bin is not a nomi-vm-compiler (it was built with no build tags, and a nomi-vm-compiler with the tags nomi_compiler)"},
 		{"the compiler runner for a plain program", built(compiler.buildTags()), Variant{},
 			"/r/bin is not a nomi-vm (it was built with the tags nomi_compiler, and a nomi-vm with no build tags)"},
-		{"the lean runner for std/compiler", built(Variant{NoNetwork: true}.buildTags()), lean,
-			"is not a nomi-vm-compiler-nonet (it was built with the tags nomi_nonet,nomi_nowasm"},
-		{"the lean compiler runner for the full one", built(lean.buildTags()), compiler,
-			"is not a nomi-vm-compiler (it was built with the tags nomi_compiler,nomi_nonet,nomi_nowasm"},
+		{"the lean runner for std/compiler", built(lean.buildTags()), compiler,
+			"is not a nomi-vm-compiler (it was built with the tags nomi_nonet,nomi_nowasm"},
+		{"the full runner for the lean one", built(""), lean,
+			"is not a nomi-vm-nonet (it was built with no build tags, and a nomi-vm-nonet with the tags nomi_nonet,nomi_nowasm)"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -210,20 +210,19 @@ func sha(data []byte) string {
 func TestDownloadRunner(t *testing.T) {
 	const v = "v9.9.9"
 	linux := tarGz(t, map[string][]byte{
-		"./nomi":     []byte("the cli"),
-		"./nomi-lsp": []byte("the lsp"),
-		"./nomi-vm":  []byte("the linux runner"),
+		"./nomi":    []byte("the cli"),
+		"./nomi-vm": []byte("the linux runner"),
 	})
 	windows := zipOf(t, map[string][]byte{
 		"nomi.exe":    []byte("the cli"),
 		"nomi-vm.exe": []byte("the windows runner"),
 	})
 	rel := &fakeRelease{files: map[string][]byte{
-		"/" + v + "/nomi_v9.9.9_linux_amd64.tar.gz": linux,
-		"/" + v + "/nomi_v9.9.9_windows_amd64.zip":  windows,
-		"/" + v + "/nomi_v9.9.9_checksums.txt": []byte(fmt.Sprintf("%s  ./nomi_v9.9.9_linux_amd64.tar.gz\n%s  ./nomi_v9.9.9_windows_amd64.zip\n%s  ./nomi_v9.9.9_linux_arm64.tar.gz\n",
+		"/" + v + "/nomi_v9.9.9_linux_amd64_runners.tar.gz": linux,
+		"/" + v + "/nomi_v9.9.9_windows_amd64_runners.zip":  windows,
+		"/" + v + "/nomi_v9.9.9_checksums.txt": []byte(fmt.Sprintf("%s  ./nomi_v9.9.9_linux_amd64_runners.tar.gz\n%s  ./nomi_v9.9.9_windows_amd64_runners.zip\n%s  ./nomi_v9.9.9_linux_arm64_runners.tar.gz\n",
 			sha(linux), sha(windows), strings.Repeat("0", 64))),
-		"/" + v + "/nomi_v9.9.9_linux_arm64.tar.gz": linux,
+		"/" + v + "/nomi_v9.9.9_linux_arm64_runners.tar.gz": linux,
 	}}
 	srv := httptest.NewServer(rel)
 	defer srv.Close()
@@ -237,7 +236,7 @@ func TestDownloadRunner(t *testing.T) {
 		if got, _ := os.ReadFile(dest); string(got) != "the linux runner" {
 			t.Fatalf("extracted %q", got)
 		}
-		if want := srv.URL + "/v9.9.9/nomi_v9.9.9_linux_amd64.tar.gz"; !strings.Contains(progress.String(), want) {
+		if want := srv.URL + "/v9.9.9/nomi_v9.9.9_linux_amd64_runners.tar.gz"; !strings.Contains(progress.String(), want) {
 			t.Fatalf("progress %q does not name %s", progress.String(), want)
 		}
 		// Windows has no executable bit; a file runs by its .exe name.
@@ -268,7 +267,7 @@ func TestDownloadRunner(t *testing.T) {
 	})
 	t.Run("not in the manifest", func(t *testing.T) {
 		err := downloadRunner(srv.URL, v, Target{"darwin", "arm64"}, Variant{}, filepath.Join(t.TempDir(), "nomi-vm"), nil)
-		if err == nil || !strings.Contains(err.Error(), "lists no nomi_v9.9.9_darwin_arm64.tar.gz") {
+		if err == nil || !strings.Contains(err.Error(), "lists no nomi_v9.9.9_darwin_arm64_runners.tar.gz") {
 			t.Fatalf("got %v", err)
 		}
 	})
@@ -287,7 +286,7 @@ func TestDownloadRunner(t *testing.T) {
 		err := downloadRunner(base, v, Target{"linux", "amd64"}, Variant{}, filepath.Join(t.TempDir(), "nomi-vm"), nil)
 		if err == nil || !strings.Contains(err.Error(), base+"/v9.9.9/nomi_v9.9.9_checksums.txt") ||
 			!strings.Contains(err.Error(), "Connect to the network") ||
-			!strings.Contains(err.Error(), base+"/v9.9.9/nomi_v9.9.9_linux_amd64.tar.gz") {
+			!strings.Contains(err.Error(), base+"/v9.9.9/nomi_v9.9.9_linux_amd64_runners.tar.gz") {
 			t.Fatalf("got %v", err)
 		}
 	})
@@ -310,9 +309,9 @@ func TestDownloadRunner_JSWasmBringsItsWasmExec(t *testing.T) {
 	})
 	serve := func(jsArchive []byte) *httptest.Server {
 		rel := &fakeRelease{files: map[string][]byte{
-			"/" + v + "/nomi_v9.9.9_js_wasm.tar.gz":     jsArchive,
-			"/" + v + "/nomi_v9.9.9_wasip1_wasm.tar.gz": wasi,
-			"/" + v + "/nomi_v9.9.9_checksums.txt": []byte(fmt.Sprintf("%s  ./nomi_v9.9.9_js_wasm.tar.gz\n%s  ./nomi_v9.9.9_wasip1_wasm.tar.gz\n",
+			"/" + v + "/nomi_v9.9.9_js_wasm_runners.tar.gz":     jsArchive,
+			"/" + v + "/nomi_v9.9.9_wasip1_wasm_runners.tar.gz": wasi,
+			"/" + v + "/nomi_v9.9.9_checksums.txt": []byte(fmt.Sprintf("%s  ./nomi_v9.9.9_js_wasm_runners.tar.gz\n%s  ./nomi_v9.9.9_wasip1_wasm_runners.tar.gz\n",
 				sha(jsArchive), sha(wasi))),
 		}}
 		srv := httptest.NewServer(rel)
@@ -378,8 +377,8 @@ func TestDownloadRunner_AnArchiveWithoutTheReactorSaysSo(t *testing.T) {
 	const v = "v9.9.9"
 	wasi := tarGz(t, map[string][]byte{"./nomi-vm": []byte("the wasip1 runner")})
 	srv := httptest.NewServer(&fakeRelease{files: map[string][]byte{
-		"/" + v + "/nomi_v9.9.9_wasip1_wasm.tar.gz": wasi,
-		"/" + v + "/nomi_v9.9.9_checksums.txt":      []byte(sha(wasi) + "  ./nomi_v9.9.9_wasip1_wasm.tar.gz\n"),
+		"/" + v + "/nomi_v9.9.9_wasip1_wasm_runners.tar.gz": wasi,
+		"/" + v + "/nomi_v9.9.9_checksums.txt":              []byte(sha(wasi) + "  ./nomi_v9.9.9_wasip1_wasm_runners.tar.gz\n"),
 	}})
 	defer srv.Close()
 	dir := t.TempDir()
@@ -419,9 +418,10 @@ func TestReleaseRunner_NotARelease(t *testing.T) {
 // prebuiltRelease stands in a release `nomi` cut as v9.9.9 for linux/amd64,
 // installed in its own directory, with runners told apart by their contents
 // instead of being built: a file reading "compiler runner" has the build info
-// of std/compiler's runner from nomi's commit, and one reading "plain runner"
-// that of the plain runner. A `go` on PATH and in NOMI_GO records any run in
-// the file ranGo names.
+// of std/compiler's runner from nomi's commit for the release's target, one
+// reading "plain runner" that of the plain runner, and one reading "lean
+// runner" that of the lean one. A `go` on PATH and in NOMI_GO records any run
+// in the file ranGo names.
 type prebuiltRelease struct {
 	dir, cache, ranGo string
 	target            Target
@@ -429,8 +429,14 @@ type prebuiltRelease struct {
 
 func standInRelease(t *testing.T) prebuiltRelease {
 	t.Helper()
+	return standInReleaseOn(t, Target{"linux", "amd64"})
+}
+
+// standInReleaseOn is standInRelease for a release of target.
+func standInReleaseOn(t *testing.T, target Target) prebuiltRelease {
+	t.Helper()
 	const rev = "0cf65c8a453eb7b52dc6e743ed90d1a6aa5f33c5"
-	r := prebuiltRelease{dir: t.TempDir(), cache: t.TempDir(), target: Target{"linux", "amd64"}}
+	r := prebuiltRelease{dir: t.TempDir(), cache: t.TempDir(), target: target}
 	r.ranGo = filepath.Join(t.TempDir(), "ran-go")
 	oldVersion, oldExe, oldSelf, oldRead := ReleaseVersion, executablePath, selfIdentity, readIdentity
 	t.Cleanup(func() {
@@ -446,10 +452,12 @@ func standInRelease(t *testing.T) prebuiltRelease {
 		if err != nil {
 			return buildIdentity{}, err
 		}
-		id := buildIdentity{Path: runnerMainPath, Revision: rev, GOOS: "linux", GOARCH: "amd64"}
+		id := buildIdentity{Path: runnerMainPath, Revision: rev, GOOS: target.GOOS, GOARCH: target.GOARCH}
 		switch string(data) {
 		case "compiler runner":
 			id.Tags = compilerTag
+		case "lean runner":
+			id.Tags = Variant{NoNetwork: true}.buildTags()
 		case "plain runner":
 		default:
 			return buildIdentity{}, fmt.Errorf("%s is not a Go binary", bin)
@@ -480,10 +488,7 @@ func (r prebuiltRelease) noGoRan(t *testing.T) {
 // for it (the archive's own when sum is "").
 func compilerArchive(t *testing.T, runner, sum string) (*httptest.Server, *fakeRelease) {
 	t.Helper()
-	data := tarGz(t, map[string][]byte{
-		"./nomi-vm-compiler":       []byte(runner),
-		"./nomi-vm-compiler-nonet": []byte("lean compiler runner"),
-	})
+	data := tarGz(t, map[string][]byte{"./nomi-vm-compiler": []byte(runner)})
 	if sum == "" {
 		sum = sha(data)
 	}
@@ -605,7 +610,7 @@ func TestPrebuilt_AReleaseWithNoRunnerNeverRunsGo(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			if c.base == "" {
 				srv := httptest.NewServer(&fakeRelease{files: map[string][]byte{
-					"/v9.9.9/nomi_v9.9.9_checksums.txt": []byte(strings.Repeat("ab", 32) + "  ./nomi_v9.9.9_linux_amd64.tar.gz\n"),
+					"/v9.9.9/nomi_v9.9.9_checksums.txt": []byte(strings.Repeat("ab", 32) + "  ./nomi_v9.9.9_linux_amd64_runners.tar.gz\n"),
 				}})
 				t.Cleanup(srv.Close)
 				c.base = srv.URL

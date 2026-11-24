@@ -3,6 +3,7 @@ package analysis_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/analysis"
@@ -483,4 +484,207 @@ fn main()
 end
 `, nil)
 	expectSelectionClean(t, errs)
+}
+
+// circleShape is `From` at a struct and at the enum that embeds it, for one
+// error type: two instantiations, which coherence tells apart
+// (TypesIdentical), and so does each call that chooses among them.
+const circleShape = `
+struct Circle
+    radius: Int
+end
+
+enum Shape
+    embeds Circle
+    Point
+end
+
+enum Failure
+    FromCircle Circle
+    FromShape Shape
+end
+
+impl From<Circle> for Failure
+    fn from(e: Circle) -> Failure
+        Failure.FromCircle(e)
+    end
+end
+
+impl From<Shape> for Failure
+    fn from(e: Shape) -> Failure
+        Failure.FromShape(e)
+    end
+end
+
+fn fail_circle() -> Result<Int, Circle>
+    Err(Circle{radius: 2})
+end
+
+fn fail_shape() -> Result<Int, Shape>
+    Err(Shape.Point)
+end
+`
+
+// Each call form takes the impl at its argument's own type. A Circle fits
+// both impls, since it converts to a Shape; it takes From<Circle>, the more
+// specific (mostSpecificImpl). The two impls were one candidate, and every
+// call was refused when it was built.
+func TestImplSelection_AnEmbeddedTypeAndItsEnumEachTakeTheirOwnImpl(t *testing.T) {
+	errs := buildProjectExpectingErrors(t, circleShape+`
+fn via_circle() -> Result<Int, Failure>
+    n = fail_circle()?
+    Ok(n)
+end
+
+fn via_shape() -> Result<Int, Failure>
+    n = fail_shape()?
+    Ok(n)
+end
+
+fn convert<T>(s: Shape) -> T where T: From<Shape>
+    T.from(s)
+end
+
+fn main()
+    c = Circle{radius: 1}
+    s: Shape = Shape.Point
+    _a: Failure = From.from(c)
+    _b: Failure = From.from(s)
+    _c = Failure.from(c)
+    _d = Failure.from(s)
+    _e: Failure = c |> From.from()
+    _f = s |> Failure.from()
+    _g = via_circle()
+    _h = via_shape()
+    _i: Failure = convert(s)
+end
+`, nil)
+	expectSelectionClean(t, errs)
+}
+
+// A Shape may hold another variant, so it is not a Circle: with only
+// `impl From<Circle>`, a `?` on a Shape error is the mismatch, and the help
+// wraps it in no variant whose payload is a Circle.
+func TestImplSelection_AnEnumDoesNotTakeItsEmbeddedTypesImpl(t *testing.T) {
+	errs := buildProjectExpectingErrors(t, `
+struct Circle
+    radius: Int
+end
+
+enum Shape
+    embeds Circle
+    Point
+end
+
+enum Failure
+    FromCircle Circle
+end
+
+impl From<Circle> for Failure
+    fn from(e: Circle) -> Failure
+        Failure.FromCircle(e)
+    end
+end
+
+fn fail_shape() -> Result<Int, Shape>
+    Err(Shape.Point)
+end
+
+fn via_shape() -> Result<Int, Failure>
+    n = fail_shape()?
+    Ok(n)
+end
+
+fn main()
+    _ = via_shape()
+end
+`, nil)
+	expectRejected(t, errs, "`?` error type mismatch: expected Failure, got Shape")
+	for _, e := range errs {
+		if strings.Contains(diagText(e), "Failure.FromCircle") {
+			t.Errorf("the help wraps a Shape in a Circle's variant: %s", diagText(e))
+		}
+	}
+}
+
+// failureFromA is an error type that converts from a.Error, one of two
+// libraries' errors that are each called `Error`.
+const failureFromA = `import
+    a
+    b
+end
+
+enum Failure
+    A a.Error
+    B b.Error
+end
+
+impl From<a.Error> for Failure
+    fn from(e: a.Error) -> Failure
+        Failure.A(e)
+    end
+end
+
+fn fail_b() -> Result<Int, b.Error>
+    Err(b.Error{code: 7})
+end
+`
+
+// A message that names a type beside another that prints the same names
+// each by its file (distinctTypeTexts). These printed `From<Error>` for both.
+func TestImplSelection_TypesThatPrintAlikeAreNamedByTheirFiles(t *testing.T) {
+	for _, tc := range []struct{ name, src, want string }{
+		{"a `?` beside the impl the boundary has",
+			"fn via_b() -> Result<Int, Failure>\n    n = fail_b()?\n    Ok(n)\nend\n\nfn main()\n    _ = via_b()\nend\n",
+			"`?` error type mismatch: expected Failure, got b.Error (the enclosing function returns Result<Int, Failure>); write `impl From<b.Error> for Failure` and the `?` converts the error"},
+		{"a bound beside the impl the type has",
+			"fn convert<T>(e: b.Error) -> T where T: From<b.Error>\n    T.from(e)\nend\n\nfn main()\n    f: Failure = convert(b.Error{code: 7})\n    _ = f\nend\n",
+			"Failure does not implement From<b.Error> (required by `where T: From<b.Error>`)\nhelp: `Failure` implements `From<a.Error>`"},
+		{"the impls a call chooses among",
+			"impl From<b.Error> for Failure\n    fn from(e: b.Error) -> Failure\n        Failure.B(e)\n    end\nend\n\nfn main()\n    f = Failure.from(3)\n    _ = f\nend\n",
+			"`From.from` for `Failure` has impls at `a.Error` and `b.Error`, and none takes `Int`"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			errs := buildProjectExpectingErrors(t, failureFromA+"\n"+tc.src, twoErrors)
+			expectRejected(t, errs, tc.want)
+		})
+	}
+}
+
+// The argument none of the impls takes is rendered with the candidates, so
+// a third file's `Error` is named by its file too.
+func TestImplSelection_AnArgumentNoImplTakesIsNamedBesideTheCandidates(t *testing.T) {
+	errs := buildProjectExpectingErrors(t, `import
+    a
+    b
+    c
+end
+
+enum Failure
+    A a.Error
+    B b.Error
+end
+
+impl From<a.Error> for Failure
+    fn from(e: a.Error) -> Failure
+        Failure.A(e)
+    end
+end
+
+impl From<b.Error> for Failure
+    fn from(e: b.Error) -> Failure
+        Failure.B(e)
+    end
+end
+
+fn main()
+    f = Failure.from(c.Error{ok: True})
+    _ = f
+end
+`, map[string]string{
+		"a": twoErrors["a"],
+		"b": twoErrors["b"],
+		"c": "pub struct Error\n    ok: Bool\nend\n",
+	})
+	expectRejected(t, errs, "`From.from` for `Failure` has impls at `a.Error` and `b.Error`, and none takes `c.Error`")
 }

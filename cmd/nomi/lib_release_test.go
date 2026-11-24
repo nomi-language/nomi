@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"path"
@@ -10,31 +9,29 @@ import (
 	"strings"
 	"testing"
 
-	"golang.org/x/mod/module"
-	"golang.org/x/mod/sumdb/dirhash"
-	modzip "golang.org/x/mod/zip"
-
-	"github.com/nomi-language/nomi/internal/fileuri"
+	"github.com/nomi-language/nomi/internal/modfetch/modfetchtest"
 )
 
-// libTestVersion is the version the file proxy serves the lib/ modules at.
-const libTestVersion = "v0.0.0-20261104000000-abcdefabcdef"
+// libTestVersion is the tag the test's host serves the first-party
+// libraries' repository at.
+const libTestVersion = "v0.9.0"
 
-// libTestModules are the lib/ modules the file proxy serves, by directory.
+// libTestModules are the libraries the project names, by directory.
 var libTestModules = []string{
 	"lib/image", "lib/markdown", "lib/sql/migrate", "lib/sql/postgres", "lib/sql/sqlite", "lib/sql/sqlkit",
 }
 
 // TestLibRelease_AProjectOfLibModulesNeedsNoGo: a release `nomi`, with no Go
-// on PATH, takes sqlite, sqlkit, migrate,
-// markdown and image from a module proxy into the module cache, runs
-// sqlkit's tool from there, and runs, tests, checks and builds the project.
-// The lib/ modules are Nomi alone, so nothing is generated or built with Go.
+// and no git on PATH, takes sqlite, sqlkit, migrate, markdown and image
+// from their repository's host into the module cache, runs sqlkit's tool
+// from there, and runs, tests, checks and builds the project. The
+// libraries are Nomi alone, so nothing is generated or built with Go.
 //
-// sqlkit's nomi.toml names its sibling lib/ modules by directory, which the
-// module cache does not hold. A dependency's dir entries apply only in its
-// own checkout, so the tool loads its modules as the project names them and
-// writes the shop example's files as committed.
+// sqlkit's nomi.toml names its neighbor libraries by directory. In the
+// module cache those are the same directories of the repository at the
+// same tag, the modules the project names, so the tool loads its modules
+// as the project names them and writes the shop example's files as
+// committed.
 func TestLibRelease_AProjectOfLibModulesNeedsNoGo(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("the release environment is a Unix PATH without go (noGoPath)")
@@ -42,23 +39,19 @@ func TestLibRelease_AProjectOfLibModulesNeedsNoGo(t *testing.T) {
 	t.Parallel()
 	b := releaseBuild(t)
 	root := repoRoot(t)
-	proxy := t.TempDir()
+	host := modfetchtest.New(t)
+	files := libRepoFiles(t, root, libTestModules)
+	commit := host.Tag("github.com/nomi-language/nomi", libTestVersion, files)
 	var lock strings.Builder
 	for _, dir := range libTestModules {
-		m := module.Version{Path: "github.com/nomi-language/nomi/" + dir, Version: libTestVersion}
-		hash, err := publishLibModule(filepath.Join(root, filepath.FromSlash(dir)), proxy, m)
-		if err != nil {
-			t.Fatal(err)
-		}
-		fmt.Fprintf(&lock, "%s %s %s direct\n", m.Path, m.Version, hash)
+		fmt.Fprintf(&lock, "github.com/nomi-language/nomi %s %s %s %s direct\n", dir, libTestVersion, commit, modfetchtest.Hash(files, dir))
 	}
 	proj := t.TempDir()
 	libProject(t, proj, lock.String())
 	cacheRoot := t.TempDir()
 	env := releaseEnv(t, cacheRoot,
-		"GOMODCACHE="+filepath.Join(t.TempDir(), "modcache"),
-		"GOPROXY="+fileuri.FromPath(proxy),
-		"GOSUMDB=off",
+		"NOMI_MODULE_CACHE="+modfetchtest.CacheDir(t),
+		"NOMI_TEST_MODULE_HOSTS="+host.Env("github.com"),
 	)
 	nomi := exe(filepath.Join(b.install, "nomi"))
 
@@ -93,33 +86,38 @@ func TestLibRelease_AProjectOfLibModulesNeedsNoGo(t *testing.T) {
 	}
 }
 
-// publishLibModule writes the module in dir to the file proxy at proxy as
-// m, and answers its zip's hash.
-func publishLibModule(dir, proxy string, m module.Version) (string, error) {
-	vdir := filepath.Join(proxy, filepath.FromSlash(m.Path), "@v")
-	if err := os.MkdirAll(vdir, 0o755); err != nil {
-		return "", err
-	}
-	zipPath := filepath.Join(vdir, m.Version+".zip")
-	var buf bytes.Buffer
-	if err := modzip.CreateFromDir(&buf, m, dir); err != nil {
-		return "", fmt.Errorf("zipping %s: %w", dir, err)
-	}
-	goMod, err := os.ReadFile(filepath.Join(dir, "go.mod"))
-	if err != nil {
-		return "", err
-	}
-	for name, data := range map[string][]byte{
-		"list":              []byte(m.Version + "\n"),
-		m.Version + ".info": []byte(`{"Version":"` + m.Version + `","Time":"2026-11-04T00:00:00Z"}`),
-		m.Version + ".mod":  goMod,
-		m.Version + ".zip":  buf.Bytes(),
-	} {
-		if err := os.WriteFile(filepath.Join(vdir, name), data, 0o644); err != nil {
-			return "", err
+// libRepoFiles is the files of the repository's directories dirs, by their
+// slash paths from its root, as a tag of the repository holds them.
+func libRepoFiles(t *testing.T, root string, dirs []string) map[string]string {
+	t.Helper()
+	files := map[string]string{}
+	for _, dir := range dirs {
+		err := filepath.WalkDir(filepath.Join(root, filepath.FromSlash(dir)), func(p string, d os.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if strings.HasPrefix(d.Name(), ".") {
+				if d.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			if !d.Type().IsRegular() {
+				return nil
+			}
+			data, err := os.ReadFile(p)
+			if err != nil {
+				return err
+			}
+			rel, _ := filepath.Rel(root, p)
+			files[filepath.ToSlash(rel)] = string(data)
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
 		}
 	}
-	return dirhash.HashZip(zipPath, dirhash.Hash1)
+	return files
 }
 
 // libProject writes a project at dir that names every lib/ module at
@@ -136,7 +134,7 @@ func libProject(t *testing.T, dir, lock string) {
 		}
 		rel, _ := filepath.Rel(shop, path)
 		switch rel {
-		case "go.mod", "nomi.toml", "main.nomi", "README.md":
+		case "nomi.toml", "main.nomi", "README.md":
 			return nil
 		}
 		data, err := os.ReadFile(path)
@@ -157,8 +155,9 @@ func libProject(t *testing.T, dir, lock string) {
 	var manifest strings.Builder
 	manifest.WriteString("[module]\nname = \"shop\"\nentry_points = [\"main\"]\n\n[dependencies]\n")
 	for _, m := range libTestModules {
-		fmt.Fprintf(&manifest, "%s = { module = \"github.com/nomi-language/nomi/%s\", version = %q }\n", path.Base(m), m, libTestVersion)
+		fmt.Fprintf(&manifest, "%s = { repo = \"github.com/nomi-language/nomi\", subdir = %q, version = %q }\n", path.Base(m), m, libTestVersion)
 	}
+
 	mustWrite(t, filepath.Join(dir, "nomi.toml"), manifest.String())
 	mustWrite(t, filepath.Join(dir, "nomi.lock"), lock)
 	mustWrite(t, filepath.Join(dir, "main.nomi"), libProjectMain)

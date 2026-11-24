@@ -119,7 +119,8 @@ type toType struct {
 	badJSON, badText string
 	// generic runs the cell's body in `fn run<T>(seed: T)` at T = Int.
 	generic bool
-	// core puts every cell of the type in the default sample.
+	// core puts the type's cell under each core operation (toOp.core) in
+	// the default sample.
 	core bool
 }
 
@@ -160,6 +161,12 @@ const (
 	toNamed       = "interface Named\n    fn name(value: self) -> String\nend\n\nstruct Pt\n    x: Int\nend\n\nimpl Named for Pt\n    fn name(p: Pt) -> String\n        \"pt${p.x}\"\n    end\nend"
 	toNamedTagged = toNamed + "\n\ninterface Tagged\n    fn tag(value: self) -> String\nend\n\nimpl Tagged for Pt\n    fn tag(p: Pt) -> String\n        \"t${p.x}\"\n    end\nend"
 	toChans       = "std::channels.Channel std::channels.Sender std::channels.Receiver"
+	// An `embeds` enum with a written Display: a Ring that holds a Circ is
+	// the Circ at run time, and renders through Ring's impl wherever it
+	// sits.
+	toRing = "struct Circ\n    r: Int\nend\n\nenum Ring\n    embeds Circ\n    Dot\nend\n\n" +
+		"impl Display for Ring\n    fn to_string(s: Ring) -> String\n        case s\n            .Circ{r:} -> \"ring ${r}\"\n            .Dot -> \"dot\"\n        end\n    end\nend\n\n" +
+		"fn ring(r: Int) -> Ring\n    Circ{r:}\nend"
 	// A program's distinct type read from text and written as text, as a
 	// route parameter's type is.
 	toCode = "type Code Int\n\n" +
@@ -186,8 +193,10 @@ var toTypes = []toType{
 	{name: "user marker", decls: "type Done", typ: "Done", expr: "Done", want: "Done", core: true},
 	{name: "plain enum", decls: toColor, typ: "Color", expr: "Color.Green", want: "Green"},
 	{name: "payload enum", decls: toShape, typ: "Shape", expr: "Shape.Rect{w: 1, h: 2}", want: "Rect{w: 1, h: 2}", core: true},
+	{name: "embeds enum written display", decls: toRing, typ: "Ring", expr: "ring(1)", want: "Circ{r: 1}", shown: "ring 1"},
 	{name: "recursive enum", decls: toChain, typ: "Chain", expr: "Chain.Link(1, .Link(2, .End))", want: "Link(1, Link(2, End))"},
 	{name: "struct", decls: toPoint, typ: "Point", expr: "Point{x: 1, y: 2}", want: "Point{x: 1, y: 2}"},
+	{name: "fieldless struct", decls: "struct Feet end", typ: "Feet", expr: "Feet{}", want: "Feet{}"},
 	{name: "recursive struct", decls: toTree, typ: "Tree", expr: "Tree{v: 1, kids: [Tree{v: 2, kids: []}]}",
 		want: "Tree{v: 1, kids: [Tree{v: 2, kids: []}]}"},
 	{name: "anonymous struct", typ: "{a: Int, b: String}", expr: `{a: 1, b: "x"}`, want: `{a: 1, b: "x"}`, core: true, shown: "{a: 1, b: x}"},
@@ -230,6 +239,8 @@ var toTypes = []toType{
 	{name: "date", imports: []string{"std::calendar.Date"}, typ: "Date", expr: "Date`2026-01-05`", want: "2026-01-05", shown: "2026-01-05"},
 	{name: "quoted date", imports: []string{"std::calendar.Date"}, typ: "Date", expr: "Date\"2026-01-05\"", want: "2026-01-05", shown: "2026-01-05"},
 	{name: "duration", imports: []string{"std::duration.Duration"}, typ: "Duration", expr: "Duration.seconds(2)", want: "2s", shown: "2s"},
+	{name: "session key", imports: []string{"std::sessions.SessionKey"}, typ: "SessionKey",
+		expr: `SessionKey.derive("a test secret of 32 bytes or more")!`, want: "SessionKey(<hidden>)"},
 	{name: "struct with fn", inspect: "Op{f: <function>}", decls: toInc + "\n\nstruct Op\n    f: (Int) -> Int\nend", typ: "Op", expr: "Op{f: inc}",
 		obs: "Debug.inspect($v.f(1))", want: "2", noEq: true},
 	{name: "byte", typ: "Byte", expr: "(7 as Byte)", want: "7", shown: "7"},
@@ -237,6 +248,7 @@ var toTypes = []toType{
 	{name: "json", imports: []string{"std::json.Json"}, typ: "Json", expr: "Json.decode(\"[1]\")!", want: "[1]", shown: "[1]"},
 	{name: "regex", imports: []string{"std::regex.Regex"}, typ: "Regex<Unit>", expr: "Regex\"a+b\"", want: "Regex\"a+b\"", shown: "a+b"},
 	{name: "generic struct", decls: "struct Bx<A>\n    v: A\nend", typ: "Bx<Int>", expr: "Bx{v: 1}", want: "Bx{v: 1}"},
+	{name: "generic distinct", decls: "type Wr<A> A", typ: "Wr<Int>", expr: "Wr(1)", want: "Wr(1)"},
 	{name: "nested anonymous struct", typ: "{p: {q: Int}}", expr: "{p: {q: 1}}", want: "{p: {q: 1}}", shown: "{p: {q: 1}}"},
 	// Fields written out of the order of their names, one of them rendered
 	// through std's impl: the record's parts are its fields by name.
@@ -322,6 +334,9 @@ var toTypes = []toType{
 	{name: "derived struct", decls: "struct Dp\n    x: Int\nend\n\nderive Equatable for Dp\n\nderive Hashable for Dp", typ: "Dp", expr: "Dp{x: 1}", want: "Dp{x: 1}"},
 	{name: "hand-written equality", decls: "struct Loose\n    id: Int\n    note: String\nend\n\nimpl Equatable for Loose\n    fn equal(a: Loose, b: Loose) -> Bool\n        a.id == b.id\n    end\nend",
 		typ: "Loose", expr: `Loose{id: 1, note: "a"}`, want: `Loose{id: 1, note: "a"}`},
+	{name: "written equality over a fn", inspect: "Ms{n: 1, u: Op{f: <function>}}",
+		decls: toInc + "\n\nstruct Op\n    f: (Int) -> Int\nend\n\nstruct Ms<P>\n    n: Int\n    u: P\nend\n\nimpl Equatable for Ms<P>\n    fn equal(a: Ms<P>, b: Ms<P>) -> Bool\n        a.n == b.n\n    end\nend\n\nimpl Hashable for Ms<P>\n    fn hash(m: Ms<P>) -> Int\n        m.n\n    end\nend",
+		typ:   "Ms<Op>", expr: "Ms{n: 1, u: Op{f: inc}}", obs: "Debug.inspect($v.u.f($v.n))", want: "2"},
 	{name: "result unit", typ: "Result<Unit, String>", expr: "Ok(Unit)", want: "Ok(Unit)"},
 	{name: "result marker pair", decls: "type Mk", typ: "Result<Mk, ChannelClosed>", expr: "Ok(Mk)", want: "Ok(Mk)", imports: []string{"std::channels.ChannelClosed"}},
 }
@@ -365,6 +380,7 @@ var toOps = []toOp{
 	{name: "equality in option", body: "assert Some($E) == Some($E)\nout = $E", needs: needEq},
 	{name: "hash", body: "assert Hashable.hash($E) == Hashable.hash($E)\nout = $E", needs: needEq},
 	{name: "interpolation", body: "s = \"<${$E}>\"\nassert s == \"<$S>\"\nout = $E", needs: needDisplay, core: true},
+	{name: "interpolation in an option", body: "s = \"${Some($E)}\"\nassert s == \"Some($S)\"\nout = $E", needs: needDisplay},
 	{name: "inspect", body: "assert Debug.inspect($E) == \"$I\"\nassert Debug.inspect([$E]) == \"[$I]\"\nout = $E", core: true},
 	{name: "display to_string", body: "assert Display.to_string($E) == \"$S\"\nout = $E", needs: needDisplay},
 	// A record of the value written as named texts and read back, as a
@@ -651,11 +667,6 @@ var toRules = []toRule{
 		why:    "a bound on a type argument needs the whole type, and `Ok(3)` leaves its error type open",
 	},
 	{
-		match:  func(c toCell) bool { return c.t.noEq && c.op.name == "in" },
-		reject: toNoEquality + "|the collection `in` looks in: (List|Vector)<.*> does not implement Contains",
-		why:    "List's and Vector's Contains holds where the element is Equatable, and the checker names the element or the collection it leaves without one",
-	},
-	{
 		match:  func(c toCell) bool { return strings.HasPrefix(c.t.expr, "(fn ") && c.op.name == "parameter default" },
 		reject: "missing argument for parameter 'x'",
 		why:    "a lambda routes on sight to an empty last parameter, past defaults (spec §7 *Lambdas at Call Sites*)",
@@ -665,7 +676,7 @@ var toRules = []toRule{
 			partial := strings.HasPrefix(c.t.expr, "Ok(") || strings.HasPrefix(c.t.expr, "Err(")
 			return strings.HasPrefix(c.op.name, "args-first") && (c.t.shown == "" || partial)
 		},
-		reject: "(type mismatch|argument [0-9]+|element type mismatch): expected (Iter<)?Display|cannot compare",
+		reject: "(type mismatch|argument [0-9]+|element type mismatch): expected (Iter<)?Display|cannot compare|no impl of `Display` for",
 		why:    "the call is typed by its arguments, and its result is no Display, or `Ok(3)` leaves its error type open (spec §5 *Type arguments from the arguments*)",
 	},
 	{

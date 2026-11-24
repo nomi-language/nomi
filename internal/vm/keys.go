@@ -126,11 +126,12 @@ func (kc *keyCaller) call(sym *ir.Symbol, args []any) any {
 	return out
 }
 
-// EqualRecord implements rt.KeyHooks. Two boxes of one name compare by the
-// impl recorded under that name (an `embeds` enum's), over the values
-// inside.
+// EqualRecord implements rt.KeyHooks. Two records of one name compare by
+// the impl recorded for a's type (implOf: a generic instance's under its
+// instance key), and two boxes of one name by the impl recorded under that
+// name (an `embeds` enum's), over the values inside.
 func (kc *keyCaller) EqualRecord(a, b *rt.Record) (bool, bool) {
-	sym := kc.m.equates[a.Desc.Name]
+	sym := implOf(kc.m.equates, a)
 	if sym == nil || a.Desc.Name != b.Desc.Name {
 		return false, false
 	}
@@ -142,25 +143,30 @@ func (kc *keyCaller) EqualRecord(a, b *rt.Record) (bool, bool) {
 	return eq, true
 }
 
-// HashRecord implements rt.KeyHooks. A box hashes by the impl recorded
-// under its name, over the value inside.
+// HashRecord implements rt.KeyHooks. A record hashes by the impl recorded
+// for its type (implOf), and a box by the impl recorded under its name,
+// over the value inside.
 func (kc *keyCaller) HashRecord(r *rt.Record) (uint64, bool) {
-	if sym := kc.m.hashes[r.Desc.Name]; sym != nil {
+	if sym := implOf(kc.m.hashes, r); sym != nil {
 		out := kc.call(sym, []any{rt.Unbox(r)})
 		if !rt.IsInt(out) {
 			panic(keyFailure{fmt.Errorf("vm: Hashable impl %s returned %T, not an Int", sym.Name(), out)})
 		}
 		return rt.HashIntValue(out), true
 	}
-	if kc.m.equates[r.Desc.Name] != nil {
+	if implOf(kc.m.equates, r) != nil {
 		return rt.HashString(r.Desc.Name), true
 	}
 	return 0, false
 }
 
-// hashValueHost is `vm.hash_value`, `Hashable.hash` of an interface value:
-// the hash a Map key or Set element of interface type takes, so two values
-// `==` calls equal hash alike.
+// hashValueName is the crossing hashValueHost answers.
+const hashValueName = "vm.hash_value"
+
+// hashValueHost is `vm.hash_value`, `Hashable.hash` of a value the machine
+// hashes by its shape (a derived Hashable, a type with no impl, an
+// interface value, std's List, Vector, Map and Set): the hash a Map key or
+// Set element of its type takes, so two values `==` calls equal hash alike.
 func hashValueHost(mach *Machine, _ ir.Pos, args []any) (_ any, err error) {
 	defer recoverKey(&err)
 	if len(args) != 1 {

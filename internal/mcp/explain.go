@@ -12,6 +12,13 @@ var explanations = map[string]string{
 		"so the program is refused rather than run with a value no rule vouched for. A message that starts `internal:` is a bug in Nomi: " +
 		"the compiler lost the function that checks the rule; report it. Otherwise the rule reaches something the compiler does not " +
 		"support yet; until it does, build the value with the type's `try_from`, which answers an `Option`.",
+	"seeded-hash": "A refinement's rule, a typed literal's handler or a checked literal's `check` can reach a hash: `Hashable.hash`, " +
+		"`String.hash` or `Bytes.hash`, or a derived `Hashable` of a String, a collection or a struct. The compiler runs these once, when it " +
+		"checks the program, and a hash is keyed by a seed each run draws, so the same value can hash to another Int when the program runs " +
+		"and a literal the compiler accepted could break its rule then. Compare the values themselves instead of their hashes. Building a " +
+		"`Map` or `Set` and reading it back is allowed, since its answers do not depend on the seed, unless its key's type has a " +
+		"hand-written `impl Hashable` whose `hash` reads a hash. So is the hash of an `Int`, a " +
+		"`Float`, a `Byte` or `Unit`, which is the value's own bits.",
 	"literal-zero-divisor": "An `Int`, `Decimal` or `Duration` `/` or `%`, or its named form (`Int.divide`, `Int.remainder`, " +
 		"`Decimal.remainder`), divides by a value that is always zero: a literal zero (`x / 0`, `x % -0`, `d / 0d`), or a binding " +
 		"or expression whose value the compiler knows is 0 (`zero = 0` then `7 % zero`). Divide by the value you meant. " +
@@ -80,6 +87,11 @@ var explanations = map[string]string{
 		"function a parameter of interface type in place of the type parameter, or by making it private when no other " +
 		"module needs it. " +
 		"Args are the function's name and `self`.",
+	"nomi-version": "A module's nomi.toml says, as `[module]`'s `nomi = \"v0.6.0\"`, the lowest nomi release its source needs, and " +
+		"the running nomi is an older release. The module is the project itself or one it depends on, named by its repository, " +
+		"directory and version. Nomi makes no compatibility promise yet, so nothing else is checked: a newer module's files may " +
+		"not mean to this nomi what they say. Install a newer nomi. A nomi built from source refuses no module. " +
+		"Args are the module as the message names it, the release it needs and the running release.",
 	"unused-import": "An import names a module or item nothing in the file uses. " +
 		"Unused imports are errors in Nomi. Remove the import, or the unused names from its `{...}` list.",
 	"path-at-use": "A use names a file by its path (`db::posts.find(1)`) after the file was imported " +
@@ -127,10 +139,22 @@ var explanations = map[string]string{
 		"so it never runs. Remove it or move it before the exit.",
 	"unconditional-recursion": "Every path through the function calls the function itself with its own parameters " +
 		"before it can return, so a call never ends. Add a case that returns without recursing, or change the arguments.",
+	"polymorphic-recursion": "A generic function calls itself, or a generic type holds itself, at a type argument built from " +
+		"its own type parameter (`grow(Box{inner: x})` inside `fn grow<T>`, `inner: Option<Nested<List<T>>>` inside " +
+		"`struct Nested<T>`), directly or through other declarations. Each generic function and type has an instance per type " +
+		"argument, and each such instance needs one at a larger argument, without end. Recurse, or hold the type, at its own " +
+		"type parameters (`Tree<T>` holding `List<Tree<T>>`) or at arguments that do not grow; a function can recurse " +
+		"through a non-generic helper or an interface-typed parameter instead.",
 	"recursive-render": "A `Display` or `Debug` impl renders its own receiver through the function it is defining " +
 		"(`\"${value}\"` inside `to_string(value)`), which never ends. Render the fields instead.",
 	"recursive-protocol": "An `Equatable` `equal`, `Comparable` `compare` or `Hashable` `hash` impl compares or hashes " +
 		"its own arguments through the function it is defining, which never ends. Compare or hash the fields, or `derive` the impl.",
+	"task-not-settled": "A handle bound from `Task.spawn`, or a list of handles from `Task.spawn_all`, in a `concurrent` block " +
+		"is never awaited or cancelled there. Pass it to `Task.await`, `Task.await_all`, `Task.try_await_all`, `Task.outcome` " +
+		"or `Task.cancel`, directly, through a function argument (`Iter.each(handles, Task.cancel)`, " +
+		"`Iter.each(handles, fn t -> _ = Task.outcome(t))`) or a pipe (`handles |> Task.await_all()`). " +
+		"Reading the handle (`Task.inspect(t)`, `Iter.count(handles)`), copying it to another name (`u = [t]`, `_ = t`) " +
+		"or passing it to a function the program declares does not settle it.",
 	"infinite-iterator": "An `Iter` that never ends is consumed whole (`Iter.to_list`, `Iter.count`, ...), " +
 		"so the program never finishes. Limit it first with `Iter.take(n)` or `Iter.take_while`.",
 	"reserved-name": "A declaration reuses a name the language reserves for a built-in type (`Int`, `String`, ...). " +

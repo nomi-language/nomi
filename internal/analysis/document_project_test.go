@@ -7,6 +7,7 @@ import (
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/fileuri"
+	"github.com/nomi-language/nomi/internal/modcache"
 )
 
 // TestDocumentManager_TypeLevelCycleAcrossFiles verifies that the
@@ -261,5 +262,41 @@ end
 	}
 	if fieldSym == nil {
 		t.Fatal("expected the AppEnv.logger reference to resolve to the app field symbol")
+	}
+}
+
+// TestDocumentManager_AModuleThatNeedsALaterNomiIsOneError: in the
+// language server, a project whose [module].nomi names a later release
+// than the running one gets one error, with its code, and nothing of its
+// files is checked: the import of a module nomi.toml lacks and the call
+// of an undefined function report nothing.
+func TestDocumentManager_AModuleThatNeedsALaterNomiIsOneError(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv(modcache.CacheEnv, filepath.Join(tmp, "cache"))
+	modcache.SetRelease("v0.5.0")
+	t.Cleanup(func() { modcache.SetRelease("") })
+	write := func(rel, content string) string {
+		full := filepath.Join(tmp, rel)
+		if err := os.WriteFile(full, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return full
+	}
+	write("nomi.toml", "[module]\nname = \"app\"\nnomi = \"v0.6.0\"\nentry_points = [\"main\"]\n")
+	main := write("main.nomi", "import later\n\nfn main()\n    undefined_here()\nend\n")
+
+	lib := loadStd()
+	dm := analysis.NewDocumentManager()
+	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
+	src, _ := os.ReadFile(main)
+	dm.Open(fileuri.FromPath(main), string(src))
+	doc := dm.Get(fileuri.FromPath(main))
+	if doc == nil || doc.Analysis == nil {
+		t.Fatal("expected analysis to be populated")
+	}
+	errs := doc.Analysis.TypeErrors
+	want := "module app (this project) needs nomi v0.6.0 or later, and this nomi is v0.5.0; install a newer nomi"
+	if len(errs) != 1 || errs[0].Code != analysis.NomiVersionCode || errs[0].Message != want {
+		t.Fatalf("the document's errors are %+v, want one: %s", errs, want)
 	}
 }

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 	"unicode/utf8"
 
 	"github.com/nomi-language/nomi/internal/frontend"
@@ -23,16 +22,18 @@ import (
 // checkLiteral runs a backtick literal's handler: under vm.Machine.Effects,
 // the same step budget and the same deadline. An Err is a compile error at
 // the static and offset its LiteralError names, mapped back to the source;
-// a check that has effects, reads an app field or is unbounded is one error
-// at the impl, not one per literal.
+// a check that has effects, reads an app field, is unbounded or reads a
+// hash keyed by the run's seed is one error at the impl, not one per
+// literal.
 
 // checkedLiteralHint closes the diagnostic of a check that has effects,
 // reads an app field or is unbounded.
-const checkedLiteralHint = "a checked literal's check runs when the program is checked, so it may not print, read files or the clock, start tasks, read an application field or call a function whose cost grows with its argument"
+const checkedLiteralHint = "a checked literal's check runs when the program is checked, so it may not print, read files or the clock, start tasks, read an application field, read a hash or call a function whose cost grows with its argument"
 
 // checkCheckedLiteral runs one checked literal's check and answers its
 // diagnostic when the literal is a compile error. effectful holds the checks
-// already reported as effectful or unbounded, which are reported once.
+// already reported as effectful, unbounded or seeded, which are reported
+// once.
 func (p *Program) checkCheckedLiteral(m *vm.Machine, site irbuild.LiteralSite, effectful map[any]bool) (d frontend.Diagnostic, failed bool, err error) {
 	f := site.Cell.Initializer()
 	if f == nil {
@@ -45,38 +46,44 @@ func (p *Program) checkCheckedLiteral(m *vm.Machine, site irbuild.LiteralSite, e
 	if path == "" {
 		path = p.moduleWithNodeAt(site.Line, site.Col)
 	}
-	at := func(line, col int, msg string, hints ...string) (frontend.Diagnostic, bool, error) {
+	coded := func(code string, line, col int, msg string, hints ...string) (frontend.Diagnostic, bool, error) {
 		d := frontend.NewDiagnostic(path, p.sources[path], line, col, msg)
 		d.Hints = append(d.Hints, hints...)
-		d.Code = InvalidLiteralCode
+		d.Code = code
 		return d, true, nil
+	}
+	at := func(line, col int, msg string, hints ...string) (frontend.Diagnostic, bool, error) {
+		return coded(InvalidLiteralCode, line, col, msg, hints...)
 	}
 	label := literalLabel(site.Text)
 	if site.Type != "" {
 		// An untagged literal its position reads as a checked literal.
 		label = "`" + site.Type + "` literal " + strings.TrimPrefix(label, "typed literal ")
 	}
-	if found := m.Effects(f); len(found.Effects) > 0 || len(found.AppFields) > 0 || len(found.Unbounded) > 0 {
+	if found := m.Effects(f); len(found.Effects) > 0 || len(found.AppFields) > 0 || len(found.Unbounded) > 0 || len(found.Seeded) > 0 {
 		if effectful[site.Check] {
 			return d, false, nil
 		}
 		effectful[site.Check] = true
 		var msg string
+		code, hint := InvalidLiteralCode, checkedLiteralHint
 		switch {
 		case len(found.Effects) > 0:
 			msg = fmt.Sprintf("%s has effects (%s); a checked literal's check runs when the program is checked", site.CheckName, strings.Join(found.Effects, "; "))
 		case len(found.AppFields) > 0:
 			msg = fmt.Sprintf("%s reads %s: %s", site.CheckName, quotedNames(p.appFieldNames(found.AppFields)), literalWithoutApp)
-		default:
+		case len(found.Unbounded) > 0:
 			msg = fmt.Sprintf("%s calls a function whose cost grows with its argument (%s); a checked literal's check runs when the program is checked, and must be bounded", site.CheckName, strings.Join(found.Unbounded, "; "))
+		default:
+			msg = fmt.Sprintf("%s reads a hash, which differs between runs (%s); a checked literal's check runs when the program is checked, and must give the same answer in every run", site.CheckName, strings.Join(found.Seeded, "; "))
+			code, hint = SeededHashCode, seededHashHint
 		}
 		if site.CheckLine > 0 {
-			return at(site.CheckLine, site.CheckCol, msg, checkedLiteralHint)
+			return coded(code, site.CheckLine, site.CheckCol, msg, hint)
 		}
-		return at(site.Line, site.Col, msg, checkedLiteralHint)
+		return coded(code, site.Line, site.Col, msg, hint)
 	}
-	lim := vm.Limits{Steps: literalSteps, Deadline: time.Now().Add(literalTime)}
-	v, err := m.Evaluate(context.Background(), f, nil, lim)
+	v, err := m.Evaluate(context.Background(), f, nil, vm.Limits{Steps: literalSteps})
 	if errors.Is(err, vm.ErrLimit) {
 		return at(site.Line, site.Col, fmt.Sprintf("%s cannot be checked: %s did not finish within %d steps", label, site.CheckName, literalSteps))
 	}

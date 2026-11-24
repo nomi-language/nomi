@@ -56,7 +56,7 @@ var racyWindow = 2 * time.Second
 
 // Tree is a directory a build read files under. A tree with All unset
 // tracks the files a build of a program can read in a project: `.nomi`
-// sources, `.toml` manifests and catalogs, and `go.mod` and `go.sum`. One
+// sources, `.toml` manifests and catalogs, and `nomi.lock`. One
 // with All set tracks every file, for an `embed` that reads a directory's
 // contents. Hidden names and node_modules are skipped in both.
 //
@@ -784,7 +784,7 @@ func tracked(name string) bool {
 	switch {
 	case strings.HasSuffix(name, ".nomi"), strings.HasSuffix(name, ".toml"):
 		return true
-	case name == "go.mod", name == "nomi.lock":
+	case name == "nomi.lock":
 		return true
 	}
 	return false
@@ -828,10 +828,11 @@ func statPath(p string, prev *entry, prevSnap int64, hash bool) entry {
 	return en
 }
 
-// keyEnv are the environment variables outside NOMI_ a build reads: where
-// the module cache is, and the time zone and locale a compile-time check
-// could see.
-var keyEnv = []string{"GOMODCACHE", "GOPATH", "HOME", "TZ", "LANG", "LC_ALL"}
+// keyEnv are the environment variables outside NOMI_ a build reads: what
+// decides the user's cache directory, which holds the module cache unless
+// NOMI_MODULE_CACHE names one (os.UserCacheDir), and the time zone and
+// locale a compile-time check could see.
+var keyEnv = []string{"HOME", "XDG_CACHE_HOME", "LocalAppData", "TZ", "LANG", "LC_ALL"}
 
 // unkeyedEnv are the NOMI_ variables that change no build: the cache's own,
 // and how diagnostics are written (a record holds only a build that had

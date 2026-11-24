@@ -4,8 +4,10 @@ import
     std::hash
     std::io.{Reader, Writer}
     std::net.{self, Connection}
+    std::secret.Secret
     std::sql.{self, Conn}
     std::tasks.Task
+    std::tls.{self, Certificate, ChannelBinding, ServerConfig}
     postgres
     postgres::config.{Config, SslMode}
     postgres::messages
@@ -15,18 +17,70 @@ end
 // A server that speaks just enough of the protocol to authenticate one
 // client: it reads the startup message, asks for a password the way
 // `ask` does, and answers `ReadyForQuery` when the client proves it knows
-// `password`, or an error when it does not.
-fn fake_server(listener: net.Listener, password: String, ask: String) -> Result<String, String>
-    conn = net.Listener.accept(listener) |> Result.map_err(fn e -> "${e}")?
-    defer Connection.close(conn)
+// `password`, or an error when it does not. With `secure`, it first
+// answers the client's request for TLS and runs the rest over TLS, with
+// `certificate`; `scram-plus` asks for SCRAM with SCRAM-SHA-256-PLUS
+// offered too.
+fn fake_server(
+    listener: net.Listener,
+    password: String,
+    ask:      String,
+    secure:   Bool,
+) -> Result<String, String>
+    plain = net.Listener.accept(listener) |> Result.map_err(fn e -> "${e}")?
+    defer Connection.close(plain)
+
+    conn =
+        if secure then
+            _ = read_startup(plain, Bytes.from_list([]))?
+
+            _ =
+                Writer.write(Connection.writer(plain), String.to_bytes("S"))
+                |> Result.map_err(fn e -> "${e}")?
+
+            pair =
+                Certificate.from_pem(certificate, certificate_key)
+                |> Result.map_err(fn e -> "${e}")?
+
+            tls.server(plain, ServerConfig{certificates: [pair]}) |> Result.map_err(fn e -> "${e}")?
+        else
+            plain
+        end
+
     (_, rest) = read_startup(conn, Bytes.from_list([]))?
 
     case ask
-        "scram" -> scram_server(conn, rest, password)
-        "md5"   -> md5_server(conn, rest, password)
-        _       -> clear_server(conn, rest, password)
+        "scram"      -> scram_server(conn, rest, password, ["SCRAM-SHA-256"])
+        "scram-plus" -> scram_server(conn, rest, password, ["SCRAM-SHA-256-PLUS", "SCRAM-SHA-256"])
+        "md5"        -> md5_server(conn, rest, password)
+        _            -> clear_server(conn, rest, password)
     end
 end
+
+// A self-signed ECDSA P-256 certificate for localhost, signed with
+// SHA-256, and its key, made with OpenSSL for these tests: its
+// tls-server-end-point is the SHA-256 of its DER.
+once certificate = """
+    -----BEGIN CERTIFICATE-----
+    MIIBnDCCAUGgAwIBAgIUJzrZ2UgWFKze9Z4YZqgYkb/RyG4wCgYIKoZIzj0EAwIw
+    FDESMBAGA1UEAwwJbG9jYWxob3N0MCAXDTI2MTEyMzIzMTgwNVoYDzIxMjYxMDMw
+    MjMxODA1WjAUMRIwEAYDVQQDDAlsb2NhbGhvc3QwWTATBgcqhkjOPQIBBggqhkjO
+    PQMBBwNCAAQP7n9Kec/z0hrMTToySrPaXhpmnIoHmaPAmyoA8VIR/9/nTjMIVYxO
+    yCBeXjxVhgSQfUQbPO+dbwIIsJFEuyG+o28wbTAdBgNVHQ4EFgQUHJJEqur9jQVi
+    rsagYpxQfE3bnYgwHwYDVR0jBBgwFoAUHJJEqur9jQVirsagYpxQfE3bnYgwDwYD
+    VR0TAQH/BAUwAwEB/zAaBgNVHREEEzARgglsb2NhbGhvc3SHBH8AAAEwCgYIKoZI
+    zj0EAwIDSQAwRgIhAPzwYbjwzqa2LzHTMrTNOOIpvzKRNy4HMQPL6E9feDWzAiEA
+    5Hoq9aR41I1bgqaG5dX3NnHv+4xLr9z/px3hWZ4UBSg=
+    -----END CERTIFICATE-----
+    """
+
+once certificate_key = """
+    -----BEGIN PRIVATE KEY-----
+    MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgDigANnx/QRMDTe1f
+    og1EiKcDhVAFkeuhZ1krTC3tCcyhRANCAAQP7n9Kec/z0hrMTToySrPaXhpmnIoH
+    maPAmyoA8VIR/9/nTjMIVYxOyCBeXjxVhgSQfUQbPO+dbwIIsJFEuyG+
+    -----END PRIVATE KEY-----
+    """
 
 fn read_more(conn: Connection, buffer: Bytes) -> Result<Bytes, String>
     case Reader.read(Connection.reader(conn))
@@ -135,14 +189,48 @@ fn md5_server(conn: Connection, rest: Bytes, password: String) -> Result<String,
 end
 
 // SCRAM-SHA-256 as a server checks it: it keeps only the stored key, and
-// checks that the client's proof recovers a key that hashes to it.
-fn scram_server(conn: Connection, rest: Bytes, password: String) -> Result<String, String>
-    mechanisms = String.to_bytes("SCRAM-SHA-256") + Bytes.from_list([0, 0])
-    send(conn, "R", auth(10, mechanisms))?
+// checks that the client's proof recovers a key that hashes to it. It
+// offers `offered`, and checks the client's channel binding as Postgres
+// does: data bound with `p=` must be the connection's
+// tls-server-end-point, and `y` is refused when it offered the -PLUS
+// mechanism. It answers how the client bound, after "accepted".
+fn scram_server(
+    conn:     Connection,
+    rest:     Bytes,
+    password: String,
+    offered:  List<String>,
+) -> Result<String, String>
+    mechanisms =
+        offered
+        |> Iter.map(fn m -> String.to_bytes(m) + Bytes.from_list([0]))
+        |> Iter.to_list()
+        |> Bytes.concat_all()
+
+    send(conn, "R", auth(10, mechanisms + Bytes.from_list([0])))?
     (initial, rest) = read_message(conn, rest)?
     after_name = Bytes.index_of_byte(initial, 0) |> Option.to_result("no mechanism")?
+    mechanism = Bytes.to_string_lossy(Bytes.slice(initial, 0, after_name))
     first = Bytes.to_string_lossy(Bytes.slice(initial, after_name + 5, Bytes.length(initial)))
-    bare = String.strip_prefix(first, "n,,") |> Option.to_result("no GS2 header")?
+
+    (header, bare) =
+        case String.split(first, ",n=")
+            [h, ..tail] when tail != [] -> ("${h},", "n=${String.join(tail, ",n=")}")
+            _                           -> return Err("no GS2 header")
+        end
+
+    data =
+        if String.starts_with(header, "p=tls-server-end-point,") then
+            tls.channel_binding(conn, ChannelBinding.ServerEndPoint)?
+        else
+            Bytes.from_list([])
+        end
+
+    if header == "y,," and Iter.contains(offered, "SCRAM-SHA-256-PLUS") then return refuse(conn)
+
+    if String.starts_with(header, "p=") != (mechanism == "SCRAM-SHA-256-PLUS") then
+        return refuse(conn)
+    end
+
     client_nonce = String.split(bare, "r=") |> Iter.last() |> Option.with_default("")
     nonce = client_nonce + "fakeserver"
     salt = String.to_bytes("pepper salt")
@@ -150,7 +238,7 @@ fn scram_server(conn: Connection, rest: Bytes, password: String) -> Result<Strin
     send(conn, "R", auth(11, String.to_bytes(server_first)))?
     (final, _) = read_message(conn, rest)?
     client_final = Bytes.to_string_lossy(final)
-    without_proof = "c=biws,r=${nonce}"
+    without_proof = "c=${base64.encode(String.to_bytes(header) + data)},r=${nonce}"
 
     proof =
         String.strip_prefix(client_final, without_proof + ",p=") |> Option.to_result("no proof")?
@@ -175,13 +263,19 @@ fn scram_server(conn: Connection, rest: Bytes, password: String) -> Result<Strin
     )
 
     send(conn, "R", auth(12, String.to_bytes("v=${base64.encode(server_signature)}")))?
-    accept(conn)
+    accepted = accept(conn)?
+
+    if header == "n,," then
+        Ok(accepted)
+    else
+        Ok("${accepted} ${mechanism} ${header}")
+    end
 end
 
 // Opens a link to a fake server that asks for a password as `ask` says,
-// with `given` as the client's password; answers what the client got and
-// what the server did.
-fn against(ask: String, given: String) -> Result<(String, String), String>
+// with `given` as the client's password, over TLS when `secure`; answers
+// what the client got and what the server did.
+fn against(ask: String, given: String, secure: Bool = False) -> Result<(String, String), String>
     listener = net.listen("127.0.0.1:0") |> Result.map_err(fn e -> "${e}")?
     defer net.Listener.close(listener)
 
@@ -192,12 +286,12 @@ fn against(ask: String, given: String) -> Result<(String, String), String>
         host:     "127.0.0.1",
         port:     String.to_int(port)!,
         user:     "ann",
-        password: Some(given),
-        ssl_mode: SslMode.Disable,
+        password: Some(Secret.new(given)),
+        ssl_mode: if secure then SslMode.Require else SslMode.Disable,
     }
 
     concurrent
-        server = Task.spawn(fn -> fake_server(listener, "pencil", ask))
+        server = Task.spawn(fn -> fake_server(listener, "pencil", ask, secure))
 
         client =
             case wire.open(config)
@@ -217,6 +311,19 @@ test "a client answers a SCRAM-SHA-256 challenge and checks the server's signatu
     assert against("scram", "pencil") == Ok(("opened", "accepted"))
     assert Ok((refused, "refused")) = against("scram", "wrong")
     assert String.contains(refused, "password authentication failed (SQLSTATE 28P01)")
+end
+
+test "over TLS, a client binds SCRAM to the connection when the server offers SCRAM-SHA-256-PLUS"
+    assert against("scram-plus", "pencil", secure: True)
+        == Ok(("opened", "accepted SCRAM-SHA-256-PLUS p=tls-server-end-point,,"))
+
+    assert Ok((refused, "refused")) = against("scram-plus", "wrong", secure: True)
+    assert String.contains(refused, "password authentication failed")
+
+    // Over TLS to a server that offers no -PLUS mechanism, the client says
+    // it could have bound (`y`); in plain, it says it cannot (`n`).
+    assert against("scram", "pencil", secure: True) == Ok(("opened", "accepted SCRAM-SHA-256 y,,"))
+    assert against("scram-plus", "pencil") == Ok(("opened", "accepted"))
 end
 
 test "a client answers an MD5 challenge and a request for its password in clear"

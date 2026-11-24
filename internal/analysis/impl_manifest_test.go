@@ -381,7 +381,7 @@ end`
 }
 
 // @derive proves every component type satisfies the derived interface
-// (CheckDeriveBounds → hasInterfaceImpl). The synthesized impl invokes
+// (checkDerivedParts). The synthesized impl invokes
 // Iface.method on those components at runtime, so each (component, iface)
 // must land in the manifest.
 func TestManifestRecordsDerivePayloadConformance(t *testing.T) {
@@ -411,37 +411,6 @@ end`
 	}
 	if len(fa.ImplManifest["Comparable"]["Int"]) == 0 {
 		t.Errorf("expected (Int, Comparable) recorded from @derive payload; got %v", fa.ImplManifest)
-	}
-}
-
-// @derive Display/Debug synth bodies emit StringInterp literals like
-// "Some(${Iface.to_string(_v0)})". At runtime, evalStringInterp
-// re-dispatches Display.to_string on the inner String parts (the
-// to_string return values), so (String, Display) must be in the
-// dispatch table whenever the program uses any @derive Display/Debug
-// type — regardless of the type's payloads.
-func TestManifestRecordsStringDisplayForDeriveDebugStringInterp(t *testing.T) {
-	src := `import
-    std::io
-end
-
-pub enum Option2<T>
-  Some2 T
-  None2
-
-end
-derive Debug for Option2
-
-fn demo() -> Option2<Int>
-  m = Option2.Some2(42)
-  io.inspect(m)
-  m
-end`
-	fa, errs := checkSourceWithStdlib(src)
-	expectNoStdlibErrors(t, errs)
-	if len(fa.ImplManifest["Display"]["String"]) == 0 {
-		t.Errorf("expected (String, Display) recorded from @derive Debug synth body's StringInterp; got manifest=%v",
-			fa.ImplManifest)
 	}
 }
 

@@ -31,6 +31,16 @@
 //# over `max_message_size`, 1 MiB unless set, closes the connection with
 //# 1009; a text message that is not UTF-8 closes it with 1007.
 //#
+//# Messages can travel compressed (permessage-deflate, RFC 7692) when both
+//# ends set `compress`, which is off unless set: compression costs memory
+//# and time for each message, and over TLS, compressing a secret beside
+//# text an attacker chooses can reveal the secret through the size. Each
+//# message is compressed on its own, with no history kept between
+//# messages, and sent compressed only when that is smaller. A browser
+//# offers compression, and an `accept` with `compress` takes its offer.
+//# `max_message_size` bounds a compressed message once decompressed, and
+//# decompression stops at the bound.
+//#
 //# Middleware sees the `101` response the handler returns, when the
 //# handler returns it: `log_requests` logs the handshake, `compress`
 //# leaves a `1xx` response alone, `timeout` bounds only the handler's
@@ -129,17 +139,24 @@ pub struct AcceptOptions
     ping_interval: Option<Duration> = None
     /// Ends a receive that sees no frame, a pong included, for this long.
     idle_timeout: Option<Duration> = None
+    /// Takes a client's offer of permessage-deflate, so messages may cross
+    /// compressed.
+    compress: Bool = False
 end
 
 /// How `connect` opens a connection.
 pub struct ConnectOptions
-    /// Headers sent with the handshake, such as `Authorization`.
+    /// Headers sent with the handshake, such as `Authorization`;
+    /// `User-Agent` defaults as in an HTTP request's `headers`.
     headers: Headers = Headers[]
     /// The subprotocols offered, most preferred first.
     protocols:        List<String> = []
     max_message_size: Int = 1_048_576
     ping_interval:    Option<Duration> = None
     idle_timeout:     Option<Duration> = None
+    /// Offers permessage-deflate, so messages may cross compressed when the
+    /// server takes the offer.
+    compress: Bool = False
     /// TLS for `wss://`; its server name is the URL's host unless set.
     tls:  ClientConfig = ClientConfig{}
     dial: DialOptions = DialOptions{}
@@ -273,14 +290,25 @@ impl WebSocket
     end
 
     /// A WebSocket over `conn`, whose handshake was done some other way;
-    /// `client` says which end this is, since a client masks its frames.
+    /// `client` says which end this is, since a client masks its frames,
+    /// and `compressed` whether the handshake agreed to permessage-deflate
+    /// with no context takeover either way.
     pub fn over(
         conn:             Connection,
         client:           Bool,
         protocol:         Option<String> = None,
         max_message_size: Int = 1_048_576,
+        compressed:       Bool = False,
     ) -> WebSocket
-        handle = http_host.ws_open(Connection.handle_of(conn), client, max_message_size, 0, 0)
+        handle = http_host.ws_open(
+            Connection.handle_of(conn),
+            client,
+            compressed,
+            max_message_size,
+            0,
+            0,
+        )
+
         WebSocket{handle:, protocol:}
     end
 end
@@ -344,12 +372,29 @@ pub fn accept(
                 ("Sec-WebSocket-Accept", http_host.ws_accept_key(key)),
             ]
 
-            headers = Headers(required + chosen + extra)
+            deflate =
+                if options.compress then
+                    http_host.ws_deflate_response(
+                        tokens(request.headers, "Sec-WebSocket-Extensions")
+                    )
+                else
+                    ""
+                end
+
+            agreed: List<(String, String)> =
+                if deflate == "" then
+                    []
+                else
+                    [("Sec-WebSocket-Extensions", deflate)]
+                end
+
+            headers = Headers(required + chosen + agreed + extra)
 
             Response.upgrade(Status.switching_protocols, headers, fn conn: Connection ->
                 handle = http_host.ws_open(
                     Connection.handle_of(conn),
                     False,
+                    deflate != "",
                     options.max_message_size,
                     net.nanos(options.ping_interval),
                     net.nanos(options.idle_timeout),
@@ -411,6 +456,35 @@ end
 //! assert Err(Error.Handshake{status:, reason: _}) = refused
 //! assert status == Status.not_found
 //! assert websocket.connect(Url"https://example.com") is Err(Error.InvalidUrl{url: _, reason: _})
+//
+//! import std::http.Request
+//! import std::http::testing
+//! import std::url.Url
+//! import std::websocket.{self, AcceptOptions, ConnectOptions, Message, WebSocket}
+//!
+//! // Both ends set `compress`, so the long message crosses compressed.
+//! echo =
+//!     fn request: Request ->
+//!         websocket.accept(request, AcceptOptions{compress: True}, fn ws ->
+//!             _ = WebSocket.each(ws, fn message ->
+//!                 _ = WebSocket.send(ws, message)
+//!             end)
+//!         end)
+//!     end
+//!
+//! long = String.repeat("all work and no play ", 1000)
+//!
+//! said = testing.with_server(echo, fn server ->
+//!     url = Url.parse("ws://${server.url.host}/echo")!
+//!     ws = websocket.connect(url, ConnectOptions{compress: True})!
+//!     _ = WebSocket.send_text(ws, long)
+//!     reply = WebSocket.receive(ws)
+//!     _ = WebSocket.close(ws)
+//!     reply
+//! end)
+//!
+//! assert said == Ok(Some(Message.Text(long)))
+//
 pub fn connect(url: Url, options: ConnectOptions = ConnectOptions{}) -> Result<WebSocket, Error>
     if url.scheme != "ws" and url.scheme != "wss" then
         return Err(Error.InvalidUrl{url: "${url}", reason: "a WebSocket URL is ws:// or wss://"})
@@ -448,6 +522,7 @@ pub fn connect(url: Url, options: ConnectOptions = ConnectOptions{}) -> Result<W
             Url.request_uri(url),
             flat,
             options.protocols,
+            options.compress,
             options.max_message_size,
             net.nanos(options.ping_interval),
             net.nanos(options.idle_timeout),

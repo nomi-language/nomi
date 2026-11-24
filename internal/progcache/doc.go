@@ -11,15 +11,16 @@
 // what was built (its kind: `load`, or a build with its target and flags),
 // the entry file's absolute path and the environment variables a build
 // reads: every `NOMI_` variable but the cache's own and the diagnostics'
-// (unkeyedEnv), and GOMODCACHE, GOPATH, HOME, TZ, LANG and LC_ALL (keyEnv).
+// (unkeyedEnv), and HOME, XDG_CACHE_HOME, LocalAppData, TZ, LANG and
+// LC_ALL (keyEnv).
 // A record nothing reads for five days is pruned, at most once an hour.
 //
 // # Snapshot
 //
 // A record names the files the build read. A [Tree] is walked for the files
-// a build can read in it (`.nomi`, `.toml`, `nomi.lock`, and `go.mod`,
-// which `nomi check` holds to the one nomi writes), or for every file when
-// it is an `embed` base; hidden names and node_modules are skipped in both.
+// a build can read in it (`.nomi`, `.toml` and `nomi.lock`), or for every
+// file when it is an `embed` base; hidden names and node_modules are
+// skipped in both.
 // Above each source tree the markers that decide the program's root
 // (`nomi.toml`, `main.nomi`; analysis.ProjectRoot) are stat'ed too. Single files outside the trees are named on their own.
 // Each file is held by its size, times, inode and SHA-256. A tree with

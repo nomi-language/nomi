@@ -110,7 +110,7 @@ fn main() -> Unit
   outcome: Result<Int, String> = concurrent
     parent = Task.spawn(fn -> outer())
     sibling = Task.spawn(fn -> slow())
-    _sibling = sibling
+    _sibling = fn -> Task.outcome(sibling) // never called: the task stays unawaited
     Ok(Task.await(parent)?)
   end
   case outcome

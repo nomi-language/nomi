@@ -266,7 +266,7 @@ func (g *gen) project(t analysis.Type) kind {
 			// AFTER the std arm above, matching typeOf's precedence: a program
 			// declaring its own `Set` cannot shadow the std family through this
 			// door either.
-			if k, isUserGeneric := g.projectGenericInstance(ty.TypeParamDefs, ty.Origin, ty.Name, ty.TypeArgs); isUserGeneric {
+			if k, isUserGeneric := g.projectGenericInstance(ty.TypeParamDefs, ty.Origin, ty.Name, ty.TypeArgs, args); isUserGeneric {
 				return k
 			}
 			// A generic instantiation with no representation. types.go refuses a
@@ -307,7 +307,7 @@ func (g *gen) project(t analysis.Type) kind {
 		if len(ty.TypeArgs) > 0 {
 			// A user generic enum the checker solved (`Wrapper<Int>`), by
 			// the struct arm's rule.
-			if k, isUserGeneric := g.projectGenericInstance(ty.TypeParamDefs, ty.Origin, ty.Name, ty.TypeArgs); isUserGeneric {
+			if k, isUserGeneric := g.projectGenericInstance(ty.TypeParamDefs, ty.Origin, ty.Name, ty.TypeArgs, nil); isUserGeneric {
 				return k
 			}
 			return kindInvalid
@@ -336,7 +336,7 @@ func (g *gen) project(t analysis.Type) kind {
 		if len(ty.TypeArgs) > 0 {
 			// A user generic distinct the checker solved (`Tagged<Int>`),
 			// by the struct arm's rule.
-			if k, isUserGeneric := g.projectGenericInstance(ty.TypeParamDefs, ty.Origin, ty.Name, ty.TypeArgs); isUserGeneric {
+			if k, isUserGeneric := g.projectGenericInstance(ty.TypeParamDefs, ty.Origin, ty.Name, ty.TypeArgs, nil); isUserGeneric {
 				return k
 			}
 			return kindInvalid
@@ -450,31 +450,25 @@ func (g *gen) project(t analysis.Type) kind {
 		// DefaultSelf and stays an existential.
 		//
 		// With no gen (projectShared) only an interface with a process-wide
-		// def has a kind, a stdIfaceSpecs row found by its identity; each gen
-		// holds its own defs of the other interfaces it reaches.
-		if g == nil {
-			return projectSharedStdIface(ty)
-		}
-		if k, isSelf := g.projectDefaultSelf(ty); isSelf {
-			return k
-		}
-		// A std instance's own module's interface is its caller's def
-		// (stdProgOwnIface), as another module's is.
-		if d, isOwn := g.solvedIface(ty.Origin, ty.Name); isOwn && len(ty.TypeArgs) == 0 && g.stdModule != "" && ty.Origin == "std/"+g.stdModule {
-			if pd := g.stdProgOwnIface(d); pd != nil {
-				return existential(pd)
-			}
-		}
-		if k, isStd := g.projectStdIface(ty); isStd {
-			return k
-		}
-		// std's `Iter<T>` is the lowered sequence over T (seqElemOf).
+		// def has a kind: a stdIfaceSpecs row or one the registry admitted
+		// (stdtypes.go), found by its identity. A program's interface, and a
+		// generic one's instance, are a gen's. std's `Iter<T>` is the
+		// lowered sequence over T (seqElemOf), with or without a gen.
 		if elem, isSeq := g.seqElemOf(ty); isSeq {
 			// kindInvalid: propagates — an element with no kind is a sequence with none.
 			if elem == kindInvalid {
 				return kindInvalid
 			}
 			return seqKindIn(g, elem)
+		}
+		if g == nil {
+			return projectSharedStdIface(ty)
+		}
+		if k, isSelf := g.projectDefaultSelf(ty); isSelf {
+			return k
+		}
+		if k, isStd := g.projectStdIface(ty); isStd {
+			return k
 		}
 		if len(ty.TypeArgs) > 0 {
 			// A GENERIC interface instantiation, `Gets<String>`: the
@@ -486,7 +480,7 @@ func (g *gen) project(t analysis.Type) kind {
 		if d, found := g.solvedIface(ty.Origin, ty.Name); found && d.lowerable {
 			return existential(d)
 		}
-		if d := g.stdProgSolved(ty); d != nil && d.lowerable {
+		if d := g.stdDeclaredIface(ty.Origin, ty.Name); d != nil && d.lowerable {
 			return existential(d)
 		}
 		return kindInvalid

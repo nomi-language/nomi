@@ -6,9 +6,11 @@
 // generated adapters (internal/stdlibadapters, whose Families adds each
 // family's crossings and whether a build links it) read the one table.
 //
-// The lean runner, nomi-vm-nonet, is built with every family's tag
-// (LeanTags). A family is absent on a GOOS when no runner for it has the
-// family, whatever its tags.
+// The runners come in two tiers, never a combination: the lean runner,
+// nomi-vm-nonet, is built with every family's tag (LeanTags) and has none,
+// and the full one, nomi-vm, has every family. A new family joins the full
+// tier and adds no runner. A family is absent on a GOOS when no runner for
+// it has the family, whatever its tags.
 package families
 
 import (
@@ -36,8 +38,8 @@ type Family struct {
 // the network (net/http, crypto/tls and net's sockets), and WebAssembly
 // modules (wazero, and the host's engine in a js runner), which no wasip1
 // runner has: with wazero the wasip1
-// reactor declares 17.3 MiB of initial memory, past the 16 MiB it is held
-// to (cmd/nomi's TestBuildCommand_ReactorLoadsOneProgramPerInstance).
+// reactor declares 16.9 MiB of initial memory, past the 16.4 MiB it is
+// held to (cmd/nomi's TestBuildCommand_ReactorLoadsOneProgramPerInstance).
 var All = []Family{
 	{Key: "net", What: "the network", Package: "github.com/nomi-language/nomi/internal/stdhttp", Tag: "nomi_nonet"},
 	{Key: "wasm", What: "WebAssembly modules", Package: "github.com/nomi-language/nomi/internal/stdwasm", Tag: "nomi_nowasm", Absent: []string{"wasip1"}},

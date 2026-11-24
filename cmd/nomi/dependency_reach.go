@@ -36,16 +36,17 @@ func (d *dependencyReach) reachAfter() {
 }
 
 // nomiModules is the name in the program (modcache.Dep.Name) of each of
-// paths, module paths, that is a Nomi module the project needs, the name
-// the effects lists hold it by.
-func nomiModules(root string, paths []string) []string {
+// ids that is a Nomi module the project needs, the name the effects lists
+// hold it by.
+func nomiModules(root string, ids []modcache.ID) []string {
 	g, err := modcache.Walk(root, modcache.CacheOnly)
 	if err != nil || g == nil {
 		return nil
 	}
 	var out []string
-	for _, p := range paths {
-		if d, ok := g.Find(p); ok && d.Nomi {
+	for _, id := range ids {
+		if d, ok := g.Find(id); ok && d.Nomi {
+
 			out = append(out, d.Name)
 		}
 	}

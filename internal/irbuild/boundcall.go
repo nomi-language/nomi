@@ -67,7 +67,7 @@ func (bl *irScalarBuilder) boundCallPlan(t *ast.Call, args irQualArgs) *irQualPl
 	}
 	d := bl.g.ifaceOfQualifier(c.Owner)
 	if d == nil && c.Owner.Kind == analysis.QualInterface && !c.Owner.Std.IsZero() {
-		d = bl.g.stdProgIfaceAt(c.Owner.Std.Module, c.Owner.Std.Name)
+		d = bl.g.stdDeclaredIface(c.Owner.Std.Module, c.Owner.Std.Name)
 	}
 	m := bl.g.recordedMethod(d, c)
 	if m == nil {

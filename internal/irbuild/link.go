@@ -6,7 +6,6 @@ package irbuild
 // symbols share one only when both define the same code.
 
 import (
-	"sort"
 	"strconv"
 	"strings"
 
@@ -165,9 +164,9 @@ func (g *gen) linkName(token any, name string) string {
 	case instMethodToken:
 		return within(g.declLink(t.tpl), "<"+t.args+">."+t.method)
 	case stdIfaceMethodToken:
-		// Interned in the program's first file for the whole program
-		// (programSymbol), so the name is the program's, not a module's.
-		return within(g.declLink(t.decl), "."+t.method+" in program")
+		// Named by the interface alone, as std declares it: one name in
+		// every program and every object, which the linker makes one symbol.
+		return within(g.declLink(t.decl), "."+t.method)
 	case irFieldDefaultFill:
 		if t.def == nil {
 			return ""
@@ -227,32 +226,6 @@ func stdInstLinkArgs(inst *stdInst) string {
 	return b.String()
 }
 
-// substLinkKey spells the type-parameter substitution this gen is under
-// (genericSubst), innermost frame last, each frame's names sorted: what tells
-// one instance's impl functions from another's when they share a
-// declaration. "" outside any.
-func (g *gen) substLinkKey() string {
-	var b strings.Builder
-	for _, f := range g.genericSubst {
-		frame := f.kinds
-		names := make([]string, 0, len(frame))
-		for n := range frame {
-			names = append(names, n)
-		}
-		sort.Strings(names)
-		b.WriteByte('{')
-		for i, n := range names {
-			if i > 0 {
-				b.WriteByte(',')
-			}
-			b.WriteString(n + "=")
-			writePortableKind(&b, frame[n])
-		}
-		b.WriteByte('}')
-	}
-	return b.String()
-}
-
 // within is base with suffix, or "" when base is: a name made from a
 // declaration with no linkage name has none either.
 func within(base, suffix string) string {
@@ -283,9 +256,13 @@ func (g *gen) typeLink(d *typeDef) string {
 	return "type " + portableArgsKey([]kind{{tag: tagNamed, def: d}})
 }
 
-// implItemLink names one function of an impl block: the block's declaration
-// with, for an instance of a generic block, its receiver, and the member's
-// name with, for an instance of a generic member, its type arguments.
+// implItemLink names one function of an impl block by the block's identity:
+// its declaration, its receiver and the arguments of the generic interface
+// it implements (`impl Holds<Int> for Box` and `impl Holds<String> for Box`
+// are two blocks), then the member's name with, for an instance of a
+// generic member, its own type arguments. No substitution frame is part of
+// it: a block's type parameters are its receiver's arguments, and the
+// interface's are its interface arguments.
 func (g *gen) implItemLink(it *implItem) string {
 	d := it.impl
 	if d == nil {
@@ -325,13 +302,24 @@ func (g *gen) implItemLink(it *implItem) string {
 // linkImport is the symbol a declaration lowered once for the process
 // already has under link, or nil: what makes a call into a linked module
 // name the linked module's function (programstdlink.go), or a std module
-// lowered again inside its import cycle keep its symbols (stdUnitSyms).
+// lowered again inside its import cycle keep its symbols (stdUnitSyms), or
+// a std interface's dispatch symbol name the one the shared stdlib's
+// objects dispatch on (stdObjects.undefined).
 func (g *gen) linkImport(link string) *ir.Symbol {
 	if g.stdUnitSyms != nil {
 		return g.stdUnitSyms[link]
 	}
-	if g.reg == nil || g.reg.imports == nil {
-		return nil
+	if g.reg != nil {
+		if s := g.reg.imports[link]; s != nil {
+			return s
+		}
 	}
-	return g.reg.imports[link]
+	if g.stdProgBuilds() || g.twins != nil {
+		// A gen that records dispatch entries for a program records them
+		// on the symbol the process's shared objects dispatch on, and a
+		// std module checked from edited source, lowered beside those
+		// objects, dispatches on it.
+		return stdBundleState.objects.undefined(link)
+	}
+	return nil
 }

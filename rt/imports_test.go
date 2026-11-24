@@ -1,6 +1,7 @@
 package rt_test
 
 import (
+	"os"
 	"os/exec"
 	"strings"
 	"testing"
@@ -78,4 +79,18 @@ func allowedInRuntime(path string) bool {
 		}
 	}
 	return false
+}
+
+// TestRuntimeBuildsForA32BitTarget type-checks rt and its tests for linux/386,
+// where int and uintptr are 32 bits: a constant that fits only a 64-bit int
+// fails there and nowhere a developer's machine builds.
+func TestRuntimeBuildsForA32BitTarget(t *testing.T) {
+	if testing.Short() {
+		t.Skip("cross-compiles rt for linux/386")
+	}
+	cmd := exec.Command("go", "vet", rtImportPath+"/...")
+	cmd.Env = append(os.Environ(), "GOOS=linux", "GOARCH=386", "CGO_ENABLED=0")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("GOOS=linux GOARCH=386 go vet %s/...: %v\n%s", rtImportPath, err, out)
+	}
 }

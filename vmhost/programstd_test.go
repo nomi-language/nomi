@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -339,6 +340,84 @@ func TestProgramStd_AnEditedModuleRunsWhereverItsCodeSits(t *testing.T) {
 				t.Errorf("std/%s %s: %d cases pass, the embedded module passes %d", module, name, got, want)
 			}
 		}
+	}
+}
+
+// TestProgramStd_AnEditedModuleFillsItsOwnDefaults: a std module tested
+// from edited source fills a parameter its `//!` prompt leaves out with the
+// default the edited file declares. The prompt imports the module by its
+// std path, so the checker's record of `compress.encode(Format.Gzip, data)`
+// names the embedded declaration of `encode`, and the builder lowered that
+// declaration's `level: Level = .Default` here, where nothing is recorded
+// about it: every case calling `encode` without a level was blocked at the
+// dot.
+func TestProgramStd_AnEditedModuleFillsItsOwnDefaults(t *testing.T) {
+	embedded, ok := std.ReadFile("compress")
+	if !ok {
+		t.Fatal("no std/compress")
+	}
+	src := string(embedded)
+	for _, holds := range []string{
+		"    level:   Level = .Default,\n",
+		"//! packed = compress.encode(Format.Gzip, data)\n",
+	} {
+		if !strings.Contains(src, holds) {
+			t.Fatalf("std/compress no longer holds %q, which this test exercises", holds)
+		}
+	}
+	edited := strings.Replace(src, "/// A compressed format.", "/// A compressed data format.", 1)
+	if edited == src {
+		t.Fatal("std/compress no longer holds the doc comment this test edits")
+	}
+	want := passingCases(t, "compress embedded", func() (*Program, error) {
+		return LoadStdlib(fileuri.ToPath(std.Load().FileURI("compress")))
+	})
+	got := passingCases(t, "compress edited", func() (*Program, error) {
+		return LoadStdlibSource("compress", edited)
+	})
+	if want == 0 || got != want {
+		t.Errorf("the edited std/compress passes %d cases, the embedded module %d", got, want)
+	}
+}
+
+// TestProgramStd_AnEditedModuleRunsEveryCase: `nomi test` of a std
+// module's file that differs from the embedded one by a word of a doc
+// comment runs every case the embedded module runs. The file is under a
+// standard library directory NOMI_STD_PATH names, so the edit touches no
+// tracked file. Each row is a module that is not listed with each program,
+// whose `//!` prompts name the shared copy's declarations (an import by
+// its std path, a `once`, an interface default, an operator impl, a
+// dispatch); each blocked cases when the edited module's lowering read
+// those records as they stood.
+func TestProgramStd_AnEditedModuleRunsEveryCase(t *testing.T) {
+	stdPath := t.TempDir()
+	t.Setenv("NOMI_STD_PATH", stdPath)
+	for _, module := range []string{"io", "json", "decimal", "bytes", "comparable", "plural"} {
+		t.Run(module, func(t *testing.T) {
+			embedded, ok := std.ReadFile(module)
+			if !ok {
+				t.Fatalf("no std/%s", module)
+			}
+			src := string(embedded)
+			at := strings.Index(src, "\n/// ")
+			if at < 0 {
+				t.Fatalf("std/%s has no doc comment to edit", module)
+			}
+			at += len("\n/// ")
+			path := filepath.Join(stdPath, module+".nomi")
+			if err := os.WriteFile(path, []byte(src[:at]+"edited "+src[at:]), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			want := passingCases(t, module+" embedded", func() (*Program, error) {
+				return LoadEmbeddedStdlib(module)
+			})
+			got := passingCases(t, module+" edited", func() (*Program, error) {
+				return LoadStdlib(path)
+			})
+			if want == 0 || got != want {
+				t.Errorf("the edited std/%s passes %d cases, the embedded module %d", module, got, want)
+			}
+		})
 	}
 }
 

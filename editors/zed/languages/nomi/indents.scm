@@ -5,7 +5,7 @@
 ; of any node delimited by a bracket pair are indented one level, and the
 ; closing bracket returns to the node's own level. Zed applies it on Enter,
 ; on paste, and to a completion that does not ask to be inserted as is (a
-; multi-line snippet from nomi-lsp asks for adjustIndentation).
+; multi-line snippet from the language server asks for adjustIndentation).
 (_ (body "end" @end)) @indent
 (struct_definition (struct_body "end" @end)) @indent
 (enum_definition (enum_body "end" @end)) @indent

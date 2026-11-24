@@ -32,7 +32,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<NomiEx
     vscode.commands.registerCommand("nomi.runFile", () => runOnFile((file) => ["run", file])),
     vscode.commands.registerCommand("nomi.testFile", () => runOnFile((file) => ["test", file])),
     vscode.commands.registerCommand("nomi.testAtCursor", () => testAtCursor()),
-    // The commands of nomi-lsp's code lenses (internal/lsp/code_lens.go).
+    // The commands of the language server's code lenses (internal/lsp/code_lens.go).
     vscode.commands.registerCommand("nomi.runTest", (uri: string, line: number) =>
       runOnUri(uri, (file) => ["test", file, "--line", String(line)]),
     ),
@@ -50,7 +50,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<NomiEx
     vscode.debug.registerDebugAdapterDescriptorFactory("nomi", new NomiDebugAdapterFactory()),
     catalogWatcher(),
     vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration("nomi.lsp.path")) {
+      if (e.affectsConfiguration("nomi.path")) {
         void restartClient();
       }
     }),
@@ -65,19 +65,21 @@ export async function deactivate(): Promise<void> {
 
 // ---- Language server ----------------------------------------------------
 
+/** Starts `nomi lsp`, the language server, from the CLI nomi.path names. */
 async function startClient(): Promise<void> {
-  const configured = vscode.workspace.getConfiguration("nomi").get<string>("lsp.path") || "nomi-lsp";
+  const configured = vscode.workspace.getConfiguration("nomi").get<string>("path") || "nomi";
   const command = findExecutable(configured);
   if (!command) {
     void notFound(
-      `Nomi: the language server '${configured}' was not found. Install it from a Nomi checkout with ` +
-        "`go install ./cmd/nomi-lsp`, or set nomi.lsp.path.",
-      "nomi.lsp.path",
+      `Nomi: the nomi CLI '${configured}' was not found, so there is no language server. Install it from a ` +
+        "Nomi checkout with `go install ./cmd/nomi`, or set nomi.path.",
+      "nomi.path",
     );
     return;
   }
 
-  const serverOptions: ServerOptions = { command, args: [], transport: TransportKind.stdio };
+  // The stdio transport adds `--stdio`, which `nomi lsp` accepts.
+  const serverOptions: ServerOptions = { command, args: ["lsp"], transport: TransportKind.stdio };
   const manifests = await workspaceManifests();
   clientCatalogs = JSON.stringify(catalogFilters(manifests));
   const clientOptions: LanguageClientOptions = {

@@ -165,538 +165,13 @@ func synthMethodForSource(t *testing.T, src, method, iface, typeName string) *as
 	return nil
 }
 
-func synthEqualsForSource(t *testing.T, src, typeName string) *ast.FuncDef {
-	t.Helper()
-	return synthMethodForSource(t, src, "equal", "Equatable", typeName)
-}
-
-// TestDeriveEquatableOnStructSynthesizes pins the struct path: a non-empty
-// `@derive Equatable struct ...` produces a single `impl Equatable for T { fn
-// equals(a: T, b: T): Bool { ... } }` whose body is the AND-chain of
-// pairwise field equality.
-func TestDeriveEquatableOnStructSynthesizes(t *testing.T) {
-	src := `struct Point
-    x: Int
-    y: Int
-end
-derive Equatable for Point`
-
-	fn := synthEqualsForSource(t, src, "Point")
-	if fn == nil {
-		t.Fatal("no synthesized Equatable impl (fn equals) found for Point")
-	}
-	if len(fn.Params) != 2 {
-		t.Errorf("expected 2 params, got %d", len(fn.Params))
-	}
-	ret, ok := fn.ReturnTypeExpr.(*ast.SimpleType)
-	if !ok || ret.Name != "Bool" {
-		t.Errorf("expected return type Bool, got %v", fn.ReturnTypeExpr)
-	}
-	if fn.Body == nil || len(fn.Body.Stmts) != 1 {
-		t.Fatalf("expected 1-stmt body, got %d", len(fn.Body.Stmts))
-	}
-	// Body shape: ExprStmt(Binary{and, Call, Call}). One per field, AND-chained.
-	es, ok := fn.Body.Stmts[0].(*ast.ExprStmt)
-	if !ok {
-		t.Fatalf("expected ExprStmt, got %T", fn.Body.Stmts[0])
-	}
-	bin, ok := es.Expr.(*ast.Binary)
-	if !ok || bin.Op != "and" {
-		t.Fatalf("expected Binary(and), got %T %v", es.Expr, bin)
-	}
-	// Both sides must be Calls to Equatable.equal.
-	for _, side := range []ast.Node{bin.Left, bin.Right} {
-		c, ok := side.(*ast.Call)
-		if !ok {
-			t.Fatalf("expected Call on each side of the and-chain, got %T", side)
-		}
-		fa, ok := c.Func.(*ast.FieldAccess)
-		if !ok {
-			t.Fatalf("expected FieldAccess as Call.Func, got %T", c.Func)
-		}
-		if fa.Field == nil || fa.Field.Name != "equal" {
-			t.Errorf("expected FieldAccess.Field.Name == 'equals', got %v", fa.Field)
-		}
-		ti, ok := fa.Object.(*ast.TypeIdent)
-		if !ok || ti.Name != "Equatable" {
-			t.Errorf("expected TypeIdent(Equatable), got %T %v", fa.Object, fa.Object)
-		}
-	}
-}
-
-// TestDeriveEquatableOnEmptyStructIsTrue pins the 0-field special case:
-// `@derive Equatable struct Empty {}` yields a body that's just `True`.
-func TestDeriveEquatableOnEmptyStructIsTrue(t *testing.T) {
-	src := `struct Empty end
-derive Equatable for Empty`
-
-	fn := synthEqualsForSource(t, src, "Empty")
-	if fn == nil {
-		t.Fatal("no synthesized fn for Empty")
-	}
-	if len(fn.Body.Stmts) != 1 {
-		t.Fatalf("expected 1-stmt body, got %d", len(fn.Body.Stmts))
-	}
-	es, ok := fn.Body.Stmts[0].(*ast.ExprStmt)
-	if !ok {
-		t.Fatalf("expected ExprStmt, got %T", fn.Body.Stmts[0])
-	}
-	ti, ok := es.Expr.(*ast.TypeIdent)
-	if !ok || ti.Name != "True" {
-		t.Errorf("expected body == TypeIdent(True), got %T %v", es.Expr, es.Expr)
-	}
-}
-
-// TestDeriveEquatableOnEnumSynthesizes pins the enum path: a bare-variant
-// enum produces a `case a { ... }` outer dispatch plus per-variant inner
-// `case b` with a wildcard False arm.
-func TestDeriveEquatableOnEnumSynthesizes(t *testing.T) {
-	src := `enum Color
-    Red
-    Green
-    Blue
-end
-derive Equatable for Color`
-
-	fn := synthEqualsForSource(t, src, "Color")
-	if fn == nil {
-		t.Fatal("no synthesized fn for Color")
-	}
-	if len(fn.Body.Stmts) != 1 {
-		t.Fatalf("expected 1-stmt body, got %d", len(fn.Body.Stmts))
-	}
-	es, ok := fn.Body.Stmts[0].(*ast.ExprStmt)
-	if !ok {
-		t.Fatalf("expected ExprStmt, got %T", fn.Body.Stmts[0])
-	}
-	outer, ok := es.Expr.(*ast.Case)
-	if !ok {
-		t.Fatalf("expected outer Case, got %T", es.Expr)
-	}
-	id, ok := outer.Value.(*ast.Ident)
-	if !ok || id.Name != "a" {
-		t.Errorf("outer case scrutinee: expected Ident(a), got %T %v", outer.Value, outer.Value)
-	}
-	if len(outer.Branches) != 3 {
-		t.Errorf("expected 3 outer branches (one per variant), got %d", len(outer.Branches))
-	}
-	for _, br := range outer.Branches {
-		// Each branch body is the inner case-on-b with a wildcard tail.
-		inner, ok := br.Body.(*ast.Case)
-		if !ok {
-			t.Fatalf("inner branch body: expected nested Case, got %T", br.Body)
-		}
-		bId, ok := inner.Value.(*ast.Ident)
-		if !ok || bId.Name != "b" {
-			t.Errorf("inner case scrutinee: expected Ident(b), got %T %v", inner.Value, inner.Value)
-		}
-		if len(inner.Branches) != 2 {
-			t.Errorf("inner case: expected 2 branches (variant + wildcard), got %d", len(inner.Branches))
-		}
-		// Last branch must be wildcard → False.
-		last := inner.Branches[len(inner.Branches)-1]
-		if _, ok := last.Pattern.(*ast.WildcardPattern); !ok {
-			t.Errorf("inner last branch pattern: expected WildcardPattern, got %T", last.Pattern)
-		}
-		ti, ok := last.Body.(*ast.TypeIdent)
-		if !ok || ti.Name != "False" {
-			t.Errorf("inner last branch body: expected TypeIdent(False), got %T %v", last.Body, last.Body)
-		}
-	}
-}
-
-// TestDeriveEquatableOnDistinctTypeSynthesizes pins the distinct-type
-// path: `type Id Int` produces the unwrap-then-equals shape:
-// `Id(av) = a; Id(bv) = b; Equatable.equal(av, bv)`.
-func TestDeriveEquatableOnDistinctTypeSynthesizes(t *testing.T) {
-	src := `type Id Int
-derive Equatable for Id`
-
-	fn := synthEqualsForSource(t, src, "Id")
-	if fn == nil {
-		t.Fatal("no synthesized fn for Id")
-	}
-	if len(fn.Body.Stmts) != 3 {
-		t.Fatalf("expected 3 stmts (2 destructures + 1 equals), got %d", len(fn.Body.Stmts))
-	}
-	for i := 0; i < 2; i++ {
-		if head := distinctUnwrapHead(fn.Body.Stmts[i]); head != "Id" {
-			t.Errorf("stmt %d: expected `Id(...) = ...`, got %#v", i, fn.Body.Stmts[i])
-		}
-	}
-	// Final stmt is ExprStmt wrapping a Call to Equatable.equal.
-	es, ok := fn.Body.Stmts[2].(*ast.ExprStmt)
-	if !ok {
-		t.Fatalf("stmt 2: expected ExprStmt, got %T", fn.Body.Stmts[2])
-	}
-	c, ok := es.Expr.(*ast.Call)
-	if !ok {
-		t.Fatalf("stmt 2 expr: expected Call, got %T", es.Expr)
-	}
-	fa, ok := c.Func.(*ast.FieldAccess)
-	if !ok || fa.Field == nil || fa.Field.Name != "equal" {
-		t.Errorf("stmt 2 callee: expected FieldAccess(equals), got %T %v", c.Func, c.Func)
-	}
-	ti, ok := fa.Object.(*ast.TypeIdent)
-	if !ok || ti.Name != "Equatable" {
-		t.Errorf("stmt 2 callee object: expected TypeIdent(Equatable), got %T %v", fa.Object, fa.Object)
-	}
-}
-
-// TestDeriveEquatableOnZeroSizedDistinctIsTrue pins zero-sized distincts:
-// `type Expired` (no inner) yields a body of bare `True`.
-func TestDeriveEquatableOnZeroSizedDistinctIsTrue(t *testing.T) {
-	src := `type Expired
-derive Equatable for Expired`
-
-	fn := synthEqualsForSource(t, src, "Expired")
-	if fn == nil {
-		t.Fatal("no synthesized fn for Expired")
-	}
-	if len(fn.Body.Stmts) != 1 {
-		t.Fatalf("expected 1-stmt body, got %d", len(fn.Body.Stmts))
-	}
-	es, ok := fn.Body.Stmts[0].(*ast.ExprStmt)
-	if !ok {
-		t.Fatalf("expected ExprStmt, got %T", fn.Body.Stmts[0])
-	}
-	ti, ok := es.Expr.(*ast.TypeIdent)
-	if !ok || ti.Name != "True" {
-		t.Errorf("expected body == TypeIdent(True), got %T %v", es.Expr, es.Expr)
-	}
-}
-
-// TestDeriveEquatableOnPositionalArity2VariantUsesNestedTuple pins the
-// arity-≥2 positional-variant case: the synthesized variant pattern's
-// payload must be a *ast.TuplePattern with Flat == false. The flat form
-// (`Variant(a, b)`) is rejected by the analyzer's checkPattern with
-// "variant pattern '...': multi-binding is not supported"; canonical
-// form is the nested-tuple shape `Variant((a, b))`. Regression for
-// the synthesizer originally emitting Flat: true.
-func TestDeriveEquatableOnPositionalArity2VariantUsesNestedTuple(t *testing.T) {
-	src := `enum Pair
-    Both(Int, Int)
-    None
-end
-derive Equatable for Pair`
-
-	fn := synthEqualsForSource(t, src, "Pair")
-	if fn == nil {
-		t.Fatal("no synthesized fn for Pair")
-	}
-	if fn.Body == nil || len(fn.Body.Stmts) != 1 {
-		t.Fatalf("expected 1-stmt body, got %d", len(fn.Body.Stmts))
-	}
-	es, ok := fn.Body.Stmts[0].(*ast.ExprStmt)
-	if !ok {
-		t.Fatalf("expected ExprStmt, got %T", fn.Body.Stmts[0])
-	}
-	outer, ok := es.Expr.(*ast.Case)
-	if !ok {
-		t.Fatalf("expected outer Case on a, got %T", es.Expr)
-	}
-	// Find the outer branch whose pattern is `Both(...)` on the a-side,
-	// then drill into its inner case-on-b for the matching `Both(...)` arm.
-	var bothBranch *ast.CaseBranch
-	for i := range outer.Branches {
-		br := &outer.Branches[i]
-		ep, ok := br.Pattern.(*ast.EnumPattern)
-		if !ok {
-			continue
-		}
-		qt, ok := ep.Variant.(*ast.QualifiedType)
-		if !ok {
-			continue
-		}
-		mem, ok := qt.Member.(*ast.SimpleType)
-		if !ok || mem.Name != "Both" {
-			continue
-		}
-		bothBranch = br
-		break
-	}
-	if bothBranch == nil {
-		t.Fatal("outer Case has no branch for variant Both")
-	}
-	// Outer Both(a-side) payload check.
-	outerEnumPat, ok := bothBranch.Pattern.(*ast.EnumPattern)
-	if !ok {
-		t.Fatalf("expected outer Both pattern as EnumPattern, got %T", bothBranch.Pattern)
-	}
-	outerTup, ok := outerEnumPat.Payload.(*ast.TuplePattern)
-	if !ok {
-		t.Fatalf("expected outer Both payload as *ast.TuplePattern, got %T", outerEnumPat.Payload)
-	}
-	if len(outerTup.Patterns) != 2 {
-		t.Errorf("outer Both payload arity: expected 2 bindings, got %d", len(outerTup.Patterns))
-	}
-	// Inner case-on-b → Both(...) arm.
-	inner, ok := bothBranch.Body.(*ast.Case)
-	if !ok {
-		t.Fatalf("outer Both branch body: expected nested Case-on-b, got %T", bothBranch.Body)
-	}
-	if len(inner.Branches) < 1 {
-		t.Fatalf("inner case has no branches")
-	}
-	innerBoth := inner.Branches[0]
-	innerEnumPat, ok := innerBoth.Pattern.(*ast.EnumPattern)
-	if !ok {
-		t.Fatalf("inner Both pattern: expected EnumPattern, got %T", innerBoth.Pattern)
-	}
-	innerTup, ok := innerEnumPat.Payload.(*ast.TuplePattern)
-	if !ok {
-		t.Fatalf("inner Both payload: expected *ast.TuplePattern, got %T", innerEnumPat.Payload)
-	}
-	if len(innerTup.Patterns) != 2 {
-		t.Errorf("inner Both payload arity: expected 2 bindings, got %d", len(innerTup.Patterns))
-	}
-}
-
-// ---------------------------------------------------------------------------
-// Hashable synthesis tests
-// ---------------------------------------------------------------------------
-
-// synthHashForSource locates the synthesized `impl Hashable for T { fn hash }`
-// FuncDef whose first param's declared type matches typeName. Mirrors
-// synthEqualsForSource above.
-func synthHashForSource(t *testing.T, src, typeName string) *ast.FuncDef {
-	t.Helper()
-	return synthMethodForSource(t, src, "hash", "Hashable", typeName)
-}
-
-// TestDeriveHashableOnStructSynthesizes pins the struct path: `@derive
-// Hashable struct Point { x: Int; y: Int }` produces an `impl Hashable for Point { fn
-// hash(value: Point): Int { Hashable.hash(value.x) * 31 + Hashable.hash(value.y) } }`.
-// The body is a left-fold mix expressed as Binary(+, Binary(*, Hashable.hash(.x), 31), Hashable.hash(.y)).
-func TestDeriveHashableOnStructSynthesizes(t *testing.T) {
-	src := `struct Point
-    x: Int
-    y: Int
-end
-derive Hashable for Point`
-
-	fn := synthHashForSource(t, src, "Point")
-	if fn == nil {
-		t.Fatal("no synthesized Hashable impl (fn hash) found for Point")
-	}
-	if len(fn.Params) != 1 {
-		t.Errorf("expected 1 param, got %d", len(fn.Params))
-	}
-	ret, ok := fn.ReturnTypeExpr.(*ast.SimpleType)
-	if !ok || ret.Name != "Int" {
-		t.Errorf("expected return type Int, got %v", fn.ReturnTypeExpr)
-	}
-	if fn.Body == nil || len(fn.Body.Stmts) != 1 {
-		t.Fatalf("expected 1-stmt body, got %d", len(fn.Body.Stmts))
-	}
-	es, ok := fn.Body.Stmts[0].(*ast.ExprStmt)
-	if !ok {
-		t.Fatalf("expected ExprStmt, got %T", fn.Body.Stmts[0])
-	}
-	// Body shape (2 fields): Binary(+, Binary(*, Call(Hashable.hash, value.x), 31), Call(Hashable.hash, value.y))
-	plus, ok := es.Expr.(*ast.Binary)
-	if !ok || plus.Op != "+" {
-		t.Fatalf("expected outer Binary(+), got %T %v", es.Expr, es.Expr)
-	}
-	mul, ok := plus.Left.(*ast.Binary)
-	if !ok || mul.Op != "*" {
-		t.Fatalf("expected left == Binary(*), got %T %v", plus.Left, plus.Left)
-	}
-	intLit, ok := mul.Right.(*ast.IntLit)
-	if !ok || intLit.Value != 31 {
-		t.Errorf("expected mix multiplier 31 as IntLit, got %T %v", mul.Right, mul.Right)
-	}
-	// Both Hashable.hash calls live at mul.Left and plus.Right.
-	for _, side := range []ast.Node{mul.Left, plus.Right} {
-		c, ok := side.(*ast.Call)
-		if !ok {
-			t.Fatalf("expected Call (Hashable.hash) on each hash position, got %T", side)
-		}
-		fa, ok := c.Func.(*ast.FieldAccess)
-		if !ok {
-			t.Fatalf("expected FieldAccess as Call.Func, got %T", c.Func)
-		}
-		if fa.Field == nil || fa.Field.Name != "hash" {
-			t.Errorf("expected FieldAccess.Field.Name == 'hash', got %v", fa.Field)
-		}
-		ti, ok := fa.Object.(*ast.TypeIdent)
-		if !ok || ti.Name != "Hashable" {
-			t.Errorf("expected TypeIdent(Hashable), got %T %v", fa.Object, fa.Object)
-		}
-	}
-}
-
-// TestDeriveHashableOnEmptyStructIsZero pins the 0-field special case:
-// `@derive Hashable struct Empty {}` yields a body of bare `IntLit(0)`.
-func TestDeriveHashableOnEmptyStructIsZero(t *testing.T) {
-	src := `struct Empty end
-derive Hashable for Empty`
-
-	fn := synthHashForSource(t, src, "Empty")
-	if fn == nil {
-		t.Fatal("no synthesized fn for Empty")
-	}
-	if len(fn.Body.Stmts) != 1 {
-		t.Fatalf("expected 1-stmt body, got %d", len(fn.Body.Stmts))
-	}
-	es, ok := fn.Body.Stmts[0].(*ast.ExprStmt)
-	if !ok {
-		t.Fatalf("expected ExprStmt, got %T", fn.Body.Stmts[0])
-	}
-	il, ok := es.Expr.(*ast.IntLit)
-	if !ok || il.Value != 0 {
-		t.Errorf("expected body == IntLit(0), got %T %v", es.Expr, es.Expr)
-	}
-}
-
-// TestDeriveHashableOnEnumSynthesizes pins the enum path: bare and
-// payload variants produce a `case value { ... }` outer dispatch with one
-// branch per variant. Bare branches are bare IntLit(index); payload
-// branches are mix(index, payload-hash).
-func TestDeriveHashableOnEnumSynthesizes(t *testing.T) {
-	src := `enum Shape
-    Circle Float
-    None
-end
-derive Hashable for Shape`
-
-	fn := synthHashForSource(t, src, "Shape")
-	if fn == nil {
-		t.Fatal("no synthesized fn for Shape")
-	}
-	if len(fn.Body.Stmts) != 1 {
-		t.Fatalf("expected 1-stmt body, got %d", len(fn.Body.Stmts))
-	}
-	es, ok := fn.Body.Stmts[0].(*ast.ExprStmt)
-	if !ok {
-		t.Fatalf("expected ExprStmt, got %T", fn.Body.Stmts[0])
-	}
-	outer, ok := es.Expr.(*ast.Case)
-	if !ok {
-		t.Fatalf("expected outer Case, got %T", es.Expr)
-	}
-	id, ok := outer.Value.(*ast.Ident)
-	if !ok || id.Name != "value" {
-		t.Errorf("outer case scrutinee: expected Ident(value), got %T %v", outer.Value, outer.Value)
-	}
-	if len(outer.Branches) != 2 {
-		t.Fatalf("expected 2 outer branches (one per variant), got %d", len(outer.Branches))
-	}
-	// First variant Circle (positional): body is mix(0, Hashable.hash(v0)).
-	circleBody, ok := outer.Branches[0].Body.(*ast.Binary)
-	if !ok || circleBody.Op != "+" {
-		t.Fatalf("Circle branch body: expected Binary(+), got %T %v", outer.Branches[0].Body, outer.Branches[0].Body)
-	}
-	// Second variant None (bare): body is bare IntLit(1).
-	noneBody, ok := outer.Branches[1].Body.(*ast.IntLit)
-	if !ok || noneBody.Value != 1 {
-		t.Errorf("None branch body: expected IntLit(1), got %T %v", outer.Branches[1].Body, outer.Branches[1].Body)
-	}
-}
-
-// TestDeriveHashableOnDistinctTypeSynthesizes pins the primitive distinct
-// path: `type Id Int` produces `Id(inner) = value; Hashable.hash(inner)`.
-func TestDeriveHashableOnDistinctTypeSynthesizes(t *testing.T) {
-	src := `type Id Int
-derive Hashable for Id`
-
-	fn := synthHashForSource(t, src, "Id")
-	if fn == nil {
-		t.Fatal("no synthesized fn for Id")
-	}
-	if len(fn.Body.Stmts) != 2 {
-		t.Fatalf("expected 2 stmts (1 destructure + 1 hash), got %d", len(fn.Body.Stmts))
-	}
-	if head := distinctUnwrapHead(fn.Body.Stmts[0]); head != "Id" {
-		t.Fatalf("stmt 0: expected `Id(...) = ...`, got %#v", fn.Body.Stmts[0])
-	}
-	es, ok := fn.Body.Stmts[1].(*ast.ExprStmt)
-	if !ok {
-		t.Fatalf("stmt 1: expected ExprStmt, got %T", fn.Body.Stmts[1])
-	}
-	c, ok := es.Expr.(*ast.Call)
-	if !ok {
-		t.Fatalf("stmt 1 expr: expected Call, got %T", es.Expr)
-	}
-	fa, ok := c.Func.(*ast.FieldAccess)
-	if !ok || fa.Field == nil || fa.Field.Name != "hash" {
-		t.Errorf("stmt 1 callee: expected FieldAccess(hash), got %T %v", c.Func, c.Func)
-	}
-	ti, ok := fa.Object.(*ast.TypeIdent)
-	if !ok || ti.Name != "Hashable" {
-		t.Errorf("stmt 1 callee object: expected TypeIdent(Hashable), got %T %v", fa.Object, fa.Object)
-	}
-}
-
-// TestDeriveHashableOnPositionalArity2VariantUsesNestedTuple pins the
-// arity-≥2 positional-variant case for Hashable: same Flat: false invariant
-// as the Equatable test. The synthesized variant pattern's payload must be
-// a *ast.TuplePattern with Flat == false; the analyzer rejects flat-form
-// variant patterns. The Hashable synthesizer reuses enumVariantPattern and must
-// inherit the canonical nested-tuple shape.
-func TestDeriveHashableOnPositionalArity2VariantUsesNestedTuple(t *testing.T) {
-	src := `enum Pair
-    Both(Int, Int)
-    None
-end
-derive Hashable for Pair`
-
-	fn := synthHashForSource(t, src, "Pair")
-	if fn == nil {
-		t.Fatal("no synthesized fn for Pair")
-	}
-	if fn.Body == nil || len(fn.Body.Stmts) != 1 {
-		t.Fatalf("expected 1-stmt body, got %d", len(fn.Body.Stmts))
-	}
-	es, ok := fn.Body.Stmts[0].(*ast.ExprStmt)
-	if !ok {
-		t.Fatalf("expected ExprStmt, got %T", fn.Body.Stmts[0])
-	}
-	outer, ok := es.Expr.(*ast.Case)
-	if !ok {
-		t.Fatalf("expected outer Case, got %T", es.Expr)
-	}
-	var bothBranch *ast.CaseBranch
-	for i := range outer.Branches {
-		br := &outer.Branches[i]
-		ep, ok := br.Pattern.(*ast.EnumPattern)
-		if !ok {
-			continue
-		}
-		qt, ok := ep.Variant.(*ast.QualifiedType)
-		if !ok {
-			continue
-		}
-		mem, ok := qt.Member.(*ast.SimpleType)
-		if !ok || mem.Name != "Both" {
-			continue
-		}
-		bothBranch = br
-		break
-	}
-	if bothBranch == nil {
-		t.Fatal("outer Case has no branch for variant Both")
-	}
-	bothPat, ok := bothBranch.Pattern.(*ast.EnumPattern)
-	if !ok {
-		t.Fatalf("Both pattern: expected EnumPattern, got %T", bothBranch.Pattern)
-	}
-	tup, ok := bothPat.Payload.(*ast.TuplePattern)
-	if !ok {
-		t.Fatalf("Both payload: expected *ast.TuplePattern, got %T", bothPat.Payload)
-	}
-	if len(tup.Patterns) != 2 {
-		t.Errorf("Both payload arity: expected 2 bindings, got %d", len(tup.Patterns))
-	}
-}
-
 // ---------------------------------------------------------------------------
 // Comparable synthesis tests
 // ---------------------------------------------------------------------------
 
 // synthCompareForSource locates the synthesized `impl Comparable for T { fn compare }`
 // FuncDef whose first param's declared type matches typeName. Mirrors
-// synthEqualsForSource / synthHashForSource above.
+// synthMethodForSource.
 func synthCompareForSource(t *testing.T, src, typeName string) *ast.FuncDef {
 	t.Helper()
 	return synthMethodForSource(t, src, "compare", "Comparable", typeName)
@@ -984,12 +459,11 @@ derive Comparable for Expired`
 }
 
 // TestDeriveComparableOnPositionalArity2VariantUsesNestedTuple pins the
-// arity-≥2 positional-variant case for Comparable: same Flat: false
-// invariant as the Equatable / Hashable tests. The synthesized variant
-// pattern's payload must be a *ast.TuplePattern with Flat == false; the
-// analyzer rejects flat-form variant patterns. Comparable reuses
-// enumVariantPattern (same helper as Equatable / Hashable), so the
-// canonical nested-tuple shape is inherited — this test pins it.
+// arity-≥2 positional-variant case for Comparable. The synthesized
+// variant pattern's payload must be a *ast.TuplePattern with Flat ==
+// false; the analyzer rejects flat-form variant patterns. Comparable uses
+// enumVariantPattern, so the canonical nested-tuple shape is inherited —
+// this test pins it.
 func TestDeriveComparableOnPositionalArity2VariantUsesNestedTuple(t *testing.T) {
 	src := `enum Pair
     Both(Int, Int)
@@ -1047,339 +521,65 @@ derive Comparable for Pair`
 }
 
 // ---------------------------------------------------------------------------
-// Debug synthesis tests
+// Derives that write no function
 // ---------------------------------------------------------------------------
 
-// synthDebugForSource locates the synthesized `impl Debug for T { fn inspect }`
-// FuncDef whose first param's declared type matches typeName. Mirrors the
-// per-protocol helpers above.
-func synthDebugForSource(t *testing.T, src, typeName string) *ast.FuncDef {
-	t.Helper()
-	return synthMethodForSource(t, src, "inspect", "Debug", typeName)
-}
-
-// debugStringPartsContain returns true if the StringInterp's Parts contain
-// a StringText whose Value contains substr. Used to spot-check that the
-// rendered template carries the expected static fragments (type name,
-// braces, separators).
-func debugStringPartsContain(parts []ast.StringPart, substr string) bool {
-	for _, p := range parts {
-		if st, ok := p.(ast.StringText); ok && strings.Contains(st.Value, substr) {
-			return true
-		}
-	}
-	return false
-}
-
-// TestDeriveDebugOnStructSynthesizes pins the struct path: a non-empty
-// `@derive Debug struct ...` produces a single `impl Debug for T { fn
-// to_string(value: T): String { ... } }` whose body is a StringInterp
-// containing the type name, `{`, each field name + `: ` static fragments,
-// `, ` separators, `}`, and one Debug.to_string Call per field as
-// dynamic StringExpr parts.
-func TestDeriveDebugOnStructSynthesizes(t *testing.T) {
-	src := `struct Point
-    x: Int
-    y: Int
-end
-derive Debug for Point`
-
-	fn := synthDebugForSource(t, src, "Point")
-	if fn == nil {
-		t.Fatal("no synthesized Debug impl (fn inspect) found for Point")
-	}
-	if len(fn.Params) != 1 {
-		t.Errorf("expected 1 param, got %d", len(fn.Params))
-	}
-	ret, ok := fn.ReturnTypeExpr.(*ast.SimpleType)
-	if !ok || ret.Name != "String" {
-		t.Errorf("expected return type String, got %v", fn.ReturnTypeExpr)
-	}
-	if fn.Body == nil || len(fn.Body.Stmts) != 1 {
-		t.Fatalf("expected 1-stmt body, got %d", len(fn.Body.Stmts))
-	}
-	es, ok := fn.Body.Stmts[0].(*ast.ExprStmt)
-	if !ok {
-		t.Fatalf("expected ExprStmt, got %T", fn.Body.Stmts[0])
-	}
-	si, ok := es.Expr.(*ast.StringInterp)
-	if !ok {
-		t.Fatalf("expected StringInterp body, got %T", es.Expr)
-	}
-	// Static fragments must include the type-and-first-field opener
-	// `Point{x: ` and the closing `}`. The intermediate `, y: ` is the
-	// separator between the two fields.
-	for _, want := range []string{"Point{x: ", ", y: ", "}"} {
-		if !debugStringPartsContain(si.Parts, want) {
-			t.Errorf("StringInterp parts missing static fragment %q; parts: %v", want, si.Parts)
-		}
-	}
-	// Two dynamic slots — one per field — each a Debug.to_string Call.
-	dynCount := 0
-	for _, p := range si.Parts {
-		se, ok := p.(ast.StringExpr)
-		if !ok {
-			continue
-		}
-		dynCount++
-		c, ok := se.Expr.(*ast.Call)
-		if !ok {
-			t.Fatalf("dynamic part: expected Call, got %T", se.Expr)
-		}
-		fa, ok := c.Func.(*ast.FieldAccess)
-		if !ok || fa.Field == nil || fa.Field.Name != "inspect" {
-			t.Errorf("dynamic part callee: expected FieldAccess(inspect), got %T %v", c.Func, c.Func)
-		}
-		ti, ok := fa.Object.(*ast.TypeIdent)
-		if !ok || ti.Name != "Debug" {
-			t.Errorf("dynamic part callee object: expected TypeIdent(Debug), got %T %v", fa.Object, fa.Object)
-		}
-	}
-	if dynCount != 2 {
-		t.Errorf("expected 2 dynamic StringExpr slots (one per field), got %d", dynCount)
-	}
-}
-
-// TestDeriveDebugOnEmptyStructIsBareName pins the 0-field special case:
-// the body is a static StringLit `"TypeName{}"` with no interpolation
-// slots, since there are no fields to render.
-func TestDeriveDebugOnEmptyStructIsBareName(t *testing.T) {
-	src := `struct Empty end
-derive Debug for Empty`
-
-	fn := synthDebugForSource(t, src, "Empty")
-	if fn == nil {
-		t.Fatal("no synthesized fn for Empty")
-	}
-	if len(fn.Body.Stmts) != 1 {
-		t.Fatalf("expected 1-stmt body, got %d", len(fn.Body.Stmts))
-	}
-	es, ok := fn.Body.Stmts[0].(*ast.ExprStmt)
-	if !ok {
-		t.Fatalf("expected ExprStmt, got %T", fn.Body.Stmts[0])
-	}
-	sl, ok := es.Expr.(*ast.StringLit)
-	if !ok {
-		t.Fatalf("expected body == StringLit, got %T %v", es.Expr, es.Expr)
-	}
-	if sl.Value != "Empty{}" {
-		t.Errorf("expected StringLit.Value == \"Empty{}\", got %q", sl.Value)
-	}
-}
-
-// TestDeriveDebugOnEnumSynthesizes pins the enum path: bare and payload
-// variants produce a `case value { ... }` outer dispatch with one branch
-// per variant. Bare branches' bodies are static StringLit; payload
-// branches are StringInterp with Debug.to_string calls in dynamic slots.
-// Variant names in the rendered text must be BARE (not enum-qualified).
-func TestDeriveDebugOnEnumSynthesizes(t *testing.T) {
-	src := `enum Shape
-    Circle Float
-    None
-end
-derive Debug for Shape`
-
-	fn := synthDebugForSource(t, src, "Shape")
-	if fn == nil {
-		t.Fatal("no synthesized fn for Shape")
-	}
-	if len(fn.Body.Stmts) != 1 {
-		t.Fatalf("expected 1-stmt body, got %d", len(fn.Body.Stmts))
-	}
-	es, ok := fn.Body.Stmts[0].(*ast.ExprStmt)
-	if !ok {
-		t.Fatalf("expected ExprStmt, got %T", fn.Body.Stmts[0])
-	}
-	outer, ok := es.Expr.(*ast.Case)
-	if !ok {
-		t.Fatalf("expected outer Case, got %T", es.Expr)
-	}
-	id, ok := outer.Value.(*ast.Ident)
-	if !ok || id.Name != "value" {
-		t.Errorf("outer case scrutinee: expected Ident(value), got %T %v", outer.Value, outer.Value)
-	}
-	if len(outer.Branches) != 2 {
-		t.Fatalf("expected 2 outer branches (one per variant), got %d", len(outer.Branches))
-	}
-	// First variant Circle (positional): body is StringInterp containing
-	// `Circle(`, `)`, plus one dynamic Debug.to_string slot.
-	circleBody, ok := outer.Branches[0].Body.(*ast.StringInterp)
-	if !ok {
-		t.Fatalf("Circle branch body: expected StringInterp, got %T %v", outer.Branches[0].Body, outer.Branches[0].Body)
-	}
-	for _, want := range []string{"Circle(", ")"} {
-		if !debugStringPartsContain(circleBody.Parts, want) {
-			t.Errorf("Circle StringInterp missing static %q; parts: %v", want, circleBody.Parts)
-		}
-	}
-	// Variant names must be BARE (not enum-qualified) — `Circle(`, never
-	// `Shape.Circle(`.
-	for _, p := range circleBody.Parts {
-		if st, ok := p.(ast.StringText); ok && strings.Contains(st.Value, "Shape.") {
-			t.Errorf("Circle variant rendered with enum qualifier (%q); Debug expects bare variant names", st.Value)
-		}
-	}
-	// Second variant None (bare): body is bare StringLit("None").
-	noneBody, ok := outer.Branches[1].Body.(*ast.StringLit)
-	if !ok {
-		t.Fatalf("None branch body: expected StringLit, got %T %v", outer.Branches[1].Body, outer.Branches[1].Body)
-	}
-	if noneBody.Value != "None" {
-		t.Errorf("None branch body: expected StringLit(\"None\"), got %q", noneBody.Value)
-	}
-}
-
-// TestDeriveDebugOnDistinctTypeSynthesizes pins the primitive-distinct
-// path: `type Id Int` produces `Id(inner) = value;
-// "Id(${Debug.to_string(inner)})"`.
-func TestDeriveDebugOnDistinctTypeSynthesizes(t *testing.T) {
-	src := `type Id Int
-derive Debug for Id`
-
-	fn := synthDebugForSource(t, src, "Id")
-	if fn == nil {
-		t.Fatal("no synthesized fn for Id")
-	}
-	if len(fn.Body.Stmts) != 2 {
-		t.Fatalf("expected 2 stmts (1 destructure + 1 interp), got %d", len(fn.Body.Stmts))
-	}
-	if head := distinctUnwrapHead(fn.Body.Stmts[0]); head != "Id" {
-		t.Fatalf("stmt 0: expected `Id(...) = ...`, got %#v", fn.Body.Stmts[0])
-	}
-	es, ok := fn.Body.Stmts[1].(*ast.ExprStmt)
-	if !ok {
-		t.Fatalf("stmt 1: expected ExprStmt, got %T", fn.Body.Stmts[1])
-	}
-	si, ok := es.Expr.(*ast.StringInterp)
-	if !ok {
-		t.Fatalf("stmt 1 expr: expected StringInterp, got %T", es.Expr)
-	}
-	for _, want := range []string{"Id(", ")"} {
-		if !debugStringPartsContain(si.Parts, want) {
-			t.Errorf("Id StringInterp missing static %q; parts: %v", want, si.Parts)
-		}
-	}
-	// Dynamic slot must be a Debug.to_string call.
-	dynCount := 0
-	for _, p := range si.Parts {
-		se, ok := p.(ast.StringExpr)
-		if !ok {
-			continue
-		}
-		dynCount++
-		c, ok := se.Expr.(*ast.Call)
-		if !ok {
-			t.Fatalf("dynamic part: expected Call, got %T", se.Expr)
-		}
-		fa, ok := c.Func.(*ast.FieldAccess)
-		if !ok || fa.Field == nil || fa.Field.Name != "inspect" {
-			t.Errorf("dynamic part callee: expected FieldAccess(inspect), got %T %v", c.Func, c.Func)
-		}
-		ti, ok := fa.Object.(*ast.TypeIdent)
-		if !ok || ti.Name != "Debug" {
-			t.Errorf("dynamic part callee object: expected TypeIdent(Debug), got %T %v", fa.Object, fa.Object)
-		}
-	}
-	if dynCount != 1 {
-		t.Errorf("expected 1 dynamic slot, got %d", dynCount)
-	}
-}
-
-// TestDeriveDebugOnZeroSizedDistinctIsBareName pins zero-sized distincts:
-// `type Expired` (no inner) yields a body of bare `StringLit("Expired")`.
-func TestDeriveDebugOnZeroSizedDistinctIsBareName(t *testing.T) {
-	src := `type Expired
-derive Debug for Expired`
-
-	fn := synthDebugForSource(t, src, "Expired")
-	if fn == nil {
-		t.Fatal("no synthesized fn for Expired")
-	}
-	if len(fn.Body.Stmts) != 1 {
-		t.Fatalf("expected 1-stmt body, got %d", len(fn.Body.Stmts))
-	}
-	es, ok := fn.Body.Stmts[0].(*ast.ExprStmt)
-	if !ok {
-		t.Fatalf("expected ExprStmt, got %T", fn.Body.Stmts[0])
-	}
-	sl, ok := es.Expr.(*ast.StringLit)
-	if !ok {
-		t.Fatalf("expected body == StringLit, got %T %v", es.Expr, es.Expr)
-	}
-	if sl.Value != "Expired" {
-		t.Errorf("expected StringLit.Value == \"Expired\", got %q", sl.Value)
-	}
-}
-
-// TestDeriveDebugOnPositionalArity2VariantUsesNestedTuple pins the
-// arity-≥2 positional-variant case for Debug: same Flat: false invariant
-// the other synthesizers test. The synthesized variant pattern's payload
-// must be a *ast.TuplePattern with Flat == false; the analyzer rejects
-// flat-form variant patterns.
-func TestDeriveDebugOnPositionalArity2VariantUsesNestedTuple(t *testing.T) {
-	src := `enum Pair
-    Both(Int, Int)
-    None
-end
-derive Debug for Pair`
-
-	fn := synthDebugForSource(t, src, "Pair")
-	if fn == nil {
-		t.Fatal("no synthesized fn for Pair")
-	}
-	if fn.Body == nil || len(fn.Body.Stmts) != 1 {
-		t.Fatalf("expected 1-stmt body, got %d", len(fn.Body.Stmts))
-	}
-	es, ok := fn.Body.Stmts[0].(*ast.ExprStmt)
-	if !ok {
-		t.Fatalf("expected ExprStmt, got %T", fn.Body.Stmts[0])
-	}
-	outer, ok := es.Expr.(*ast.Case)
-	if !ok {
-		t.Fatalf("expected outer Case, got %T", es.Expr)
-	}
-	var bothBranch *ast.CaseBranch
-	for i := range outer.Branches {
-		br := &outer.Branches[i]
-		ep, ok := br.Pattern.(*ast.EnumPattern)
-		if !ok {
-			continue
-		}
-		qt, ok := ep.Variant.(*ast.QualifiedType)
-		if !ok {
-			continue
-		}
-		mem, ok := qt.Member.(*ast.SimpleType)
-		if !ok || mem.Name != "Both" {
-			continue
-		}
-		bothBranch = br
-		break
-	}
-	if bothBranch == nil {
-		t.Fatal("outer Case has no branch for variant Both")
-	}
-	bothPat, ok := bothBranch.Pattern.(*ast.EnumPattern)
-	if !ok {
-		t.Fatalf("Both pattern: expected EnumPattern, got %T", bothBranch.Pattern)
-	}
-	tup, ok := bothPat.Payload.(*ast.TuplePattern)
-	if !ok {
-		t.Fatalf("Both payload: expected *ast.TuplePattern, got %T", bothPat.Payload)
-	}
-	if len(tup.Patterns) != 2 {
-		t.Errorf("Both payload arity: expected 2 bindings, got %d", len(tup.Patterns))
-	}
-	// Both branch body should be a StringInterp rendering
-	// `Both(<dbg>, <dbg>)` — bare variant name, comma-separated dbg
-	// slots, no extra outer parens.
-	si, ok := bothBranch.Body.(*ast.StringInterp)
-	if !ok {
-		t.Fatalf("Both branch body: expected StringInterp, got %T", bothBranch.Body)
-	}
-	for _, want := range []string{"Both(", ", ", ")"} {
-		if !debugStringPartsContain(si.Parts, want) {
-			t.Errorf("Both StringInterp missing static %q; parts: %v", want, si.Parts)
+// TestDeriveByShapeWritesABlockWithNoFunction: `derive Equatable`,
+// `derive Hashable`, `derive Debug` and `derive Display` lower to an impl
+// block of the interface that writes no function, for every shape a derive
+// takes (a struct, an empty struct, an enum, a distinct, a marker, a
+// generic struct, a host type), in the synthesized band, with its header
+// at the derive and the receiver applied to a generic type's parameters,
+// each bounded by the interface where the derive implies the bound
+// (Equatable, Hashable and Display). The interface answers for such a type
+// by its shape (derivesByShape).
+func TestDeriveByShapeWritesABlockWithNoFunction(t *testing.T) {
+	for _, iface := range []string{"Equatable", "Hashable", "Debug", "Display"} {
+		for _, c := range []struct{ name, src, recv string }{
+			{"Point", "struct Point\n    x: Int\nend\n", "Point"},
+			{"Empty", "struct Empty\nend\n", "Empty"},
+			{"Shape", "enum Shape\n    Dot\n    Circle(Float)\n    Rect{w: Int}\nend\n", "Shape"},
+			{"Id", "type Id Int\n", "Id"},
+			{"Expired", "type Expired\n", "Expired"},
+			{"Box", "struct Box<T>\n    value: T\nend\n", "Box<T>"},
+			{"Tok", "pub host type Tok\n", "Tok"},
+		} {
+			nodes, err := parser.Parse(lexer.Lex(c.src + "derive " + iface + " for " + c.name))
+			if err != nil {
+				t.Fatalf("%s %s: parse: %v", iface, c.name, err)
+			}
+			nodes, errs := LowerDerives(nodes)
+			if len(errs) > 0 {
+				t.Fatalf("%s %s: %v", iface, c.name, errs)
+			}
+			var blocks []*ast.ImplBlock
+			for _, n := range nodes {
+				if blk, ok := n.(*ast.ImplBlock); ok && TypeExprBaseName(blk.Interface) == iface {
+					blocks = append(blocks, blk)
+				}
+			}
+			if len(blocks) != 1 {
+				t.Fatalf("%s %s: %d %s blocks, want 1", iface, c.name, len(blocks), iface)
+			}
+			blk := blocks[0]
+			if len(blk.Items) != 0 {
+				t.Errorf("%s %s: the derived block writes %d items, want none", iface, c.name, len(blk.Items))
+			}
+			if !IsSynthesizedLine(blk.Line) || IsSynthesizedLine(blk.Interface.LineNum()) {
+				t.Errorf("%s %s: the block is at line %d with its header at line %d, want the band and the derive", iface, c.name, blk.Line, blk.Interface.LineNum())
+			}
+			if got := blk.Receiver.TypeString(); got != c.recv {
+				t.Errorf("%s %s: receiver %s, want %s", iface, c.name, got, c.recv)
+			}
+			if !derivesByShape(blk) {
+				t.Errorf("%s %s: derivesByShape does not answer for the derived block", iface, c.name)
+			}
+			for _, tp := range blk.Generics {
+				bounded := len(tp.Bounds) == 1 && TypeExprBaseName(tp.Bounds[0]) == iface
+				if want := iface != "Debug"; bounded != want {
+					t.Errorf("%s %s: parameter %s has bounds %v, want the interface %v", iface, c.name, tp.Name, tp.Bounds, want)
+				}
+			}
 		}
 	}
 }
@@ -1389,30 +589,28 @@ derive Debug for Pair`
 // ---------------------------------------------------------------------------
 
 // synthFnBy locates the synthesized FuncDef whose `impl <ifaceName> for T`
-// block targets the named first-param type. Mirrors synthEqualsForSource
-// but parameterizes over interface and method name so the Gap-2 tests can
-// pin Hashable / Comparable / Debug bounds with the same helper. Returns
+// block targets the named first-param type. It parameterizes over interface and method name so the Gap-2 tests can
+// pin Comparable bounds with the same helper. Returns
 // nil when no matching fn is found.
 func synthFnBy(t *testing.T, src, fnName, ifaceName, typeName string) *ast.FuncDef {
 	t.Helper()
 	return synthMethodForSource(t, src, fnName, ifaceName, typeName)
 }
 
-// TestDeriveOnGenericStructAddsInterfaceBound pins the implicit bound: `@derive Equatable
-// struct Box<T> { value: T }` synthesizes `fn equal(a: Box<T>, b: Box<T>):
-// Bool` whose TypeParams carry an implicit `T: Equatable` bound. Without
-// this bound, calling `Equatable.equal(Box{value: NoEqType{}}, ...)`
-// would fall through to a runtime "no impl found" error instead of a
-// compile-time type-check failure (spec §12 *Derive*).
+// TestDeriveOnGenericStructAddsInterfaceBound pins the implicit bound:
+// `derive Comparable for Box<T>` synthesizes `fn compare(a: Box<T>, b:
+// Box<T>) -> Ordering` whose TypeParams carry an implicit `T: Comparable`
+// bound, so a call over a T with no order is a compile-time error (spec
+// §12 *Generic types*).
 func TestDeriveOnGenericStructAddsInterfaceBound(t *testing.T) {
 	src := `struct Box<T>
     value: T
 end
-derive Equatable for Box<T>`
+derive Comparable for Box<T>`
 
-	fn := synthFnBy(t, src, "equal", "Equatable", "Box")
+	fn := synthFnBy(t, src, "compare", "Comparable", "Box")
 	if fn == nil {
-		t.Fatal("no synthesized Equatable impl (fn equals) for Box found")
+		t.Fatal("no synthesized Comparable impl (fn compare) for Box found")
 	}
 	if len(fn.TypeParams) != 1 {
 		t.Fatalf("expected 1 TypeParam, got %d", len(fn.TypeParams))
@@ -1425,8 +623,8 @@ derive Equatable for Box<T>`
 		t.Fatalf("expected 1 bound on T, got %d", len(tp.Bounds))
 	}
 	bound, ok := tp.Bounds[0].(*ast.SimpleType)
-	if !ok || bound.Name != "Equatable" {
-		t.Errorf("expected bound SimpleType(Equatable), got %T %v", tp.Bounds[0], tp.Bounds[0])
+	if !ok || bound.Name != "Comparable" {
+		t.Errorf("expected bound SimpleType(Comparable), got %T %v", tp.Bounds[0], tp.Bounds[0])
 	}
 	// Param types must reference Box<T> (GenericType), not bare Box.
 	for i := 0; i < 2; i++ {
@@ -1441,18 +639,18 @@ derive Equatable for Box<T>`
 }
 
 // TestDeriveOnMultiParamGenericStruct pins the multi-arg generic case:
-// `@derive Hashable struct Pair<A, B> { left: A; right: B }` produces both
-// `A: Hashable` and `B: Hashable` bounds on the synthesized hash fn.
+// `derive Comparable for Pair<A, B>` over `left: A; right: B` produces both
+// `A: Comparable` and `B: Comparable` bounds on the synthesized compare fn.
 func TestDeriveOnMultiParamGenericStruct(t *testing.T) {
 	src := `struct Pair<A, B>
     left: A
     right: B
 end
-derive Hashable for Pair<A, B>`
+derive Comparable for Pair<A, B>`
 
-	fn := synthFnBy(t, src, "hash", "Hashable", "Pair")
+	fn := synthFnBy(t, src, "compare", "Comparable", "Pair")
 	if fn == nil {
-		t.Fatal("no synthesized Hashable impl (fn hash) for Pair found")
+		t.Fatal("no synthesized Comparable impl (fn compare) for Pair found")
 	}
 	if len(fn.TypeParams) != 2 {
 		t.Fatalf("expected 2 TypeParams, got %d", len(fn.TypeParams))
@@ -1466,26 +664,25 @@ derive Hashable for Pair<A, B>`
 			t.Fatalf("TypeParam %d: expected 1 bound, got %d", i, len(tp.Bounds))
 		}
 		bound, ok := tp.Bounds[0].(*ast.SimpleType)
-		if !ok || bound.Name != "Hashable" {
-			t.Errorf("TypeParam %d: expected bound SimpleType(Hashable), got %T %v", i, tp.Bounds[0], tp.Bounds[0])
+		if !ok || bound.Name != "Comparable" {
+			t.Errorf("TypeParam %d: expected bound SimpleType(Comparable), got %T %v", i, tp.Bounds[0], tp.Bounds[0])
 		}
 	}
 }
 
-// TestDeriveOnGenericEnum pins the generic-enum case: `@derive Equatable
-// enum Option<T> { Some(T); None }` produces `T: Equatable` on the
-// synthesized equals fn. Mirrors the struct test but exercises the EnumDef
+// TestDeriveOnGenericEnum pins the generic-enum case: `derive Comparable
+// for Option<T>` produces `T: Comparable` on the synthesized compare fn. Mirrors the struct test but exercises the EnumDef
 // branch of typeDeclTypeParams.
 func TestDeriveOnGenericEnum(t *testing.T) {
 	src := `enum Option<T>
     Some T
     None
 end
-derive Equatable for Option<T>`
+derive Comparable for Option<T>`
 
-	fn := synthFnBy(t, src, "equal", "Equatable", "Option")
+	fn := synthFnBy(t, src, "compare", "Comparable", "Option")
 	if fn == nil {
-		t.Fatal("no synthesized Equatable impl (fn equals) for Option found")
+		t.Fatal("no synthesized Comparable impl (fn compare) for Option found")
 	}
 	if len(fn.TypeParams) != 1 {
 		t.Fatalf("expected 1 TypeParam, got %d", len(fn.TypeParams))
@@ -1498,45 +695,8 @@ derive Equatable for Option<T>`
 		t.Fatalf("expected 1 bound on T, got %d", len(tp.Bounds))
 	}
 	bound, ok := tp.Bounds[0].(*ast.SimpleType)
-	if !ok || bound.Name != "Equatable" {
-		t.Errorf("expected bound SimpleType(Equatable), got %T %v", tp.Bounds[0], tp.Bounds[0])
-	}
-}
-
-// TestDeriveOnGenericStructDebugAndComparable spot-checks that the bound
-// propagation routes through every per-protocol synthesizer, not just
-// Equatable + Hashable. `@derive Debug struct Box<T>` and `@derive
-// Comparable struct Box<T>` should both stamp `T: <Iface>` onto their
-// synthesized fns.
-func TestDeriveOnGenericStructDebugAndComparable(t *testing.T) {
-	srcDebug := `struct Box<T>
-    value: T
-end
-derive Debug for Box<T>`
-	fn := synthFnBy(t, srcDebug, "inspect", "Debug", "Box")
-	if fn == nil {
-		t.Fatal("no synthesized Debug impl (fn inspect) for Box found")
-	}
-	if len(fn.TypeParams) != 1 || len(fn.TypeParams[0].Bounds) != 1 {
-		t.Fatalf("Debug: expected 1 TypeParam with 1 bound, got %v", fn.TypeParams)
-	}
-	if b, ok := fn.TypeParams[0].Bounds[0].(*ast.SimpleType); !ok || b.Name != "Debug" {
-		t.Errorf("Debug: expected bound Debug, got %T %v", fn.TypeParams[0].Bounds[0], fn.TypeParams[0].Bounds[0])
-	}
-
-	srcComparable := `struct Box<T>
-    value: T
-end
-derive Comparable for Box<T>`
-	fn2 := synthFnBy(t, srcComparable, "compare", "Comparable", "Box")
-	if fn2 == nil {
-		t.Fatal("no synthesized Comparable impl (fn compare) for Box found")
-	}
-	if len(fn2.TypeParams) != 1 || len(fn2.TypeParams[0].Bounds) != 1 {
-		t.Fatalf("Comparable: expected 1 TypeParam with 1 bound, got %v", fn2.TypeParams)
-	}
-	if b, ok := fn2.TypeParams[0].Bounds[0].(*ast.SimpleType); !ok || b.Name != "Comparable" {
-		t.Errorf("Comparable: expected bound Comparable, got %T %v", fn2.TypeParams[0].Bounds[0], fn2.TypeParams[0].Bounds[0])
+	if !ok || bound.Name != "Comparable" {
+		t.Errorf("expected bound SimpleType(Comparable), got %T %v", tp.Bounds[0], tp.Bounds[0])
 	}
 }
 
@@ -1548,9 +708,9 @@ func TestDeriveOnNonGenericStructHasNoTypeParams(t *testing.T) {
     x: Int
     y: Int
 end
-derive Equatable for Point`
+derive Comparable for Point`
 
-	fn := synthFnBy(t, src, "equal", "Equatable", "Point")
+	fn := synthFnBy(t, src, "compare", "Comparable", "Point")
 	if fn == nil {
 		t.Fatal("no synthesized fn for Point found")
 	}

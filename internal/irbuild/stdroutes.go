@@ -59,15 +59,6 @@ func (g *gen) stdFuncByID(id analysis.StdFunc) *stdFunc {
 	return g.std.byID[id]
 }
 
-// stdInstFuncOf is the std function id names that a program instantiates
-// for itself (stdModuleInstFunc), or nil.
-func (s *stdInstances) stdInstFuncOf(id analysis.StdFunc) *stdFunc {
-	if s == nil || id.IsZero() {
-		return nil
-	}
-	return stdModuleInstFunc(s.std.views[stdShortModule(id.Module)], id.Owner, id.Name)
-}
-
 // stdTemplateOf is the generic std template id names, or nil.
 func (s *stdInstances) stdTemplateOf(id analysis.StdFunc) *stdFunc {
 	if s == nil || id.IsZero() {
@@ -126,10 +117,6 @@ func (g *gen) stdIfaceCallRecord(iface analysis.StdType, method string, args int
 	return rc
 }
 
-// testingCheck is std/testing's `check`, a keyword form the builder lowers
-// itself (testingCheck).
-var testingCheck = analysis.StdFunc{Module: "std/testing", Name: "check"}
-
 // stdRoute is a route of the builder's own for a std function, instead of
 // a call of its body.
 type stdRoute uint8
@@ -169,9 +156,10 @@ const (
 	// routePreludePredicate is a prelude enum's variant test
 	// (preludePredicates, preludePredicateCall).
 	routePreludePredicate
-	// routeScalarText is a scalar's `to_string`, and routeDisplay
-	// `Display.to_string`, rendered as the form of the call's record says
-	// (displayCall).
+	// routeScalarText is Int's, Float's and String's `to_string`, and
+	// routeDisplay `Display.to_string`, rendered as the form of the call's
+	// record says (displayCall). Bool's is derived and reaches displayCall
+	// as Display's own function (typeQualRoutes).
 	routeScalarText
 	routeDisplay
 	// routeEachWhile is `Bytes.each_while` and `String.each_while`, and
@@ -233,7 +221,6 @@ var (
 	stdDisplayType = analysis.StdType{Module: "std/display", Name: "Display"}
 	stdIntType     = analysis.StdType{Module: "std/int", Name: "Int"}
 	stdFloatType   = analysis.StdType{Module: "std/float", Name: "Float"}
-	stdBoolType    = analysis.StdType{Module: "std/bool", Name: "Bool"}
 	stdStringType  = analysis.StdType{Module: "std/strings", Name: "String"}
 	stdBytesType   = analysis.StdType{Module: "std/bytes", Name: "Bytes"}
 	stdOptionType  = analysis.StdType{Module: "std/option", Name: "Option"}
@@ -264,7 +251,6 @@ func stdQualRouteTable() map[stdQualKey]stdRoute {
 		{stdToJson, "to_json_field"}:    routeToJson,
 		{stdIntType, "to_string"}:       routeScalarText,
 		{stdFloatType, "to_string"}:     routeScalarText,
-		{stdBoolType, "to_string"}:      routeScalarText,
 		{stdStringType, "to_string"}:    routeScalarText,
 		{stdDisplayType, "to_string"}:   routeDisplay,
 		{stdBytesType, "each_while"}:    routeEachWhile,

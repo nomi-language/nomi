@@ -139,7 +139,7 @@ var (
 // ResolveCompilerSource answers the compiler source for this process's plan.
 // A versioned plan downloads the module with `go mod download` (a no-op once
 // it is in the module cache), so it needs a Go toolchain, which a runner
-// build needs anyway. Only a success is remembered: `nomi-lsp` lives for a
+// build needs anyway. Only a success is remembered: `nomi lsp` lives for a
 // whole editing session, and a failed download should be retried.
 func ResolveCompilerSource() (CompilerSource, error) {
 	sourceMu.Lock()

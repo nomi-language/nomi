@@ -387,6 +387,22 @@ func (o *stdObjects) definers(mods [][]*ir.Module) []string {
 	return out
 }
 
+// undefined is the symbol the decoded modules link under link when no
+// shared module defines a function or cell of that name, or nil: a std
+// interface's dispatch symbol, which a shared body dispatches on and each
+// program records its own entries for (stdprogiface.go).
+func (o *stdObjects) undefined(link string) *ir.Symbol {
+	if o == nil {
+		return nil
+	}
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	if o.linkedFuncs[link] != nil || o.linkedCells[link] != nil {
+		return nil
+	}
+	return o.linker.Known(link)
+}
+
 // generation is how many decodes have decoded a module (gen), 0 for none.
 func (o *stdObjects) generation() int64 {
 	if o == nil {

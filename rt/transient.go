@@ -27,8 +27,14 @@ import "slices"
 //
 //   - A persistent operation never stamps, so a value derived from an
 //     owned one by a persistent operation (a value the caller kept) has a
-//     header or root without a token or with its own, and its first Owned
-//     operation copies every stamped node it touches.
+//     header or root without a token, and its first Owned operation copies
+//     every stamped node it touches. Such a value is a new one, held by
+//     whoever the operation answered, so its holder may hand it to an
+//     Owned operation even when the operand was borrowed: that first
+//     operation stamps a copy of its header or root and the path it
+//     writes, and the next ones write those in place. The exception is a
+//     remove of a key the map lacks, which answers its operand itself,
+//     token and all; its answer is owned only as the operand was.
 //   - The caller's proof is that the operand has one holder, which the
 //     operation consumes: no other value holds the header or root that
 //     carries the token.

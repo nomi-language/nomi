@@ -131,7 +131,8 @@ func hostTableType(et *ast.ExternType) bool {
 // `rtOpaque` is the load-bearing one (see stdhost.go): without it, four arms
 // written for a zero-sized MARKER answer for a value with contents, so `a == b`
 // on two handles answers true, the hash is `rt.HashUnit`, the Debug rendering
-// is the bare type name, and `zeroSized()` says true. A host handle is an
+// is the bare type name, and `irRetainedMarker` says true, so an enum payload
+// of one gets no slot. A host handle is an
 // opaque descriptor with no structural equality, no hash and no Display in
 // the language, so declining all three is the right answer and not merely
 // the safe one.

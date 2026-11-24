@@ -160,7 +160,7 @@ func StdlibLogicalModuleName(rel string) string {
 // comment telling the next editor to update the other two.
 //
 // The rule is that the file's directory is the stdlib's root: `std`, or a std
-// version directory (internal/stdcache.IsVersion) whose parent is `std`; or
+// version directory under one (internal/stdcache.IsVersionDir); or
 // that its directory is a parent module's, `<parent>/`, not `_`-prefixed,
 // directly under such a root. Every public module is a `std/<name>.nomi` or
 // a module nested under its parent, `std/<parent>/<name>.nomi`, whose module
@@ -233,8 +233,5 @@ func nestedStdlibParent(dir, p, name string) bool {
 // `std`, or a std version directory under one, as the jump-to-def
 // materialization keeps them (std/<version>/, internal/stdcache).
 func isStdlibRootDir(dir string) bool {
-	if path.Base(dir) == "std" {
-		return true
-	}
-	return stdcache.IsVersion(path.Base(dir)) && path.Base(path.Dir(dir)) == "std"
+	return path.Base(dir) == "std" || stdcache.IsVersionDir(dir)
 }

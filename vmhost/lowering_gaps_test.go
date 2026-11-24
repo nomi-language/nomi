@@ -88,6 +88,36 @@ fn main()
 end
 `,
 	},
+	{
+		name: "gapImplAtALargerReceiver",
+		fix: "the builder: registering an instance of a generic type registers each of its impl blocks at once, " +
+			"and resolving the interface `Deeper<Box<Box<T>>>` at `Box<Int>` builds `Box<Box<Int>>`, whose block names " +
+			"`Box<Box<Box<Int>>>`, until the instance bounds refuse the chain (typeInstCap); a block whose interface " +
+			"arguments name its receiver's template at a larger argument must be registered for an instance only when " +
+			"something asks for that instance's impls",
+		reason: "a struct literal: Box",
+		noSkip: true,
+		src: `import std::io
+
+interface Deeper<T>
+    fn deeper(value: self) -> T
+end
+
+struct Box<T>
+    t: T
+end
+
+impl Deeper<Box<Box<T>>> for Box<T>
+    fn deeper(b: Box<T>) -> Box<Box<T>>
+        Box{t: Box{t: b.t}}
+    end
+end
+
+fn main()
+    io.print(Deeper.deeper(Box{t: 1}).t.t)
+end
+`,
+	},
 }
 
 // knownGapFor is the known gap every one of reasons matches, or nil. A gap

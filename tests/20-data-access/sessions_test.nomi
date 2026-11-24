@@ -237,4 +237,18 @@ group "expiry"
         timer.sleep(Duration.minutes(31))
         assert Response.text(app(idle)(get(moved))) == Ok("nobody []")
     end
+
+    // The session is set, then the clock moves before it is written: its
+    // cookie still lasts exactly the store's lifetime.
+    test "a request's session work takes one time, however long its handler runs"
+        slow =
+            fn _: Request, session: Session<Visit> ->
+                next = Session.set(session, Visit{user: "ada"})
+                timer.sleep(Duration.seconds(5))
+                Response{} |> sessions.write(next)
+            end
+
+        signed = (slow |> sessions.with_session(store))(testing.request(Method.Get, "/"))
+        assert List.first(Response.cookies(signed))!.max_age == MaxAge.Seconds(14 * 24 * 60 * 60)
+    end
 end

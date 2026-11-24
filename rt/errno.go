@@ -23,31 +23,45 @@ func ErrnoName(err error) string {
 	return "errno " + strconv.FormatUint(uint64(errno), 10)
 }
 
-var errnoNames = map[syscall.Errno]string{
-	syscall.EACCES:       "EACCES",
-	syscall.EAGAIN:       "EAGAIN",
-	syscall.EBADF:        "EBADF",
-	syscall.EBUSY:        "EBUSY",
-	syscall.EEXIST:       "EEXIST",
-	syscall.EFBIG:        "EFBIG",
-	syscall.EINTR:        "EINTR",
-	syscall.EINVAL:       "EINVAL",
-	syscall.EIO:          "EIO",
-	syscall.EISDIR:       "EISDIR",
-	syscall.ELOOP:        "ELOOP",
-	syscall.EMFILE:       "EMFILE",
-	syscall.EMLINK:       "EMLINK",
-	syscall.ENAMETOOLONG: "ENAMETOOLONG",
-	syscall.ENFILE:       "ENFILE",
-	syscall.ENOENT:       "ENOENT",
-	syscall.ENOSPC:       "ENOSPC",
-	syscall.ENOTDIR:      "ENOTDIR",
-	syscall.ENOTEMPTY:    "ENOTEMPTY",
-	syscall.ENOTSUP:      "ENOTSUP",
-	syscall.ENXIO:        "ENXIO",
-	syscall.EPERM:        "EPERM",
-	syscall.EPIPE:        "EPIPE",
-	syscall.EROFS:        "EROFS",
-	syscall.ETIMEDOUT:    "ETIMEDOUT",
-	syscall.EXDEV:        "EXDEV",
-}
+// errnoNames names each code. Where two names share a code (AIX's EEXIST
+// and ENOTEMPTY are both 17), the first listed names it.
+var errnoNames = func() map[syscall.Errno]string {
+	m := map[syscall.Errno]string{}
+	for _, e := range []struct {
+		code syscall.Errno
+		name string
+	}{
+		{syscall.EACCES, "EACCES"},
+		{syscall.EAGAIN, "EAGAIN"},
+		{syscall.EBADF, "EBADF"},
+		{syscall.EBUSY, "EBUSY"},
+		{syscall.EEXIST, "EEXIST"},
+		{syscall.EFBIG, "EFBIG"},
+		{syscall.EINTR, "EINTR"},
+		{syscall.EINVAL, "EINVAL"},
+		{syscall.EIO, "EIO"},
+		{syscall.EISDIR, "EISDIR"},
+		{syscall.ELOOP, "ELOOP"},
+		{syscall.EMFILE, "EMFILE"},
+		{syscall.EMLINK, "EMLINK"},
+		{syscall.ENAMETOOLONG, "ENAMETOOLONG"},
+		{syscall.ENFILE, "ENFILE"},
+		{syscall.ENOENT, "ENOENT"},
+		{syscall.ENOSPC, "ENOSPC"},
+		{syscall.ENOTDIR, "ENOTDIR"},
+		{syscall.ENOTEMPTY, "ENOTEMPTY"},
+		{syscall.ENOTSUP, "ENOTSUP"},
+		{syscall.ENXIO, "ENXIO"},
+		{syscall.EPERM, "EPERM"},
+		{syscall.EPIPE, "EPIPE"},
+		{syscall.EROFS, "EROFS"},
+		{syscall.ESRCH, "ESRCH"},
+		{syscall.ETIMEDOUT, "ETIMEDOUT"},
+		{syscall.EXDEV, "EXDEV"},
+	} {
+		if _, ok := m[e.code]; !ok {
+			m[e.code] = e.name
+		}
+	}
+	return m
+}()

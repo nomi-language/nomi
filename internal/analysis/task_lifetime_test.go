@@ -30,12 +30,8 @@ end`
 	expectConcurrentError(t, errs, "Task bound to 't' is never awaited")
 }
 
-// Rule 2 (corner case): a Task binding passed to `await` indirectly via
-// a tail expression that references the binding name. Accepted — the
-// rule is "the name must be referenced", not "must be a `Task.await(t)`
-// call lexically". This is the conservative v1 of the use-once rule
-// (broader uses of the binding are also accepted; only the wholly-
-// unused case is rejected).
+// Rule 2: a Task binding awaited in the block's tail expression is
+// settled.
 func TestTaskLifetime_BindingReferencedAsTail_OK(t *testing.T) {
 	src := `fn demo() -> Int
   concurrent
@@ -47,12 +43,9 @@ end`
 	expectNoConcurrentError(t, errs, "is never awaited")
 }
 
-// Rule 2 (corner case): a Task binding declared in an outer
-// `concurrent { }` block is referenced from inside a NESTED
-// `concurrent { }` block. The reference counts as a use of the
-// outer binding (collectReferencedNames descends into nested
-// ConcurrentBlock bodies); no spurious "never awaited" diagnostic.
-// The nested block's own Rule 2/Rule 3 checks still run
+// Rule 2: a Task binding declared in an outer `concurrent` block and
+// awaited inside a nested one is settled: the settle walk enters nested
+// blocks. The nested block's own Rule 2 and Rule 3 checks still run
 // independently.
 func TestTaskLifetime_BindingReferencedInNestedConcurrent_OK(t *testing.T) {
 	src := `fn demo() -> Int
@@ -133,9 +126,9 @@ end`
 	expectConcurrentError(t, errs, "cannot escape")
 }
 
-// Rule 2: discarding the handle, `_ = t`, is not an await, because it
-// skips the wait (spec §16). The discard is the error, at the `_ =`, and
-// names the await that would count; `_ = Task.await(t)` is accepted.
+// Rule 2: discarding the handle, `_ = t`, does not settle it, because it
+// skips the wait (spec §16). The error is at the binding and says what the
+// block did with the handle; `_ = Task.await(t)` is accepted.
 func TestTaskLifetime_DiscardingTheHandle_Errors(t *testing.T) {
 	src := `fn demo() -> Int
   concurrent
@@ -145,8 +138,7 @@ func TestTaskLifetime_DiscardingTheHandle_Errors(t *testing.T) {
   end
 end`
 	errs := analyzeConcurrent(src)
-	expectConcurrentError(t, errs, "`_ = t` discards the Task without waiting for it")
-	expectNoConcurrentError(t, errs, "is never awaited")
+	expectConcurrentError(t, errs, "Task bound to 't' is never awaited or cancelled: line 6 discards it with `_ =`")
 
 	awaited := `fn demo() -> Int
   concurrent
@@ -156,6 +148,5 @@ end`
   end
 end`
 	errs = analyzeConcurrent(awaited)
-	expectNoConcurrentError(t, errs, "discards the Task")
 	expectNoConcurrentError(t, errs, "is never awaited")
 }

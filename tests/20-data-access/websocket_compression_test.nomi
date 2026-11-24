@@ -1,0 +1,80 @@
+// std::websocket's permessage-deflate: a server whose `accept` sets
+// `compress` takes a browser's offer in a handshake made by hand, and a
+// WebSocket over that connection, told what was agreed, exchanges a
+// message that crosses compressed; one that does not set it takes no
+// offer.
+import
+    std::http.{Request, Response}
+    std::http::testing
+    std::io.{Reader, Writer}
+    std::net.{self, Connection}
+    std::websocket.{self, AcceptOptions, Message, WebSocket}
+end
+
+fn echo(compress: Bool) -> (Request) -> Response
+    fn request: Request ->
+        websocket.accept(request, AcceptOptions{compress:}, fn ws ->
+            _ = WebSocket.each(ws, fn message ->
+                _ = WebSocket.send(ws, message)
+            end)
+        end)
+    end
+end
+
+// The response's header lines to a handshake that offers compression as a
+// browser does, sent by hand over `conn`.
+fn handshake(conn: Connection, host: String) -> List<String>
+    request = String.join(
+        [
+            "GET /echo HTTP/1.1",
+            "Host: ${host}",
+            "Upgrade: websocket",
+            "Connection: Upgrade",
+            "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==",
+            "Sec-WebSocket-Version: 13",
+            "Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits",
+            "",
+            "",
+        ],
+        "\r\n",
+    )
+
+    _ = Writer.write_text(Connection.writer(conn), request)
+    reader = Connection.reader(conn)
+
+    Iter.repeat(Unit)
+    |> Iter.map(fn _ -> Reader.read_line(reader)! |> Option.with_default("") |> String.trim())
+    |> Iter.take_while(fn line -> line != "")
+    |> Iter.map(String.lowercase)
+    |> Iter.to_list()
+end
+
+once agreed_line = "sec-websocket-extensions: permessage-deflate; server_no_context_takeover; client_no_context_takeover"
+
+test "a server that compresses takes a browser's offer, and messages cross compressed"
+    message = String.repeat("compress me ", 100)
+
+    said = testing.with_server(echo(True), fn server ->
+        conn = net.dial(server.url.host)!
+        agreed = List.contains(handshake(conn, server.url.host), agreed_line)
+        ws = WebSocket.over(conn, client: True, compressed: agreed)
+        _ = WebSocket.send_text(ws, message)
+        reply = WebSocket.receive(ws)
+        _ = WebSocket.close(ws)
+        (agreed, reply)
+    end)
+
+    assert said == (True, Ok(Some(Message.Text(message))))
+end
+
+test "a server that does not compress takes no offer"
+    head = testing.with_server(echo(False), fn server ->
+        conn = net.dial(server.url.host)!
+        lines = handshake(conn, server.url.host)
+        _ = WebSocket.close(WebSocket.over(conn, client: True))
+        lines
+    end)
+
+    assert List.contains(head, "upgrade: websocket")
+    refute head |> Iter.any_match(fn line -> String.starts_with(line, "sec-websocket-extensions"))
+end

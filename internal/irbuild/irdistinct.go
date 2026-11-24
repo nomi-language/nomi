@@ -13,7 +13,7 @@ package irbuild
 // binds an `A` and not an Int.
 //
 // A MARKER IS NOT A CONSTRUCTION. `type Expired` has no inner at all —
-// `d.inner` is `kindInvalid`, which `zeroSizedOn` reads as "no storage" — so it
+// `d.inner` is `kindInvalid`, which `irRetainedMarker` reads as "no storage", so it
 // is an `ir.Const` (`markerValue`, `ir.NewMarker`).
 //
 // # What the node carries, and the name it carries it under

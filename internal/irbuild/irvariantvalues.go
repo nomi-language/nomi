@@ -9,15 +9,18 @@ import (
 	"github.com/nomi-language/nomi/internal/ir"
 )
 
-// irRetainedEnumKind reports whether the VM carries values of enum d.
-// irSlotlessPayload is a payload of a type with one value, Unit or a
-// zero-sized marker (`Ping(Unit)`, `Marked(Mark)`, `Tagged{m: Mark}`): it
-// is stored nowhere (assignSlots) and read back from its type alone
-// (irSlotlessValue).
+// irSlotlessPayload is a payload of Unit or of a zero-sized marker
+// (`Ping(Unit)`, `Marked(Mark)`, `Tagged{m: Mark}`): it is stored nowhere
+// (assignSlots) and read back from its type alone (irSlotlessValue). It is
+// the one rule for which payloads have no slot, so the layout, the
+// retention walk below and every read agree. Any other payload has a slot,
+// a field-less struct or a tuple of Units included: the VM builds that value
+// as it builds any record.
 func irSlotlessPayload(k kind) bool {
 	return k == kindUnit || k.tag == tagNamed && irRetainedMarker(k.def)
 }
 
+// irRetainedEnumKind reports whether the VM carries values of enum d.
 func irRetainedEnumKind(d *typeDef) bool {
 	if d == nil {
 		return false
@@ -709,6 +712,33 @@ func (bl *irScalarBuilder) variantValue(at ast.Node, d *typeDef, v *variantDef, 
 	k := named(d)
 	bl.side(make.Dst(), irScalarSide{k: k, pureMake: pure})
 	return make.Dst(), k, pure, true
+}
+
+// boolVariant lowers `Bool.True` and `Bool.False`, however the owner is
+// written (`bool.Bool.True` through the module), by the variant the
+// checker resolved the field to. Bool's representation forces the case:
+// the machine's Bool is kindBool, with no enum def for retainedVariant to
+// find, so its variant is a Bool constant rather than a variantValue.
+// ok is false, with nothing lowered, for any other field.
+func (bl *irScalarBuilder) boolVariant(field *ast.FieldAccess) (ir.Temp, kind, bool, bool) {
+	if field.Field == nil {
+		return ir.NoTemp, kindInvalid, false, false
+	}
+	sym := bl.g.checkedRef(field.Field.Line, field.Field.Col)
+	if sym == nil || sym.Kind != analysis.SymbolEnumVariant || bl.g.project(sym.Type) != kindBool {
+		return ir.NoTemp, kindInvalid, false, false
+	}
+	line, col := nodePos(field)
+	return bl.boolConst(line, col, sym.Name == "True")
+}
+
+// boolConst is the Bool constant v at line and col.
+func (bl *irScalarBuilder) boolConst(line, col int, v bool) (ir.Temp, kind, bool, bool) {
+	c := ir.NewBool(bl.g.irPos(line, col), bl.f.NewTemp(), v)
+	bl.b.Append(c)
+	// Mobile, as every constant is: a constant reads no temporary and runs
+	// nothing.
+	return c.Dst(), kindBool, true, true
 }
 
 func (bl *irScalarBuilder) variantBare(field *ast.FieldAccess) (ir.Temp, kind, bool, bool) {

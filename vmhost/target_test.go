@@ -218,3 +218,46 @@ end
 		t.Fatalf("linux/amd64 can serve, and the build is refused:\n%s", refused.Error())
 	}
 }
+
+// A WebAssembly module has no datagram or Unix sockets, as it has no TCP
+// ones: a build for js/wasm or wasip1 refuses a program that binds or dials
+// a UDP or Unix socket or takes an inherited one, naming the call, through
+// the listen and connect classes a TCP listener and dial carry. A native
+// target builds each.
+func TestCheckTarget_WebAssemblyRefusesDatagramsAndUnixSockets(t *testing.T) {
+	for _, c := range []struct{ call, imports, crossing, class string }{
+		{`udp.bind("127.0.0.1:0")`, "std::udp", "`udp.bind` calls `http/host.udp_bind`", "this program serves network requests"},
+		{`udp.dial("127.0.0.1:9")`, "std::udp", "`udp.dial` calls `http/host.udp_dial`", "this program opens network connections"},
+		{`udp.bind_unix("/tmp/a.sock")`, "std::udp", "`udp.bind_unix` calls `http/host.udp_bind`", "this program serves network requests"},
+		{`net.dial_unix("/tmp/a.sock")`, "std::net", "`net.dial_unix` calls `http/host.dial_with`", "this program opens network connections"},
+		{`net.listen_unix("/tmp/a.sock")`, "std::net", "`net.listen_unix` calls `http/host.net_listen_with`", "this program serves network requests"},
+		{`net.inherited_listeners()`, "std::net", "`net.inherited_listeners` calls `http/host.inherited_listeners`", "this program serves network requests"},
+		{`udp.inherited_sockets()`, "std::udp", "`udp.inherited_sockets` calls `http/host.inherited_sockets`", "this program serves network requests"},
+	} {
+		src := "import\n    " + c.imports + "\n    std::io\nend\n\nfn main()\n    io.print(" + c.call + " |> Result.is_ok())\nend\n"
+		path := filepath.Join(t.TempDir(), "sockets.nomi")
+		if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		p, err := vmhost.Load(path)
+		if err != nil {
+			t.Fatalf("%s: %v", c.call, err)
+		}
+		if refused := p.CheckTarget("nomi build --target linux/amd64", "linux", "amd64", false, nil); refused != nil {
+			t.Errorf("%s: linux/amd64 has sockets, and the build is refused:\n%s", c.call, refused.Error())
+		}
+		for _, target := range [][2]string{{"js", "wasm"}, {"wasip1", "wasm"}} {
+			command := "nomi build --target " + target[0] + "/" + target[1]
+			refused := p.CheckTarget(command, target[0], target[1], false, nil)
+			if refused == nil {
+				t.Errorf("%s builds a program that calls %s", command, c.call)
+				continue
+			}
+			var report strings.Builder
+			refused.Write(&report)
+			if !strings.Contains(report.String(), c.class) || !strings.Contains(report.String(), c.crossing) {
+				t.Errorf("%s, %s: report lacks %q and %q:\n%s", command, c.call, c.class, c.crossing, report.String())
+			}
+		}
+	}
+}

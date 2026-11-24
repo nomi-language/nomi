@@ -26,17 +26,25 @@ type debugBody struct {
 
 // recordedDebugBody is the Debug body the checker's record of
 // `Debug.inspect(x)` at kt, a nested part's checker type, names for a part
+// of kind k (recordedRenderBody).
+func (bl *irScalarBuilder) recordedDebugBody(k kind, kt analysis.Type) debugBody {
+	return bl.recordedRenderBody(stdDebug, "inspect", k, kt)
+}
+
+// recordedRenderBody is the body of the rendering function method of
+// iface (Debug's inspect, Display's to_string) the checker's record of
+// `iface.method(x)` at kt, a nested part's checker type, names for a part
 // of kind k (recordedIfaceFnAt): a program's impl function, the instance
 // at k of std's generic impl, or std's own function. No symbol where the
 // record names none the renderer can call.
-func (bl *irScalarBuilder) recordedDebugBody(k kind, kt analysis.Type) debugBody {
-	return bl.recordedDebugBodyOf(bl.g.stdIfaceCallRecord(stdDebug, "inspect", 1, kt).Callee, k, kt)
+func (bl *irScalarBuilder) recordedRenderBody(iface analysis.StdType, method string, k kind, kt analysis.Type) debugBody {
+	return bl.recordedRenderBodyOf(bl.g.stdIfaceCallRecord(iface, method, 1, kt).Callee, iface, method, k, kt)
 }
 
-// recordedDebugBodyOf is recordedDebugBody answered by c, the record of
-// the `Debug.inspect` it means (a `dbg`'s own, dbgRecord).
-func (bl *irScalarBuilder) recordedDebugBodyOf(c analysis.Callee, k kind, kt analysis.Type) debugBody {
-	r := bl.recordedIfaceFnOf(c, stdDebug, "inspect", k, kt, []kind{k}, kindString)
+// recordedRenderBodyOf is recordedRenderBody answered by c, the record of
+// the call it means (a `dbg`'s own, dbgRecord).
+func (bl *irScalarBuilder) recordedRenderBodyOf(c analysis.Callee, iface analysis.StdType, method string, k kind, kt analysis.Type) debugBody {
+	r := bl.recordedIfaceFnOf(c, iface, method, k, kt, []kind{k}, kindString)
 	switch {
 	case r.structural:
 		return debugBody{structural: true}
@@ -49,13 +57,39 @@ func (bl *irScalarBuilder) recordedDebugBodyOf(c analysis.Callee, k kind, kt ana
 	case r.sym != nil:
 		return debugBody{sym: r.sym, synth: r.synth}
 	case r.template != nil:
-		return debugBody{sym: bl.stdInstDebugSymOf(r.template, k, kt)}
+		return debugBody{sym: bl.stdInstSymOf(r.template, iface.Name, k, kt)}
 	case r.std != nil:
-		if p := bl.stdDebugPlanOf(r.std, k); p != nil {
+		if p := bl.stdRenderPlanOf(r.std, iface, method, k); p != nil {
 			return debugBody{sym: p.sym}
+		}
+		if f := r.std; f.canon != nil && f.canon.rtCall != "" || f.rtCall != "" {
+			// std's `host fn` (Codepoint's and Date's Display) has no
+			// body to name: the part renders through the thunk whose body
+			// is the direct call, as a box of the type names
+			// (irStdNamedBoxPlan).
+			return debugBody{sym: bl.g.stdRenderThunk(iface, method, k, kt)}
 		}
 	}
 	return debugBody{}
+}
+
+// stdRenderThunk is the thunk (stdProgThunk) whose body calls iface's
+// method on a value of kind k, of checker type kt (nil where none is
+// known), or nil where none is built.
+func (g *gen) stdRenderThunk(iface analysis.StdType, method string, k kind, kt analysis.Type) *ir.Symbol {
+	vt := g.irValType(k)
+	if vt == nil || vt.Erased() {
+		return nil
+	}
+	for i := range stdIfaceSpecs {
+		if stdIfaceSpecs[i].module == iface.Module && stdIfaceSpecs[i].nomi == iface.Name {
+			d := stdIfaceDefs()[i]
+			if m := d.methods[method]; m != nil {
+				return g.stdProgThunk(d, m, k, kt, vt.String())
+			}
+		}
+	}
+	return nil
 }
 
 // debugImplClass is how the Debug body a renderer names for a nested part

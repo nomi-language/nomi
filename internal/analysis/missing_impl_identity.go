@@ -36,8 +36,9 @@ import "github.com/nomi-language/nomi/internal/ast"
 //
 // # What it keys
 //
-// Every interface impl, a FuncDef in `IfaceMethodImpls` or a `host fn` in
-// `IfaceMethodImplExterns`, under its receiver's declaring origin and base
+// Every interface impl, a FuncDef in `IfaceMethodImpls`, a `host fn` in
+// `IfaceMethodImplExterns`, or a derive's block that writes no function in
+// `ImplBlocks` (a derived Equatable, Hashable, Debug or Display), under its receiver's declaring origin and base
 // name, and its interface's declaring origin and name as those maps,
 // `Impls` and `ImplManifest` spell it: the declaration's bare name
 // (implInterfaceName, so an import alias in the header names the interface
@@ -146,15 +147,16 @@ func PopulateImplsByIdentity(idx *ProjectImplIndex, filesByKey map[string]*FileA
 	if idx == nil {
 		return
 	}
-	covered, blocked := recordImplsByIdentity(idx, filesByKey, primitiveOriginIndex(filesByKey))
+	covered, blocked := recordImplsByIdentity(idx, filesByKey, filesByKey, primitiveOriginIndex(filesByKey))
 	idx.implNamesWithIdentity = coveredNotBlocked(covered, blocked)
 }
 
 // recordImplsByIdentity fills idx.ImplsByIdentity from idx's impls and
 // answers the (T, Iface) pairs some supplier of which resolved an origin
 // (covered) and those some supplier of which did not (blocked).
-// primitives is primitiveOriginIndex over filesByKey.
-func recordImplsByIdentity(idx *ProjectImplIndex, filesByKey map[string]*FileAnalysis, primitives map[string]string) (covered, blocked map[string]map[string]bool) {
+// primitives is primitiveOriginIndex over filesByKey, and own the files
+// idx folds, by key.
+func recordImplsByIdentity(idx *ProjectImplIndex, filesByKey, own map[string]*FileAnalysis, primitives map[string]string) (covered, blocked map[string]map[string]bool) {
 	if idx.ImplsByIdentity == nil {
 		idx.ImplsByIdentity = make(map[ImplIdentityKey]bool)
 	}
@@ -225,6 +227,29 @@ func recordImplsByIdentity(idx *ProjectImplIndex, filesByKey map[string]*FileAna
 				if ex != nil {
 					home := idx.ImplExternFiles[ex]
 					record(home, "", idx.ImplBlockReceiverExtern[ex], externImplIfaceOrigin(filesByKey[home], ex, iface), iface)
+				}
+			}
+		}
+	}
+	// A derive's block that writes no function (a derived Equatable,
+	// Hashable, Debug or Display, derivesByShape) is on neither map, and supplies its
+	// interface all the same: each such block of the files idx folds
+	// (own), which their types record (FileAnalysis.ImplBlocks).
+	for home, fa := range own {
+		if fa == nil {
+			continue
+		}
+		for recv, byIface := range fa.ImplBlocks {
+			for iface, blocks := range byIface {
+				for _, b := range blocks {
+					if b == nil || b.Block == nil || !derivesByShape(b.Block) {
+						continue
+					}
+					module := ""
+					if q, qualified := b.Block.Receiver.(*ast.QualifiedType); qualified && !ast.IsPublic(q.Module) {
+						module = q.Module
+					}
+					record(home, module, recv, b.Origin, iface)
 				}
 			}
 		}

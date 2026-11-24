@@ -29,24 +29,48 @@
 //# end
 //# ```
 //#
+//# A started program has a process id, `Child.id`, and `Child.signal`
+//# sends it a `Signal`. `Child.stop` is the way to end one that should get
+//# the chance to finish its work: it sends `Signal.Terminate`, waits up to
+//# a grace period, then kills it. A `Command` with `new_group` starts the
+//# program in a process group of its own, and `Child.signal_group` and
+//# `Child.stop` then reach every program it starts as well, as a shell
+//# script's commands. `process.id` is this program's own id.
+//#
+//# A program started here is not tied to this one by the operating
+//# system. When a function that spawned it returns, its deferred
+//# `Child.kill` ends it; when a task is cancelled, the programs that task
+//# started are killed. When this program is ended by an interrupt or a
+//# terminate signal, its supervisors drain, which cancels their tasks and
+//# kills the programs those tasks started, and then it exits: a program
+//# started outside a supervisor's task keeps running unless the signal
+//# reached it too, as Ctrl-C at a terminal reaches every program in the
+//# terminal's foreground group, which a program started with `new_group`
+//# is not in.
+//#
 //# Tests run commands against `std::process::testing`'s fake, which starts
 //# nothing. A WebAssembly target has no processes: `nomi build` for
-//# js/wasm or wasip1 refuses a program that starts one.
+//# js/wasm or wasip1 refuses a program that starts one. `process.id` works
+//# on every target, and answers 1 on js/wasm and wasip1.
 
 import
     bool.Bool.{False, True}
     bytes.Bytes
+    channels.{Channel, Receiver, Sender}
     display.Display
+    duration.Duration
     equatable.Equatable
-    int.{Int, Int64}
+    int.{Int, Int64, PositiveInt}
     io.{Error, Reader, Writer}
     lists.List
     maps.Map
     option.Option.{self, None, Some}
     process::host
     resources.Release
-    results.Result.{self, Ok}
+    results.Result.{self, Err, Ok}
     strings.String
+    tasks.Task
+    unit.Unit
 end
 
 /// What a `main` or an entry boot returns in its `Err` to end the program
@@ -103,6 +127,10 @@ pub struct Command
     /// What the program reads on its standard input, for `output` and
     /// `run`.
     stdin: Stdin = Stdin.Null
+    /// Start the program as the leader of a process group of its own, so
+    /// `Child.signal_group` and `Child.stop` reach the programs it starts
+    /// too, and Ctrl-C at the terminal does not reach it.
+    new_group: Bool = False
 end
 
 /// What a started program reads on its standard input.
@@ -159,6 +187,54 @@ impl Display for Status
         case status
             Status.Exited{code:}     -> "exited with code ${code}"
             Status.Signaled{signal:} -> "ended by signal ${signal}"
+        end
+    end
+end
+
+/// A signal one program sends another. Its `Display` is the POSIX name
+/// (`SIGTERM`). Windows has only `Kill`; `Child.signal` answers
+/// `Error.Unsupported` there for the others.
+pub enum Signal
+    /// Asks the program to end. A service manager sends it to stop a
+    /// service, and most programs end cleanly on it.
+    Terminate
+    /// An interrupt, as Ctrl-C at a terminal sends.
+    Interrupt
+    /// The terminal hung up. Many servers read their configuration again
+    /// on it.
+    Hangup
+    /// Ends the program at once. It cannot be caught or ignored.
+    Kill
+    /// For the program's own use.
+    User1
+    /// For the program's own use.
+    User2
+    /// Pauses the program until `Continue`. It cannot be caught.
+    Stop
+    /// Lets a paused program run again.
+    Continue
+    /// Asks the program to end and, unless it catches it, to write a core
+    /// dump.
+    Quit
+end
+
+derive Equatable for Signal
+
+impl Display for Signal
+    //! assert "${Signal.Terminate}" == "SIGTERM"
+    //! assert "${Signal.User1}" == "SIGUSR1"
+    //
+    fn to_string(signal: Signal) -> String
+        case signal
+            .Terminate -> "SIGTERM"
+            .Interrupt -> "SIGINT"
+            .Hangup    -> "SIGHUP"
+            .Kill      -> "SIGKILL"
+            .User1     -> "SIGUSR1"
+            .User2     -> "SIGUSR2"
+            .Stop      -> "SIGSTOP"
+            .Continue  -> "SIGCONT"
+            .Quit      -> "SIGQUIT"
         end
     end
 end
@@ -254,9 +330,18 @@ pub fn spawn(command: Command) -> Result<Child, Error>
     start(command, 3, 3, True)
 end
 
+/// This program's process id. A js/wasm or wasip1 module, which has none,
+/// answers 1.
+//! assert id() >= 1
+//
+pub fn id() -> PositiveInt
+    host.id()
+end
+
 /// A program `spawn` started.
 pub opaque struct Child
     handle: host.Child
+    group:  Bool
 end
 
 impl Child
@@ -296,6 +381,121 @@ impl Child
             _           -> unreachable "host.wait answers a kind and a number"
         end
     end
+
+    /// The program's process id, as the operating system knows it, which
+    /// is its own until a wait or a kill has seen it end. Under
+    /// `std::process::testing`'s fake it is the start's position among the
+    /// calls, from 1.
+    //! import std::process::testing.{self, Answer}
+    //!
+    //! ran = testing.run([Answer{program: "make"}], fn ->
+    //!     child = spawn(Command{program: "make"})!
+    //!     defer Child.kill(child)
+    //!     Child.id(child)
+    //! end)
+    //!
+    //! assert ran.value == 1
+    //
+    pub fn id(child: Child) -> PositiveInt
+        host.child_id(child.handle)
+    end
+
+    /// Sends `signal` to the program. A program that has ended is
+    /// `Error.Other` with code `ESRCH`, no such process. On Windows only
+    /// `Signal.Kill` can be sent, and the others are `Error.Unsupported`.
+    //! import std::process::testing.{self, Answer}
+    //!
+    //! ran = testing.run([Answer{program: "make"}], fn ->
+    //!     child = spawn(Command{program: "make"})!
+    //!     defer Child.kill(child)
+    //!     Child.signal(child, Signal.Hangup)
+    //! end)
+    //!
+    //! assert ran.value == Err(Error.Other{operation: "process.signal", path: "make", code: "ESRCH"})
+    //
+    pub fn signal(child: Child, signal: Signal) -> Result<Unit, Error>
+        host.signal(child.handle, "${signal}", False)
+    end
+
+    /// Sends `signal` to every program in the process group the program
+    /// leads, which a `Command` with `new_group` starts: the program, and
+    /// the programs it started that are still in its group, after it has
+    /// ended too. A program started without `new_group` is in this
+    /// program's own group, so the call is `Error.Unsupported`. Windows
+    /// sends no signal to a group: `Error.Unsupported`.
+    pub fn signal_group(child: Child, signal: Signal) -> Result<Unit, Error>
+        host.signal(child.handle, "${signal}", True)
+    end
+
+    /// Stops the program and returns how it ended: sends it
+    /// `Signal.Terminate`, waits up to `grace` for it to end, and kills it
+    /// if it has not. A program that ends on the signal reports its own
+    /// status, and one killed after the grace is `Status.Signaled{signal:
+    /// 9}`. A program started with `new_group` is stopped with its group:
+    /// both signals go to every program in it. A program that has already
+    /// ended is not signaled, and its status is returned. On Windows, which
+    /// sends no `Terminate`, the program is killed at once.
+    ///
+    /// ```nomi
+    /// server = process.spawn(Command{program: "./server", new_group: True})?
+    ///
+    /// defer Child.kill(server)
+    ///
+    /// status = Child.stop(server, Duration.seconds(10))?
+    /// ```
+    //! import std::process::testing.{self, Answer}
+    //!
+    //! ran = testing.run([Answer{program: "server", code: 3}], fn ->
+    //!     child = spawn(Command{program: "server"})!
+    //!     defer Child.kill(child)
+    //!     Child.stop(child, Duration.seconds(5))
+    //! end)
+    //!
+    //! assert ran.value == Ok(Status.Exited{code: 3})
+    //
+    pub fn stop(child: Child, grace: Duration) -> Result<Status, Error>
+        case send(child, Signal.Terminate)
+            Ok(_)  -> wait_up_to(child, grace)
+            Err(_) -> kill_all(child)
+        end
+
+        Child.wait(child)
+    end
+end
+
+// Sends signal to child, or to its group when it leads one.
+fn send(child: Child, signal: Signal) -> Result<Unit, Error>
+    if child.group then
+        Child.signal_group(child, signal)
+    else
+        Child.signal(child, signal)
+    end
+end
+
+// Waits up to grace for child to end, and kills it, with its group, when
+// it has not.
+fn wait_up_to(child: Child, grace: Duration)
+    concurrent
+        ended: Channel<Unit> = Channel.buffered(1)
+
+        waiter = Task.spawn(fn ->
+            _ = Child.wait(child)
+            _ = Sender.send(ended.sender, Unit)
+        end)
+
+        if Receiver.receive_within(ended.receiver, grace) is Err(_) then kill_all(child)
+
+        Task.await(waiter)
+    end
+end
+
+// Kills child, and every program in its group when it leads one.
+fn kill_all(child: Child)
+    if child.group then
+        _ = Child.signal_group(child, Signal.Kill)
+    end
+
+    Child.kill(child)
 end
 
 impl Release for Child
@@ -325,9 +525,10 @@ fn start(command: Command, stdout: Int64, stderr: Int64, piped: Bool) -> Result<
         input,
         stdout,
         stderr,
+        command.new_group,
     )?
 
-    Ok(Child{handle:})
+    Ok(Child{handle:, group: command.new_group})
 end
 
 // A standard input the caller writes to: mode 3.

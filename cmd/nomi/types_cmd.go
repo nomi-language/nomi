@@ -146,7 +146,7 @@ func typesRoots(files []string) ([]string, error) {
 	seen := map[string]bool{}
 	var roots []string
 	for _, f := range files {
-		if _, _, ok := frontend.StdlibFile(f); ok {
+		if _, _, ok, refused := frontend.StdlibFile(f); ok || refused != nil {
 			continue
 		}
 		dir := analysis.ProjectRoot(f, "")

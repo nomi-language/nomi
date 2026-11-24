@@ -47,8 +47,8 @@ fn boot() -> Result<App, String>
     })
 end
 
-fn twice(t: tasks.Task<Int>) -> Int
-    tasks.Task.await(t) * 2
+fn twice(n: Int) -> Int
+    n * 2
 end
 
 fn describe(e: random.Error) -> String
@@ -73,8 +73,8 @@ fn main()
 
     n =
         concurrent
-            t = tasks.Task.spawn(fn -> 20 + 1)
-            twice(t)
+            t: tasks.Task<Int> = tasks.Task.spawn(fn -> 20 + 1)
+            twice(tasks.Task.await(t))
         end
 
     io.print(n)

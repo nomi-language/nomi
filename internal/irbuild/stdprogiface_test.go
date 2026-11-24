@@ -189,7 +189,7 @@ end
 // Every Matcher function called on a value held as Matcher, including those
 // whose result is no scalar (`List<String>`, `Option<String>`), over a String
 // and over a program struct. The signatures are std's declaration, resolved
-// against std's own file (stdProgIfaceOf), so `Option<String>` is the prelude
+// against std's own file (the registry's def, stdtypes.go), so `Option<String>` is the prelude
 // enum's instance.
 func TestStdProgIface_EveryMatcherFunctionOnAnErasedReceiver(t *testing.T) {
 	if testing.Short() {
@@ -618,4 +618,120 @@ fn main()
     io.print("${Fragment{x: 1}.x}")
 end
 `, "3\n1\n")
+}
+
+// twoHashablePrograms are two programs that each declare a `P` with their own
+// impl of std's Hashable and hold one as a Hashable value, with what each
+// prints.
+var twoHashablePrograms = []struct{ src, want string }{
+	{`import std::io
+
+struct P
+    n: Int
+end
+
+impl Hashable for P
+    fn hash(value: P) -> Int
+        value.n + 1
+    end
+end
+
+fn main()
+    h: Hashable = P{n: 3}
+    io.print(Int.to_string(Hashable.hash(h)))
+end
+`, "4\n"},
+	{`import std::io
+
+struct P
+    n: Int
+end
+
+impl Hashable for P
+    fn hash(value: P) -> Int
+        value.n * 100
+    end
+end
+
+fn main()
+    h: Hashable = P{n: 3}
+    io.print(Int.to_string(Hashable.hash(h)))
+end
+`, "300\n"},
+}
+
+// A shared std body that holds a std interface value (`Json.encode_as(value:
+// ToJson)`, lowered once for the process) dispatches to a program's impl and
+// to the thunk the program builds for a std type: the program's entries are
+// on the symbol the shared objects link under the interface's name
+// (linkImport), so the shared body's dispatch reaches them.
+func TestStdProgIface_ASharedBodyDispatchesToTheProgramsEntries(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; -short")
+	}
+	irRunSource(t, `import std::io
+import std::json.{Json, ToJson}
+
+struct P
+    n: Int
+end
+
+impl ToJson for P
+    fn to_json(value: P) -> Json
+        Json.Int(value.n * 2)
+    end
+end
+
+fn main()
+    io.print(Json.encode_as(P{n: 3}))
+    io.print(Json.encode_as(5))
+    io.print(Json.encode_as([P{n: 1}, P{n: 2}]))
+end
+`, "6\n5\n[2,4]\n")
+}
+
+// Two programs in one process with different impls of one std interface for
+// a type of one name: each names the interface's dispatch symbol by the one
+// linkage name std's declaration gives it, each records its own entry for
+// `P` in its own modules, and each runs its own impl, since a machine's
+// dispatch table is the entries of the modules it links (ir.Module.Implement,
+// vm's addImpls). Run in turn, twice, so neither run's table leaks into the
+// other's.
+func TestStdProgIface_TwoProgramsDispatchApartOnOneName(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; -short")
+	}
+	const link = "std/hashable.Hashable.hash"
+	var paths []string
+	for i, c := range twoHashablePrograms {
+		path := writeTemp(t, c.src)
+		paths = append(paths, path)
+		p, err := Analyze(path)
+		if err != nil {
+			t.Fatalf("program %d: the front end rejects this, so nothing below is tested: %v", i, err)
+		}
+		res, _, err := GenerateIR(p)
+		if err != nil {
+			t.Fatalf("program %d does not lower: %v", i, err)
+		}
+		var entries []string
+		for _, m := range res.IRModules() {
+			for _, e := range m.Impls() {
+				if e.Method.Link() == link {
+					entries = append(entries, m.Name()+": "+e.Type.Name()+" -> "+e.Func.Name())
+				}
+			}
+		}
+		if len(entries) != 1 || entries[0] != path+": entry.P -> Hashable.hash for P" {
+			t.Errorf("program %d records %q on %s; want one entry for its P, in its own file", i, entries, link)
+		}
+	}
+	for range 2 {
+		for i, c := range twoHashablePrograms {
+			got := vmReference(paths[i])
+			if got.stdout != c.want || got.stderr != "" || got.exit != 0 {
+				t.Errorf("program %d (exit %d): stdout %q, stderr %q; want %q", i, got.exit, got.stdout, got.stderr, c.want)
+			}
+		}
+	}
 }

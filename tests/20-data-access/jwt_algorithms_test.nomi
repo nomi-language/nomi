@@ -1,0 +1,128 @@
+// std::jwt's RS384, RS512, PS384, PS512, ES384 and ES512: each verifies a
+// token OpenSSL 3 signed (`openssl dgst -sign` over the header and claims,
+// the ECDSA signatures turned from DER into r and s as RFC 7518 writes
+// them), refuses it under a key of another algorithm, and signs a token it
+// then verifies.
+import
+    std::json.Json
+    std::jwt.{self, Algorithm, JwtError, SigningKey, VerifyingKey}
+    std::signatures.{PrivateKey, PublicKey}
+end
+
+once p384 = """
+    -----BEGIN PUBLIC KEY-----
+    MHYwEAYHKoZIzj0CAQYFK4EEACIDYgAEBcU7mR4p8hU2apoq6/p7jEIMXkx7iOrW
+    fI9kTGRNIW6HEudxcwn4w6GB3Q2CEUkno3kOpqdnU++V3ZtH2PqJXdnBIKCp7L2r
+    iOkzcE4KVL3l/L7iCQopFSgzxvzeRw4s
+    -----END PUBLIC KEY-----
+    """
+
+once p521 = """
+    -----BEGIN PUBLIC KEY-----
+    MIGbMBAGByqGSM49AgEGBSuBBAAjA4GGAAQAySu9493PJaejkzOu3IGGz8A8UWCL
+    bobu0fAXSVRVYcgmZQQfw0FdwubKKjfDwAzHA+FZu4flfkSbF4L82/ck4h4BdgJ/
+    JRWMM3y3+tRG1Bo9qNdL3u0xdVA+DQnteXRMpzL333tNP4Ry4ijwBy+POwvdQbgO
+    lKmaJ8nP3gLBiQNNYSM=
+    -----END PUBLIC KEY-----
+    """
+
+once rsa = """
+    -----BEGIN PUBLIC KEY-----
+    MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAynnKKMkBB882RlXF++Ob
+    mDVg4P71n/3OJGmkEdCe2P25rReJQjO+xl29oAPzmAXb0Jb2OwvAW3EXmrG1L1gx
+    XNRR/hvgDAu2QsF5UaQPOrjwohm1JgBOs4z9I/ofNnl6XTL3V5SOEmDYYlhGso5n
+    HdY+gk+4Twppi/fdCciOgEBm+P1ImjiaNtf3YlheHRthLfsF/gmKkrzziL77wDUc
+    70W3D3tGm2HU65vmNjoXon+0nR/QEp+WTyWv4/vQnhF+jt0OCAW9MWm3092suYM0
+    /bxPsxMP+z3Ok+wP0CILd26m/G8MRdG7ikvIE12qLXpNd/yq/KRhp0CwEwcB+hPp
+    vQIDAQAB
+    -----END PUBLIC KEY-----
+    """
+
+/// Each token OpenSSL signed, with its algorithm and the PEM of its key.
+fn tokens() -> List<(Algorithm, String, String)>
+    [
+        (
+            .Rs384,
+            rsa,
+            "eyJhbGciOiJSUzM4NCIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZGEiLCJpYXQiOjE3MDAwMDAwMDB9.x91vR3p6i12ilwkQQ4qIwB8NpDucPjdiP10EqR0HmRCWbVsRAuDgEBinqImQQUF0IyAPdJ1kcGbM3gjd5o0aWtDKKQRP0hmHagi-MUXzTsE9JLtAIqaQd2XrPquadSMEHbe1uTM29CvQI3Cc-1Ly5IzuOMFt2DXUOOvB5N_PzhDOmXKplmIngx-uN7Uo2o3y2vF_SYFueRi98dTGV5z-K9wfBqtPUS9EI-pma58EV9n80dZt9oCWkr21fVbzhF4ymJUO4Ou8ErOtzh2VZuHWsKFUcAjTEfpvTn3qsJ6iyh5ggvQH6bNmjHS-xq2Fu-WDbXVX67GJmczAO_xH7VnZTw",
+        ),
+        (
+            .Rs512,
+            rsa,
+            "eyJhbGciOiJSUzUxMiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZGEiLCJpYXQiOjE3MDAwMDAwMDB9.AlR2ZOOV-EZs2dEfHwJYme0SQRg8UfCnkadXXP0Jx61lWfTU3rLIk4jCRkpNsDHiMg-BHwhxYnAIn-yL4hU0jPGkN4DCP7jp_TZBG3rglJ17t4UTTg8-Rjfc914SLNmq5_bGKVMPu529W49VZ0lLa6OATs0Y9lsuQLLmkg7esAhomlyXmCXHSXZikulxcSLUlr6sxvUpkZXPTL7xl0h_d4ysrqkaQ8SPipFEqW-tk98GOT-VCRmyW6ll_evIwMGlyvhVUovUyvt6C14WqWVIz8tUGhhSyBNEEDkRdx4QgN1N4kB7qG3tk3mhMIOKAOKWDGm8-E5-OZR9gA-fJr5lmg",
+        ),
+        (
+            .Ps384,
+            rsa,
+            "eyJhbGciOiJQUzM4NCIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZGEiLCJpYXQiOjE3MDAwMDAwMDB9.uSS2QrpV1ADKvylhWe-JwrMf1wTGR68YLRWgcH-QCX9Ij7LZaSKUtU4HGt8Yqh2itl-l-9uuzbGcrHzWOhV2XMzih-9eiM10vhBolWf83CP0-rqS0AqBua5MGt_hDCpHOB093Kz6iN530Xv_ueUbGKXoPk0_rx5VHt_aW5sxgJMnqTAWbgwDbOPtvJSDUKmGA1LSmktIJ8I9yr5T8lZNoJiHfO2vWvcLhkSBxxucqDTkmOtS93XTrARtBICPN-xNpZFK3Whiz2CEUg6jyRx9wp7VHyAYrn7cFALrLAkGSU9JkeQPEsqclSPjqPL1tm8h8hq-6ZYPwuC2EZNfppjJQA",
+        ),
+        (
+            .Ps512,
+            rsa,
+            "eyJhbGciOiJQUzUxMiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZGEiLCJpYXQiOjE3MDAwMDAwMDB9.Y7KMixyQ7wSXwLSsfvL0i-8M2vNxUNYJormP21v4AQRuTwiltZIOLFEKSwckZtkrlMwEoAk5vZZYWGU0pHNoRdpyUAnTI17w-Ld9vYpyptoFcWSr-ZMLVdRlhe9Sp8DzPrSUDGDGx_0S-bYTto4yKREIo1YYRh43u9zDTLDZhe5b2x-TC8YVRh9k7PGWjQ022ryEmmBWlRavGuDNCm28HUyaqhJ4PHIKfoTaB5IZlBFE4fVBJ3QFlWYOCtrfuJmA8jSQhD4WmG9CPq_4zBU5h5eqqXbtSST1UNt5TiTco839-jz5o0AVoAypGJLOIRT3rX0IVnakdIyI1Q6bNJR-RQ",
+        ),
+        (
+            .Es384,
+            p384,
+            "eyJhbGciOiJFUzM4NCIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZGEiLCJpYXQiOjE3MDAwMDAwMDB9.y0e24yF7m3bqXsG-e4jUs0TaaffojH0rZfptHMDoWDX2PKa4AphGXNDhFVMKiYh_vMjx4DwftVgrUDi3cIK0tROcdtglYNjUWRfdsDL_pDufr6f5xOd5O_mqkAyilqil",
+        ),
+        (
+            .Es512,
+            p521,
+            "eyJhbGciOiJFUzUxMiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZGEiLCJpYXQiOjE3MDAwMDAwMDB9.AU6T1EO2Lxe2uyw5OB5CPTwjQoIdWlwyt2hVi6Pq2ZHx2d1VwG4U2_fEp0dnY6IKopj3TkivCKwD5-UKXEt_OURJAUGaMmUAOMmKnzsGFmUDEdPJfcaUo5mDhErGNITtSHCXoOCMpzfM_vBvbd_0otXfdfDmwTYSlxjvSju4WNWncT_Z",
+        ),
+    ]
+end
+
+test "each algorithm verifies a token OpenSSL signed"
+    subjects =
+        tokens()
+        |> Iter.map(fn (algorithm, pem, token) ->
+            key = VerifyingKey.with_public(algorithm, PublicKey.from_pem(pem)!)!
+            claims = jwt.verify(token, key, jwt.Validation{require_expiry: False})!
+            Map.get(claims, "sub")
+        end)
+        |> Iter.to_list()
+
+    assert subjects == (Iter.repeat(Some(Json.String("ada"))) |> Iter.take(6) |> Iter.to_list())
+end
+
+test "a token is refused under a key of another algorithm, even of its kind"
+    key = VerifyingKey.with_public(Algorithm.Rs256, PublicKey.from_pem(rsa)!)!
+    (_, _, token) = Iter.first(tokens())!
+
+    assert jwt.verify(token, key, jwt.Validation{require_expiry: False})
+        == Err(JwtError.WrongAlgorithm("the token's algorithm is RS384, and the key's is RS256"))
+
+    assert VerifyingKey.with_public(Algorithm.Es384, PublicKey.from_pem(p521)!)
+        == Err("ES384 signs with an ECDSA P-384 key, not ECDSA P-521")
+
+    assert VerifyingKey.with_public(Algorithm.Hs256, PublicKey.from_pem(rsa)!)
+        == Err("HS256 signs with a secret, not a key")
+end
+
+test "each algorithm signs a token it then verifies"
+    rsa_key = PrivateKey.generate_rsa()!
+
+    keys = [
+        (Algorithm.Rs384, rsa_key),
+        (Algorithm.Rs512, rsa_key),
+        (Algorithm.Ps384, rsa_key),
+        (Algorithm.Ps512, rsa_key),
+        (Algorithm.Es384, PrivateKey.generate_ecdsa_p384()),
+        (Algorithm.Es512, PrivateKey.generate_ecdsa_p521()),
+    ]
+
+    checked =
+        keys
+        |> Iter.map(fn (algorithm, private) ->
+            key = SigningKey.with_private(algorithm, private)!
+            token = jwt.sign({"sub" => Json.String("ada")}, key)
+
+            jwt.verify(token, SigningKey.verifying_key(key), jwt.Validation{require_expiry: False})
+            |> Result.is_ok()
+        end)
+        |> Iter.to_list()
+
+    assert checked == (Iter.repeat(True) |> Iter.take(6) |> Iter.to_list())
+end

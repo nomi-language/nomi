@@ -30,6 +30,10 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `float64(x)` | `Int.to_float(x)`. Nomi's `x as T` converts nothing: it only states a type the value already fits (`[] as List<String>`) |
 | `a / b` panics when `b` is 0, and an `int` wraps on overflow | `/` and `%` on two `Int`s take a `NonZeroInt` divisor, so the check for zero comes before the division: a literal other than 0 is one, and so is `b` after `if b == 0 then return ..`. An `Int` is exact at any size and never overflows. |
 | `go f()`, `sync.WaitGroup` | `Task.spawn(fn -> f())` inside `concurrent` ... `end`, which waits for its tasks |
+| `errgroup.Group` with `SetLimit(8)` | `Task.spawn_all(xs, f, max_running: 8)`, then `Task.try_await_all`, where the first `Err` cancels the rest, or `Task.await_all` for every result. A batch needs no channel. |
+| `context.WithTimeout`, `select` on `time.After`, or the first of several goroutines to answer | `Task.within(wait, fn -> ..)`, `Err(TimedOut)` when the wait runs out, and `Task.race([..])`, the first body to finish. Both cancel what is still running and wait for it to stop. |
+| `time.NewTicker(d)` in a `for` loop | `timer.every(d, fn -> ..)`. The wait starts when a run ends, so runs never overlap. It repeats until the program shuts down or its task is cancelled. |
+| `make(chan int, 8)`, `close(ch)` | `Channel.buffered<Int>(8)`, a `Sender` and a `Receiver`. Only the sender closes, a send on a closed channel is an `Err` rather than a panic, and `Receiver.iter` reads until the close. A channel with no buffer is `Channel.unbuffered()`. |
 | Dependencies built in `main` and passed to handlers in a struct | `fn boot() -> Result<App, String>` builds an `App` struct before `main` runs, and any function reads a field as `App.db`, with nothing passed down. A test replaces one with `with App.db = ..`. See [App Fields](/app-fields/). |
 
 ## Spelled differently

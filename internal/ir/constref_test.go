@@ -64,8 +64,6 @@ func TestConst_EveryKindIsConstructibleAndReadsNothing(t *testing.T) {
 			}
 		}},
 		{ir.ConstEmptyList, ir.NewEmptyList(pos, 1, elem), nil},
-		{ir.ConstEmptySet, ir.NewEmptySet(pos, 1, elem), nil},
-		{ir.ConstEmptyVector, ir.NewEmptyVector(pos, 1, elem), nil},
 	}
 
 	seen := map[ir.ConstKind]bool{}
@@ -96,14 +94,12 @@ func TestConst_EveryKindIsConstructibleAndReadsNothing(t *testing.T) {
 	}
 	t.Logf("%d const kinds", len(seen))
 
-	// An empty container may be built at no element type: the builder's three
-	// owners build it at the Unit instantiation, because the type argument is
-	// not knowable at those positions. So a container's type ARGUMENT may be
-	// absent and Undischarged says so, while a marker's DECLARATION may not.
+	// An empty List may be built at no element type, because the type
+	// argument is not knowable at its position. So a container's type
+	// ARGUMENT may be absent and Undischarged says so, while a marker's
+	// DECLARATION may not.
 	for _, c := range []*ir.Const{
 		ir.NewEmptyList(pos, 1, nil),
-		ir.NewEmptySet(pos, 1, nil),
-		ir.NewEmptyVector(pos, 1, nil),
 	} {
 		if !c.Undischarged() {
 			t.Errorf("%s with a nil element type does not report Undischarged, so a "+
@@ -119,13 +115,11 @@ func TestConst_EveryKindIsConstructibleAndReadsNothing(t *testing.T) {
 		}
 	}
 	// PLANT THE POSITIVE ON BOTH SIDES. Undischarged must SEPARATE cases, or
-	// `return true` would satisfy the loop above; and the container kinds must
-	// be the only members, or `return c.typ == nil` on every kind would make a
+	// `return true` would satisfy the loop above; and the empty List must
+	// be the only member, or `return c.typ == nil` on every kind would make a
 	// scalar undischarged.
 	for _, c := range []*ir.Const{
 		ir.NewEmptyList(pos, 1, elem),
-		ir.NewEmptySet(pos, 1, elem),
-		ir.NewEmptyVector(pos, 1, elem),
 		ir.NewUnit(pos, 1),
 		ir.NewInt(pos, 1, 3),
 		ir.NewString(pos, 1, "s"),

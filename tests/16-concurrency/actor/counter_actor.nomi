@@ -10,6 +10,7 @@ pub enum Counter
     Add Int
     Get {reply: Reply<Int>}
     Stall {reply: Reply<Int>}
+    Crash {reply: Reply<Int>}
 end
 
 pub struct App
@@ -27,6 +28,11 @@ fn handle(count: Int, message: Counter) -> Int
             count
 
         .Stall{reply: _} ->
+            count
+
+        .Crash{reply:} ->
+            // A text that is no number traps the handler.
+            Reply.send(reply, String.to_int("none")!)
             count
     end
 end

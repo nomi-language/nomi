@@ -8,11 +8,10 @@ import (
 )
 
 // derivedOverLoose declares types whose derived impls hash and compare
-// through Loose's hand-written impls, which disagree with the structural
-// map-key hash and `==` over Loose's field: every Loose hashes to 7, and two
-// compare equal when their last digits agree. Each type's derived hash is
-// its formula over 7, so a site that takes the structural fallback (the
-// hash a Map key takes) prints an unrelated number.
+// through Loose's hand-written impls, which disagree with a hash and `==`
+// over Loose's field: every Loose hashes to 7, and two compare equal when
+// their last digits agree. A site that hashed or compared Loose by its
+// field would tell Loose{n: 1} from Loose{n: 11}.
 const derivedOverLoose = `struct Loose
     n: Int
 end
@@ -64,10 +63,12 @@ derive Equatable for GBox<T>
 derive Hashable for GBox<T>
 `
 
-// derivedOverLooseMain prints, for one value of each type, its hash called
-// directly, through a bound, as Option's Some, as Result's Err and as a
-// one-element list's, then whether it equals the value one Loose digit away
-// by `==`, `Equatable.equal`, a bound, `Option.equal` and `List.contains`.
+// derivedOverLooseMain prints, for one value of each type and the value
+// one Loose digit away, whether the two hash alike called directly,
+// through a bound, as Option's Some, as Result's Err and as a one-element
+// list's, then whether they are equal by `==`, `Equatable.equal`, a bound,
+// `Option.equal` and `List.contains`. A derived hash's Int is not
+// specified, so the rows compare.
 const derivedOverLooseMain = `fn h<T>(x: T) -> Int where T: Hashable
     Hashable.hash(x)
 end
@@ -82,16 +83,16 @@ fn main()
     d = DLoose(Loose{n: 1})
     t = TPair(Loose{n: 1}, 2)
     g = GBox{v: Loose{n: 1}}
-    io.print("${Hashable.hash(s)} ${h(s)} ${Option.hash(Some(s))} ${Result.hash(Err(s))} ${Hashable.hash([s])}")
-    io.print("${Hashable.hash(e)} ${h(e)} ${Option.hash(Some(e))} ${Result.hash(Err(e))} ${Hashable.hash([e])}")
-    io.print("${Hashable.hash(d)} ${h(d)} ${Option.hash(Some(d))} ${Result.hash(Err(d))} ${Hashable.hash([d])}")
-    io.print("${Hashable.hash(t)} ${h(t)} ${Option.hash(Some(t))} ${Result.hash(Err(t))} ${Hashable.hash([t])}")
-    io.print("${Hashable.hash(g)} ${h(g)} ${Option.hash(Some(g))} ${Result.hash(Err(g))} ${Hashable.hash([g])}")
     s2 = SPair{a: Loose{n: 11}, b: 2}
     e2 = EBox.One(Loose{n: 11})
     d2 = DLoose(Loose{n: 11})
     t2 = TPair(Loose{n: 11}, 2)
     g2 = GBox{v: Loose{n: 11}}
+    io.print("${Hashable.hash(s) == Hashable.hash(s2)} ${h(s) == h(s2)} ${Option.hash(Some(s)) == Option.hash(Some(s2))} ${Result.hash(Err(s)) == Result.hash(Err(s2))} ${Hashable.hash([s]) == Hashable.hash([s2])}")
+    io.print("${Hashable.hash(e) == Hashable.hash(e2)} ${h(e) == h(e2)} ${Option.hash(Some(e)) == Option.hash(Some(e2))} ${Result.hash(Err(e)) == Result.hash(Err(e2))} ${Hashable.hash([e]) == Hashable.hash([e2])}")
+    io.print("${Hashable.hash(d) == Hashable.hash(d2)} ${h(d) == h(d2)} ${Option.hash(Some(d)) == Option.hash(Some(d2))} ${Result.hash(Err(d)) == Result.hash(Err(d2))} ${Hashable.hash([d]) == Hashable.hash([d2])}")
+    io.print("${Hashable.hash(t) == Hashable.hash(t2)} ${h(t) == h(t2)} ${Option.hash(Some(t)) == Option.hash(Some(t2))} ${Result.hash(Err(t)) == Result.hash(Err(t2))} ${Hashable.hash([t]) == Hashable.hash([t2])}")
+    io.print("${Hashable.hash(g) == Hashable.hash(g2)} ${h(g) == h(g2)} ${Option.hash(Some(g)) == Option.hash(Some(g2))} ${Result.hash(Err(g)) == Result.hash(Err(g2))} ${Hashable.hash([g]) == Hashable.hash([g2])}")
     io.print("${s == s2} ${Equatable.equal(s, s2)} ${same(s, s2)} ${Option.equal(Some(s), Some(s2))} ${List.contains([s], s2)}")
     io.print("${e == e2} ${Equatable.equal(e, e2)} ${same(e, e2)} ${Option.equal(Some(e), Some(e2))} ${List.contains([e], e2)}")
     io.print("${d == d2} ${Equatable.equal(d, d2)} ${same(d, d2)} ${Option.equal(Some(d), Some(d2))} ${List.contains([d], d2)}")
@@ -100,19 +101,10 @@ fn main()
 end
 `
 
-// derivedOverLooseWant is derivedOverLooseMain's output. SPair and TPair
-// hash `7 * 31 + 2`, EBox.One `1 * 31 + 7`, DLoose and GBox `7`; Some adds
-// `0 * 31`, Err `1 * 31`, and a one-element list is `17 * 31 + h`.
-const derivedOverLooseWant = "219 219 219 250 746\n" +
-	"38 38 38 69 565\n" +
-	"7 7 7 38 534\n" +
-	"219 219 219 250 746\n" +
-	"7 7 7 38 534\n"
-
-// A derived Hashable or Equatable wins over the structural fallback a type
-// with no impl takes, on a struct, an enum, a distinct type, a named tuple
-// and a generic struct: called directly, through a generic bound, and inside
-// std's generic bodies (Option's and Result's derived hash, List's hash fold,
+// A derived Hashable or Equatable reaches a part's hand-written impl, on a
+// struct, an enum, a distinct type, a named tuple and a generic struct:
+// called directly, through a generic bound, and inside std's generic
+// bodies (Option's and Result's derived hash, List's hash fold,
 // `Option.equal`, `List.contains`), which are lowered by std instance gens
 // that hold none of the program's impls.
 func TestIRDerivedImplWinsOverStructural_Runs(t *testing.T) {
@@ -120,7 +112,7 @@ func TestIRDerivedImplWinsOverStructural_Runs(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	irRunSource(t, "import std::io\n\n"+derivedOverLoose+"\n"+derivedOverLooseMain,
-		derivedOverLooseWant+strings.Repeat("True True True True True\n", 5))
+		strings.Repeat("True True True True True\n", 10))
 }
 
 // The same with the types and their derives in another file than their
@@ -135,7 +127,7 @@ func TestIRDerivedImplWinsOverStructural_AnotherFile(t *testing.T) {
 	main := strings.Replace(derivedOverLooseMain, "fn main()\n", `fn main()
     f = Far{a: Loose{n: 1}}
     f2 = Far{a: Loose{n: 11}}
-    io.print("${Hashable.hash(f)} ${h(f)} ${Option.hash(Some(f))} ${Result.hash(Err(f))} ${Hashable.hash([f])}")
+    io.print("${Hashable.hash(f) == Hashable.hash(f2)} ${h(f) == h(f2)} ${Option.hash(Some(f)) == Option.hash(Some(f2))} ${Result.hash(Err(f)) == Result.hash(Err(f2))} ${Hashable.hash([f]) == Hashable.hash([f2])}")
     io.print("${f == f2} ${Equatable.equal(f, f2)} ${same(f, f2)} ${Option.equal(Some(f), Some(f2))} ${List.contains([f], f2)}")
 `, 1)
 	files := map[string]string{
@@ -160,7 +152,7 @@ derive Hashable for Far
 	if _, err := Analyze(entry); err != nil {
 		t.Fatalf("the front end rejects this, so nothing below is tested: %v", err)
 	}
-	want := "7 7 7 38 534\nTrue True True True True\n" + derivedOverLooseWant + strings.Repeat("True True True True True\n", 5)
+	want := strings.Repeat("True True True True True\n", 12)
 	got := vmReference(entry)
 	if got.stdout != want || got.stderr != "" || got.exit != 0 {
 		t.Fatalf("VM run (exit %d):\n--- stdout ---\n%s--- stderr ---\n%s--- want ---\n%s", got.exit, got.stdout, got.stderr, want)

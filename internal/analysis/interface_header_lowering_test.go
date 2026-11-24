@@ -130,15 +130,15 @@ func TestHeaderLower_DeriveImplSynthesizes(t *testing.T) {
   y: Int
 
 end
-derive Equatable for Point`
+derive Comparable for Point`
 	out, errs := lowerNewform(t, src)
 	expectLowerClean(t, errs)
-	blk := findImplBlock(out, "Equatable", "Point")
+	blk := findImplBlock(out, "Comparable", "Point")
 	if blk == nil {
-		t.Fatalf("expected a synthesized `impl Equatable for Point` block")
+		t.Fatalf("expected a synthesized `impl Comparable for Point` block")
 	}
 	if len(blk.Items) == 0 {
-		t.Errorf("expected the synthesized equal method, got an empty block")
+		t.Errorf("expected the synthesized compare method, got an empty block")
 	}
 	if !analysis.IsSynthesizedLine(blk.Line) {
 		t.Errorf("expected the derived block at a synth-band position, got line %d", blk.Line)
@@ -375,8 +375,8 @@ end
 }
 
 func TestHeaderProject_SameInterfaceSameMethodCollides(t *testing.T) {
-	// Two functions for the same interface implementation collide on the
-	// (Iface, method, receiver) dispatch slot.
+	// A function written twice in one impl block is no second impl but a
+	// name declared twice in the block.
 	src := `interface A
   fn foo(x: self) -> Int
 end
@@ -396,7 +396,7 @@ impl A for T
 end
 
 `
-	expectErrContaining(t, checkUniversalDebugProject(t, src), "duplicate impl")
+	expectErrContaining(t, checkUniversalDebugProject(t, src), "function 'foo' is declared twice in `impl A for T`")
 }
 
 func TestHeaderProject_TwoModuleFunctionsCollide(t *testing.T) {

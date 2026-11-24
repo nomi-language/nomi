@@ -101,7 +101,7 @@ impl Dynamic
     /// Each value is still a `Dynamic`, to decode in turn.
     pub host fn as_dict(d: Dynamic) -> Result<Map<String, Dynamic>, Error>
 
-    /// Whether `d` is the source's null (JSON `null`, Go `nil`).
+    /// Whether `d` is the source's null (JSON `null`, a database `NULL`).
     pub host fn is_null(d: Dynamic) -> Bool
 
     /// Whether `d` is an object with a field `name`. `False` when `d` is not

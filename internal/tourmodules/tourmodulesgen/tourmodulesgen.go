@@ -134,8 +134,8 @@ func ModuleEmbedded(dir string, sources []string) ([]string, error) {
 
 // ModuleSources is the paths, in dir, of the files of the Nomi module at
 // dir that a program importing it reads: its nomi.toml and its Nomi files,
-// not its tests, nor any file under a directory that holds a go.mod or a
-// nomi.toml of its own, or whose name starts with `.` or is testdata.
+// not its tests, nor any file under a directory that holds a nomi.toml of
+// its own (another module), or whose name starts with `.` or is testdata.
 func ModuleSources(dir string) ([]string, error) {
 	var out []string
 	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
@@ -150,7 +150,7 @@ func ModuleSources(dir string) ([]string, error) {
 			if rel == "." {
 				return nil
 			}
-			if strings.HasPrefix(d.Name(), ".") || d.Name() == "testdata" || isFile(filepath.Join(path, "go.mod")) || isFile(filepath.Join(path, "nomi.toml")) {
+			if strings.HasPrefix(d.Name(), ".") || d.Name() == "testdata" || isFile(filepath.Join(path, "nomi.toml")) {
 				return filepath.SkipDir
 			}
 			return nil

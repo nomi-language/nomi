@@ -20,9 +20,9 @@ pub struct Money
     cents: Int
 end
 
-impl Equatable for Money
-    fn equal(a: Money, b: Money) -> Bool
-        a.cents == b.cents
+impl Comparable for Money
+    fn compare(a: Money, b: Money) -> Ordering
+        Comparable.compare(a.cents, b.cents)
     end
 end
 
@@ -30,7 +30,7 @@ pub struct Coin
     n: Int
 end
 
-derive Hashable for Coin
+derive Comparable for Coin
 derive Equatable for Coin
 
 // FILE: main.nomi
@@ -44,10 +44,10 @@ struct Rec
     c: Coin
 end
 
-derive Equatable for Rec
+derive Comparable for Rec
 
 fn main()
-    io.inspect(Rec{m: Money{cents: 1}, c: Coin{n: 2}} == Rec{m: Money{cents: 1}, c: Coin{n: 2}})
+    io.inspect(Rec{m: Money{cents: 1}, c: Coin{n: 2}} < Rec{m: Money{cents: 1}, c: Coin{n: 2}})
     io.inspect(Secret{n: 3})
 end
 
@@ -66,19 +66,21 @@ end
 		impl ir.ImplFunc
 		want string
 	}{
-		// The `derive` line, not `Money`'s written equal in the other
-		// file, which the function's own name also names.
-		{ir.ImplFunc{Type: "Rec", Interface: "Equatable", Func: "equal"},
-			"main.nomi:11:1: its body is not supported yet, so `fn Equatable.equal for Rec` cannot run"},
-		{ir.ImplFunc{Type: "Coin", Interface: "Hashable", Func: "hash"},
-			"money.nomi:15:1: its body is not supported yet, so `fn Hashable.hash for Coin` cannot run"},
+		// The `derive` line, not `Money`'s written compare in the other
+		// file, which the function's own name also names. A derived
+		// Debug, Display, Equatable or Hashable writes no function, so
+		// the cases derive Comparable, which does.
+		{ir.ImplFunc{Type: "Rec", Interface: "Comparable", Func: "compare"},
+			"main.nomi:11:1: its body is not supported yet, so `fn Comparable.compare for Rec` cannot run"},
+		{ir.ImplFunc{Type: "Coin", Interface: "Comparable", Func: "compare"},
+			"money.nomi:15:1: its body is not supported yet, so `fn Comparable.compare for Coin` cannot run"},
 		// An opaque type's name-only Debug: no line asks for it, so the
 		// type does.
 		{ir.ImplFunc{Type: "Secret", Interface: "Debug", Func: "inspect"},
 			"main.nomi:18:15: its body is not supported yet, so `fn Debug.inspect for Secret` cannot run"},
 		// A written impl function keeps its own line.
-		{ir.ImplFunc{Type: "Money", Interface: "Equatable", Func: "equal"},
-			"money.nomi:6:8: the body of `fn equal` is not supported yet, so `fn Equatable.equal for Money` cannot run"},
+		{ir.ImplFunc{Type: "Money", Interface: "Comparable", Func: "compare"},
+			"money.nomi:6:8: the body of `fn compare` is not supported yet, so `fn Comparable.compare for Money` cannot run"},
 	} {
 		name := c.impl.Name()
 		t.Run(name, func(t *testing.T) {

@@ -22,10 +22,10 @@
 //# needs it. `WriteOptions.escape_formulas` keeps a spreadsheet from
 //# running a field as a formula.
 //#
-//# Reading is Go's encoding/csv. A UTF-8 byte order mark at the start is
-//# dropped, a `\r\n` is read as `\n`, inside a quoted field too, and an
-//# empty line is skipped. A failure names its line and column, the
-//# column counted in code points from 1. The text must be UTF-8.
+//# Reading drops a UTF-8 byte order mark at the start, reads a `\r\n` as
+//# `\n`, inside a quoted field too, and skips an empty line. A failure
+//# names its line and column, the column counted in code points from 1.
+//# The text must be UTF-8.
 
 import
     bool.Bool.{self, False, True}

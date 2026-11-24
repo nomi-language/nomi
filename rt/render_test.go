@@ -1,59 +1,84 @@
 package rt
 
-import (
-	"strings"
-	"testing"
-)
+import "testing"
 
-// The six measured Row/Debug disagreements internal/ir/render.go records,
-// pinned on rt's renderers. Each must keep disagreeing exactly as written.
-func TestRender_TheSixRowDebugDisagreements(t *testing.T) {
+// The row and Debug on rt's renderers: the differences internal/ir/render.go
+// records, each disagreeing exactly as written, and the leaves they share. A
+// Decimal and a Dynamic read in a row as their written `impl Debug` renders
+// them, at the top and inside a record, a struct, a tuple, a List and an
+// Option, as a String reads as its literal in both. A debugger's variable
+// reads as the row does. DisplayText is the row with Display's leaf at the
+// top, so a top-level String is raw and a top-level Decimal is its digits.
+func TestRender_RowAndDebug(t *testing.T) {
 	dec, err := ParseDecimal("1.50")
 	if err != nil {
 		t.Fatal(err)
 	}
+	dyn := Dynamic{Inner: "hello"}
 	point := NewStructDesc("shapes.Point", []FieldSpec{{"y", SlotInt}, {"x", SlotInt}}).Make(int64(2), int64(1))
 	record := AnonDesc([]FieldSpec{{"s", SlotString}, {"d", SlotRef}}).Make(dec, `a"b`)
+	price := NewStructDesc("shop.Price", []FieldSpec{{"amount", SlotRef}}).Make(dec)
+	option := NewEnumDesc("option.Option", []VariantSpec{
+		{Name: "Some", Shape: VariantPositional, Fields: []FieldSpec{{Type: SlotRef}}},
+		{Name: "None"},
+	})
+	handle := HostHandle{TypeName: "shapes.Handle", Value: new(int)}
+	id := NewDistinctDesc("ids.Id", ptr(SlotInt)).Make(int64(5))
+	idHook := HookFunc(func(v any) (string, bool, error) {
+		if r, ok := v.(*Record); ok && r.Desc.Name == "ids.Id" {
+			return "#5", true, nil
+		}
+		return "", false, nil
+	})
+	both := `(1.50d, "hello")`
+	listed := `[1.50d, "hello"]`
 
-	type want struct{ row, display, debug, debugErr string }
+	// rowWith is RowTextWith's text, "" when it is the row.
+	type want struct{ row, rowWith, display, debug string }
 	cases := []struct {
 		name string
 		v    any
 		hook DebugHook
 		want want
 	}{
-		{"Decimal", dec, nil, want{row: "1.50", display: "1.50", debug: "1.50d"}},
-		{"Dynamic", Dynamic{Inner: "hello"}, nil, want{row: "<dynamic: string>", display: "<dynamic: string>",
-			debug: `"hello"`}},
-		{"String", `f"\.txt`, nil, want{row: `"f\"\\.txt"`, display: `f"\.txt`, debug: `"f\"\\.txt"`}},
+		// The differences.
 		{"struct", point, nil, want{row: "Point{x: 1, y: 2}", display: "Point{x: 1, y: 2}",
 			debug: "Point{y: 2, x: 1}"}},
-		{"record", record, nil, want{row: `{d: 1.50, s: "a\"b"}`, display: `{d: 1.50, s: "a\"b"}`,
+		{"host value with no impl", handle, nil, want{row: "<Handle>", display: "<Handle>", debug: "Handle"}},
+		{"hand impl", id, idHook, want{row: "Id(5)", rowWith: "#5", display: "Id(5)", debug: "#5"}},
+		// The agreements.
+		{"Decimal", dec, nil, want{row: "1.50d", display: "1.50", debug: "1.50d"}},
+		{"Dynamic", dyn, nil, want{row: `"hello"`, display: `"hello"`, debug: `"hello"`}},
+		{"String", `f"\.txt`, nil, want{row: `"f\"\\.txt"`, display: `f"\.txt`, debug: `"f\"\\.txt"`}},
+		{"record", record, nil, want{row: `{d: 1.50d, s: "a\"b"}`, display: `{d: 1.50d, s: "a\"b"}`,
 			debug: `{d: 1.50d, s: "a\"b"}`}},
-		{"hand impl", NewDistinctDesc("ids.Id", ptr(SlotInt)).Make(int64(5)),
-			func(v any) (string, bool, error) {
-				if r, ok := v.(*Record); ok && r.Desc.Name == "ids.Id" {
-					return "#5", true, nil
-				}
-				return "", false, nil
-			}, want{row: "Id(5)", display: "Id(5)", debug: "#5"}},
+		{"struct field", price, nil, want{row: "Price{amount: 1.50d}", display: "Price{amount: 1.50d}",
+			debug: "Price{amount: 1.50d}"}},
+		{"tuple", TupleDesc(SlotRef, SlotRef).Make(dec, dyn), nil, want{row: both, display: both, debug: both}},
+		{"List", ConsCell[any, List[any]](dec, ConsCell[any, List[any]](dyn, nil)), nil,
+			want{row: listed, display: listed, debug: listed}},
+		{"Option", option.MakeVariant(0, dec), nil, want{row: "Some(1.50d)", display: "Some(1.50d)",
+			debug: "Some(1.50d)"}},
 	}
 	for _, c := range cases {
 		if got := RowText(c.v); got != c.want.row {
 			t.Errorf("%s: Row %q, want %q", c.name, got, c.want.row)
 		}
+		rowWith := c.want.rowWith
+		if rowWith == "" {
+			rowWith = c.want.row
+		}
+		if got, err := RowTextWith(c.v, c.hook); err != nil || got != rowWith {
+			t.Errorf("%s: RowTextWith %q, %v; want %q", c.name, got, err, rowWith)
+		}
 		if got := DisplayText(c.v); got != c.want.display {
-			t.Errorf("%s: Display %q, want %q", c.name, got, c.want.display)
+			t.Errorf("%s: DisplayText %q, want %q", c.name, got, c.want.display)
 		}
-		got, err := DebugText(c.v, c.hook)
-		if c.want.debugErr != "" {
-			if err == nil || !strings.HasPrefix(err.Error(), c.want.debugErr) {
-				t.Errorf("%s: Debug %q, %v; want error %q", c.name, got, err, c.want.debugErr)
-			}
-			continue
-		}
-		if err != nil || got != c.want.debug {
+		if got, err := DebugText(c.v, c.hook); err != nil || got != c.want.debug {
 			t.Errorf("%s: Debug %q, %v; want %q", c.name, got, err, c.want.debug)
+		}
+		if got := Inspect(c.v).Text(); got != c.want.row {
+			t.Errorf("%s: a debugger's variable %q, want %q", c.name, got, c.want.row)
 		}
 	}
 }
@@ -66,12 +91,12 @@ func ptr[T any](v T) *T { return &v }
 func TestRender_HostHandleDebug(t *testing.T) {
 	re := HostHandle{TypeName: "regex.Regex", Value: new(int)}
 	handle := HostHandle{TypeName: "shapes.Handle", Value: new(int)}
-	hook := func(v any) (string, bool, error) {
+	hook := HookFunc(func(v any) (string, bool, error) {
 		if h, ok := v.(HostHandle); ok && h.TypeName == "regex.Regex" {
 			return "Regex`a+`", true, nil
 		}
 		return "", false, nil
-	}
+	})
 	list := ConsCell[any, List[any]](re, ConsCell[any, List[any]](handle, nil))
 	for _, c := range []struct {
 		v    any
@@ -95,12 +120,12 @@ func TestRender_HostHandleDebug(t *testing.T) {
 // sorted.
 func TestRender_RowTextWithHonoursTheHookAtEveryDepth(t *testing.T) {
 	id := NewDistinctDesc("ids.Id", ptr(SlotInt)).Make(int64(5))
-	hook := func(v any) (string, bool, error) {
+	hook := HookFunc(func(v any) (string, bool, error) {
 		if r, ok := v.(*Record); ok && r.Desc.Name == "ids.Id" {
 			return "#5", true, nil
 		}
 		return "", false, nil
-	}
+	})
 	point := NewStructDesc("shapes.Point", []FieldSpec{{"y", SlotRef}, {"x", SlotString}}).Make(id, "a")
 	list := ConsCell[any, List[any]](id, ConsCell[any, List[any]](point, nil))
 	for _, c := range []struct {
@@ -229,12 +254,12 @@ func TestRender_SetMembersRenderThroughTheHook(t *testing.T) {
 	color := NewEnumDesc("shapes.Color", []VariantSpec{{Name: "Red"}, {Name: "Blue"}})
 	items := MapOf(Hash, Equal, []MapEntry[any, any]{{Key: color.NewVariant(0), Val: true}})
 	set := NewStructDesc("sets.Set", []FieldSpec{{"items", SlotRef}}).Make(items)
-	hook := func(v any) (string, bool, error) {
+	hook := HookFunc(func(v any) (string, bool, error) {
 		if r, ok := v.(*Record); ok && r.Desc == color {
 			return "<" + r.Variant().Name + ">", true, nil
 		}
 		return "", false, nil
-	}
+	})
 	if got, err := DebugText(set, hook); err != nil || got != "Set[<Red>]" {
 		t.Errorf("set debug %q %v", got, err)
 	}
@@ -263,12 +288,12 @@ func TestRender_DeclaredTypesRenderAsTheirLiterals(t *testing.T) {
 	wrapped := NewDistinctDesc("shapes.Wrapped", ptr(SlotRef))
 	shown := NewStructDesc("shapes.Shown", []FieldSpec{{"v", SlotInt}}).Make(int64(7))
 	holder := NewStructDesc("shapes.Holder", []FieldSpec{{"s", SlotRef}, {"p", SlotRef}}).Make(shown, point)
-	hook := func(v any) (string, bool, error) {
+	hook := HookFunc(func(v any) (string, bool, error) {
 		if r, ok := v.(*Record); ok && r.Desc.Name == "shapes.Shown" {
 			return "Shown!", true, nil
 		}
 		return "", false, nil
-	}
+	})
 	for _, c := range []struct {
 		name string
 		v    any
@@ -308,7 +333,7 @@ func TestRender_EveryRendererWritesAPayloadOfPartsAsWritten(t *testing.T) {
 	coord := NewDistinctDesc("shapes.Coord", ptr(SlotRef))
 	coord.Spread = true
 	wrapped := NewDistinctDesc("shapes.Wrapped", ptr(SlotRef))
-	noHook := func(any) (string, bool, error) { return "", false, nil }
+	noHook := HookFunc(func(any) (string, bool, error) { return "", false, nil })
 	renderers := []struct {
 		name   string
 		render func(any) (string, error)

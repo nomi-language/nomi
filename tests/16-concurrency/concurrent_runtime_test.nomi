@@ -38,8 +38,8 @@ fn nested_outer_body() -> Result<Int, String>
     concurrent
         inner_a = Task.spawn(fn -> timer.sleep(Duration.seconds(5)))
         inner_b = Task.spawn(fn -> timer.sleep(Duration.seconds(5)))
-        _ia = inner_a
-        _ib = inner_b
+        _ia = fn -> Task.outcome(inner_a) // never called: the task stays unawaited
+        _ib = fn -> Task.outcome(inner_b) // never called: the task stays unawaited
         Ok(42)
     end
 end
@@ -114,7 +114,7 @@ test "nested concurrent blocks observe parent cancellation"
         concurrent
             short = Task.spawn(fn -> short_fail())
             outer = Task.spawn(fn -> nested_outer_body())
-            _o = outer
+            _o = fn -> Task.outcome(outer) // never called: the task stays unawaited
             Ok(Task.await(short)?)
         end
 
@@ -194,8 +194,8 @@ group "sibling cancellation is observable under a virtual clock"
                 short = Task.spawn(fn -> short_fail())
                 long1 = Task.spawn(fn -> long_sleep())
                 long2 = Task.spawn(fn -> long_sleep())
-                _l1 = long1
-                _l2 = long2
+                _l1 = fn -> Task.outcome(long1) // never called: the task stays unawaited
+                _l2 = fn -> Task.outcome(long2) // never called: the task stays unawaited
                 Ok(Task.await(short)?)
             end
 
@@ -214,7 +214,7 @@ group "sibling cancellation is observable under a virtual clock"
             concurrent
                 short = Task.spawn(fn -> short_fail())
                 outer = Task.spawn(fn -> nested_outer_body())
-                _o = outer
+                _o = fn -> Task.outcome(outer) // never called: the task stays unawaited
                 Ok(Task.await(short)?)
             end
 

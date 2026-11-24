@@ -8,6 +8,13 @@
 // running beside a newly installed one) never rewrite each other's files, and
 // an editor buffer opened from one server's directory keeps the text that
 // server analyzed.
+//
+// A version directory's name is a hash of the files it holds, so a file of
+// the directory named for this binary's std (std.CacheVersion) is its
+// module, byte for byte, until someone edits it. A command run on such a
+// file treats it as that module, and refuses a file of another version's
+// directory or one edited since (frontend.StdlibFile, which finds the
+// directory with Locate).
 package stdcache
 
 import (
@@ -15,6 +22,7 @@ import (
 	"encoding/hex"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -77,6 +85,34 @@ func IsVersion(name string) bool {
 		}
 	}
 	return true
+}
+
+// IsVersionDir reports whether dir is shaped like a version directory under
+// a root: a version name whose parent is `std`. dir may use either
+// separator.
+func IsVersionDir(dir string) bool {
+	dir = path.Clean(filepath.ToSlash(dir))
+	return IsVersion(path.Base(dir)) && path.Base(path.Dir(dir)) == "std"
+}
+
+// Locate answers, for file, a path under a version directory
+// (<root>/<version>/<rel>, the root ending in `std`), that directory, its
+// version, and rel slash-separated. ok is false for a path under none. It
+// reads nothing: whether the directory is this process's version, and the
+// file its module, is the caller's question.
+func Locate(file string) (dir, version, rel string, ok bool) {
+	for d := filepath.Dir(file); ; d = filepath.Dir(d) {
+		if IsVersionDir(d) {
+			r, err := filepath.Rel(d, file)
+			if err != nil {
+				return "", "", "", false
+			}
+			return d, filepath.Base(d), filepath.ToSlash(r), true
+		}
+		if filepath.Dir(d) == d {
+			return "", "", "", false
+		}
+	}
 }
 
 // Dir is one std version's directory under a root.

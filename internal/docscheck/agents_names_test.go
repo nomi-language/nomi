@@ -24,9 +24,9 @@ var (
 )
 
 // TestAgentsNamesWhatExists holds AGENTS.md, the repository's working
-// guide, to the tree: every test or fuzz target it names is declared in a
-// tracked test file, or begins the name of one; every repository path it
-// names exists, is one git ignores (a generated page, a build's output),
+// guide, and CONTRIBUTING.md to the tree: every test or fuzz target each
+// names is declared in a tracked test file, or begins the name of one;
+// every repository path it names exists, is one git ignores (a generated page, a build's output),
 // or lies under a package (a target's `testdata/fuzz`), and a std module
 // may be named by its path without `.nomi`; and every NOMI_ variable it
 // names is read or set by tracked code outside Markdown. A guide that
@@ -62,7 +62,27 @@ func TestAgentsNamesWhatExists(t *testing.T) {
 		read[v] = true
 	}
 
-	data, err := os.ReadFile(filepath.Join(root, "AGENTS.md"))
+	checked := 0
+	for _, guide := range contributorGuides {
+		checked += checkGuideNames(t, root, guide, declared, all, read)
+	}
+	if checked < 200 {
+		t.Fatalf("checked %d names in %s; the scan is not reading them", checked, strings.Join(contributorGuides, " and "))
+	}
+	t.Logf("checked %d names in %s", checked, strings.Join(contributorGuides, " and "))
+}
+
+// contributorGuides are the guides TestAgentsNamesWhatExists holds to the
+// tree: AGENTS.md, and CONTRIBUTING.md, which holds the environment
+// variables for work on the compiler.
+var contributorGuides = []string{"AGENTS.md", "CONTRIBUTING.md"}
+
+// checkGuideNames reports each test, path and NOMI_ variable the guide at
+// root/guide names that is not declared, does not exist or is not read,
+// and returns how many names it checked.
+func checkGuideNames(t *testing.T, root, guide string, declared map[string]bool, all []string, read map[string]bool) int {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(root, guide))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +92,7 @@ func TestAgentsNamesWhatExists(t *testing.T) {
 	miss := func(what, name string) {
 		if !seen[what+name] {
 			seen[what+name] = true
-			t.Errorf("AGENTS.md names %s %s, which %s", what, name, map[string]string{
+			t.Errorf("%s names %s %s, which %s", guide, what, name, map[string]string{
 				"the test":     "no tracked test file declares",
 				"the path":     "does not exist",
 				"the variable": "no tracked code reads or sets",
@@ -118,10 +138,7 @@ func TestAgentsNamesWhatExists(t *testing.T) {
 			miss("the variable", v)
 		}
 	}
-	if checked < 200 {
-		t.Fatalf("checked %d names in AGENTS.md; the scan is not reading it", checked)
-	}
-	t.Logf("checked %d names in AGENTS.md", checked)
+	return checked
 }
 
 // ignored reports whether git ignores p, as a file or as a directory.

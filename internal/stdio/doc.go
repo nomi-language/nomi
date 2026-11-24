@@ -38,7 +38,8 @@
 // point, a Linux bind mount, `/proc`'s links or a device file under the
 // directory; on Windows it refuses reserved device names; on Unix its Chmod
 // (`Dir.set_mode`) can be raced onto a symlink's target; on wasip1 it has
-// no Chmod. A path through more than 8 symlinks is refused on the disk
+// no Chmod. Its Chtimes, Link, Chown and Lchown serve `Dir.set_times`,
+// `Dir.create_link`, `Dir.set_owner` and `Dir.set_link_owner`. A path through more than 8 symlinks is refused on the disk
 // (Go's limit) and 40 in memory (loopLimit). A js/wasm build reaches only
 // memory, so Go's js Root, which checks symlinks without the race safety,
 // is never used.
@@ -94,6 +95,37 @@
 //     Memory has nothing to make durable, and a sync there fails only as a
 //     Failure on `Operation.Sync` says.
 //
+// # Metadata, links and owners
+//
+// A metadata crossing answers Info, whose fields past the kind, size,
+// modification time and mode are what a file system may not keep: the
+// access, status change and birth times, the link count, the device and
+// inode, and the numeric owner. The disk reads them from the stat record
+// Go already holds (sysInfo, stat_<os>.go), with no call of its own on
+// macOS, Linux and wasip1, where an *os.Root's stat answers the same
+// record; on Windows it opens the file again for GetFileInformationByHandle.
+// Linux's birth time is statx's alone and is left out; Windows keeps no
+// status change time and owns files by SID, so it answers no owner and
+// `set_owner` is Unsupported there (ownerTarget), as it is on wasip1. The
+// mode carries the setuid, setgid and sticky bits as Unix numbers them
+// (ModeBits), and `set_mode` takes them numbered so (FileMode). Memory keeps every time, numbers each node (its inode on
+// device 0), counts a node's names once it has a second (linksOf), and has
+// an owner only once `set_owner` gives one.
+//
+// `create_link` never follows a symlink at its target, as an *os.Root's
+// Link and Linux's link(2) do not; on macOS, whose link(2) does, the disk
+// calls linkat (link_darwin.go). `disk_usage` opens its path, under a root
+// as any other path, and asks about the open file's file system (fstatfs,
+// or GetDiskFreeSpaceEx of the handle's volume), so no path is joined
+// outside a root. Windows's calls go through the syscall package's kernel32
+// procedures (osfile_windows.go), never golang.org/x/sys/windows, which
+// imports net, which the lean runner does not link. Memory reports 1 GiB, less what its files hold.
+// `same_file` is std/fs's own comparison of two metadata answers' device
+// and inode, and `truncate` opens the file and truncates the File, so
+// neither has a crossing. `user_name` and `group_name` cross through the
+// frame's file system: the disk's asks os/user, and memory, a root and
+// Windows name no one.
+//
 // # Paths
 //
 // A Nomi path is a String that uses `/` on every operating system
@@ -104,11 +136,18 @@
 // The operating system backend turns a Go error into the io.Error variant
 // that names it (classify): absence is NotFound, an existing path
 // AlreadyExists, a refusal PermissionDenied, and so on by errno, each
-// carrying the path the program passed. What no variant names is `Other`,
-// with Go's operation word (`open`, `read`) and the errno's name, never Go's
-// prose. The errno is the one Unix answers for the failure, on every system:
-// Errno reads a Windows code through one table (windowsErrnos), and
-// std/net's errors are sorted by the same reading. A write into a missing
-// directory is NotFound naming the directory.
+// carrying the path the program passed. The sentinels of io, os and
+// context a stream returns are named too: a closed file or pipe is Closed,
+// a stream that ends inside its framing (io.ErrUnexpectedEOF) Truncated,
+// and any timeout that is not an errno's TimedOut. What no variant names
+// is `Other`, with Go's operation word (`open`, `read`) and the errno's
+// name, or `unknown` when the error carries none, never Go's prose. The
+// errno is the one Unix answers for the failure, on every system: Errno
+// reads a Windows code through one table (windowsErrnos), and std/net's
+// errors are sorted by the same reading. A write into a missing directory
+// is NotFound naming the directory. A package that links an error's own
+// package names that error first and hands the rest to Classify:
+// internal/stdhttp's streams name net/http's and net's (streamFailure),
+// which this package does not link, since the lean runners leave net out.
 // The memory backend answers the same variants itself.
 package stdio

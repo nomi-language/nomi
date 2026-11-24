@@ -45,7 +45,7 @@ func (c *checker) implArgLists(concrete Type, iface string) [][]Type {
 // receiver whose impls record no arguments fits; typeImplementsInterface
 // has already answered whether any impl exists. When it does not fit, the
 // second result is each impl's interface as concrete has it, for the hint.
-func (c *checker) boundArgsFit(concrete Type, bound *InterfaceType, subs map[*TypeParam_]Type) (bool, []string) {
+func (c *checker) boundArgsFit(concrete Type, bound *InterfaceType, subs map[*TypeParam_]Type) (bool, []Type) {
 	if bound == nil || len(bound.TypeArgs) == 0 || c.fa == nil {
 		return true, nil
 	}
@@ -64,17 +64,17 @@ func (c *checker) boundArgsFit(concrete Type, bound *InterfaceType, subs map[*Ty
 	if len(lists) == 0 {
 		return true, nil
 	}
-	var have []string
-	for _, args := range lists {
+	var have []Type
+	for i, args := range lists {
 		if len(args) != len(want) {
 			continue
 		}
-		if typesAllEqual(args, want) {
+		if sameTypeArgs(args, want) {
 			return true, nil
 		}
 		// The impl tables of several scopes can each record the same impl.
-		if s := (&InterfaceType{Name: bound.Name, TypeArgs: args}).String(); !slices.Contains(have, s) {
-			have = append(have, s)
+		if !slices.ContainsFunc(lists[:i], func(earlier []Type) bool { return sameTypeArgs(earlier, args) }) {
+			have = append(have, &InterfaceType{Origin: bound.Origin, Name: bound.Name, TypeArgs: args})
 		}
 	}
 	if len(have) == 0 {
@@ -110,23 +110,29 @@ func (c *checker) boundArgsAmbiguous(line, col int, concrete Type, bound *Interf
 	if len(cands) < 2 {
 		return false
 	}
+	list, _ := candidateList(cands)
 	c.addError(line, col, fmt.Sprintf(
 		"`%s` implements `%s` at %s, and the call's arguments do not choose one for this bound: annotate them",
-		concrete, c.shownInterfaceFor(concrete, bound, false), candidateList(cands)))
+		concrete, c.shownInterfaceFor(concrete, bound, false), list))
 	return true
 }
 
 // boundArgsError is a call whose bound's subject implements the bound's
 // interface, but not with the type arguments the call gives it:
 // `Range.step_by(1.0d..=1.3d, 0.1)` steps a Decimal range by a Float.
-func (c *checker) boundArgsError(line, col int, concrete Type, bound *InterfaceType, param string, subs map[*TypeParam_]Type, have []string) {
+//
+// The bound, the instance it is wanted at and the impls concrete has are
+// rendered together (distinctTypeTexts), so `where T: From<b.Error>` beside
+// an `impl From<a.Error>` names both Errors by their files.
+func (c *checker) boundArgsError(line, col int, concrete Type, bound *InterfaceType, param string, subs map[*TypeParam_]Type, have []Type) {
 	args := make([]Type, len(bound.TypeArgs))
 	for i, a := range bound.TypeArgs {
 		args[i] = resolveTypeVar(Substitute(a, subs))
 	}
 	wanted := &InterfaceType{Origin: bound.Origin, Name: bound.Name, TypeArgs: args}
+	texts := distinctTypeTexts(c.entryName(), append([]Type{wanted, bound}, have...), nil)
 	quoted := make([]string, len(have))
-	for i, h := range have {
+	for i, h := range texts[2:] {
 		quoted[i] = "`" + h + "`"
 	}
 	hint := fmt.Sprintf("`%s` implements %s", concrete, strings.Join(quoted, " and "))
@@ -138,6 +144,6 @@ func (c *checker) boundArgsError(line, col int, concrete Type, bound *InterfaceT
 	}
 	e, _ := c.withConstructionReason(TypeError{Line: line, Col: col, Message: fmt.Sprintf(
 		"%s does not implement %s (required by `where %s: %s`)",
-		concrete, c.shownInterfaceFor(concrete, wanted, true), param, c.shownInterfaceFor(concrete, bound, true))}.WithHint(hint), concrete, wanted)
+		concrete, c.shownInterfaceAs(concrete, wanted, texts[0]), param, c.shownInterfaceAs(concrete, bound, texts[1]))}.WithHint(hint), concrete, wanted)
 	c.report(e)
 }

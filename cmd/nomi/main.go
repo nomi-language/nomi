@@ -6,8 +6,8 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/dap"
 	"github.com/nomi-language/nomi/internal/frontend"
+	"github.com/nomi-language/nomi/internal/modcache"
 	"github.com/nomi-language/nomi/internal/termcolor"
-	"github.com/nomi-language/nomi/internal/vmcmd"
 	"github.com/nomi-language/nomi/vmhost"
 	"io"
 	"io/fs"
@@ -25,7 +25,23 @@ var (
 	errTestsFailed = errors.New("tests failed")
 )
 
-// usage is the command summary `nomi help` prints.
+// usageText is the command summary `nomi help` prints: usage, with the
+// commands that take --offline and --all-calls named from the command table.
+func usageText() string {
+	var offline, allCalls []string
+	for _, c := range commandTable() {
+		if c.offline {
+			offline = append(offline, c.name)
+		}
+		if c.allCalls {
+			allCalls = append(allCalls, c.name)
+		}
+	}
+	return strings.NewReplacer("{offline}", joinAnd(offline), "{allCalls}", joinAnd(allCalls)).Replace(usage)
+}
+
+// usage is the command summary, with {offline} and {allCalls} where
+// usageText names the commands that take those flags.
 const usage = `usage:
   nomi                                  start the REPL (bindings, functions and types carry between inputs)
   nomi run <file> [args]                run a program on the VM, from its source or
@@ -87,30 +103,37 @@ const usage = `usage:
                                         with no path, formats standard input
   nomi new <name> [dir]                 start a project: nomi.toml and a main.nomi, in
                                         dir (default: the name)
-  nomi new <module path> [dir]          the same, for a module others download by that
-                                        path, with the go.mod it is served with; dir
-                                        defaults to the path's last element
-  nomi init [name | module path]        make the current directory a project: write its
+  nomi init <name>                      make the current directory a project: write its
                                         nomi.toml, listing each file with a fn main as an
-                                        entry point, and a module path's go.mod
-  nomi add [<name>=]<module>[@version]  add a dependency to nomi.toml's [dependencies]:
-                                        its latest release when no version is given,
-                                        downloaded and locked in nomi.lock; prints the
+                                        entry point
+  nomi add [<name>=]<repository>[/<subdir>][@version]
+                                        add a dependency to nomi.toml's [dependencies],
+                                        such as nomi add github.com/owner/name: its
+                                        latest release tag when no version is given,
+                                        or a commit's 40 hex digits after @,
+                                        fetched and locked in nomi.lock; prints the
                                         effects its code has
   nomi add [<name>=]<directory>         add the Nomi module in a directory, such as
                                         nomi add ../shared
   nomi remove <name>                    remove a dependency no file imports any more
   nomi update [name]                    move one dependency, or all of them, to its
-                                        latest release of the same module path
-  nomi fetch [dir]                      download the modules the project needs and lock
+                                        repository's latest release of the same line:
+                                        the same major version, or below v1 the same
+                                        minor version; with no name, raise every
+                                        repository only a dependency names too,
+                                        recorded under [indirect]
+  nomi outdated [dir]                   list each repository of the build with a
+                                        later release: its version, the latest in its
+                                        line, the latest of all, and what reaches it
+  nomi fetch [dir]                      fetch the modules the project needs and lock
                                         them in nomi.lock, so --offline works later
-  --offline                             on run, test, check, build, fetch, add and
-                                        effects: download nothing, and name what
-                                        is missing
-  --all-calls                           on run, test, check and build: print every call
+  --offline                             on {offline}:
+                                        fetch nothing, and name what is missing
+
+  --all-calls                           on {allCalls}: print every call
                                         nomi.toml's [effects] lists refuse, not
                                         the first of each name
-  nomi build <file> [-o <out>] [--target <goos>/<goarch>] [--allow-unsupported <class>]
+  nomi build <file> [-o <out>] [--target <os>/<arch>] [--allow-unsupported <class>]
                                         build a single executable: nomi-vm with the
                                         program's IR appended (runs at nomi run speed);
                                         a project directory builds its one entry point;
@@ -124,16 +147,18 @@ const usage = `usage:
                                         build a folder that runs the program in a browser,
                                         with the files of its web/ folder (or --static's)
                                         copied in
-  nomi build-vm [--target <goos>/<goarch>] [--compiler] [--no-network] [-o <out>]
+  nomi build-vm [--target <os>/<arch>] [--compiler | --no-network] [-o <out>]
                                         write nomi-vm itself, with no program (default nomi-vm);
                                         --no-network writes the smaller one for programs
-                                        that never use std::http, std::net, std::tls or std::wasm
-  nomi build-vm --reactor [--compiler] [-o <out>]
+                                        that make no network or WebAssembly call
+  nomi build-vm --reactor [--compiler | --no-network] [-o <out>]
                                         write the WASI reactor with no program (default nomi-vm-reactor.wasm),
                                         which a runner instantiates per .nomic and hands it
                                         through nomi_load, with nomi-wasi.js (and its types,
                                         nomi-wasi.d.ts) beside it: the loader that runs .nomic
                                         programs in it in a browser or Node
+  nomi lsp [--stdio]                    serve the Language Server Protocol on stdin and
+                                        stdout, for an editor
   nomi dap                              serve the Debug Adapter Protocol on stdin and
                                         stdout, for an editor's debugger
   nomi mcp                              serve the Model Context Protocol on stdin and
@@ -141,7 +166,13 @@ const usage = `usage:
                                         format and search Nomi through the compiler
   nomi tool <module> <name> [args]      run a module's tool, tools/<name>.nomi,
                                         such as a code generator
-  nomi phrases accept <locale> <name>   mark a locale's translation of a phrase
+  nomi editor [install [--force] | uninstall] [--dry-run] [<editor>]
+                                        set up Helix, Neovim, VS Code or Zed for
+                                        Nomi from the files this nomi carries, or
+                                        remove that; with no words, list each
+                                        editor and whether it is set up; --force
+                                        replaces a Zed extension nomi did not write
+  nomi phrases accept <locale> <phrase> mark a locale's translation of a phrase
                                         current, recording the phrase's text as
                                         the source it was translated from
   nomi help [command]                   print this, or a command's usage, as
@@ -215,8 +246,11 @@ func commandTable() []command {
 		{name: "update", usage: updateUsage, downloads: true,
 			run: func(args []string, _ bool) error { return runUpdate(args) }},
 		{name: "fetch", usage: fetchUsage, offline: true, downloads: true, run: runFetch},
+		{name: "outdated", usage: outdatedUsage, offline: true, downloads: true, run: runOutdated},
 		{name: "build-vm", usage: buildVMUsage, downloads: true,
 			run: func(args []string, _ bool) error { return runBuildVM(args) }},
+		{name: "lsp", usage: lspUsage,
+			run: func(args []string, _ bool) error { os.Exit(runLSP(args)); return nil }},
 		{name: "dap", usage: dapUsage,
 			run: func(args []string, _ bool) error { os.Exit(runDAP(args)); return nil }},
 		{name: "mcp", usage: mcpUsage,
@@ -233,6 +267,8 @@ func commandTable() []command {
 			}},
 		{name: "tool", usage: toolUsage, programArgs: true, downloads: true,
 			run: func(args []string, _ bool) error { return runTool(args) }},
+		{name: "editor", usage: editorUsage,
+			run: func(args []string, _ bool) error { return runEditor(args) }},
 		{name: "phrases", usage: phrasesUsage,
 			run: func(args []string, _ bool) error { return runPhrases(args) }},
 		{name: "version", aliases: []string{"--version"}, usage: versionUsage,
@@ -274,7 +310,7 @@ const helpUsage = "usage: nomi help [command]"
 func runHelp(args []string, _ bool) error {
 	switch len(args) {
 	case 0:
-		fmt.Print(usage)
+		fmt.Print(usageText())
 		return nil
 	case 1:
 		c, ok := lookupCommand(args[0])
@@ -299,6 +335,7 @@ func alreadyReported(err error) bool {
 }
 
 func main() {
+	modcache.SetRelease(release())
 	if len(os.Args) < 2 {
 		enableDownloads(false, false, os.Stderr)
 		runReplVM()
@@ -470,11 +507,6 @@ func runCheck(path string) error {
 			return fmt.Errorf("nomi check: %w", err)
 		}
 		fmt.Printf("%s %s\n", termcolor.Green("ok"), vmhost.DisplayPath(files[0]))
-		noteUnreadGoFiles(os.Stderr, path)
-		if file, err := goModFailure(path); err != nil {
-			vmhost.WriteFailLine(os.Stderr, vmhost.DisplayPath(file), err)
-			return errCheckFailed
-		}
 		return nil
 	}
 
@@ -508,11 +540,6 @@ func runCheck(path string) error {
 		if ok {
 			fmt.Printf("%s %s (through %s)\n", termcolor.Green("ok"), vmhost.DisplayPath(helper), filepath.Base(importers[0]))
 		}
-	}
-	noteUnreadGoFiles(os.Stderr, path)
-	if file, err := goModFailure(path); err != nil {
-		vmhost.WriteFailLine(os.Stderr, vmhost.DisplayPath(file), err)
-		failed[file] = true
 	}
 	if len(failed) > 0 {
 		return errCheckFailed
@@ -598,7 +625,9 @@ func programEntry(cmd, path string) (string, error) {
 		return "", fmt.Errorf("nomi %s: %s is a test file; use `nomi test %s`",
 			cmd, vmhost.DisplayPath(absPath), vmhost.DisplayPath(absPath))
 	}
-	if isStdlibTestPath(absPath) {
+	if _, _, inStd, err := frontend.StdlibFile(absPath); err != nil {
+		return "", fmt.Errorf("nomi %s: %w", cmd, err)
+	} else if inStd {
 		// A stdlib file is a module, not a program: it has no `main`, and
 		// its `//!` prompts are tests.
 		return "", fmt.Errorf("nomi %s: %s is a stdlib module, not a program; to run its tests, use `nomi test %s`",
@@ -672,8 +701,6 @@ func runTest(args []string) error {
 	}
 	return runTestVM(parsed)
 }
-
-func isStdlibTestPath(path string) bool { return vmcmd.IsStdlibPath(path) }
 
 const testUsage = "usage: nomi test [path] [--line N] [--run <regexp>] [--reaching <file>:<line>] [--format text|json] [--timeout <duration>] [--all | --changed] [--watch]"
 

@@ -270,6 +270,11 @@ var hostPackages = [...]struct{ path, local string }{
 	{csvHostPath, "stdcsv"},
 	{xmlHostPath, "stdxml"},
 	{passwordsHostPath, "stdpasswords"},
+	{hashHostPath, "stdhash"},
+	{cipherHostPath, "stdcipher"},
+	{systemHostPath, "stdsystem"},
+	{compressHostPath, "stdcompress"},
+	{terminalHostPath, "stdterminal"},
 	{wasmHostPath, "stdwasm"},
 }
 
@@ -279,10 +284,39 @@ var hostPackages = [...]struct{ path, local string }{
 // functions over them.
 const wasmHostPath = "github.com/nomi-language/nomi/internal/stdwasm"
 
+// hashHostPath is std/hash's digests, MACs and Hasher, over Go's crypto
+// packages and golang.org/x/crypto's BLAKE2. Its boundary is the Hasher
+// handle, Bytes, Int and Int64.
+const hashHostPath = "github.com/nomi-language/nomi/internal/stdhash"
+
 // passwordsHostPath is std/passwords/host's implementation: the Argon2id and
 // scrypt key derivations and bcrypt, over golang.org/x/crypto. Its boundary
 // is Bytes, String, Int and Bool.
 const passwordsHostPath = "github.com/nomi-language/nomi/internal/stdpasswords"
+
+// cipherHostPath is std/cipher/host's and std/key_exchange/host's
+// implementation: AES-GCM, ChaCha20-Poly1305 and XChaCha20-Poly1305
+// sealing, AES-CTR, and elliptic-curve Diffie-Hellman, over Go's crypto
+// packages and golang.org/x/crypto. Its boundary is Bytes, Int, Bool and
+// Option<Bytes>.
+const cipherHostPath = "github.com/nomi-language/nomi/internal/stdcipher"
+
+// systemHostPath is std/system/host's implementation: facts about the
+// machine and the process, over Go's os, os/user, runtime and
+// runtime/metrics. Its boundary is String, Int, PositiveInt, List<String>
+// and Result<String, List<String>>.
+const systemHostPath = "github.com/nomi-language/nomi/internal/stdsystem"
+
+// compressHostPath is std/compress/host's implementation: gzip, zlib and
+// raw deflate over Go's compress packages. Its boundary is Bytes, String,
+// Int, Int64, Bool, Option<Bytes>, Reader, Writer and tuples of them.
+const compressHostPath = "github.com/nomi-language/nomi/internal/stdcompress"
+
+// terminalHostPath is std/terminal/host's implementation and std/io's
+// `stream_is_terminal`: the terminal a standard stream is, its size and
+// modes, over golang.org/x/term and golang.org/x/sys. Its boundary is
+// Bool, Int, Int64, String and io.Error.
+const terminalHostPath = "github.com/nomi-language/nomi/internal/stdterminal"
 
 // csvHostPath is std/csv/host's implementation: a CSV reader over a
 // Reader, over Go's encoding/csv, and one record written as CSV. Its
@@ -1612,18 +1646,19 @@ func (x *stdlibIndex) add(f *stdFunc) {
 // precedence contest is not one nobody can choose between.
 //
 // Exactly ONE spelling in the whole stdlib has an inherent/interface-impl
-// collision, and it is `Bytes.to_string`. The other two
-// same-signature collisions are same-class (`Error.inspect` and
-// `Error.to_string`, each two modules' `Error`) and are untouched by this rule.
+// collision, and it is `Bytes.to_string`.
 func addOverload(fs []*stdFunc, f *stdFunc, reason string) []*stdFunc {
 	out := append(fs, f)
 	// The whole GROUP f joins, not the pairs it forms. A pairwise walk gets the
 	// two-member case right and would decide a three-member one arrival by
 	// arrival, which is how a rule and its guard drift into agreeing about
 	// nothing — stdPrecedenceWinner is the single predicate both use.
+	// A group is one module's: two modules' declarations of one spelling
+	// (`Error.from_parts` in std/net and std/tls) are two identities, and
+	// a call reaches each by its record (byID), never by the spelling.
 	var group []*stdFunc
 	for _, g := range out {
-		if sameParamKinds(g.params, f.params) {
+		if g.module == f.module && sameParamKinds(g.params, f.params) {
 			group = append(group, g)
 		}
 	}
@@ -1964,7 +1999,7 @@ func lowerStdlibModuleIn(v *stdModuleView, earlier *stdlibIndex, dc *declineCens
 			c.f.irBody = g.irMod.FuncFor(g.irCalleeSym(c.fd, c.f.key))
 			g.irRecordStdDisplay(c.f)
 			if !isSynthesized(c.fd) {
-				g.irRecordStdKey(c.f)
+				g.irRecordStdWritten(c.f)
 			}
 		}
 		funcs = append(funcs, c.f)
@@ -2115,7 +2150,6 @@ func collectStdCandidates(module string, nodes []ast.Node, fa *analysis.FileAnal
 // *ast.ExternFunc or an interface's *ast.InterfaceMethod for a `host fn`.
 func stdCandidateFor(module, recv string, iface analysis.StdType, ifaceKey, name string, params []ast.Param, ret ast.TypeExpr, generic, blocked bool, decl ast.Node, fa *analysis.FileAnalysis) *stdCandidate {
 	fd, _ := decl.(*ast.FuncDef)
-	progSig := false
 	f := &stdFunc{
 		key:     stdKey(module, recv, ifaceKey, name),
 		module:  module,
@@ -2136,11 +2170,7 @@ func stdCandidateFor(module, recv string, iface analysis.StdType, ifaceKey, name
 		}
 		// kindInvalid: no-position — classifies a stdlib declaration into f.why; no Nomi position.
 		if k == kindInvalid {
-			if fd != nil && fd.Body != nil && stdProgSigType(fa, p.TypeAnnotation) {
-				progSig = true
-			} else {
-				blocked = true
-			}
+			blocked = true
 		}
 		// A DEFAULT is noted, not folded into `blocked`: a default says
 		// nothing about the SIGNATURE. `stdcalendar.DateTime.in_zone` projects
@@ -2155,11 +2185,7 @@ func stdCandidateFor(module, recv string, iface analysis.StdType, ifaceKey, name
 		f.result = projectShared(stdTypeExprType(fa, ret))
 		// kindInvalid: no-position — classifies a stdlib declaration into f.why; no Nomi position.
 		if f.result == kindInvalid {
-			if fd != nil && fd.Body != nil && stdProgSigType(fa, ret) {
-				progSig = true
-			} else {
-				blocked = true
-			}
+			blocked = true
 		}
 	}
 	c := &stdCandidate{f: f, fd: fd, decl: decl}
@@ -2176,8 +2202,6 @@ func stdCandidateFor(module, recv string, iface analysis.StdType, ifaceKey, name
 		f.why = "stdlib generic function"
 	case blocked:
 		f.why = stdOutsideSubsetWhy
-	case progSig:
-		f.why = stdProgSigWhy
 	case fd == nil && defaulted:
 		// A `host fn` whose declared default THIS BUILDER MAY NOT READ, and the
 		// reason is which side owns the value.
@@ -2906,19 +2930,30 @@ func irMuteObservers() func() {
 	}
 }
 
-// irRecordStdKey records a std hand-written `impl Equatable` or `impl
+// irRecordStdWritten records a std hand-written `impl Equatable` or `impl
 // Hashable` body of a declared record type (OffsetDateTime's instant-only
-// equality), as irRecordKeyImpls does for a program's own.
-func (g *gen) irRecordStdKey(f *stdFunc) {
-	if f.irBody == nil || len(f.params) == 0 || !irKeyImplRecv(f.params[0]) {
+// equality), as irRecordKeyImpls does for a program's own, and a
+// hand-written `impl Debug` body of a non-generic one or of a host handle
+// (Regex), which an assertion's `values:` rows render its values through,
+// as irRecordRowDebugImpls does for a program's own: `Duration` reads `1s`,
+// a key type's impl keeps its secret out of the report
+// (`SessionKey(<hidden>)`), and a Regex reads as the literal that builds it.
+// Each is recorded under the type's symbol name, which a record's
+// descriptor and a host handle's TypeName carry, so the machine's row hook
+// finds it by the value's own name.
+func (g *gen) irRecordStdWritten(f *stdFunc) {
+	if f.irBody == nil || len(f.params) == 0 {
 		return
 	}
 	k := f.params[0]
 	switch {
-	case f.iface == stdEquatable && f.name == "equal" && len(f.params) == 2:
+	case f.iface == stdEquatable && f.name == "equal" && len(f.params) == 2 && irKeyImplRecv(k):
 		g.irMod.ImplementEquatable(g.irTypeSym(k.def), f.irBody.Sym())
-	case f.iface == stdHashable && f.name == "hash" && len(f.params) == 1:
+	case f.iface == stdHashable && f.name == "hash" && len(f.params) == 1 && irKeyImplRecv(k):
 		g.irMod.ImplementHashable(g.irTypeSym(k.def), f.irBody.Sym())
+	case f.iface == stdDebug && f.name == "inspect" && len(f.params) == 1 &&
+		(irKeyImplRecv(k) || irHostHandleKind(k)) && k.def.genericOf == nil:
+		g.irMod.ImplementRowDebug(g.irTypeSym(k.def), f.irBody.Sym())
 	}
 }
 

@@ -2,10 +2,12 @@
 # Regenerate, build, and install Neovim support for Nomi (editors/nvim/).
 #
 #   scripts/sync-nvim-runtime.sh               regenerate editors/nvim/queries/nomi/*.scm
+#   scripts/sync-nvim-runtime.sh --check       fail if they are not current
 #   scripts/sync-nvim-runtime.sh --parser DIR  compile the parser to DIR/nomi.so (no query regeneration)
-#   scripts/sync-nvim-runtime.sh --install     regenerate, then copy the plugin and a freshly
-#                                              compiled parser into
-#                                              ${XDG_DATA_HOME:-~/.local/share}/nvim/site/pack/nomi/start/nomi
+#
+# A snapshot install is `nomi editor install nvim` (internal/editors), which
+# `make install-nvim` runs from this checkout after regenerating;
+# TestHelixAndNeovimQueriesAreGenerated (internal/docscheck) runs --check.
 #
 # The queries are GENERATED. Do not edit editors/nvim/queries/nomi/*.scm by hand:
 #   highlights.scm   from editors/zed/languages/nomi/highlights.scm (last-wins order,
@@ -27,10 +29,11 @@ NVIM_NOMI="$ROOT/editors/nvim"
 QUERY_DIR="$NVIM_NOMI/queries/nomi"
 GRAMMAR="$ROOT/tree-sitter-nomi"
 
-generate_queries() {
-  mkdir -p "$QUERY_DIR"
-  cp "$GRAMMAR/queries/injections.scm" "$QUERY_DIR/injections.scm"
-  python3 - "$ROOT" "$QUERY_DIR" <<'PY'
+generate_queries() { # out-dir
+  local out="$1"
+  mkdir -p "$out"
+  cp "$GRAMMAR/queries/injections.scm" "$out/injections.scm"
+  python3 - "$ROOT" "$out" <<'PY'
 import pathlib
 import re
 import sys
@@ -284,26 +287,29 @@ compile_parser() {
 
 case "${1:-}" in
   "")
-    generate_queries
+    generate_queries "$QUERY_DIR"
     echo "Synced Neovim Nomi queries in $QUERY_DIR"
+    ;;
+  --check)
+    out="$(mktemp -d "${TMPDIR:-/tmp}/nomi-nvim-check.XXXXXX")"
+    trap 'rm -rf "$out"' EXIT
+    generate_queries "$out"
+    status=0
+    for f in "$out"/*.scm; do
+      name="$(basename "$f")"
+      if ! cmp -s "$f" "$QUERY_DIR/$name"; then
+        echo "sync-nvim-runtime: editors/nvim/queries/nomi/$name is not current; run make build-nvim" >&2
+        status=1
+      fi
+    done
+    exit "$status"
     ;;
   --parser)
     [[ -n "${2:-}" ]] || { echo "usage: $0 --parser DIR" >&2; exit 2; }
     compile_parser "$2"
     ;;
-  --install)
-    generate_queries
-    data_home="${XDG_DATA_HOME:-$HOME/.local/share}"
-    pack="$data_home/nvim/site/pack/nomi/start/nomi"
-    rm -rf "$pack"
-    mkdir -p "$pack"
-    cp -R "$NVIM_NOMI/ftdetect" "$NVIM_NOMI/ftplugin" "$NVIM_NOMI/lsp" \
-      "$NVIM_NOMI/lua" "$NVIM_NOMI/plugin" "$NVIM_NOMI/queries" "$NVIM_NOMI/README.md" "$pack/"
-    compile_parser "$pack/parser"
-    echo "Installed Nomi Neovim support into $pack"
-    ;;
   *)
-    echo "usage: $0 [--parser DIR | --install]" >&2
+    echo "usage: $0 [--check | --parser DIR]" >&2
     exit 2
     ;;
 esac

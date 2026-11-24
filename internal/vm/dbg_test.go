@@ -46,11 +46,12 @@ package vm_test
 // decision about the wrong writer.
 //
 // And this engine has the wrong writer ready to hand. `Machine.out` is a
-// `*syncWriter`, which is not an `*os.File` whatever it wraps — so a machine
-// over `os.Stdout` attached to a terminal would print `dbg` UNCOLOURED where
-// `nomi run` colours it, and nothing in the five populations could see it.
-// `TestVMDbg_ColourFollowsTheDestinationAndNotTheWrapper` is the reading, with
-// `/dev/null` as a character device that exists without a terminal.
+// `*syncWriter`, which is not an `*os.File` whatever it wraps — so unless rt
+// asked about its Destination, a machine over `os.Stdout` attached to a
+// terminal would print `dbg` UNCOLOURED where `nomi run` colours it, and
+// nothing in the five populations could see it.
+// `TestVMDbg_ColourFollowsTheDestination` is the reading, with `/dev/null` as
+// a character device that exists without a terminal.
 
 import (
 	"bytes"
@@ -215,8 +216,8 @@ func captureRtDbg(t *testing.T, f func()) string {
 	return out
 }
 
-// TestVMDbg_TheDebugRenderingMatchesStdDebug pins the four operand
-// kinds `bl.dbg` admits against literal Debug renderings.
+// TestVMDbg_TheDebugRenderingMatchesStdDebug pins scalar operands against
+// literal Debug renderings: a Decimal's is its digits and a `d`, `1.50d`.
 //
 // THE STRING ROW IS THE ONE THAT DISCRIMINATES. std's `impl Debug for String`
 // is `String.to_literal` (rt.StringLiteral): a backslash, a double quote, a
@@ -234,6 +235,7 @@ func TestVMDbg_TheDebugRenderingMatchesStdDebug(t *testing.T) {
 		{"Bool True", func(p ir.Pos, d ir.Temp) ir.Instr { return ir.NewBool(p, d, true) }, "True"},
 		{"Bool False", func(p ir.Pos, d ir.Temp) ir.Instr { return ir.NewBool(p, d, false) }, "False"},
 		{"Unit", func(p ir.Pos, d ir.Temp) ir.Instr { return ir.NewUnit(p, d) }, "Unit"},
+		{"Decimal", func(p ir.Pos, d ir.Temp) ir.Instr { return ir.NewDecimal(p, d, "1.50") }, "1.50d"},
 		{"String, plain", func(p ir.Pos, d ir.Temp) ir.Instr { return ir.NewString(p, d, "hi") }, `"hi"`},
 		{
 			name: "String, with a quote, a backslash, a TAB, a newline, ${ and NUL",
@@ -253,58 +255,25 @@ func TestVMDbg_TheDebugRenderingMatchesStdDebug(t *testing.T) {
 	}
 }
 
-// TestVMDbg_TheRowDisciplineWouldHaveBeenAWrongStringAndItIsReachable is the
-// plant for the choice of DISCIPLINE, which no layout test can make.
-//
-// `internal/irbuild`'s `debugRendering` header records reaching for the
-// assertion row's renderer as its MUTANT 1, and `internal/ir/render.go` lists
-// the measured disagreements between the three disciplines. `rt.RowText` is
-// the row, it is one call away in the package this engine renders with, and
-// it AGREES with Debug on a String (both write its literal) — so a test whose
-// operands are all Strings would pass for the wrong renderer.
-//
-// So the rival is run side by side and required to DIFFER on a Decimal, which
-// the row writes `1.50` and Debug `1.50d`. Without this the whole rendering
-// table above is satisfiable by the wrong implementation.
-func TestVMDbg_TheRowDisciplineWouldHaveBeenAWrongStringAndItIsReachable(t *testing.T) {
-	debug := dbgRun(t, 7, "x", func(p ir.Pos, d ir.Temp) ir.Instr {
-		return ir.NewDecimal(p, d, "1.50")
-	})
-	dec, err := rt.ParseDecimal("1.50")
-	if err != nil {
-		t.Fatal(err)
-	}
-	row := "dbg line 7: x = " + rt.RowText(dec) + "\n"
-	if debug == row {
-		t.Fatal("the Debug rendering and the assertion ROW rendering produced the same " +
-			"string for a Decimal, so this engine cannot be shown to have chosen the right one")
-	}
-	// AND THE DEBUG ANSWER IS THE SUFFIXED ONE, which is the half that says
-	// which of the two differing answers this engine gave.
-	if want := "dbg line 7: x = 1.50d\n"; debug != want {
-		t.Fatalf("\n want %q\n  got %q", want, debug)
-	}
-}
-
-// TestVMDbg_ColourFollowsTheDestinationAndNotTheWrapper is the reading for the
-// colour rule, and it is the one fixture-shaped test cannot give.
+// TestVMDbg_ColourFollowsTheDestination is the reading for the colour rule,
+// and it is the one fixture-shaped test cannot give.
 //
 // THE HAZARD, RESTATED AS THE THING MEASURED: `rt.ColorEnabledFor` ends in
 // `w.(*os.File)`, `Machine.out` is a `*syncWriter`, and every writer any
 // fixture or harness in this repository hands a machine is a non-terminal. So
 // "the VM never colours" and "the VM asks the wrong writer" produce identical
-// output everywhere it is currently observed.
+// output everywhere it is currently observed. rt asks its question of the
+// wrapper's Destination (rt.Destination), which this reads.
 //
 // `/dev/null` IS THE INSTRUMENT: it is a character device, so
-// `ColorEnabledFor` answers TRUE for it and FALSE for a `*syncWriter` wrapping
-// it. That is the difference the machine has to get right, and it is
-// observable without a terminal.
+// `ColorEnabledFor` answers TRUE for it, and must for the machine's output
+// over it. A buffer is the control: it answers FALSE either way.
 //
 // THE ENVIRONMENT IS PINNED FIRST because `ColorEnabledFor`'s writer clause is
 // the LAST one it reaches: NOMI_COLOR, NO_COLOR and TERM=dumb all decide ahead
-// of it, so a machine running under any of them would answer the same for both
-// writers and this test would measure nothing.
-func TestVMDbg_ColourFollowsTheDestinationAndNotTheWrapper(t *testing.T) {
+// of it, so a machine running under any of them would answer the same for
+// every writer and this test would measure nothing.
+func TestVMDbg_ColourFollowsTheDestination(t *testing.T) {
 	t.Setenv("NOMI_COLOR", "")
 	t.Setenv("NO_COLOR", "")
 	t.Setenv("CLICOLOR_FORCE", "")
@@ -318,44 +287,29 @@ func TestVMDbg_ColourFollowsTheDestinationAndNotTheWrapper(t *testing.T) {
 
 	if !rt.ColorEnabledFor(devNull) {
 		t.Fatalf("THE CONTROL FAILED: %s is not being seen as a character device, so "+
-			"the two readings below cannot differ and this test proves nothing",
+			"the readings below cannot differ and this test proves nothing",
 			os.DevNull)
 	}
+	if rt.ColorEnabledFor(vm.New(dbgGraph(t, 7, "x", dbgInt(42)), new(strings.Builder)).Output()) {
+		t.Fatal("THE CONTROL FAILED: a machine over a buffer is seen as colourable")
+	}
 
-	// The machine's own wrapper, reached the way `dbgHost` reaches it. If the
-	// binding asked about `Output()` instead of the destination, the two
-	// answers below would be the same and a terminal would lose its colour.
+	// The machine's own wrapper is what `dbgHost` hands rt, and rt must see
+	// through it to the character device.
 	m := vm.New(dbgGraph(t, 7, "x", dbgInt(42)), devNull)
-	if rt.ColorEnabledFor(m.Output()) {
-		t.Fatal("ColorEnabledFor answered TRUE for the serialized wrapper, which it " +
-			"cannot do — it asserts *os.File. The reading below is then vacuous.")
+	if !rt.ColorEnabledFor(m.Output()) {
+		t.Fatal("ColorEnabledFor answered FALSE for the machine's output over a " +
+			"character device, so a machine over a terminal prints `dbg` uncoloured " +
+			"where `nomi run` colours it")
 	}
-	// The destination is what the binding must ask about, and it answers the
-	// opposite. Read through the machine's own text so this is the binding's
-	// decision and not a restatement of the rule.
-	coloured := rt.DbgText(devNull, 7, "x", "42")
-	plain := rt.DbgText(m.Output(), 7, "x", "42")
-	if coloured == plain {
-		t.Fatal("rt.DbgText answered the same text for the destination and for the " +
-			"wrapper, so the writer is not what the colour decision reads")
-	}
-	if !strings.Contains(coloured, "\x1b[") {
+	if text := rt.DbgText(m.Output(), 7, "x", "42"); !strings.Contains(text, "\x1b[") {
 		t.Fatalf("the destination is a character device so the header must be "+
-			"coloured: %q", coloured)
+			"coloured: %q", text)
 	}
-	if strings.Contains(plain, "\x1b[") {
-		t.Fatalf("the wrapper is not an *os.File so nothing may be coloured: %q", plain)
-	}
-	// AND THE BINDING PASSES THE DESTINATION, which is the half the two
-	// readings above cannot give: they are about `rt`'s rule, and this is
-	// about which writer the binding handed it.
-	//
-	// OBSERVED THROUGH `rt.Highlight`, which `rt.DbgText` calls with the
-	// writer it was given. A TEE would not work and the reason is worth
-	// recording, because it is the obvious attempt: `ColorEnabledFor` asserts
-	// the CONCRETE type `*os.File`, so a struct embedding one is not one and
-	// a wrapper cannot forward the identity. The hook sees the writer itself,
-	// which is the exact fact rather than a proxy for it.
+	// AND THE BINDING ASKS ABOUT A WRITER THAT LEADS THERE, which the readings
+	// above cannot give: they are about rt's rule, and this is about the
+	// writer the binding handed it. Observed through `rt.Highlight`, which
+	// `rt.DbgText` calls with the writer it was given.
 	saved := rt.Highlight
 	defer func() { rt.Highlight = saved }()
 	var asked []io.Writer
@@ -371,14 +325,9 @@ func TestVMDbg_ColourFollowsTheDestinationAndNotTheWrapper(t *testing.T) {
 			"has no subject")
 	}
 	for _, w := range asked {
-		if w == io.Writer(m.Output()) {
-			t.Fatal("the binding handed rt.DbgText the SERIALIZED WRAPPER, so a " +
-				"machine over a terminal prints `dbg` uncoloured where `nomi run` " +
-				"colours it")
-		}
-		if w != io.Writer(devNull) {
-			t.Fatalf("the binding handed rt.DbgText %T, which is neither the "+
-				"destination nor the wrapper", w)
+		if !rt.ColorEnabledFor(w) {
+			t.Fatalf("the binding handed rt.DbgText %T, whose colour is not the "+
+				"character device's", w)
 		}
 	}
 }
@@ -390,7 +339,7 @@ func TestVMDbg_ColourFollowsTheDestinationAndNotTheWrapper(t *testing.T) {
 // fails if it does — so the producer's `dbgKey` and this engine's are two
 // string literals in two packages. Nothing but a real lowering can show they
 // agree, and the failure mode if they do not is not subtle: every `dbg`
-// reports "crosses into Go and this machine binds no implementation for it".
+// reports "is a host function, and this machine binds no implementation for it".
 //
 // It is asserted here rather than left to the record comparison because the
 // comparison would report it as five wrong transcripts rather than as one

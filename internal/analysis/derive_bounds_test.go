@@ -31,43 +31,24 @@ var loadStd = sync.OnceValue(std.Load)
 func loadStdlibOnce() *std.StdLib { return loadStd() }
 
 // buildWithStdlibForDerive parses and analyses src with stdlib loaded,
-// returning the FileAnalysis. CheckDeriveBounds needs an impl index to
-// discover which stdlib primitives implement which interfaces, and the
-// single-file path has none and does not run it, so the helper calls
-// AttachStdlibProjectImpls and then CheckDeriveBounds with that index.
-//
-// FinalizeCoherence is invoked at the tail so missing-impl gaps that
-// CheckDeriveBounds defers to DetectMissingImpls (the derive-gap
-// recordings shipped with the missing-impl-diagnostic followup) reach
-// fa.TypeErrors here too — the helper mirrors what internal/frontend's
-// Checker.Analyze / DocumentManager.analyze do for the production paths.
+// returning the FileAnalysis: the JSON derive gates (CheckDeriveBounds),
+// the checker, whose pass over each derive's parts records their demands
+// (checkDerivedParts), and FinalizeCoherence, which reports the demands no
+// impl meets, as internal/frontend's Checker.Analyze and
+// DocumentManager.analyze do for the production paths. The single-file
+// build has no impl index, so the helper attaches std's
+// (AttachStdlibProjectImpls) and checks again.
 func buildWithStdlibForDerive(src string) *analysis.FileAnalysis {
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
-	// Lower type-body `derive Iface` entries into synthetic
-	// `derive Iface for T` declarations —
-	// CheckDeriveBounds keys off those decorators, so without lowering it
-	// would never see a body-declared derive at all.
+	// Lower `derive Iface for T` declarations into their impl blocks and
+	// decorators, which the passes below read.
 	nodes, _ = analysis.LowerDerives(nodes)
 	lib := loadStdlibOnce()
-	// First build with no stdlib impl index (CheckDeriveBounds does
-	// not run), then attach + re-run BuildTypes so the type-builder
-	// errors that depend on stdlib conformances coexist with derive-
-	// bound errors. derive The-bound errors that need the index
-	// are produced by a separate CheckDeriveBounds pass below.
 	fa := analysis.BuildFileWithStdlib(nodes, lib.Primitives, lib.Modules, "", nil)
 	analysis.AttachStdlibProjectImpls(fa, lib.Files)
-	// Run CheckDeriveBounds now that the index is attached, so
-	// derive-bound errors that depend on knowing stdlib impl coverage
-	// (the common case) land on fa.TypeErrors. Idempotent re-walk —
-	// duplicate diagnostics from synth-band positions would be a
-	// regression, but this codepath is unit-test-only.
-	fa.TypeErrors = append(fa.TypeErrors, analysis.CheckDeriveBounds(fa, nodes, fa.Program().ImplIndex, nil)...)
+	fa.TypeErrors = append(fa.TypeErrors, analysis.CheckDeriveBounds(fa, nodes, nil)...)
 	analysis.BuildTypes(fa, nodes)
-	// CheckTypes populates fa.ImplManifest with call-site / generic-
-	// bound recordings; FinalizeCoherence then consumes the manifest
-	// to surface missing-impl diagnostics — including derive-gap cases
-	// CheckDeriveBounds intentionally defers when it has an index.
 	fa.TypeErrors = append(fa.TypeErrors, analysis.CheckTypes(fa, nodes)...)
 	fa.TypeErrors = append(fa.TypeErrors, analysis.FinalizeCoherence(fa)...)
 	if e, text, found := generatedNameIn(fa.TypeErrors); found {
@@ -104,9 +85,9 @@ func errMsgs(errs []analysis.TypeError) string {
 // this check the failure surfaces deep in runtime dispatch with an
 // unhelpful synth-band position.
 //
-// CheckDeriveBounds records the derive-gap into ImplManifest and
-// defers the diagnostic to DetectMissingImpls (via FinalizeCoherence)
-// — the richer message names the interface, the receiver type, and
+// The checker records the derive's demand into ImplManifest and
+// DetectMissingImpls (via FinalizeCoherence) reports it: the message
+// names the interface, the receiver type, and
 // the offending field via DeriveCtx provenance.
 func TestDeriveEquatableOnFieldWithoutImplErrors(t *testing.T) {
 	src := `struct User
@@ -422,15 +403,10 @@ derive Debug for Holder`
 	}
 }
 
-// TestDeriveGapRoutedThroughDetectMissingImpls pins the missing-impl-
-// diagnostic followup: when CheckDeriveBounds detects a derive gap,
-// it MUST NOT emit the terse "@derive Iface on T: field 'f' (type 'X')
-// does not implement Iface" error so long as the caller will run
-// FinalizeCoherence (signaled by fa.Program().ImplIndex != nil). Instead, the
-// DeriveSynth Recording lands in the manifest and DetectMissingImpls
-// surfaces the richer "no impl of `Iface` for `X` ... via @derive(Iface)
-// on T field f" message with DeriveCtx provenance. Producing both
-// would double-report the same fix.
+// TestDeriveGapRoutedThroughDetectMissingImpls: a derive's part with no
+// impl is the derive's demand in the manifest (RecordingKindDeriveSynth),
+// which DetectMissingImpls reports once, naming the derive and the field
+// (DeriveCtx).
 func TestDeriveGapRoutedThroughDetectMissingImpls(t *testing.T) {
 	src := `struct C
     n: Int
@@ -449,20 +425,14 @@ derive Display for B`
 	if !hasErrSubstring(fa.TypeErrors, "`derive Display for B`, field `c`") {
 		t.Errorf("expected DeriveCtx provenance (B field c) in message, got:\n  %s", errMsgs(fa.TypeErrors))
 	}
-	// Old (CheckDeriveBounds) terse message MUST NOT appear — the
-	// missing-impl-diagnostic followup suppresses it when
-	// FinalizeCoherence will run, so the user sees one diagnostic
-	// per fix, not two.
-	for _, e := range fa.TypeErrors {
-		if strings.Contains(e.Message, "@derive Display on B: field 'c'") {
-			t.Errorf("CheckDeriveBounds terse error must be suppressed when FinalizeCoherence runs; got: %s", e.Error())
-		}
+	if len(fa.TypeErrors) != 1 {
+		t.Errorf("want the one error, got:\n  %s", errMsgs(fa.TypeErrors))
 	}
 }
 
 // TestDeriveExternTypeAcceptsVacuously — `@derive` on an host type has
 // no component types (fields / payloads / inner) for the bound check to
-// demand impls for, so the full pipeline (CheckDeriveBounds + CheckTypes +
+// demand impls for, so the full pipeline (CheckTypes and
 // FinalizeCoherence) accepts it with zero diagnostics: the synthesized
 // constant bodies type-check and produce no manifest gaps.
 func TestDeriveExternTypeAcceptsVacuously(t *testing.T) {

@@ -136,6 +136,97 @@ func TestReplVM_ALaterDebugImplReachesEarlierRenderings(t *testing.T) {
 			"\"R{x: 7}\"\n\"[R{x: 8}] S{r: R{x: 9}} Some(R{x: 10})\"\n")
 }
 
+// A derive that replaces a written Debug writes no function, and the
+// renderings earlier inputs compiled print the type's shape from then on:
+// one compiled before any impl and one compiled while the written impl was
+// in force, which names its body, alone, in a List, as a field, in an
+// Option and under a `dbg`. A written impl after the derive is the type's
+// Debug again for both.
+func TestReplVM_ADeriveAfterAWrittenDebugReachesEarlierRenderings(t *testing.T) {
+	parts := "\"${Debug.inspect(r)} ${Debug.inspect([r])} ${Debug.inspect(S{r:})} ${Debug.inspect(Some(r))}\""
+	replExpect(t, "struct R\n  x: Int\nend\nstruct S\n  r: R\nend\n"+
+		"fn early(r: R) -> String\n  "+parts+"\nend\n"+
+		"impl Debug for R\n  fn inspect(r: R) -> String\n    \"one ${r.x}\"\n  end\nend\n"+
+		"fn later(r: R) -> String\n  "+parts+"\nend\n"+
+		"fn traced(r: R) -> R\n  dbg r\nend\n"+
+		"early(R{x: 1})\nlater(R{x: 1})\n_ = traced(R{x: 1})\n"+
+		"derive Debug for R\nearly(R{x: 2})\nlater(R{x: 2})\n_ = traced(R{x: 2})\n"+
+		"impl Debug for R\n  fn inspect(r: R) -> String\n    \"two ${r.x}\"\n  end\nend\n"+
+		"early(R{x: 3})\nlater(R{x: 3})\n_ = traced(R{x: 3})\n",
+		"\"one 1 [one 1] S{r: one 1} Some(one 1)\"\n\"one 1 [one 1] S{r: one 1} Some(one 1)\"\ndbg line 4: r = one 1\n"+
+			"\"R{x: 2} [R{x: 2}] S{r: R{x: 2}} Some(R{x: 2})\"\n\"R{x: 2} [R{x: 2}] S{r: R{x: 2}} Some(R{x: 2})\"\ndbg line 4: r = R{x: 2}\n"+
+			"\"two 3 [two 3] S{r: two 3} Some(two 3)\"\n\"two 3 [two 3] S{r: two 3} Some(two 3)\"\ndbg line 4: r = two 3\n")
+}
+
+// A derive that replaces a written Display writes no function, and the
+// renderings an earlier input compiled while the written impl was in force
+// print the type's shape from then on, alone, in a List, as a derived
+// type's field and in an Option. One compiled while the derive was in
+// force names no body for the type, and a written impl after the derive
+// is the type's Display again for both.
+func TestReplVM_ADeriveAfterAWrittenDisplayReachesEarlierRenderings(t *testing.T) {
+	parts := "\"${r} ${[r]} ${S{r:}} ${Some(r)}\""
+	replExpect(t, "struct R\n  x: Int\nend\nstruct S\n  r: R\nend\n"+
+		"impl Display for R\n  fn to_string(r: R) -> String\n    \"one ${r.x}\"\n  end\nend\n"+
+		"derive Display for S\n"+
+		"fn early(r: R) -> String\n  "+parts+"\nend\n"+
+		"early(R{x: 1})\n"+
+		"derive Display for R\n"+
+		"fn later(r: R) -> String\n  "+parts+"\nend\n"+
+		"early(R{x: 2})\nlater(R{x: 2})\n"+
+		"impl Display for R\n  fn to_string(r: R) -> String\n    \"two ${r.x}\"\n  end\nend\n"+
+		"early(R{x: 3})\nlater(R{x: 3})\n",
+		"\"one 1 [one 1] S{r: one 1} Some(one 1)\"\n"+
+			"\"R{x: 2} [R{x: 2}] S{r: R{x: 2}} Some(R{x: 2})\"\n\"R{x: 2} [R{x: 2}] S{r: R{x: 2}} Some(R{x: 2})\"\n"+
+			"\"two 3 [two 3] S{r: two 3} Some(two 3)\"\n\"two 3 [two 3] S{r: two 3} Some(two 3)\"\n")
+}
+
+// A derive that replaces a written Equatable writes no function, and the
+// comparisons an earlier input compiled while the written impl was in
+// force compare the type by its shape from then on: `==`, a List, a
+// struct field, an Option, `Equatable.equal` and a Set's elements. A
+// written impl after the derive is the type's equality again for both.
+func TestReplVM_ADeriveAfterAWrittenEquatableReachesEarlierComparisons(t *testing.T) {
+	parts := "\"${a == b} ${[a] == [b]} ${S{r: a} == S{r: b}} ${Some(a) == Some(b)} ${Equatable.equal(a, b)} ${Set.size(Set[a, b])}\""
+	replExpect(t, "struct R\n  x: Int\nend\nstruct S\n  r: R\nend\n"+
+		"impl Equatable for R\n  fn equal(a: R, b: R) -> Bool\n    a.x % 10 == b.x % 10\n  end\nend\n"+
+		"fn early(a: R, b: R) -> String\n  "+parts+"\nend\n"+
+		"early(R{x: 1}, R{x: 11})\n"+
+		"derive Equatable for R\n"+
+		"fn later(a: R, b: R) -> String\n  "+parts+"\nend\n"+
+		"early(R{x: 1}, R{x: 11})\nlater(R{x: 1}, R{x: 11})\n"+
+		"impl Equatable for R\n  fn equal(a: R, b: R) -> Bool\n    a.x > 0 and b.x > 0\n  end\nend\n"+
+		"early(R{x: 1}, R{x: 11})\nlater(R{x: 1}, R{x: 11})\n",
+		"\"True True True True True 1\"\n"+
+			"\"False False False False False 2\"\n\"False False False False False 2\"\n"+
+			"\"True True True True True 1\"\n\"True True True True True 1\"\n")
+}
+
+// A derive that replaces a written Hashable writes no function, and the
+// hashes an earlier input compiled while the written impl was in force
+// hash the type by its shape from then on: `Hashable.hash`, `R.hash`, a
+// List, a struct field, an Option and a value held as Hashable. The
+// written impl gives every value one hash, and the shape tells R{x: 1}
+// from R{x: 2}. A written impl after the derive is the type's hash again
+// for both.
+func TestReplVM_ADeriveAfterAWrittenHashableReachesEarlierHashes(t *testing.T) {
+	parts := "\"${Hashable.hash(a) == Hashable.hash(b)} ${R.hash(a) == R.hash(b)} ${Hashable.hash([a]) == Hashable.hash([b])} " +
+		"${Hashable.hash(S{r: a}) == Hashable.hash(S{r: b})} ${Hashable.hash(Some(a)) == Hashable.hash(Some(b))} ${held(a) == held(b)}\""
+	replExpect(t, "struct R\n  x: Int\nend\nstruct S\n  r: R\nend\n"+
+		"impl Hashable for R\n  fn hash(_r: R) -> Int\n    7\n  end\nend\n"+
+		"fn held(h: Hashable) -> Int\n  Hashable.hash(h)\nend\n"+
+		"fn early(a: R, b: R) -> String\n  "+parts+"\nend\n"+
+		"early(R{x: 1}, R{x: 2})\n"+
+		"derive Hashable for R\n"+
+		"fn later(a: R, b: R) -> String\n  "+parts+"\nend\n"+
+		"early(R{x: 1}, R{x: 2})\nlater(R{x: 1}, R{x: 2})\n"+
+		"impl Hashable for R\n  fn hash(_r: R) -> Int\n    9\n  end\nend\n"+
+		"early(R{x: 1}, R{x: 2})\nlater(R{x: 1}, R{x: 2})\n",
+		"\"True True True True True True\"\n"+
+			"\"False False False False False False\"\n\"False False False False False False\"\n"+
+			"\"True True True True True True\"\n\"True True True True True True\"\n")
+}
+
 // An undefined name's hint offers every name the session has in scope, not
 // only the ones the input's file imports: a value, a function, a once and a
 // type of earlier inputs.

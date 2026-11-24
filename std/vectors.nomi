@@ -44,7 +44,9 @@ impl Vector<T>
     //
     pub host fn get<T>(vector: Vector<T>, index: Int) -> Option<T>
 
-    /// Returns a new vector with `item` appended to the end. O(log32 n).
+    /// Returns a new vector with `item` appended to the end, in O(log32 n).
+    /// It copies the last block of up to 32 elements, or writes in place
+    /// when the compiler proves nothing reads `vector` again.
     //! assert Vector.push([1, 2], 3) == [1, 2, 3]
     //
     pub host fn push<T>(vector: Vector<T>, item: T) -> Vector<T>
@@ -183,7 +185,7 @@ impl Display for Vector<T> where T: Display
     end
 end
 
-impl Debug for Vector<T>
+impl Debug for Vector<T> where T: Debug
     fn inspect(vector: Vector<T>) -> String
         body =
             vector
@@ -195,17 +197,17 @@ impl Debug for Vector<T>
 end
 
 impl Equatable for Vector<T>
-    fn equal(a: Vector<T>, b: Vector<T>) -> Bool
-        a == b
-    end
+    /// Whether the two vectors hold equal elements in the same order. The
+    /// machine compares them element by element, so the elements need
+    /// equality of their own.
+    host fn equal(a: Vector<T>, b: Vector<T>) -> Bool
 end
 
 impl Hashable for Vector<T> where T: Hashable
-    fn hash(vector: Vector<T>) -> Int
-        Iter.reduce(vector, 19, fn acc, x ->
-            Int.wrapping_add(Int.wrapping_mul(acc, 31), Hashable.hash(x))
-        end)
-    end
+    /// The hash a Map key of this type takes: the elements' hashes folded
+    /// in order, apart from a List of the same elements. It is keyed by
+    /// the run, so it may differ between runs.
+    host fn hash(vector: Vector<T>) -> Int
 end
 
 impl Comparable for Vector<T> where T: Comparable

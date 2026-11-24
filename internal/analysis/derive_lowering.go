@@ -289,7 +289,7 @@ func lowerTopLevelDerive(conf *ast.ImplConformance, nodes []ast.Node, index int,
 		// position in the pre-lowering node list), but the origin a
 		// diagnostic reports is the declaration it names — that is the
 		// source the programmer navigates to.
-		site := synthSite{origin: synthOriginConformance, index: index, wrapping: wrappingDistincts(decls)}
+		site := synthSite{origin: synthOriginConformance, index: index}
 		site.line, site.col = declPos(decl)
 		foreign := typeDeclsInNodeList(nodes)[recvName] != decl
 		if foreign {
@@ -349,15 +349,12 @@ func typeExprPos(t ast.TypeExpr, fallbackLine, fallbackCol int) (int, int) {
 // is not a SOURCE form (the parser rejects it); this synthetic
 // `ast.Decorator{Name:"derive"}` is the ONLY producer of derive decorators,
 // created here during lowering, beside the impl block lowering writes. The
-// decorator node's consumers (walkTypeDeclDecoratorArgs, CheckDeriveBounds,
-// the universal Debug's precedence) are this desugaring's target.
-// Recording the derive demands directly here, without the synthetic
-// decorator, would let the internal-only `@derive` handling be deleted.
+// decorator node's consumers (walkTypeDeclDecoratorArgs, CheckDeriveBounds'
+// JSON gates, the universal Debug's precedence) are this desugaring's
+// target. What a derive demands of its parts is the checker's
+// (checkDerivedParts), which reads the impl block, not the decorator.
 //
-// It is handled by the same downstream machinery as a hand-written derive — most
-// importantly CheckDeriveBounds, which records the transitive
-// `(Iface, component-type)` manifest demands the synthesized body dispatches
-// through. The arg is the conformance line's interface type-expr (a real source
+// The arg is the conformance line's interface type-expr (a real source
 // position), so reference-recording / unused-import / go-to-def all land on the
 // `derive Iface` text. The decorator's own position mirrors the
 // conformance line; only its arg drives diagnostics (deriveArgName reads the

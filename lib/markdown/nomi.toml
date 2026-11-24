@@ -1,6 +1,5 @@
 [module]
 name = "markdown"
-path = "github.com/nomi-language/nomi/lib/markdown"
 
 [effects.self]
 std = []

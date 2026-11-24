@@ -1515,15 +1515,11 @@ end
 // allocated or rebuilt per element and no upstream iterator held in an
 // existential field.
 //
-// Every function here that builds a `Seq` is one the IR builder lowers itself
-// as an intrinsic over rt.Seq (`concat`'s push loop is Nomi, and that is
-// fine, because the builder never lowers this body). The builder never
-// lowers `impl Iter for Seq`'s `each_while` for a program: generic std
-// functions are instantiated per program when called by name, and an impl
-// member reached through a source is not. So a Seq built by a body that is
-// instantiated from Nomi leaves every program walking it blocked. Write such
-// an adapter over the existing ones, as `permutations` and `combinations`
-// are. `TestStdIterSeqLiteralsAreBuilderIntrinsics` holds the rule.
+// The IR builder lowers the constructors and adapters above itself, as
+// intrinsics over rt.Seq, and a program runs none of their bodies
+// (`concat`'s push loop is Nomi). A `Seq` that another body builds is walked
+// through `impl Iter for Seq`'s `each_while`, which the builder instantiates
+// with that body.
 // ---------------------------------------------------------------------------
 /// A source that is nothing but its own push loop: `run` takes the consumer's
 /// `yield` and returns whether the source ran to exhaustion. Go spells this

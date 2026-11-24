@@ -1,0 +1,30 @@
+//# A counter held by an agent, for agent_test.nomi.
+
+import
+    std::actors.{Agent, CallError}
+    std::io
+    std::supervisors.{Restart, Supervisor}
+end
+
+pub struct App
+    context: Context
+    counter: Agent<Int>
+end
+
+pub fn boot() -> Result<App, String>
+    workers = Supervisor.new(max_running: 1, restart: Restart.Transient)
+    Ok(App{context: Context.root(), counter: Agent.start(workers, 0)})
+end
+
+pub fn count() -> Result<Int, CallError>
+    Agent.get(App.counter, fn n -> n)
+end
+
+pub fn next_id() -> Result<Int, CallError>
+    Agent.get_and_update(App.counter, fn n -> (n, n + 1))
+end
+
+fn main()
+    _ = Agent.cast(App.counter, fn n -> n + 2)
+    io.print("count: ${count()}")
+end

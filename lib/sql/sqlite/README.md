@@ -3,7 +3,7 @@
 The SQLite driver for Nomi's `std/sql`. SQLite itself, compiled to
 WebAssembly, ships inside the module, and std::wasm runs it; the file
 layer SQLite reads and writes through is Nomi over std::fs ([How it
-runs](#how-it-runs)). A program that uses it needs no C compiler and no Go.
+runs](#how-it-runs)). A program that uses it needs no C compiler.
 
 ```nomi
 import

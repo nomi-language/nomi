@@ -7,7 +7,7 @@
 //# store = s3.store(s3.Config{
 //#     endpoint: Url"https://nyc3.digitaloceanspaces.com",
 //#     bucket: "photos",
-//#     credentials: s3.Credentials{access_key: key, secret_key: secret},
+//#     credentials: s3.Credentials{access_key: key, secret_key: Secret.new(secret)},
 //#     acl: Some("public-read"),
 //# })?
 //#
@@ -45,6 +45,7 @@ import
     std::http.{self, Body, Client, ClientOptions, Headers, Method, Request, Response, Status}
     std::instant.Instant
     std::regex.Regex
+    std::secret.Secret
     std::storage.{self, Entry, Info, ListOptions, Listing, Object, Store}
     std::timer
     std::url.{Query, Url}
@@ -77,10 +78,16 @@ end
 
 derive Equatable for Payload
 
-/// A static key pair.
+/// A static key pair. The secret key is a `Secret`, so `Debug` shows
+/// `Secret(<hidden>)` in its place.
+//! credentials = Credentials{access_key: "minio", secret_key: Secret.new("minio123")}
+//!
+//! assert Debug.inspect(credentials)
+//!     == "Credentials{access_key: \"minio\", secret_key: Secret(<hidden>)}"
+//
 pub struct Credentials
     access_key: String
-    secret_key: String
+    secret_key: Secret
 end
 
 /// A bucket on an S3-protocol server.
@@ -119,7 +126,7 @@ end
 //! config = Config{
 //!     endpoint:    Url"http://localhost:9000",
 //!     bucket:      "photos",
-//!     credentials: Credentials{access_key: "minio", secret_key: "minio123"},
+//!     credentials: Credentials{access_key: "minio", secret_key: Secret.new("minio123")},
 //! }
 //!
 //! assert Result.is_ok(store(config))
@@ -583,7 +590,8 @@ fn check_config(config: Config) -> Result<Unit, storage.Error>
     check_bucket(config.bucket)?
     if config.region == "" then return invalid("the region is empty")
 
-    if config.credentials.access_key == "" or config.credentials.secret_key == "" then
+    if config.credentials.access_key == ""
+        or Secret.expose(config.credentials.secret_key) == "" then
         return invalid("the access key or the secret key is empty")
     end
 
@@ -760,10 +768,10 @@ fn string_to_sign(stamp: String, region: String, canonical: String) -> String
     )
 end
 
-fn signature_of(secret: String, region: String, stamp: String, canonical: String) -> String
+fn signature_of(secret: Secret, region: String, stamp: String, canonical: String) -> String
     key =
         [String.take(stamp, 8), region, "s3", "aws4_request"]
-        |> Iter.reduce(String.to_bytes("AWS4${secret}"), fn key, part ->
+        |> Iter.reduce(String.to_bytes("AWS4${Secret.expose(secret)}"), fn key, part ->
             hash.hmac_sha256(key, String.to_bytes(part))
         end)
 

@@ -5,7 +5,7 @@ package irbuild
 // record its switch reads (unreadAnswers), by family, the programs
 // TestIRGolden_RecordsMatchTheVM runs reach. Each count only goes down.
 // An operator the builder writes carries a record (carryUse: the operator
-// a call of a machine-computed impl is, tupleHashOf's Int arithmetic),
+// a call of a machine-computed impl is),
 // and an operator or a call over a type parameter resolves at its
 // instance's checker types (checkSubstCensus).
 var maxOperatorFormSites = map[string]int{

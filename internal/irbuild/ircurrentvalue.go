@@ -127,7 +127,11 @@ func (bl *irScalarBuilder) captureCurrent(t *ast.CurrentValue) (ir.Temp, kind, b
 // `Set[]`, `{}`) is built at the kind the checker gave it (emptyLiteral), and
 // a value the builder makes for a position (a bare `..` at a missing key, a
 // std field's `[]` default) at the position's kind. The value has its kind
-// from the start; nothing retypes it later.
+// from the start; nothing retypes it later. An empty Vector, Set or Map is
+// made where it is written, as a literal with elements is, so it is a
+// fresh value the function may update in place (ir package doc, "Updates
+// written in place"); an empty List is a constant, since nothing writes a
+// List in place.
 func (bl *irScalarBuilder) emptyOf(at ast.Node, k kind) (ir.Temp, kind, bool, bool) {
 	pos := bl.g.irNodePos(at)
 	var dst ir.Temp
@@ -142,13 +146,13 @@ func (bl *irScalarBuilder) emptyOf(at ast.Node, k kind) (ir.Temp, kind, bool, bo
 		bl.b.Append(c)
 		dst, pure = c.Dst(), true
 	case irRetainedVectorKind(k) || bl.g.irVectorValueKind(k):
-		c := ir.NewEmptyVector(pos, bl.f.NewTemp(), nil)
+		c := ir.NewMakeVector(pos, bl.f.NewTemp(), nil)
 		bl.b.Append(c)
-		dst = c.Dst()
+		dst, pure = c.Dst(), true
 	case irRetainedSetKind(k):
-		c := ir.NewEmptySet(pos, bl.f.NewTemp(), nil)
+		c := ir.NewMakeSet(pos, bl.f.NewTemp(), nil)
 		bl.b.Append(c)
-		dst = c.Dst()
+		dst, pure = c.Dst(), true
 	default:
 		bl.g.dc.note("an empty collection of kind " + k.nomi())
 		return ir.NoTemp, kindInvalid, false, false

@@ -249,7 +249,7 @@ func TestExpectation_Stdlib(t *testing.T) {
 	}
 	for _, module := range stdlibModulesWithPrompts(t) {
 		path := fileuri.ToPath(std.Load().FileURI(module))
-		if !vmcmd.IsStdlibPath(path) {
+		if _, _, inStd, _ := frontend.StdlibFile(path); !inStd {
 			t.Fatalf("std/%s resolves to %s, which `nomi test` would not run as a stdlib module", module, path)
 		}
 		o, cases := runTests(t, path)

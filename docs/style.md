@@ -19,7 +19,7 @@ here, not scattered across other docs.
 ### 1. Let `nomi fmt` own the layout
 
 Run `nomi fmt -w` after editing a `.nomi` file, or let the editor format on
-save through `nomi-lsp`. Don't line code up by hand or fight a break `fmt`
+save through `nomi lsp`. Don't line code up by hand or fight a break `fmt`
 chose. What it does is in the
 [tooling reference](/tooling/formatting/); the
 choices it leaves to you are these:
@@ -177,8 +177,8 @@ Split a file's name into words as any other value name is split:
 `std::code_points`, `order_lines.nomi`, never
 `orderlines`. A name ends in `_test` only when the
 file holds tests, since `_test.nomi` is what marks a test file. A module that
-helps test another sits beside it as `testing`, as Go's `net/http/httptest`
-does: `std::sql::testing` holds the fake `Conn` and the conformance suite, and
+helps test another sits beside it as `testing`: `std::sql::testing` holds
+the fake `Conn` and the conformance suite, and
 code calls it `testing.conformance(...)`. A file that imports two of them
 names each after its parent: `import std::fs::testing as fs_testing`.
 
@@ -2252,3 +2252,231 @@ a test cannot replace it, and a read of it is a value, which the editor does
 not mark. `io.stdout`, `io.stderr` and `io.stdin` are the exceptions: the
 standard streams are std's `once` values, and a program reads them where it
 starts, as in `report(io.stdout, 3)`.
+
+## Building a value step by step
+
+Every value is immutable, so a loop that builds a collection makes a new
+value at each step. What each step copies decides whether the loop takes
+time linear in what it builds or quadratic. The costs below are
+measurements of one build on one machine, not promises.
+
+### 54. Grow text, bytes and lists with the tool that appends
+
+`Vector.push`, `Map.put`, `Set.insert` and a bytes `Builder`'s pushes cost
+about the same at every step, however large the value has grown. A Vector,
+Map or Set copies at most one path of a 32-way tree, and a Builder writes
+into spare room after its bytes ([std::bytes](/reference/bytes/)). A String
+or Bytes `+`, an interpolation that holds the text so far
+(`"${text}${line}"`) and a List's `[..xs, x]` copy the whole value at each
+step, so building n pieces one at a time copies about n²/2 of them.
+`Iter.sum` over Strings or Bytes adds with `+`, so it is quadratic too.
+
+| Building | Write | Not, one piece per step |
+|---|---|---|
+| text | `String.join` once over the parts | `text + part`, `"${text}${part}"`, `Iter.sum` |
+| bytes | a `Builder` and `Builder.to_bytes`, or `Bytes.concat_all` | `bytes + part` |
+| a list in order | `[x, ..xs]` and one `Iter.reverse` (§36), or a Vector | `[..xs, x]` |
+
+```nomi
+// yes: the lines are joined once
+fn to_csv(rows: List<List<String>>) -> String
+    rows |> Iter.map(&String.join(&1, ",")) |> String.join("\n")
+end
+
+// no: each step copies the text built so far
+fn to_csv(rows: List<List<String>>) -> String
+    Iter.reduce(rows, "", fn text, row -> "${text}${String.join(row, ",")}\n")
+end
+```
+
+When each element of a source gives one entry, collect them:
+`Iter.to_vector`, `to_list`, `to_map`, `to_set` and `String.join` build the
+result in one pass, faster than a fold that adds one entry per step (the
+table in §55).
+
+A Builder fills one buffer as long as each push starts from the Builder the
+last push answered. Pushing twice from one Builder (keeping `b` after
+`Builder.push(b, x)` and pushing to `b` again) copies its bytes into a
+buffer of its own, so a loop that does it at every step is quadratic.
+
+### 55. Hand the value being built to the next step, and read the old one no more
+
+`Vector.push(v, x)` answers a new vector and leaves `v` as it was. When the
+compiler proves that nothing reads `v` again, the machine writes the new
+value into `v`'s storage instead of copying it. No program can tell the
+difference except by its speed. The proof looks at one function at a time:
+
+- The value was built in the function (a literal, `Vector[]` and `Set[]`
+  and `{}` among them, an update, a Vector, Map or Set operation,
+  `Iter.to_vector` and its siblings), or arrived as a parameter of a direct
+  call whose caller held it the same way and does not read it again.
+- Each update is the last read of the value it updates. A lookup before it
+  (`Map.get`, `Map.size`, `Vector.get`, `Vector.length`, `in` on a Map)
+  keeps nothing and does not count.
+
+These shapes write in place: a tail call that passes the updated value on;
+`Iter.reduce` and `Iter.map_reduce` whose step is a lambda, a capture or a
+named function passed itself (§33); `Iter.loop`; a pipeline of updates,
+`v |> Vector.push(a) |> Vector.push(b)`; a binding updated again,
+`acc = Map.put(acc, key, n)`; and a field updated through its struct,
+`{..state, seen: Map.put(state.seen, key, at)}`.
+
+A value the function neither built nor was handed is copied by its first
+update, and the copy is the function's own, so the updates after it write
+in place, in this function and in the functions it hands the copy to.
+Such a value is an app field, a `once`, an element taken out of a
+collection, a channel's message, a closure's capture, or a parameter whose
+caller keeps the value or calls through a function value or an interface.
+A `Map.remove` or `Set.remove` of an element the value lacks answers the
+value it was given, so the update after it copies again.
+
+These updates copy:
+
+- an update of a value read again after it, as `seen` is below; ask before
+  the update instead;
+- an update of a value a closure captured;
+- every step's update of a fold's accumulator, when the step is a function
+  value the function was passed or took out of a value, as
+  `Iter.try_reduce`'s step is, or uses `break` or `continue`.
+
+```nomi
+// in place: a word already seen is asked about before the put, and each
+// step hands the map on
+fn first_seen(words: List<String>, at: Int, seen: Map<String, Int>) -> Map<String, Int>
+    case words
+        []                               -> seen
+        [word, ..rest] when word in seen -> first_seen(rest, at + 1, seen)
+        [word, ..rest]                   -> first_seen(rest, at + 1, Map.put(seen, word, at))
+    end
+end
+
+// copies at each step: the old map is read after the put
+fn first_seen(words: List<String>, at: Int, seen: Map<String, Int>) -> Map<String, Int>
+    case words
+        [] ->
+            seen
+
+        [word, ..rest] ->
+            next = Map.put(seen, word, at)
+            first_seen(rest, at + 1, if Map.size(next) > Map.size(seen) then next else seen)
+    end
+end
+```
+
+A step that copies costs a constant factor more, never a factor that grows
+with the value. A copying `Vector.push` copies the last block of up to 32
+elements; a copying `Vector.set`, `Map.put` or `Set.insert` copies one path
+from the root, a node of up to 32 entries per level; a copying struct
+update copies the struct's fields. A loop that copies at each step is
+slower by the factors in the table, and still linear.
+
+Measured on the machine `nomi run` uses, built from source, on an Apple M2
+Max (12 cores, load average 6 to 8), 2026-11-23: the median of five runs of
+`main` after one warm-up, as nanoseconds per step at each size, and the
+bytes the run allocated per step at the largest. The smallest size includes the run's
+fixed cost of about 0.3 ms.
+
+| Each step | 10³ | 10⁵ | 10⁶ | Bytes per step |
+|---|---:|---:|---:|---:|
+| `Iter.to_vector` of a range | 232 | 10 | 9 | 27 |
+| `Vector.push`, passed on in a tail call | 350 | 91 | 90 | 51 |
+| the same, every update copying | 380 | 155 | 197 | 432 |
+| the same, the first update copying a vector the caller keeps* | 389 | 96 | 94 | 51 |
+| `Vector.push` in an `Iter.reduce` step, from `Vector[]`* | 402 | 143 | 157 | 59 |
+| `Map.put`, passed on in a tail call | 399 | 187 | 188 | 162 |
+| the same, every update copying | 596 | 490 | 919 | 1,905 |
+| `Map.put` in an `Iter.reduce` step, from `{}`* | 888 | 241 | 297 | 170 |
+| struct update, passed on in a tail call | 320 | 45 | 43 | 0.4 |
+| the same, every update copying | 345 | 66 | 74 | 128 |
+| `Builder.push` of one byte | 318 | 53 | 51 | 19 |
+| `String.join` of one-letter strings | 300 | 71 | 69 | 30 |
+| `[x, ..xs]`, then one `Iter.reverse` | 301 | 61 | 64 | 72 |
+
+| Each step, quadratic | 10³ | 10⁴ | 10⁵ | Bytes per step |
+|---|---:|---:|---:|---:|
+| String `+` of one letter | 443 | 483 | 3,982 | 53,124 |
+| Bytes `+` of one byte | 425 | 518 | 4,043 | 53,124 |
+| `Builder.push` twice from one Builder | 516 | 920 | 6,370 | 103,677 |
+
+`[..xs, x]` takes 5,835, 19,792 and 63,395 ns per step at 10³, 3·10³ and
+10⁴ elements.
+
+The rows marked * were measured later the same day on the same machine,
+under a load average of 12 to 15. Their bytes compare with the other
+rows'; their times run about 1.5 times high, as the tail call's push did
+in the same run (148 ns per step at 10⁵). A named function as the fold's
+step measures as the lambda does.
+
+## Concurrency
+
+### 56. Reach for a task function before a channel
+
+Running a few things at once, a batch, a race or a wait with a limit is a
+call to `std::tasks` (spec §16 *`concurrent` and tasks*; tour:
+[Concurrency](/concurrency/)). Built by hand from a channel, each is a
+close, a timer and a cancel that std already gets right:
+
+```nomi
+quote = Task.within(Duration.seconds(2), fetch_quote)
+```
+
+### 57. Use an `Agent` for a value and an `Actor` for a protocol
+
+State that several callers change lives in one task from `std::actors`
+(tour: [Background Work](/background-work/#where-mutable-state-lives)).
+When every message is a change to one value, such as a counter or a cache,
+make it an `Agent`; when the messages mean different things, an `Actor`
+with a message enum:
+
+```nomi
+_ = Agent.update(App.hits, &(&1 + 1))
+```
+
+### 58. Await in the block where you spawn
+
+Settle each task in the `concurrent` block that starts it, so one place
+shows the whole life of every task (spec §16 *Static guarantees*). A helper
+that spawns into its caller's block and leaves the waiting to the caller
+splits that life across two functions:
+
+```nomi
+priced =
+    concurrent
+        validation = Task.spawn(fn -> validate(id))
+        pricing = Task.spawn(fn -> price(id))
+        Ok((Task.await(validation)?, Task.await(pricing)?))
+    end
+```
+
+### 59. Give every batch a `max_running`
+
+Start a batch with `Task.spawn_all`, whose `max_running` bounds what the
+tasks talk to, never with a `Task.spawn` per item, which runs them all at
+once (tour: [Running a batch](/concurrency/#running-a-batch)):
+
+```nomi
+ids |> Task.spawn_all(fetch_user, max_running: 8) |> Task.await_all()
+```
+
+### 60. Use a channel for a stream of events or for `select`
+
+A channel is for values that arrive over time, such as signals, file
+changes or a websocket's messages, and for waiting on several different
+things with `Channel.select` (spec §16 *Channels*):
+
+```nomi
+signals.receiver([Signal.Hangup])?
+|> Receiver.iter()
+|> Iter.each(fn _ -> reload())
+```
+
+### 61. Let std own the close
+
+Read a channel with `Receiver.iter`, which ends at the close, rather than a
+loop that receives and breaks on `None`. Where std made the channel, as
+`signals.receiver` and a file watcher do, std closes it, and a channel of
+your own that should end at shutdown takes `Sender.close_on_drain`:
+
+```nomi
+total = Receiver.iter(inbox) |> Iter.sum()
+```

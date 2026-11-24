@@ -90,7 +90,8 @@ type storedPass struct {
 	sum   [32]byte
 	count CaseCount
 	parts []vm.CodePart
-	// pure says the case's walk found no effect.
+	// pure says the case's walk found no effect and no hash read
+	// (vm.CaseReach.Pure).
 	pure bool
 	// verified says sum was made, and matched or stored, from the
 	// program its record's image names, under its record's timeout: what
@@ -168,14 +169,18 @@ func (p *Program) caseFingerprint(c ir.TestCase, parts []vm.CodePart) [32]byte {
 // program is a kept one's (passStore.image).
 func (s *passStore) decide(name string, sum [32]byte, reach vm.CaseReach) (storedPass, string) {
 	verified := s.image != [32]byte{}
-	pure := len(reach.Effects) == 0
+	pure := reach.Pure()
 	now := storedPass{sum: sum, parts: reach.Parts, pure: pure, verified: verified}
 	pass, ok := s.was.passes[name]
 	switch {
 	case s.policy == RunAll:
 		return now, rt.DecidedAll
 	case !pure && s.policy != RunChanged:
-		s.entry.Logf("%s: ran: it has effects (%s)", name, reach.Effects[0])
+		if len(reach.Effects) > 0 {
+			s.entry.Logf("%s: ran: it has effects (%s)", name, reach.Effects[0])
+		} else {
+			s.entry.Logf("%s: ran: it reads a hash, which differs between runs (%s)", name, reach.Seeded[0])
+		}
 		return now, rt.DecidedEffects
 	case !ok:
 		s.entry.Logf("%s: ran: no stored pass", name)

@@ -210,7 +210,7 @@ impl Contains for Range<T> where T: Comparable
     end
 end
 
-impl Display for Range<T>
+impl Display for Range<T> where T: Debug
     // Use Debug for endpoints so every comparable value can be rendered, even
     // if it has no user-facing Display impl.
     /// The range as its literal, each endpoint in its `Debug` form:
@@ -235,7 +235,7 @@ impl Display for Range<T>
     end
 end
 
-impl Debug for Range<T>
+impl Debug for Range<T> where T: Debug
     fn inspect(r: Range<T>) -> String
         to_string(r)
     end

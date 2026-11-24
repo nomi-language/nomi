@@ -226,11 +226,12 @@ func (p *Program) dependencyProblem(module string) (problem, hint string) {
 		return "which is not a dependency of this project", "the project has no dependencies"
 	}
 	// A dependency is named by its name in the program, the key the
-	// project's [dependencies] gives it, never by its module path or its
+	// project's [dependencies] gives it, never by its repository or its
 	// own [module].name.
 	if g, err := modcache.Load(p.prog.Root); err == nil && g != nil {
 		for _, d := range g.Deps {
-			if d.Name != module && (d.Path == module || d.Self == module) {
+			if d.Name != module && (!d.ID.IsZero() && d.ID.String() == module || d.Self == module) {
+
 				return "which is not a dependency's name in this project", fmt.Sprintf("did you mean %q? a dependency is named by its key under [dependencies]", d.Name)
 			}
 		}

@@ -249,7 +249,7 @@ func (grp *typeGroup) layOut(gens []*gen) {
 	for _, in := range grp.insts {
 		in.d.boxFields()
 	}
-	// A mirror's boxing before any slot is assigned: zero-sizedness reads it.
+	// A mirror's fields are boxed as its source's are.
 	for _, p := range grp.pending {
 		if p.imported {
 			for i := range p.d.fields {

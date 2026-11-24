@@ -35,8 +35,9 @@ import
     debug.Debug
     duration.Duration
     equatable.Equatable
-    fs.{self, Access, Dir, Entry, Kind, LockAttempt, LockMode, Metadata, WriteMode}
+    fs.{self, Access, Dir, Entry, Kind, LockAttempt, LockMode, Metadata, Owner, WriteMode}
     fs::host
+    instant.Instant
     int.{Int, Int64}
     io.{Error, File, Reader, Writer}
     iter.Iter
@@ -101,8 +102,9 @@ pub enum Operation
     /// `File.write`, `File.write_at` and `File.truncate`.
     Write
     /// Opening a file to write it (`fs.write`, `fs.create`, `fs.copy`'s
-    /// target, `fs.open_file` with another access), making a directory, and
-    /// making a symlink.
+    /// target, `fs.open_file` with another access, `fs.touch` of a missing
+    /// file, `fs.truncate`), making a directory, and making a symlink or a
+    /// hard link (`fs.create_link`).
     Create
     /// `fs.remove` and `fs.remove_all`.
     Remove
@@ -110,8 +112,9 @@ pub enum Operation
     Rename
     /// `fs.list`.
     List
-    /// `fs.metadata`, `fs.exists`, `fs.link_metadata`, `fs.read_link` and
-    /// `fs.set_mode`.
+    /// `fs.metadata`, `fs.exists`, `fs.link_metadata`, `fs.read_link`,
+    /// `fs.set_mode`, `fs.set_times` (and `fs.touch`), `fs.set_owner`,
+    /// `fs.set_link_owner` and `fs.disk_usage`.
     Metadata
     /// Closing a file opened to read or write.
     Close
@@ -129,9 +132,11 @@ pub struct Ran<T>
     /// Directories and symlinks are not files.
     files: Map<String, Bytes>
     /// Each operation as `<operation> <absolute path>`, in order: `read`,
-    /// `write`, `open` (`fs.open_file`), `list`, `metadata`,
-    /// `link_metadata`, `create_dir`, `create_symlink`, `read_link`,
-    /// `set_mode`, `remove`, `remove_all`, `sync_dir`, `sync` and
+    /// `write`, `open` (`fs.open_file`, `fs.truncate`, and `fs.touch` of a
+    /// missing file), `list`, `metadata`, `link_metadata`, `create_dir`,
+    /// `create_symlink`, `create_link`, `read_link`, `set_mode`,
+    /// `set_times` (and `fs.touch`), `set_owner`, `set_link_owner`,
+    /// `disk_usage`, `remove`, `remove_all`, `sync_dir`, `sync` and
     /// `sync_data` (`File.sync` and `File.sync_data`, at the path the file
     /// was opened by), and `rename <from> to <to>`. The path is the one the
     /// program named, resolved against the working directory, before any
@@ -258,7 +263,10 @@ end
 /// `rename` over a file, an atomic write that fails, line splitting,
 /// `InvalidText`, closed handles, `exists`, walks and globs, symlinks
 /// (followed by reads and `metadata`, not by `link_metadata`, `remove`,
-/// `rename` and walks; a dangling one; a loop), `set_mode`, a `File`'s
+/// `rename` and walks; a dangling one; a loop), hard links and
+/// `same_file`, `set_mode`, `set_times` and `touch`, `set_owner` to the
+/// owner a file has (`Unsupported` on Windows), `disk_usage`, `truncate`,
+/// what `metadata` answers besides kind and size, a `File`'s
 /// reads and writes at a position, its syncs and its locks against a second
 /// handle, `fs.sync_dir`, `fs.within`'s confinement, and a `Dir`'s: what it
 /// reaches, the paths it refuses, its close and its temporary files.
@@ -353,6 +361,13 @@ fn rules() -> List<(String, (String) -> Option<String>)>
         ("read_link of a file is EINVAL",                             rule_read_link_file),
         ("a symlink loop is ELOOP",                                   rule_link_loop),
         ("set_mode sets the permission bits",                         rule_set_mode),
+        ("metadata answers links, identity and the access time",      rule_metadata_fields),
+        ("set_times sets the times metadata reads back",              rule_set_times),
+        ("touch makes a missing file and moves its time",             rule_touch),
+        ("create_link gives a file a second name",                    rule_create_link),
+        ("set_owner keeps the owner a file has",                      rule_set_owner),
+        ("disk_usage answers sizes in order",                         rule_disk_usage),
+        ("truncate shortens and extends a file",                      rule_truncate),
         ("a file reads and writes at a position",                     rule_file),
         ("a file opened to read refuses writes",                      rule_file_read_only),
         ("open_file of a missing file is NotFound unless it creates", rule_file_missing),
@@ -883,17 +898,23 @@ end
 
 fn rule_set_mode(dir: String) -> Option<String>
     p = path.join(dir, "m.sh")
-    mode = fn -> Result.map(fs.metadata(p), fn m -> m.mode)
+    sub = path.join(dir, "shared")
+    mode = fn at: String -> Result.map(fs.metadata(at), fn m -> m.mode)
+    // Windows ignores the setuid, setgid and sticky bits.
+    sticky = if on_a_windows_disk() then 0o777 else 0o1777
 
     first([
-        check("write",         fs.write_text(p, ""),  Ok(Unit)),
-        check("set 0o444",     fs.set_mode(p, 0o444), Ok(Unit)),
-        check("read it",       mode(),                Ok(0o444)),
-        check("set 0o666",     fs.set_mode(p, 0o666), Ok(Unit)),
-        check("read it again", mode(),                Ok(0o666)),
+        check("write",               fs.write_text(p, ""),     Ok(Unit)),
+        check("set 0o444",           fs.set_mode(p, 0o444),    Ok(Unit)),
+        check("read it",             mode(p),                  Ok(0o444)),
+        check("set 0o666",           fs.set_mode(p, 0o666),    Ok(Unit)),
+        check("read it again",       mode(p),                  Ok(0o666)),
+        check("make a directory",    fs.create_dir(sub),       Ok(Unit)),
+        check("set the sticky bit",  fs.set_mode(sub, 0o1777), Ok(Unit)),
+        check("read the sticky bit", mode(sub),                Ok(sticky)),
         check(
             "a mode out of range",
-            fs.set_mode(p, 0o1000),
+            fs.set_mode(p, 0o10000),
             Err(Error.Other{operation: "chmod", path: p, code: "EINVAL"}),
         ),
         check(
@@ -901,6 +922,177 @@ fn rule_set_mode(dir: String) -> Option<String>
             fs.set_mode(path.join(dir, "none"), 0o600),
             Err(Error.NotFound{path: path.join(dir, "none")}),
         ),
+    ])
+end
+
+fn rule_metadata_fields(dir: String) -> Option<String>
+    p = path.join(dir, "f.txt")
+    there = fn field: Result<Option<Int>, Error> -> Result.map(field, Option.is_some)
+
+    first([
+        check("write",    fs.write_text(p, "f"),                               Ok(Unit)),
+        check("links",    Result.map(fs.metadata(p), fn m -> m.links),         Ok(Some(1))),
+        check("a device", there(Result.map(fs.metadata(p), fn m -> m.device)), Ok(True)),
+        check("an inode", there(Result.map(fs.metadata(p), fn m -> m.inode)),  Ok(True)),
+        check(
+            "an access time",
+            Result.map(fs.metadata(p), fn m -> Option.is_some(m.accessed)),
+            Ok(True),
+        ),
+    ])
+end
+
+fn rule_set_times(dir: String) -> Option<String>
+    p = path.join(dir, "t.txt")
+    none = path.join(dir, "none")
+    modified = Instant.from_seconds(1_000_000_000)
+    accessed = Instant.from_seconds(1_100_000_000)
+    later = Instant.from_seconds(1_200_000_000)
+    times = fn -> Result.map(fs.metadata(p), fn m -> (m.modified, m.accessed))
+
+    first([
+        check("write", fs.write_text(p, "t"), Ok(Unit)),
+        check(
+            "set both",
+            fs.set_times(p, modified: Some(modified), accessed: Some(accessed)),
+            Ok(Unit),
+        ),
+        check("read them", times(), Ok((modified, Some(accessed)))),
+        check("set the modification time alone", fs.set_times(p, modified: Some(later)), Ok(Unit)),
+        check("the access time stays", times(), Ok((later, Some(accessed)))),
+        check(
+            "a missing file",
+            fs.set_times(none, modified: Some(later)),
+            Err(Error.NotFound{path: none}),
+        ),
+    ])
+end
+
+fn rule_touch(dir: String) -> Option<String>
+    p = path.join(dir, "stamp")
+    old = Instant.from_seconds(1_000_000_000)
+    moved = fn -> Result.map(fs.metadata(p), fn m -> Instant.is_before(old, m.modified))
+
+    first([
+        check("touch a missing file", fs.touch(p),                          Ok(Unit)),
+        check("the file",             fs.read_text(p),                      Ok("")),
+        check("set an old time",      fs.set_times(p, modified: Some(old)), Ok(Unit)),
+        check("touch it again",       fs.touch(p),                          Ok(Unit)),
+        check("its time moved",       moved(),                              Ok(True)),
+        check("touch a directory",    fs.touch(dir),                        Ok(Unit)),
+        check(
+            "touch under a missing directory",
+            fs.touch(path.join(dir, "no/x")),
+            Err(Error.NotFound{path: path.join(dir, "no")}),
+        ),
+    ])
+end
+
+fn rule_create_link(dir: String) -> Option<String>
+    a = path.join(dir, "a.txt")
+    b = path.join(dir, "b.txt")
+    c = path.join(dir, "c.txt")
+    sub = path.join(dir, "sub")
+    none = path.join(dir, "none")
+    links = fn p: String -> Result.map(fs.metadata(p), fn m -> m.links)
+    inode = fn p: String -> Result.map(fs.metadata(p), fn m -> m.inode)
+
+    first([
+        check("write a", fs.write_text(a, "a"), Ok(Unit)),
+        check("link b to a", fs.create_link(b, target: a), Ok(Unit)),
+        check("read b", fs.read_text(b), Ok("a")),
+        check("a's links", links(a), Ok(Some(2))),
+        check("b's inode is a's", inode(b) == inode(a), True),
+        check("one file", fs.same_file(a, b), Ok(True)),
+        check("write through b", fs.write_text(b, "b"), Ok(Unit)),
+        check("read a", fs.read_text(a), Ok("b")),
+        check("copy a", fs.copy(a, c), Ok(Unit)),
+        check("a copy is another file", fs.same_file(a, c), Ok(False)),
+        check("link over a file", fs.create_link(c, target: a), Err(Error.AlreadyExists{path: c})),
+        check(
+            "link to nothing",
+            fs.create_link(path.join(dir, "x"), target: none),
+            Err(Error.NotFound{path: none}),
+        ),
+        check("make sub", fs.create_dir(sub), Ok(Unit)),
+        check(
+            "link to a directory",
+            fs.create_link(path.join(dir, "y"), target: sub),
+            Err(Error.PermissionDenied{path: sub}),
+        ),
+        check("remove a",  fs.remove(a),    Ok(Unit)),
+        check("b stays",   fs.read_text(b), Ok("b")),
+        check("b's links", links(b),        Ok(Some(1))),
+    ])
+end
+
+fn rule_set_owner(dir: String) -> Option<String>
+    p = path.join(dir, "o.txt")
+    none = path.join(dir, "none")
+    owner = fn -> Result.map(fs.metadata(p), fn m -> m.owner)
+
+    case (fs.write_text(p, ""), owner())
+        (Ok(_), Ok(found)) ->
+            // Memory keeps no owner until one is set, and any it is given.
+            want = Option.with_default(found, Owner{user_id: 0, group_id: 0})
+            set = fn at: String -> fs.set_owner(at, user_id: want.user_id, group_id: want.group_id)
+
+            if on_a_windows_disk() then
+                check(
+                    "set_owner",
+                    set(p),
+                    Err(Error.Unsupported{operation: "fs.set_owner", target: "windows"}),
+                )
+            else
+                first([
+                    check("set the owner it has", set(p),    Ok(Unit)),
+                    check("read it",              owner(),   Ok(Some(want))),
+                    check("a missing file",       set(none), Err(Error.NotFound{path: none})),
+                    check(
+                        "a user past 32 bits",
+                        fs.set_owner(p, user_id: 4_294_967_296, group_id: 0),
+                        Err(Error.Other{operation: "chown", path: p, code: "EINVAL"}),
+                    ),
+                ])
+            end
+
+        other ->
+            Some("setup: ${Debug.inspect(other)}")
+    end
+end
+
+fn rule_disk_usage(dir: String) -> Option<String>
+    none = path.join(dir, "none")
+
+    case fs.disk_usage(dir)
+        Err(e) ->
+            Some("disk_usage: ${e}")
+
+        Ok(u) ->
+            first([
+                check("a total",               u.total > 0,           True),
+                check("free within the total", u.free <= u.total,     True),
+                check("available within free", u.available <= u.free, True),
+                check(
+                    "a missing path",
+                    Result.map(fs.disk_usage(none), fn u -> u.total),
+                    Err(Error.NotFound{path: none}),
+                ),
+            ])
+    end
+end
+
+fn rule_truncate(dir: String) -> Option<String>
+    p = path.join(dir, "t.bin")
+    none = path.join(dir, "none")
+
+    first([
+        check("write",          fs.write_text(p, "abcdef"), Ok(Unit)),
+        check("shorten",        fs.truncate(p, 2),          Ok(Unit)),
+        check("read",           fs.read_text(p),            Ok("ab")),
+        check("extend",         fs.truncate(p, 4),          Ok(Unit)),
+        check("read the zeros", fs.read_text(p),            Ok("ab\u{0}\u{0}")),
+        check("a missing file", fs.truncate(none, 0),       Err(Error.NotFound{path: none})),
     ])
 end
 
@@ -1412,6 +1604,27 @@ fn rule_dir_escape(dir: String) -> Option<String>
             check("metadata", size(Dir.metadata(d, "out")), Err(escape("out"))),
             check("exists", Dir.exists(d, "../secret.txt"), Err(escape("../secret.txt"))),
             check("list the parent", Result.map(Dir.list(d, ".."), List.length), Err(escape(".."))),
+            check(
+                "set_times through a link out",
+                Dir.set_times(d, "out", modified: Some(Instant.from_seconds(0))),
+                Err(escape("out")),
+            ),
+            check("touch outside", Dir.touch(d, "../t.txt"), Err(escape("../t.txt"))),
+            check(
+                "a hard link to outside",
+                Dir.create_link(d, "l.txt", target: "../secret.txt"),
+                Err(escape("../secret.txt")),
+            ),
+            check(
+                "a hard link outside",
+                Dir.create_link(d, "../l.txt", target: "index.txt"),
+                Err(escape("../l.txt")),
+            ),
+            check(
+                "disk_usage of the parent",
+                Result.map(Dir.disk_usage(d, ".."), fn u -> u.total),
+                Err(escape("..")),
+            ),
             check(
                 "open_file",
                 opened(Dir.open_file(d, "out", access: Access.ReadWrite)),

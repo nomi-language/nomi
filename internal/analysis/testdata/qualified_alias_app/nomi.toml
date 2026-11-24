@@ -3,5 +3,5 @@ name = "qualified_alias_app"
 entry_points = ["main"]
 
 [dependencies]
-qualified_alias_dep = { module = "example.com/qualified_alias_dep", version = "v0.0.0", dir = "../qualified_alias_dep" }
-qualified_alias_src = { module = "example.com/qualified_alias_src", version = "v0.0.0", dir = "../qualified_alias_src" }
+qualified_alias_dep = { dir = "../qualified_alias_dep" }
+qualified_alias_src = { dir = "../qualified_alias_src" }

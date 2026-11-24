@@ -40,9 +40,6 @@ func runCheckJSON(w io.Writer, path string) error {
 			cj.Through(helper, through[helper][0])
 		}
 	}
-	if file, err := goModFailure(path); err != nil {
-		cj.File(file, err)
-	}
 	cj.Summary()
 	if cj.Failed() > 0 {
 		return errCheckFailed

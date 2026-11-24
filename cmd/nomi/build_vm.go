@@ -21,8 +21,8 @@ import (
 // built without the network and WebAssembly modules, whose crossings of
 // those answer an error.
 
-const buildVMUsage = "usage: nomi build-vm [--target <goos>/<goarch>] [--compiler] [--no-network] [-o <out>]\n" +
-	"       nomi build-vm --reactor [--compiler] [--no-network] [-o <out>]"
+const buildVMUsage = "usage: nomi build-vm [--target <os>/<arch>] [--compiler | --no-network] [-o <out>]\n" +
+	"       nomi build-vm --reactor [--compiler | --no-network] [-o <out>]"
 
 // wasiLoaderJS and wasiLoaderDTS are nomi-wasi.js and its types, which
 // `--reactor` writes beside the reactor: the JavaScript that
@@ -49,7 +49,7 @@ type buildVMArgs struct {
 
 func parseBuildVMArgs(args []string) (buildVMArgs, error) {
 	var v buildVMArgs
-	var goos, goarch string
+	var target runners.Target
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		value := func() (string, error) {
@@ -73,9 +73,8 @@ func parseBuildVMArgs(args []string) (buildVMArgs, error) {
 			if err != nil {
 				return v, err
 			}
-			var ok bool
-			if goos, goarch, ok = strings.Cut(t, "/"); !ok || goos == "" || goarch == "" {
-				return v, fmt.Errorf("nomi build-vm: --target takes <goos>/<goarch>, such as linux/amd64; got %q", t)
+			if target, err = parseTarget("nomi build-vm", t); err != nil {
+				return v, err
 			}
 		case arg == "--compiler":
 			v.compiler = true
@@ -97,9 +96,9 @@ func parseBuildVMArgs(args []string) (buildVMArgs, error) {
 	}
 	if v.reactor {
 		// Only wasip1 has a reactor, so it is the target without --target.
-		if goos != "" && (goos != wasip1.GOOS || goarch != wasip1.GOARCH) {
+		if target != (runners.Target{}) && target != wasip1 {
 			return v, fmt.Errorf("nomi build-vm --reactor: the reactor is a WASI module, so it builds for "+
-				"wasip1/wasm, not %s/%s\n%s", goos, goarch, buildVMUsage)
+				"wasip1/wasm, not %s\n%s", target, buildVMUsage)
 		}
 		v.target = wasip1
 		if v.out == "" {
@@ -107,7 +106,7 @@ func parseBuildVMArgs(args []string) (buildVMArgs, error) {
 		}
 		return v, nil
 	}
-	v.target = runners.ResolveTarget(goos, goarch)
+	v.target = targetOrHost(target)
 	if v.out == "" {
 		v.out = defaultExecutableName("nomi-vm", v.target)
 	}
@@ -123,8 +122,8 @@ func runBuildVM(args []string) error {
 	return writeRunner(v, os.Stderr)
 }
 
-// writeRunner writes the VM v names. A js/wasm runner gets Go's wasm_exec.js
-// beside it, from the toolchain that linked it. For wasip1 it is the command
+// writeRunner writes the VM v names. A js/wasm runner gets what runs it
+// under Node beside it (writeNodeLoader). For wasip1 it is the command
 // runner, and with --reactor nomi-vm-reactor with nothing embedded, with
 // nomi-wasi.js and nomi-wasi.d.ts beside it: the loader that runs it in a
 // browser or Node with no WASI library. The reactor's three files are one
@@ -162,23 +161,47 @@ func writeRunner(v buildVMArgs, stderr io.Writer) error {
 			return fmt.Errorf("%s: %w", cmd, err)
 		}
 	}
-	if v.target.GOOS == "js" && v.target.GOARCH == "wasm" {
-		support, err := runners.WasmExec(runner)
-		if err != nil {
-			return fmt.Errorf("%s: %w", cmd, err)
-		}
-		if err := copyTo(filepath.Join(filepath.Dir(v.out), runners.WasmExecName), support, 0o644); err != nil {
+	if v.target == jsWasm {
+		if err := writeNodeLoader(filepath.Dir(v.out), runner); err != nil {
 			return fmt.Errorf("%s: %w", cmd, err)
 		}
 	}
 	return nil
 }
 
+// nodeLoaderJS is nomi-node.mjs, which runs a js/wasm module under Node:
+// `node nomi-node.mjs app.wasm [args...]`.
+//
+//go:embed node/nomi-node.mjs
+var nodeLoaderJS []byte
+
+// writeNodeLoader writes what runs a js/wasm module under Node into dir,
+// beside the module: wasm_exec.js, the module's JavaScript support file,
+// copied unchanged from beside the js/wasm runner at runner
+// (runners.WasmExec), and nomi-node.mjs, which loads it and runs the module.
+func writeNodeLoader(dir, runner string) error {
+	support, err := runners.WasmExec(runner)
+	if err != nil {
+		return err
+	}
+	wasmExec, err := os.ReadFile(support)
+	if err != nil {
+		return err
+	}
+	return writeBeside(dir, map[string][]byte{runners.WasmExecName: wasmExec, "nomi-node.mjs": nodeLoaderJS})
+}
+
 // writeWasiLoader writes nomi-wasi.js and nomi-wasi.d.ts into dir, beside a
 // reactor: the one `--reactor` writes, or one `nomi build` embedded a
 // program in.
 func writeWasiLoader(dir string) error {
-	for name, data := range map[string][]byte{"nomi-wasi.js": wasiLoaderJS, "nomi-wasi.d.ts": wasiLoaderDTS} {
+	return writeBeside(dir, map[string][]byte{"nomi-wasi.js": wasiLoaderJS, "nomi-wasi.d.ts": wasiLoaderDTS})
+}
+
+// writeBeside writes each of files into dir under its name, a loader beside
+// the module it runs.
+func writeBeside(dir string, files map[string][]byte) error {
+	for name, data := range files {
 		if err := writeAtomic(filepath.Join(dir, name), 0o644, func(w io.Writer) error {
 			_, err := w.Write(data)
 			return err

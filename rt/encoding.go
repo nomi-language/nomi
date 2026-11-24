@@ -25,6 +25,12 @@ func Base64Decode(text string) Result[Bytes, string] {
 	return base64Decode(base64.StdEncoding, text)
 }
 
+// Base64DecodeBytes is std/base64's `decode_bytes`: Base64Decode over text
+// held as Bytes.
+func Base64DecodeBytes(data Bytes) Result[Bytes, string] {
+	return base64Decode(base64.StdEncoding, string(data))
+}
+
 // Base64URLEncode is std/base64's `url_safe`, behind `encode_url`: data in RFC 4648's URL and
 // file name safe alphabet (`-` and `_` for `+` and `/`), padded with `=`
 // when padded is true.
@@ -39,6 +45,12 @@ func Base64URLEncode(data Bytes, padded bool) string {
 // padded or not.
 func Base64URLDecode(text string) Result[Bytes, string] {
 	return base64Decode(base64.URLEncoding, text)
+}
+
+// Base64URLDecodeBytes is std/base64's `decode_url_bytes`: Base64URLDecode
+// over text held as Bytes.
+func Base64URLDecodeBytes(data Bytes) Result[Bytes, string] {
+	return base64Decode(base64.URLEncoding, string(data))
 }
 
 // base64Decode decodes text with enc, padded when text ends in `=` and
@@ -84,6 +96,12 @@ func HexDecode(text string) Result[Bytes, string] {
 		return Err[Bytes, string]("invalid hex: " + err.Error())
 	}
 	return Ok[Bytes, string](Bytes(data))
+}
+
+// HexDecodeBytes is std/hex's `decode_bytes`: HexDecode over text held as
+// Bytes. A byte past ASCII is no digit, whatever text it may begin.
+func HexDecodeBytes(data Bytes) Result[Bytes, string] {
+	return HexDecode(string(data))
 }
 
 // URLEscapeQuery is std/url's `escape_query`: text percent-encoded for a

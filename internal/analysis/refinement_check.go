@@ -90,8 +90,8 @@ func (c *checker) checkRefinementLiteral(node ast.Node, dt *DistinctType) Type {
 		return dt
 	}
 	ty := c.checkNodeExpecting(node, base)
-	if ty != nil && !c.argMatchesParam(ty, base, c.recPos(startOf(node)), RecordingKindCallSite) {
-		line, col := startOf(node)
+	line, col := startOf(node)
+	if ty != nil && !c.argMatchesParam(ty, base, c.site(line, col, RecordingKindCallSite)) {
 		c.addError(line, col, fmt.Sprintf("type mismatch: expected %s, got %s", formatTypeForError(dt), formatTypeForError(ty)))
 		return dt
 	}
@@ -692,7 +692,7 @@ func (c *checker) refinementPipedArg(piped ast.Node, pipedTy Type, dt *DistinctT
 	}
 	line, col := startOf(piped)
 	if refinementLiteral(piped) {
-		if base := refinementBaseOf(dt); !c.argMatchesParam(pipedTy, base, c.recPos(line, col), RecordingKindCallSite) {
+		if base := refinementBaseOf(dt); !c.argMatchesParam(pipedTy, base, c.site(line, col, RecordingKindCallSite)) {
 			c.addError(line, col, fmt.Sprintf("type mismatch: expected %s, got %s", formatTypeForError(base), formatTypeForError(pipedTy)))
 			return
 		}
@@ -1317,7 +1317,7 @@ func (c *checker) checkIntersections(nodes []ast.Node) {
 				}
 				for _, iface := range InterfaceMembers(t) {
 					line, col := typeExprPos(m, conj.Line, conj.Col)
-					if !c.typeImplementsInterface(base, iface.Name, iface.Origin, Pos{Line: line, Col: col}, RecordingKindCallSite) {
+					if !c.typeImplementsInterface(base, iface.Name, iface.Origin, Recording{Pos: Pos{Line: line, Col: col}, Kind: RecordingKindCallSite}) {
 						shown := c.shownInterfaceFor(base, iface, false)
 						c.report(TypeError{Line: line, Col: col, Message: fmt.Sprintf(
 							"no value is both %s and %s: %s is %s %s, and %s does not implement %s",
@@ -1349,7 +1349,7 @@ func (c *checker) checkAliasBounds(gt *ast.GenericType) {
 		}
 		for _, b := range p.Bounds {
 			line, col := typeExprPos(gt.Params[i], gt.Line, gt.Col)
-			if !c.typeImplementsInterface(arg, b.Name, b.Origin, Pos{Line: line, Col: col}, RecordingKindGenericBoundCheck) {
+			if !c.typeImplementsInterface(arg, b.Name, b.Origin, Recording{Pos: Pos{Line: line, Col: col}, Kind: RecordingKindGenericBoundCheck}) {
 				shown := c.shownInterfaceFor(arg, b, false)
 				c.report(TypeError{Line: line, Col: col, Message: fmt.Sprintf(
 					"%s does not implement %s (required by `where %s: %s` on typealias %s)", arg, shown, p.Name_, shown, at.Name)}.WithHint(

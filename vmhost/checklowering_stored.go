@@ -3,7 +3,6 @@ package vmhost
 import (
 	"context"
 	"crypto/sha256"
-	"slices"
 	"sync"
 	"sync/atomic"
 
@@ -105,18 +104,20 @@ func checkLoweringStored(ctx context.Context, cfg config, path, src string, in *
 			base.headers[f.Key] = f.BaseHeaders
 		}
 	}
-	// The files lowered again: those whose texts changed, those that import
-	// a file whose signature changed, directly or through others, which were
-	// lowered against its old one, and those that can see an impl that came,
-	// went or changed, which need not import its file.
+	// The files lowered again: those whose texts changed, and those whose
+	// checks read a file whose signature changed or see an impl that came,
+	// went or changed (analysis.ProgramReads.Readers), which were lowered
+	// against the old ones and need not import their files.
 	files := map[string]bool{}
 	lower := map[string]bool{}
-	importers := map[string][]string{}
 	imports := map[string][]string{}
+	headers := map[string][]analysis.ImplHeader{}
+	signature := map[string]bool{}
+	var keys []string
 	var moved []analysis.ImplHeader
-	var queue []string
 	for _, f := range in.Files {
 		files[f.Key] = true
+		keys = append(keys, f.Key)
 		was, known := base.sums[f.Key]
 		if !known {
 			return found, false, nil
@@ -127,37 +128,18 @@ func checkLoweringStored(ctx context.Context, cfg config, path, src string, in *
 		if base.impls[f.Key] != f.Impls {
 			moved = append(append(moved, base.headers[f.Key]...), f.Headers...)
 		}
-		imports[f.Key] = f.Imports
+		imports[f.Key], headers[f.Key] = f.Imports, f.Headers
 		if base.sigs[f.Key] != f.Signature {
-			queue = append(queue, f.Key)
-		}
-		for _, imp := range f.Imports {
-			importers[imp] = append(importers[imp], f.Key)
+			signature[f.Key] = true
 		}
 	}
-	for len(queue) > 0 {
-		k := queue[0]
-		queue = queue[1:]
-		for _, from := range importers[k] {
-			if !lower[from] {
-				lower[from] = true
-				queue = append(queue, from)
-			}
-		}
+	reads := analysis.ProgramReads{
+		Keys:    keys,
+		Imports: func(key string) []string { return imports[key] },
+		Headers: func(key string) []analysis.ImplHeader { return headers[key] },
 	}
-	if len(moved) > 0 {
-		for key := range files {
-			if lower[key] {
-				continue
-			}
-			visible := importClosureOf(key, imports)
-			for _, h := range moved {
-				if seesHeader(h, visible) {
-					lower[key] = true
-					break
-				}
-			}
-		}
+	for key := range reads.Readers(signature, moved) {
+		lower[key] = true
 	}
 	if len(lower) > maxRelowered && len(lower)*4 > len(in.Files) {
 		return found, false, nil
@@ -279,21 +261,4 @@ func keptLoweringOf(path string) (data []byte, tests bool, sums map[string][32]b
 		sums[p] = sha256.Sum256([]byte(text))
 	}
 	return a.kept.Encode(), a.hasTests, sums, true
-}
-
-// importClosureOf answers the module keys of the files the file with key
-// imports, directly or through others, with key itself, imports holding
-// each file's imports.
-func importClosureOf(key string, imports map[string][]string) map[string]bool {
-	seen := map[string]bool{key: true}
-	queue := slices.Clone(imports[key])
-	for len(queue) > 0 {
-		k := queue[0]
-		queue = queue[1:]
-		if !seen[k] {
-			seen[k] = true
-			queue = append(queue, imports[k]...)
-		}
-	}
-	return seen
 }

@@ -1,6 +1,9 @@
 package irbuild
 
 import (
+	"sort"
+	"strings"
+
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
@@ -49,6 +52,23 @@ func NewSessionObjects() *SessionObjects {
 
 // Func is the function an earlier module defines under link, or nil.
 func (s *SessionObjects) Func(link string) *ir.Func { return s.funcs[link] }
+
+// FuncsUnder is every function an earlier module defines under a linkage
+// name that starts with prefix, in linkage-name order.
+func (s *SessionObjects) FuncsUnder(prefix string) []*ir.Func {
+	var links []string
+	for link := range s.funcs {
+		if strings.HasPrefix(link, prefix) {
+			links = append(links, link)
+		}
+	}
+	sort.Strings(links)
+	out := make([]*ir.Func, len(links))
+	for i, link := range links {
+		out[i] = s.funcs[link]
+	}
+	return out
+}
 
 // sessionModules are the modules a session lowering made: the file's own
 // and the instances it asked for.

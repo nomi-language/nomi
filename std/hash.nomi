@@ -7,37 +7,317 @@
 //# digest = hash.sha256_hex(String.to_bytes("abc"))
 //# ```
 //#
+//# `digest` takes the `Algorithm` as an argument, and `Hasher` reads its
+//# input a chunk at a time, for a file or an upload too large to hold:
+//#
+//# ```nomi
+//# digest = hash.digest(Algorithm.Blake2b256, data)
+//#
+//# streamed =
+//#     Hasher.new(Algorithm.Sha256)
+//#     |> Hasher.update(first)
+//#     |> Hasher.update(second)
+//#     |> Hasher.finish()
+//# ```
+//#
 //# Which one to use:
 //#
 //# - To tell whether data changed, or to name it by its content:
 //#   `sha256` (32 bytes), or `sha512` (64 bytes) when a format asks for it.
-//#   Both are SHA-2 (FIPS 180-4).
+//#   Both are SHA-2 (FIPS 180-4). BLAKE2 (RFC 7693) is as strong and faster
+//#   in software; SHA-3 (FIPS 202) is a different design, for a format or a
+//#   rule that names it.
 //# - To sign a message or a token so that only a holder of the key can make
-//#   or check it: `hmac_sha256` or `hmac_sha512` (RFC 2104). Check a MAC
-//#   someone sent with `equal_in_constant_time`, never `==`, which returns
-//#   as soon as a byte differs and so tells an attacker how much of a forgery
-//#   was right.
+//#   or check it: `hmac_sha256` or `hmac_sha512` (RFC 2104), or `hmac` over
+//#   any `Algorithm`. Check a MAC someone sent with `equal_in_constant_time`,
+//#   never `==`, which returns as soon as a byte differs and so tells an
+//#   attacker how much of a forgery was right.
 //# - To stretch a password or passphrase into a key: `pbkdf2_sha256`
 //#   (RFC 8018). To store a password for logging in, use
 //#   std::passwords, which salts it and records how it was hashed.
+//# - To derive keys from a secret that is already random, such as a
+//#   std::key_exchange shared secret or a master key: `hkdf_sha256`,
+//#   `hkdf_sha512` or `hkdf` over any `Algorithm` (RFC 5869), with a label
+//#   in `info` for each key, or its two steps, `hkdf_extract` and
+//#   `hkdf_expand`, which some protocols name apart.
 //# - To match a format that names an older hash: `md5` (ETags, legacy
 //#   checksums) and `sha1` (Git object names). Both are broken for security,
 //#   since inputs with the same digest can be made, so never use them to
 //#   check data someone else could have chosen.
+//# - To detect accidental damage in a format that names a CRC or Adler-32,
+//#   use std::checksum instead: those are not hashes an attacker cannot
+//#   steer.
 //#
 //# None of these is for storing passwords. They are fast by design, which
 //# lets an attacker who has the digests guess billions of passwords a
 //# second. Store a password with std::passwords, which is slow on purpose.
 //#
 //# Every function here is pure, so a typed literal's handler may call them,
-//# except `pbkdf2_sha256`, whose cost is its iteration count.
+//# except `pbkdf2_sha256`, whose cost is its iteration count, the SHAKE
+//# functions, whose cost is the length asked for, and `of_reader`, which
+//# reads a Reader. A digest is the same in every run.
 
 import
     bool.Bool
     bytes.Bytes
+    equatable.Equatable
     hex
-    int.PositiveInt
+    int.{Int64, NonNegativeInt, PositiveInt}
+    io.{Error, Reader}
+    option.Option.{None, Some}
+    results.Result.{self, Ok}
     strings.String
+end
+
+/// A hash function `digest`, `hmac` and `Hasher` compute.
+//! import std::hash.{self, Algorithm}
+//!
+//! data = String.to_bytes("abc")
+//! assert Bytes.length(hash.digest(Algorithm.Sha3With256, data)) == 32
+//! assert Bytes.length(hash.digest(Algorithm.Blake2b512, data)) == 64
+//
+pub enum Algorithm
+    /// SHA-256 (FIPS 180-4): 32 bytes.
+    Sha256
+    /// SHA-512 (FIPS 180-4): 64 bytes.
+    Sha512
+    /// SHA-384 (FIPS 180-4): 48 bytes.
+    Sha384
+    /// SHA-224 (FIPS 180-4): 28 bytes.
+    Sha224
+    /// SHA-512/256 (FIPS 180-4), SHA-512 cut to 32 bytes with its own
+    /// starting values, which resists length extension as SHA-256 does
+    /// not.
+    Sha512With256
+    /// SHA-1: 20 bytes. Broken for security; see `sha1`.
+    Sha1
+    /// MD5 (RFC 1321): 16 bytes. Broken for security; see `md5`.
+    Md5
+    /// SHA3-256 (FIPS 202): 32 bytes.
+    Sha3With256
+    /// SHA3-384 (FIPS 202): 48 bytes.
+    Sha3With384
+    /// SHA3-512 (FIPS 202): 64 bytes.
+    Sha3With512
+    /// BLAKE2b (RFC 7693) with a 32-byte digest.
+    Blake2b256
+    /// BLAKE2b (RFC 7693) with a 64-byte digest.
+    Blake2b512
+    /// BLAKE2s (RFC 7693) with a 32-byte digest.
+    Blake2s256
+end
+
+derive Equatable for Algorithm
+
+/// The position of `algorithm` in the declaration, which the host
+/// functions take (internal/stdhash's `algorithms`).
+fn code(algorithm: Algorithm) -> Int64
+    case algorithm
+        .Sha256        -> 0
+        .Sha512        -> 1
+        .Sha384        -> 2
+        .Sha224        -> 3
+        .Sha512With256 -> 4
+        .Sha1          -> 5
+        .Md5           -> 6
+        .Sha3With256   -> 7
+        .Sha3With384   -> 8
+        .Sha3With512   -> 9
+        .Blake2b256    -> 10
+        .Blake2b512    -> 11
+        .Blake2s256    -> 12
+    end
+end
+
+host fn digest_by(algorithm: Int64, data: Bytes) -> Bytes
+
+host fn hmac_by(algorithm: Int64, key: Bytes, data: Bytes) -> Bytes
+
+host fn hasher_new(algorithm: Int64) -> Hasher
+
+host fn hasher_new_hmac(algorithm: Int64, key: Bytes) -> Hasher
+
+host fn hkdf_by(
+    algorithm: Int64,
+    secret:    Bytes,
+    salt:      Bytes,
+    info:      Bytes,
+    length:    PositiveInt,
+) -> Result<Bytes, String>
+
+host fn hkdf_extract_by(algorithm: Int64, secret: Bytes, salt: Bytes) -> Bytes
+
+host fn hkdf_expand_by(
+    algorithm: Int64,
+    key:       Bytes,
+    info:      Bytes,
+    length:    PositiveInt,
+) -> Result<Bytes, String>
+
+/// The digest of `data` by `algorithm`.
+//! import std::hash.{self, Algorithm}
+//! import std::hex
+//!
+//! abc = String.to_bytes("abc")
+//!
+//! // The "abc" examples of FIPS 180-4, FIPS 202 and RFC 7693.
+//! assert hex.encode(hash.digest(Algorithm.Sha224, abc))
+//!     == "23097d223405d8228642a477bda255b32aadbce4bda0b3f7e36c9da7"
+//!
+//! assert hex.encode(
+//!     hash.digest(Algorithm.Sha384, abc)
+//! ) == "cb00753f45a35e8bb5a03d699ac65007272c32ab0eded1631a8b605a43ff5bed8086072ba1e7cc2358baeca134c825a7"
+//!
+//! assert hex.encode(hash.digest(Algorithm.Sha512With256, abc))
+//!     == "53048e2681941ef99b2e29b76b4c7dabe4c2d0c634fc6d46e0e2f13107e7af23"
+//!
+//! assert hex.encode(hash.digest(Algorithm.Sha3With256, abc))
+//!     == "3a985da74fe225b2045c172d6bd390bd855f086e3e9d525b46bfe24511431532"
+//!
+//! assert hex.encode(
+//!     hash.digest(Algorithm.Sha3With384, abc)
+//! ) == "ec01498288516fc926459f58e2c6ad8df9b473cb0fc08c2596da7cf0e49be4b298d88cea927ac7f539f1edf228376d25"
+//!
+//! assert hex.encode(
+//!     hash.digest(Algorithm.Sha3With512, abc)
+//! ) == "b751850b1a57168a5693cd924b6b096e08f621827444f70d884f5d0240d2712e10e116e9192af3c91a7ec57647e3934057340b4cf408d5a56592f8274eec53f0"
+//!
+//! assert hex.encode(hash.digest(Algorithm.Blake2b256, abc))
+//!     == "bddd813c634239723171ef3fee98579b94964e3bb1cb3e427262c8c068d52319"
+//!
+//! assert hex.encode(
+//!     hash.digest(Algorithm.Blake2b512, abc)
+//! ) == "ba80a53f981c4d0d6a2797b69f12f6e94c212f14685ac4b74b12bb6fdbffa2d17d87c5392aab792dc252d5de4533cc9518d38aa8dbf1925ab92386edd4009923"
+//!
+//! assert hex.encode(hash.digest(Algorithm.Blake2s256, abc))
+//!     == "508c5e8c327c14e2e1a72ba34eeb452f37458b209ed63a294d999b4c86675982"
+//
+pub fn digest(algorithm: Algorithm, data: Bytes) -> Bytes
+    digest_by(code(algorithm), data)
+end
+
+/// The digest of `data` by `algorithm` as lowercase hexadecimal digits.
+//! import std::hash.{self, Algorithm}
+//!
+//! assert hash.digest_hex(Algorithm.Sha256, String.to_bytes("abc"))
+//!     == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+//
+pub fn digest_hex(algorithm: Algorithm, data: Bytes) -> String
+    hex.encode(digest(algorithm, data))
+end
+
+/// The HMAC (RFC 2104) of `data` under `key` over `algorithm`, as long as
+/// the algorithm's digest.
+//! import std::hash.{self, Algorithm}
+//! import std::hex
+//!
+//! key = String.to_bytes("key")
+//! fox = String.to_bytes("The quick brown fox jumps over the lazy dog")
+//!
+//! assert hex.encode(hash.hmac(Algorithm.Sha3With256, key, fox))
+//!     == "8c6e0683409427f8931711b10ca92a506eb1fafa48fadd66d76126f47ac2c333"
+//!
+//! assert hash.hmac(Algorithm.Sha256, key, fox) == hash.hmac_sha256(key, fox)
+//
+pub fn hmac(algorithm: Algorithm, key: Bytes, data: Bytes) -> Bytes
+    hmac_by(code(algorithm), key, data)
+end
+
+/// The digest of everything `reader` holds from where it is to its end,
+/// read a chunk at a time, or the error a read gave. The reader is not
+/// closed.
+//! import std::hash.{self, Algorithm}
+//! import std::io.Reader
+//!
+//! data = Bytes.concat_all([String.to_bytes("chunked "), String.to_bytes("input")])
+//! reader = Reader.from_chunks([String.to_bytes("chunked "), String.to_bytes("input")])
+//!
+//! assert hash.of_reader(Algorithm.Sha256, reader) == Ok(hash.sha256(data))
+//
+pub fn of_reader(algorithm: Algorithm, reader: Reader) -> Result<Bytes, Error>
+    read_into(Hasher.new(algorithm), reader)
+end
+
+/// `hasher` after it reads the rest of `reader`, finished.
+fn read_into(hasher: Hasher, reader: Reader) -> Result<Bytes, Error>
+    case Reader.read(reader)?
+        None        -> Ok(Hasher.finish(hasher))
+        Some(chunk) -> read_into(Hasher.update(hasher, chunk), reader)
+    end
+end
+
+/// A digest or a MAC part way through its input, as a value: `update` gives
+/// a Hasher that has read one more chunk, and `finish` the digest of what it
+/// has read. Feeding the input in chunks of any sizes gives the digest
+/// `digest` gives the whole of it, so a file or an upload too large to hold
+/// is hashed as it is read.
+///
+/// The Hasher `update` takes is unchanged: a program may keep it, update it
+/// again with something else, and finish both. Each `update` copies the
+/// hash's state, at most a few hundred bytes, so the cost of a chunk is that
+/// copy and hashing the chunk.
+//! import std::hash.{self, Algorithm, Hasher}
+//!
+//! head = Hasher.new(Algorithm.Sha256) |> Hasher.update(String.to_bytes("ab"))
+//! abc = head |> Hasher.update(String.to_bytes("c")) |> Hasher.finish()
+//! abd = head |> Hasher.update(String.to_bytes("d")) |> Hasher.finish()
+//!
+//! assert abc == hash.sha256(String.to_bytes("abc"))
+//! assert abd == hash.sha256(String.to_bytes("abd"))
+//! assert Hasher.finish(head) == hash.sha256(String.to_bytes("ab"))
+//
+pub host type Hasher
+
+impl Hasher
+    /// A Hasher of `algorithm` that has read nothing.
+    //! import std::hash.{self, Algorithm, Hasher}
+    //!
+    //! assert Hasher.new(Algorithm.Md5) |> Hasher.finish() == hash.md5(String.to_bytes(""))
+    //
+    pub fn new(algorithm: Algorithm) -> Hasher
+        hasher_new(code(algorithm))
+    end
+
+    /// A Hasher of the HMAC under `key` over `algorithm` that has read
+    /// nothing. Its `finish` is what `hash.hmac` gives for the whole input.
+    //! import std::hash.{self, Algorithm, Hasher}
+    //!
+    //! key = String.to_bytes("key")
+    //!
+    //! mac =
+    //!     Hasher.new_hmac(Algorithm.Blake2b512, key)
+    //!     |> Hasher.update(String.to_bytes("a"))
+    //!     |> Hasher.update(String.to_bytes("bc"))
+    //!     |> Hasher.finish()
+    //!
+    //! assert mac == hash.hmac(Algorithm.Blake2b512, key, String.to_bytes("abc"))
+    //
+    pub fn new_hmac(algorithm: Algorithm, key: Bytes) -> Hasher
+        hasher_new_hmac(code(algorithm), key)
+    end
+
+    /// A Hasher that has read what `hasher` has, then `chunk`. `hasher`
+    /// itself is unchanged.
+    //! import std::hash.{self, Algorithm, Hasher}
+    //!
+    //! h =
+    //!     Hasher.new(Algorithm.Sha1)
+    //!     |> Hasher.update(String.to_bytes(""))
+    //!     |> Hasher.update(String.to_bytes("abc"))
+    //!
+    //! assert Hasher.finish(h) == hash.sha1(String.to_bytes("abc"))
+    //
+    pub host fn update(hasher: Hasher, chunk: Bytes) -> Hasher
+
+    /// The digest, or the MAC, of everything `hasher` has read. `hasher` is
+    /// unchanged, so it may read more and finish again.
+    //! import std::hash.{self, Algorithm, Hasher}
+    //!
+    //! h = Hasher.new(Algorithm.Sha3With512) |> Hasher.update(String.to_bytes("abc"))
+    //! assert Hasher.finish(h) == Hasher.finish(h)
+    //! assert Hasher.finish(h) == hash.digest(Algorithm.Sha3With512, String.to_bytes("abc"))
+    //
+    pub host fn finish(hasher: Hasher) -> Bytes
 end
 
 /// The SHA-256 digest of `data`: 32 bytes.
@@ -45,7 +325,9 @@ end
 //!
 //! assert Bytes.length(hash.sha256(String.to_bytes(""))) == 32
 //
-pub host fn sha256(data: Bytes) -> Bytes
+pub fn sha256(data: Bytes) -> Bytes
+    digest(Algorithm.Sha256, data)
+end
 
 /// The SHA-256 digest of `data` as 64 lowercase hexadecimal digits.
 //! import std::hash
@@ -57,7 +339,7 @@ pub host fn sha256(data: Bytes) -> Bytes
 //!     == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
 //
 pub fn sha256_hex(data: Bytes) -> String
-    hex.encode(sha256(data))
+    digest_hex(Algorithm.Sha256, data)
 end
 
 /// The SHA-512 digest of `data`: 64 bytes.
@@ -65,7 +347,9 @@ end
 //!
 //! assert Bytes.length(hash.sha512(String.to_bytes(""))) == 64
 //
-pub host fn sha512(data: Bytes) -> Bytes
+pub fn sha512(data: Bytes) -> Bytes
+    digest(Algorithm.Sha512, data)
+end
 
 /// The SHA-512 digest of `data` as 128 lowercase hexadecimal digits.
 //! import std::hash
@@ -79,7 +363,7 @@ pub host fn sha512(data: Bytes) -> Bytes
 //! ) == "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f"
 //
 pub fn sha512_hex(data: Bytes) -> String
-    hex.encode(sha512(data))
+    digest_hex(Algorithm.Sha512, data)
 end
 
 /// The MD5 digest of `data`: 16 bytes (RFC 1321). MD5 is here for formats
@@ -91,7 +375,9 @@ end
 //!
 //! assert Bytes.length(hash.md5(String.to_bytes(""))) == 16
 //
-pub host fn md5(data: Bytes) -> Bytes
+pub fn md5(data: Bytes) -> Bytes
+    digest(Algorithm.Md5, data)
+end
 
 /// The MD5 digest of `data` as 32 lowercase hexadecimal digits, the form
 /// `md5sum` prints. Not for security; see `md5`.
@@ -111,7 +397,7 @@ pub host fn md5(data: Bytes) -> Bytes
 //! assert key == "3e3417d7ef77d5932a6734b916515ed5"
 //
 pub fn md5_hex(data: Bytes) -> String
-    hex.encode(md5(data))
+    digest_hex(Algorithm.Md5, data)
 end
 
 /// The SHA-1 digest of `data`: 20 bytes (FIPS 180-4). SHA-1 is here for
@@ -122,7 +408,9 @@ end
 //!
 //! assert Bytes.length(hash.sha1(String.to_bytes(""))) == 20
 //
-pub host fn sha1(data: Bytes) -> Bytes
+pub fn sha1(data: Bytes) -> Bytes
+    digest(Algorithm.Sha1, data)
+end
 
 /// The SHA-1 digest of `data` as 40 lowercase hexadecimal digits, the form
 /// `sha1sum` prints. Not for security; see `sha1`.
@@ -136,7 +424,7 @@ pub host fn sha1(data: Bytes) -> Bytes
 //!     == "84983e441c3bd26ebaae4aa1f95129e5e54670f1"
 //
 pub fn sha1_hex(data: Bytes) -> String
-    hex.encode(sha1(data))
+    digest_hex(Algorithm.Sha1, data)
 end
 
 /// The HMAC-SHA256 of `data` under `key` (RFC 2104): 32 bytes. The same
@@ -165,7 +453,9 @@ end
 //! assert hex.encode(hash.hmac_sha256(jefe, question))
 //!     == "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843"
 //
-pub host fn hmac_sha256(key: Bytes, data: Bytes) -> Bytes
+pub fn hmac_sha256(key: Bytes, data: Bytes) -> Bytes
+    hmac(Algorithm.Sha256, key, data)
+end
 
 /// The HMAC-SHA512 of `data` under `key` (RFC 2104): 64 bytes.
 //! import std::hash
@@ -190,7 +480,35 @@ pub host fn hmac_sha256(key: Bytes, data: Bytes) -> Bytes
 //!     hash.hmac_sha512(jefe, question)
 //! ) == "164b7a7bfcf819e2e395fbe73b56e0a387bd64222e831fd610270cd7ea2505549758bf75c05a994a6d034f65f8f0e6fdcaeab1a34d4a6b4b636e070a38bce737"
 //
-pub host fn hmac_sha512(key: Bytes, data: Bytes) -> Bytes
+pub fn hmac_sha512(key: Bytes, data: Bytes) -> Bytes
+    hmac(Algorithm.Sha512, key, data)
+end
+
+/// `length` bytes of SHAKE128 (FIPS 202) output over `data`: an
+/// extendable-output function, whose output for one input is as long as
+/// asked for, a longer one starting with every shorter one. Its cost grows
+/// with `length`.
+//! import std::hash
+//! import std::hex
+//!
+//! assert hex.encode(hash.shake128(String.to_bytes(""), 32))
+//!     == "7f9c2ba4e88f827d616045507605853ed73b8093f6efbc88eb1a6eacfa66ef26"
+//!
+//! long = hash.shake128(String.to_bytes("abc"), 64)
+//! assert Bytes.slice(long, 0, 16) == hash.shake128(String.to_bytes("abc"), 16)
+//
+pub host fn shake128(data: Bytes, length: NonNegativeInt) -> Bytes
+
+/// `length` bytes of SHAKE256 (FIPS 202) output over `data`, as `shake128`
+/// gives them, with twice its security strength.
+//! import std::hash
+//! import std::hex
+//!
+//! assert hex.encode(
+//!     hash.shake256(String.to_bytes(""), 64)
+//! ) == "46b9dd2b0ba88d13233b3feb743eeb243fcd52ea62b81b82b50c27646ed5762fd75dc4ddd8c0f200cb05019d67b592f6fc821c49479ab48640292eacb3b7c4be"
+//
+pub host fn shake256(data: Bytes, length: NonNegativeInt) -> Bytes
 
 /// Whether `a` and `b` hold the same bytes, in a time that depends only on
 /// their lengths. Compare a MAC or a token with this, not `==`: `==` stops at
@@ -234,3 +552,135 @@ pub host fn pbkdf2_sha256(
     iterations: PositiveInt,
     length:     PositiveInt,
 ) -> Bytes
+
+/// HKDF (RFC 5869) with the HMAC over `algorithm`: a key `length` bytes
+/// long derived from `secret`, a value that is already random but not
+/// uniformly so, such as a key exchange's shared secret. `salt` is optional
+/// randomness, empty when there is none, and `info` names what the key is
+/// for, so one secret gives a separate key per purpose. A `length` over
+/// 255 of the algorithm's digests, 8,160 bytes for SHA-256, is an `Err`.
+/// Not for passwords, which need the slow derivations of std::passwords.
+//! import std::hash.{self, Algorithm}
+//! import std::hex
+//!
+//! // RFC 5869, appendix A.1.
+//! secret = hex.decode("0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b")!
+//! salt = hex.decode("000102030405060708090a0b0c")!
+//! info = hex.decode("f0f1f2f3f4f5f6f7f8f9")!
+//!
+//! assert hex.encode(hash.hkdf(Algorithm.Sha256, secret, salt, info, 42)!)
+//!     == "3cb25f25faacd57a90434f64d0362f2a2d2d0a90cf1a5a4c5db02d56ecc4c5bf34007208d5b887185865"
+//!
+//! assert Bytes.length(hash.hkdf(Algorithm.Sha256, secret, salt, info, 8160)!) == 8160
+//! assert hash.hkdf(Algorithm.Sha256, secret, salt, info, 8161) |> Result.is_err()
+//
+//! import std::hash.{self, Algorithm}
+//! import std::hex
+//!
+//! // RFC 5869's A.1 inputs over SHA3-256.
+//! secret = hex.decode("0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b")!
+//! salt = hex.decode("000102030405060708090a0b0c")!
+//! info = hex.decode("f0f1f2f3f4f5f6f7f8f9")!
+//!
+//! assert hex.encode(hash.hkdf(Algorithm.Sha3With256, secret, salt, info, 42)!)
+//!     == "0c5160501d65021deaf2c14f5abce04c5bd2635abceeba61c2edb6e8ed72674900557728f2c9f2c4c179"
+//
+pub fn hkdf(
+    algorithm: Algorithm,
+    secret:    Bytes,
+    salt:      Bytes,
+    info:      Bytes,
+    length:    PositiveInt,
+) -> Result<Bytes, String>
+    hkdf_by(code(algorithm), secret, salt, info, length)
+end
+
+/// HKDF's extract step with the HMAC over `algorithm`: the pseudorandom key
+/// of `secret` and `salt`, as long as the algorithm's digest, which
+/// `hkdf_expand` expands. `hkdf` is the two steps in one; a protocol that
+/// names them apart, such as TLS 1.3, uses these.
+//! import std::hash.{self, Algorithm}
+//! import std::hex
+//!
+//! // RFC 5869, appendix A.1.
+//! secret = hex.decode("0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b")!
+//! key = hash.hkdf_extract(Algorithm.Sha256, secret, hex.decode("000102030405060708090a0b0c")!)
+//!
+//! assert hex.encode(key) == "077709362c2e32df0ddc3f0dc47bba6390b6c73bb50f9c3122ec844ad7c2b3e5"
+//!
+//! assert hex.encode(hash.hkdf_expand(Algorithm.Sha256, key, hex.decode("f0f1f2f3f4f5f6f7f8f9")!, 42)!)
+//!     == "3cb25f25faacd57a90434f64d0362f2a2d2d0a90cf1a5a4c5db02d56ecc4c5bf34007208d5b887185865"
+//
+pub fn hkdf_extract(algorithm: Algorithm, secret: Bytes, salt: Bytes) -> Bytes
+    hkdf_extract_by(code(algorithm), secret, salt)
+end
+
+/// HKDF's expand step with the HMAC over `algorithm`: `length` bytes from
+/// the pseudorandom key `key`, which `hkdf_extract` makes, and `info`. A
+/// `length` over 255 of the algorithm's digests is an `Err`.
+//! import std::hash.{self, Algorithm}
+//!
+//! secret = String.to_bytes("a shared secret")
+//! info = String.to_bytes("session key")
+//! key = hash.hkdf_extract(Algorithm.Sha384, secret, String.to_bytes(""))
+//!
+//! assert Bytes.length(key) == 48
+//!
+//! assert hash.hkdf_expand(Algorithm.Sha384, key, info, 64)
+//!     == hash.hkdf(Algorithm.Sha384, secret, String.to_bytes(""), info, 64)
+//!
+//! assert hash.hkdf_expand(Algorithm.Sha384, key, info, 12_241) |> Result.is_err()
+//
+pub fn hkdf_expand(
+    algorithm: Algorithm,
+    key:       Bytes,
+    info:      Bytes,
+    length:    PositiveInt,
+) -> Result<Bytes, String>
+    hkdf_expand_by(code(algorithm), key, info, length)
+end
+
+/// HKDF with HMAC-SHA256: `hkdf` over `Algorithm.Sha256`. A `length` over
+/// 8,160 bytes, 255 blocks of 32, is an `Err`.
+//! import std::hash.{self, Algorithm}
+//!
+//! secret = String.to_bytes("a shared secret")
+//! info = String.to_bytes("session key")
+//!
+//! assert hash.hkdf_sha256(secret, String.to_bytes(""), info, 32)
+//!     == hash.hkdf(Algorithm.Sha256, secret, String.to_bytes(""), info, 32)
+//
+pub fn hkdf_sha256(
+    secret: Bytes,
+    salt:   Bytes,
+    info:   Bytes,
+    length: PositiveInt,
+) -> Result<Bytes, String>
+    hkdf(Algorithm.Sha256, secret, salt, info, length)
+end
+
+/// HKDF with HMAC-SHA512: `hkdf` over `Algorithm.Sha512`. A `length` over
+/// 16,320 bytes, 255 blocks of 64, is an `Err`.
+//! import std::hash.{self, Algorithm}
+//!
+//! secret = String.to_bytes("a shared secret")
+//! info = String.to_bytes("session key")
+//! key = hash.hkdf_sha512(secret, String.to_bytes(""), info, 64)!
+//!
+//! assert Bytes.length(key) == 64
+//!
+//! assert hash.hkdf_expand(
+//!     Algorithm.Sha512,
+//!     hash.hkdf_extract(Algorithm.Sha512, secret, String.to_bytes("")),
+//!     info,
+//!     64,
+//! )! == key
+//
+pub fn hkdf_sha512(
+    secret: Bytes,
+    salt:   Bytes,
+    info:   Bytes,
+    length: PositiveInt,
+) -> Result<Bytes, String>
+    hkdf(Algorithm.Sha512, secret, salt, info, length)
+end

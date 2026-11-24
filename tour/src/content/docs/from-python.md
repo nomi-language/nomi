@@ -30,6 +30,8 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `for x in xs:`, `while` | `Iter.each`, a fold, recursion, or `Iter.loop` |
 | Duck typing, or a `Protocol` any class of that shape satisfies | An `interface`, and a type implements one by saying so: `impl Speak for Dog` |
 | `asyncio.gather(f(), g())`, `async def`, `await` | `Task.spawn` and `Task.await` inside `concurrent` ... `end`. No function is marked `async`. |
+| `asyncio.wait_for(f(), timeout)`, or `asyncio.wait` with `FIRST_COMPLETED` | `Task.within(wait, fn -> ..)`, `Err(TimedOut)` when the wait runs out, and `Task.race([..])`, the first body to finish. Both cancel what is still running and wait for it to stop. |
+| `while True:` with `await asyncio.sleep(d)` after the work | `timer.every(d, fn -> ..)`, which waits `d` after each run. It repeats until the program shuts down or its task is cancelled. |
 | A `create_app()` factory that sets `app.config` and calls `db.init_app(app)` | `fn boot() -> Result<App, String>` builds an `App` struct before `main` runs, and any function reads a field as `App.db`. A test replaces one with `with App.db = ..`. See [App Fields](/app-fields/). |
 
 ## Spelled differently

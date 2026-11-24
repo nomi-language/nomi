@@ -147,7 +147,13 @@ func instEnumDesc(name, inst string, variants []rt.VariantSpec) *rt.TypeDesc {
 // type inner, or of a zero-sized marker when inner is nil. spread says the
 // inner type is written as a tuple of its parts (rt.TypeDesc.Spread).
 func distinctDesc(name string, inner *rt.SlotType, spread bool) *rt.TypeDesc {
-	key := "D|" + name + "|"
+	return instDistinctDesc(name, "", inner, spread)
+}
+
+// instDistinctDesc is distinctDesc for one instance of a generic distinct
+// type, as instStructDesc is for a struct.
+func instDistinctDesc(name, inst string, inner *rt.SlotType, spread bool) *rt.TypeDesc {
+	key := "D|" + name + "|" + inst + "|"
 	if inner != nil {
 		key += strconv.Itoa(int(*inner))
 	}
@@ -156,6 +162,7 @@ func distinctDesc(name string, inner *rt.SlotType, spread bool) *rt.TypeDesc {
 	}
 	return internDesc(key, func() *rt.TypeDesc {
 		d := rt.NewDistinctDesc(name, inner)
+		d.Inst = inst
 		d.Spread = spread
 		return d
 	})
@@ -267,7 +274,7 @@ func buildDescOfType(t *ir.ValType) *rt.TypeDesc {
 		if t.NumElems() == 0 {
 			return distinctDesc(t.Sym().Name(), nil, false)
 		}
-		return distinctDesc(t.Sym().Name(), slotPtr(slotOf(t.Elem(0))), t.Spread())
+		return instDistinctDesc(t.Sym().Name(), t.InstanceKey(), slotPtr(slotOf(t.Elem(0))), t.Spread())
 	case ir.KindTuple:
 		slots := make([]rt.SlotType, t.NumElems())
 		for i := range slots {

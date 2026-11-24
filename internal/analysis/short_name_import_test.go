@@ -9,6 +9,8 @@ import (
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/lexer"
+	"github.com/nomi-language/nomi/internal/modcache"
+	"github.com/nomi-language/nomi/internal/modfetch/modfetchtest"
 	"github.com/nomi-language/nomi/internal/parser"
 	"github.com/nomi-language/nomi/std"
 )
@@ -26,7 +28,7 @@ func shortNameProject(t *testing.T, mainSrc, depDir string) (root, entry string)
 func namedProject(t *testing.T, mainSrc, name, depDir string) (root, entry string) {
 	t.Helper()
 	root = filepath.Join(t.TempDir(), "app")
-	dep := name + " = { module = \"example.com/greet\", version = \"v0.1.0\""
+	dep := name + " = { repo = \"example.com/greet\", version = \"v0.1.0\""
 	if depDir != "" {
 		dep += ", dir = " + fmt.Sprintf("%q", depDir)
 	}
@@ -39,12 +41,21 @@ func namedProject(t *testing.T, mainSrc, name, depDir string) (root, entry strin
 // greetModule writes module greet's files into dir.
 func greetModule(t *testing.T, dir string, withRootFile bool) {
 	t.Helper()
-	writeTestFile(t, filepath.Join(dir, "nomi.toml"), "[module]\nname = \"greet\"\npath = \"example.com/greet\"\n")
-	writeTestFile(t, filepath.Join(dir, "words.nomi"), "pub fn word() -> String\n    \"hello\"\nend\n")
-	if withRootFile {
-		writeTestFile(t, filepath.Join(dir, "greet.nomi"),
-			"import greet::words\n\npub fn hello(name: String) -> String\n    \"${words.word()}, ${name}\"\nend\n")
+	for name, text := range greetFiles(withRootFile) {
+		writeTestFile(t, filepath.Join(dir, name), text)
 	}
+}
+
+// greetFiles is module greet's files.
+func greetFiles(withRootFile bool) map[string]string {
+	files := map[string]string{
+		"nomi.toml":  "[module]\nname = \"greet\"\n",
+		"words.nomi": "pub fn word() -> String\n    \"hello\"\nend\n",
+	}
+	if withRootFile {
+		files["greet.nomi"] = "import greet::words\n\npub fn hello(name: String) -> String\n    \"${words.word()}, ${name}\"\nend\n"
+	}
+	return files
 }
 
 func writeTestFile(t *testing.T, path, content string) {
@@ -124,9 +135,8 @@ func TestShortNameImport_AModuleWithoutARootFileIsItsRootDirectory(t *testing.T)
 // cache lacks is an import error whose hint says to run `nomi fetch`. Nothing
 // is downloaded: the analysis never fetches.
 func TestShortNameImport_FromTheModuleCacheAndMissingFromIt(t *testing.T) {
-	cache := filepath.Join(t.TempDir(), "modcache")
-	t.Setenv("GOMODCACHE", cache)
-	t.Setenv("GOPROXY", "off")
+	cache := modfetchtest.CacheDir(t)
+	t.Setenv(modcache.CacheEnv, cache)
 	src := "import\n    greet\n    std::io\nend\n\nfn main()\n    io.print(greet.hello(\"you\"))\nend\n"
 
 	root, entry := shortNameProject(t, src, "")
@@ -142,9 +152,8 @@ func TestShortNameImport_FromTheModuleCacheAndMissingFromIt(t *testing.T) {
 		t.Errorf("the analysis created the module cache %s", cache)
 	}
 
-	// Put greet in the cache as the go command (and nomi fetch) lays it out.
-	greetModule(t, filepath.Join(cache, "example.com", "greet@v0.1.0"), true)
-	writeTestFile(t, filepath.Join(cache, "cache", "download", "example.com", "greet", "@v", "v0.1.0.ziphash"), "h1:x\n")
+	// Put greet in the cache as nomi fetch lays it out.
+	modfetchtest.CacheRepo(t, cache, "example.com/greet", "v0.1.0", greetFiles(true))
 	if errs := projectErrors(t, root, entry); len(errs) != 0 {
 		t.Errorf("with greet in the module cache:\n  %s", strings.Join(errs, "\n  "))
 	}
@@ -178,18 +187,19 @@ func TestShortNameImport_TheProjectsNameForADependency(t *testing.T) {
 func TestShortNameImport_ADependencysImportsAreItsOwn(t *testing.T) {
 	tmp := t.TempDir()
 	greet, words, other := filepath.Join(tmp, "greet"), filepath.Join(tmp, "words"), filepath.Join(tmp, "other")
-	writeTestFile(t, filepath.Join(greet, "nomi.toml"), "[module]\nname = \"greet\"\npath = \"example.com/greet\"\n\n[dependencies]\n"+
-		"fmt = { module = \"example.com/words\", version = \"v0.1.0\", dir = \"../words\" }\n")
+	writeTestFile(t, filepath.Join(greet, "nomi.toml"), "[module]\nname = \"greet\"\n\n[dependencies]\n"+
+		"fmt = { repo = \"example.com/words\", version = \"v0.1.0\", dir = \"../words\" }\n")
 	writeTestFile(t, filepath.Join(greet, "greet.nomi"), "import fmt::words\n\npub fn hello() -> String\n    words.word()\nend\n")
-	writeTestFile(t, filepath.Join(words, "nomi.toml"), "[module]\nname = \"fmt\"\npath = \"example.com/words\"\n")
+	writeTestFile(t, filepath.Join(words, "nomi.toml"), "[module]\nname = \"fmt\"\n")
 	writeTestFile(t, filepath.Join(words, "words.nomi"), "pub fn word() -> String\n    \"hello\"\nend\n")
 	writeTestFile(t, filepath.Join(other, "nomi.toml"), "[module]\nname = \"fmt\"\n")
 	writeTestFile(t, filepath.Join(other, "words.nomi"), "pub fn other() -> Int\n    1\nend\n")
 	root := filepath.Join(tmp, "app")
 	writeTestFile(t, filepath.Join(root, "nomi.toml"), "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[dependencies]\n"+
 		"fmt = { dir = \"../other\" }\n"+
-		"format = { module = \"example.com/words\", version = \"v0.1.0\", dir = \"../words\" }\n"+
-		"greet = { module = \"example.com/greet\", version = \"v0.1.0\", dir = \"../greet\" }\n")
+		"format = { repo = \"example.com/words\", version = \"v0.1.0\", dir = \"../words\" }\n"+
+		"greet = { repo = \"example.com/greet\", version = \"v0.1.0\", dir = \"../greet\" }\n")
+
 	entry := filepath.Join(root, "main.nomi")
 	writeTestFile(t, entry, "import\n    greet\n    fmt::words\n    std::io\nend\n\nfn main()\n    io.print(greet.hello())\n    _ = words.other()\nend\n")
 	if errs := projectErrors(t, root, entry); len(errs) != 0 {

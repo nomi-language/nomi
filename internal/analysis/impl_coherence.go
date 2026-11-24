@@ -2,6 +2,7 @@ package analysis
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -798,8 +799,8 @@ func declaringOriginOfType(fa *FileAnalysis, name string, primitives map[string]
 // `stdlibFAs` (typically std.StdLib.Files) and gives fa a Program holding it
 // in place of its own. The single-file BuildFileWithStdlib path leaves
 // Program().ImplIndex nil — consumers (checker's implsContext /
-// typeImplementsInterface, derive synthesis's CheckDeriveBounds /
-// hasInterfaceImpl) then miss every stdlib (Type, Iface) pair, which
+// typeImplementsInterface) then miss every stdlib
+// (Type, Iface) pair, which
 // surfaces as spurious "X does not implement Y" errors on routine
 // stdlib calls (e.g. `io.inspect(42)` failing because the unifier
 // can't see "Int implements Display"). Call sites that exercise the
@@ -1009,357 +1010,229 @@ func PopulateProjectTypeMethodSymbols(idx *ProjectImplIndex, filesByKey map[stri
 	}
 }
 
-// detectImplCollisions reports a TypeError for every (interface declaration,
-// method, receiver-type) triple implemented by two or more distinct impl
-// FuncDefs. That triple is exactly the runtime dispatch table's key
-// (root.dispatch["<origin>\x01Iface.method"]["TypeName"]), so two FuncDefs
-// sharing it would silently last-wins-overwrite each other at registration
-// time.
+// detectImplCollisions reports each impl block that implements an
+// interface for a type another block of the program already implements it
+// for (spec §12 *Implementations*): a type implements an interface once
+// at each set of type arguments, whether a block is written, derived or
+// the universal Debug the front end writes, and whatever functions it
+// writes. Two empty `impl Marked for P` blocks are a duplicate.
 //
-// # THE INTERFACE SIDE CARRIES IDENTITY, NOT A SPELLING
+// Blocks are grouped by implBlockGroupKey, the interface's identity and
+// the receiver's declaration, and each group is split by the interface's
+// type arguments compared as types (instantiationsOf), all read off the
+// block's record (ImplTypeArgs). So `impl json.ToJson for U` and `impl
+// ToJson for U` in a file whose `ToJson` is std's are one interface's
+// impls, impls of two interfaces of one name are not, and `impl From<A>
+// for T` beside `impl From<B> for T` are two instantiations, as are `impl
+// From<a.Error> for T` and `impl From<b.Error> for T` for two files'
+// `Error`. `impl Holds<T> for Wrap<T>` beside `impl Holds<Int> for
+// Wrap<T>` is the overlap checkImplInstantiations reports, not a
+// duplicate.
 //
-// Two files may each declare `pub interface Renderer`, and those are two
-// interfaces. The check keys on `ifaceOrigins` (ProjectImplIndex.
-// ImplIfaceOrigin) so an impl of one is not a duplicate of an impl of the
-// other — ifaceOriginBuckets does the partition, with an unresolved origin
-// joining every bucket so a build that cannot establish identity is no weaker
-// than before. Accepting it is correct because dispatch keys each impl under
-// its interface's declaration, not under the interface's bare name.
+// The universal Debug of an opaque or host type yields to an explicit
+// Debug for the type (ImplPrecedence), as a call reaches the explicit one:
+// a partner test file's or a REPL input's derive, or an `impl Debug` in
+// another file than the type's.
 //
-// `index` is interface name -> method name -> impl FuncDefs (the shape of
-// Program.IfaceMethodImpls); `files` maps each FuncDef to its
-// import-form home module key (Program.IfaceMethodImplFiles). The
-// caller passes the project's `ifaceImpls` / `ifaceImplFiles` built by
-// the per-file IndexImplBlockFuncDefs walk in BuildProjectWithCache —
-// stdlib impls reach this index via the same per-file walk over
-// stdlib FAs folded into filesByKey.
+// Each group of two or more is one error, at the block a reader can act
+// on (collisionAnchor), with another block of the group as its related
+// location. A derive beside a hand-written impl in the same module is the
+// spec's `derive ... conflicts with a hand-written impl`, whichever
+// spelling each names the interface by. A hand-written impl that collides
+// with another module's derived one, as a program's `impl Equatable for
+// Bool` does with std's, is a duplicate that names both modules.
 //
-// # THE KEY IS THE RECEIVER, THE INTERFACE AND ITS TYPE ARGUMENTS
-//
-// A generic interface may be implemented for one receiver at several type
-// arguments (`impl Add<Days, Date> for Date` beside `impl Add<Months, Date>
-// for Date`, `impl Contains<String> for String` beside `impl
-// Contains<Regex> for String`), and a call selects one statically
-// (impl_selection.go). So two impls collide when they name the same
-// receiver, the same interface and the same type arguments, however the
-// header qualifies the interface (collisionGroupKey). Two impls at
-// different arguments that could still name one instantiation, a generic
-// one beside a concrete one, are the overlap checkImplInstantiations
-// reports at the impl.
-//
-// A derive beside a hand-written impl in the same module is such a pair,
-// and its error says so (implCollisionError): the spec's `derive ...
-// conflicts with a hand-written impl` message, whichever spelling each
-// names the interface by. A hand-written impl that collides with another
-// module's derived one, as a program's `impl Equatable for Bool` does with
-// std's, is a duplicate that names both modules.
-func detectImplCollisions(
-	index map[string]map[string][]*ast.FuncDef,
-	files map[*ast.FuncDef]string,
-	receivers map[*ast.FuncDef]string,
-	interfaceKeys map[*ast.FuncDef]string,
-	ifaceOrigins map[*ast.FuncDef]string,
-	pathOf func(key string) string,
-) []TypeError {
-	var errs []TypeError
-	// Deterministic iteration for stable error ordering.
-	ifaceNames := make([]string, 0, len(index))
-	for iface := range index {
-		ifaceNames = append(ifaceNames, iface)
-	}
-	sort.Strings(ifaceNames)
-
-	for _, iface := range ifaceNames {
-		byMethod := index[iface]
-		methodNames := make([]string, 0, len(byMethod))
-		for m := range byMethod {
-			methodNames = append(methodNames, m)
+// blocks is every interface impl block of the program (programImplBlocks),
+// names says how the error names a receiver, and pathOf answers a module
+// key's file, for the error's File.
+func detectImplCollisions(blocks []implBlockAt, names receiverNames, pathOf func(key string) string) []TypeError {
+	groups := map[string][]implBlockAt{}
+	for _, b := range blocks {
+		noteStdlibWork(b.key)
+		if k, ok := implBlockGroupKey(b.info); ok {
+			groups[k] = append(groups[k], b)
 		}
-		sort.Strings(methodNames)
-
-		for _, method := range methodNames {
-			fns := byMethod[method]
-			// Group this (iface, method)'s FuncDefs by receiver base name and
-			// interface header: two impls in one group implement one
-			// instantiation of the interface for one type.
-			byReceiver := map[string][]*ast.FuncDef{}
-			for _, fn := range fns {
-				key := collisionGroupKey(iface, fn, receivers, interfaceKeys)
-				if key == "" {
-					continue // unkeyable — skip, don't mis-group
-				}
-				byReceiver[key] = append(byReceiver[key], fn)
+	}
+	keys := make([]string, 0, len(groups))
+	for k, group := range groups {
+		if len(group) > 1 {
+			keys = append(keys, k)
+		}
+	}
+	sort.Strings(keys)
+	var errs []TypeError
+	for _, k := range keys {
+		insts := instantiationsOf(groups[k])
+		for _, inst := range insts {
+			group := withoutYieldingImpls(inst)
+			if len(group) < 2 {
+				continue
 			}
-			receivers := make([]string, 0, len(byReceiver))
-			for r := range byReceiver {
-				receivers = append(receivers, r)
-			}
-			sort.Strings(receivers)
-
-			for _, recv := range receivers {
-				group := byReceiver[recv]
-				displayRecv := receiverDisplay(implCollisionKeyReceiver(recv))
-				// Universal default Debug gives every type a Debug impl, and
-				// dispatch is keyed by unqualified base name — so a project type
-				// can share a base name with an unrelated stdlib type (e.g. a
-				// user `enum Direction` vs std/comparable's `Direction`). The
-				// PROJECT type shadows the stdlib one. Mirror the runtime bridge — for
-				// Debug, if any project (non-stdlib) impl exists for this base
-				// name, the stdlib impl(s) are shadowed and don't count toward a
-				// collision; only same-origin duplicates (2+ project) remain
-				// genuine. Other interfaces are unaffected (no auto impls to
-				// shadow).
-				if iface == "Debug" {
-					group = debugEffectiveCollisionGroup(group, files)
+			sort.SliceStable(group, func(i, j int) bool {
+				if group[i].key != group[j].key {
+					return group[i].key < group[j].key
 				}
-				// Two impls that share a dispatch key but name two DIFFERENT
-				// interface declarations are not a duplicate: dispatch keys
-				// each under its interface's declaration. So partition by the interface's
-				// declaring origin and report only within a bucket.
-				for _, bucket := range ifaceOriginBuckets(group, ifaceOrigins) {
-					if len(bucket) < 2 {
-						continue
-					}
-					errs = append(errs, implCollisionError(iface, method, displayRecv, bucket, files, interfaceKeys, pathOf))
+				li, ci := implBlockPos(group[i].info.Block)
+				lj, cj := implBlockPos(group[j].info.Block)
+				if li != lj {
+					return li < lj
 				}
-			}
+				return ci < cj
+			})
+			errs = append(errs, implCollisionError(group, insts, names, pathOf))
 		}
 	}
 	return errs
 }
 
-// collisionGroupKey is the group detectImplCollisions puts fn, an impl of
-// iface, in: its receiver's base name, and the interface with the type
-// arguments its header writes. A module qualifier on the header is left
-// out: `impl json.ToJson for U` and `impl ToJson for U` in a file whose
-// `ToJson` is std's are two impls of one interface, and
-// ifaceOriginBuckets keeps apart the impls of two interfaces of one name.
-// Empty when the receiver is unkeyable.
-func collisionGroupKey(iface string, fn *ast.FuncDef, receivers, interfaceKeys map[*ast.FuncDef]string) string {
-	recv := receiverBaseName(fn, receivers)
-	if recv == "" {
-		return ""
-	}
-	ifaceKey := iface
-	if interfaceKeys != nil {
-		if _, args, ok := strings.Cut(interfaceKeys[fn], "<"); ok {
-			ifaceKey = iface + "<" + args
+// instantiationsOf splits group, the blocks of one interface for one
+// receiver, by the interface's type arguments each implements, compared as
+// types (TypesIdentical), so a type argument is its declaration and not
+// its name: `From<a.Error>` and `From<b.Error>` are two instantiations. The
+// parts are in the order of their first blocks in group.
+func instantiationsOf(group []implBlockAt) [][]implBlockAt {
+	var out [][]implBlockAt
+	for _, b := range group {
+		at := slices.IndexFunc(out, func(inst []implBlockAt) bool {
+			return sameTypeArgs(inst[0].info.Args, b.info.Args)
+		})
+		if at < 0 {
+			out = append(out, nil)
+			at = len(out) - 1
 		}
+		out[at] = append(out[at], b)
 	}
-	return recv + "\x00" + ifaceKey
+	return out
 }
 
-// CollisionImplIndex unions the reachable-set impl index with the project
-// index, deduplicated BY DECLARATION rather than by pointer, and returns the
-// pair detectImplCollisions consumes.
-//
-// # WHY THE UNION IS NEEDED
-//
-// `ifaceImpls` covers the files this build reached. A stdlib module the entry
-// never reaches is absent from it, so its impls cannot collide with anything.
-// `std/int` is the case that proves it: `Int`'s methods resolve through the
-// prelude, so nothing makes `std/int` reachable, and without this a program
-// with no imports could declare `impl Equatable for Int` and get no
-// diagnostic at all — while the SAME program with `import { std::io }` was
-// rejected, because std/io's own import chain pulled std/int in. A rule whose
-// answer depends on an unrelated import is not a rule.
-//
-// # WHY DEDUPE BY DECLARATION AND NOT BY POINTER
-//
-// Measured: swapping the check straight onto `implIndex.IfaceMethodImpls`
-// made `nomi run` report every std impl as a duplicate of itself — 100+
-// diagnostics led by `Add<Bytes, Bytes> ... by modules std/bytes`, with ONE
-// module named because both members were homed there. One std declaration
-// reaches the project index as TWO FuncDef pointers: the FA `std.Load()`
-// pre-analyzed, and the one this build parsed. They arrive under different
-// filesByKey entries (the import-form key `bytes` from the demand-resolved
-// cache, and `std/bytes` from the stdlibFAs fold), so the index's
-// pointer-triple dedupe cannot see that they are one source item.
-//
-// (home, line, col, name) can. Two FuncDefs at one position in one module
-// with one name ARE one declaration, and nothing in the language can produce
-// two — the parser gives each item a distinct position. A member already in
-// the reachable-set map wins the tie, because its receiver and interface-key
-// entries are the ones the caller's other maps are keyed on.
-func CollisionImplIndex(
-	local map[string]map[string][]*ast.FuncDef,
-	localFiles map[*ast.FuncDef]string,
-	idx *ProjectImplIndex,
-) (map[string]map[string][]*ast.FuncDef, map[*ast.FuncDef]string) {
-	files := make(map[*ast.FuncDef]string, len(localFiles))
-	if idx != nil {
-		for fn, home := range idx.ImplFiles {
-			files[fn] = home
-		}
-	}
-	for fn, home := range localFiles {
-		files[fn] = home
-	}
-	type declKey struct {
-		home, name string
-		line, col  int
-	}
-	out := make(map[string]map[string][]*ast.FuncDef, len(local))
-	// Slot-local dedupe, for the same reason buildProjectImplIndex's is: one
-	// FuncDef legitimately occupies more than one (iface, method) slot, and a
-	// global seen-set would suppress every slot after the first.
-	add := func(iface, method string, fns []*ast.FuncDef, seen map[declKey]bool) {
-		for _, fn := range fns {
-			if fn == nil {
-				continue
-			}
-			noteStdlibWork(files[fn])
-			k := declKey{home: files[fn], name: fn.Name, line: fn.Line, col: fn.Col}
-			if seen[k] {
-				continue
-			}
-			seen[k] = true
-			out[iface][method] = append(out[iface][method], fn)
-		}
-	}
-	ifaces := map[string]bool{}
-	for iface := range local {
-		ifaces[iface] = true
-	}
-	if idx != nil {
-		for iface := range idx.IfaceMethodImpls {
-			ifaces[iface] = true
-		}
-	}
-	names := make([]string, 0, len(ifaces))
-	for iface := range ifaces {
-		names = append(names, iface)
-	}
-	sort.Strings(names)
-	for _, iface := range names {
-		out[iface] = map[string][]*ast.FuncDef{}
-		methods := map[string]bool{}
-		for method := range local[iface] {
-			methods[method] = true
-		}
-		if idx != nil {
-			for method := range idx.IfaceMethodImpls[iface] {
-				methods[method] = true
-			}
-		}
-		methodNames := make([]string, 0, len(methods))
-		for method := range methods {
-			methodNames = append(methodNames, method)
-		}
-		sort.Strings(methodNames)
-		for _, method := range methodNames {
-			seen := map[declKey]bool{}
-			add(iface, method, local[iface][method], seen)
-			if idx != nil {
-				add(iface, method, idx.IfaceMethodImpls[iface][method], seen)
-			}
-		}
-	}
-	return out, files
+// sameTypeArgs reports whether a and b, two impls' interface type
+// arguments, are one list of types (TypesIdentical): one instantiation.
+// Coherence, the candidates a call chooses among (implCandidates) and the
+// impl a call's, a bound's or a conversion's type arguments name all ask
+// this, so `From<Circle>` and `From<Shape>` for a Shape that embeds Circle
+// are two impls everywhere.
+func sameTypeArgs(a, b []Type) bool {
+	return slices.EqualFunc(a, b, TypesIdentical)
 }
 
-// ifaceOriginBuckets partitions one dispatch-key group of impls — every member
-// shares a (receiver, dispatch key) pair — into the sets that would genuinely
-// be two impls of ONE interface declaration.
-//
-// An impl with a resolved interface origin belongs to that origin's bucket. An
-// impl with `OriginUnresolved` belongs to ALL of them, because the lattice
-// says an unresolved origin may be any of them and the check must not become
-// weaker than it was when identity is unavailable; when nothing in the group
-// resolved, the whole group is one bucket, which is exactly the pre-identity
-// behaviour. Same rule and same reason as inherentOriginBuckets, applied on
-// the interface side instead of the receiver side.
-//
-// Buckets come back in first-appearance order so the diagnostic a user sees
-// does not depend on Go map iteration.
-func ifaceOriginBuckets(group []*ast.FuncDef, ifaceOrigins map[*ast.FuncDef]string) [][]*ast.FuncDef {
-	// A group is the impls sharing one dispatch key, so it is a handful at
-	// most — a linear scan for distinctness beats allocating a set.
-	var origins []string
-	for _, fn := range group {
-		origin := ifaceOrigins[fn]
-		if origin == OriginUnresolved {
+// implBlockAt is an interface impl block's record and the module key of the
+// program file that writes it.
+type implBlockAt struct {
+	key  string
+	info *ImplTypeArgs
+}
+
+// programImplBlocks answers every interface impl block files' analyses
+// record (FileAnalysis.ImplBlocks), each once: a std module reached under
+// two keys, or analysed twice, holds its blocks at one place, so a block is
+// identified by its file's origin and its source (implBlockKey). A block
+// written for a declaration refused for its name (synthesizedForRefusedDecl)
+// is no impl.
+func programImplBlocks(files map[string]*FileAnalysis) []implBlockAt {
+	var out []implBlockAt
+	seen := map[string]bool{}
+	for _, key := range stdlibFirstKeys(files) {
+		fa := files[key]
+		if fa == nil {
 			continue
 		}
-		known := false
-		for _, o := range origins {
-			if o == origin {
-				known = true
-				break
+		for _, byIface := range fa.ImplBlocks {
+			for _, infos := range byIface {
+				for _, info := range infos {
+					if info == nil || info.Block == nil || synthesizedForRefusedDecl(fa, info.Block) {
+						continue
+					}
+					id := fa.Origin + "\x00" + implBlockKey(info.Block)
+					if seen[id] {
+						continue
+					}
+					seen[id] = true
+					out = append(out, implBlockAt{key: key, info: info})
+				}
 			}
 		}
-		if !known {
-			origins = append(origins, origin)
-		}
 	}
-	// One origin (or none) means one bucket, and it is the whole group: an
-	// unresolved member belongs to every bucket, so with a single resolved
-	// origin there is nothing to partition. This is the shape of nearly every
-	// group that reaches here, and it allocates nothing.
-	if len(origins) <= 1 {
-		return [][]*ast.FuncDef{group}
-	}
-	buckets := make([][]*ast.FuncDef, 0, len(origins))
-	for _, origin := range origins {
-		bucket := make([]*ast.FuncDef, 0, len(group))
-		for _, fn := range group {
-			if o := ifaceOrigins[fn]; o == origin || o == OriginUnresolved {
-				bucket = append(bucket, fn)
-			}
-		}
-		buckets = append(buckets, bucket)
-	}
-	return buckets
+	return out
 }
 
-// implCollisionKeyReceiver recovers the receiver from a grouping key. The
-// interface side is deliberately NOT recovered here: the key carries the
-// DISPATCH key (`Add<Days>`), which is a fragment of no header the user wrote,
-// so the diagnostic renders the interface from the group's own recorded headers
-// instead.
-func implCollisionKeyReceiver(key string) string {
-	recv, _, _ := strings.Cut(key, "\x00")
-	return recv
+// implBlockGroupKey is the key detectImplCollisions groups an impl block
+// by, read off its record: the interface's name and declaring origin and
+// the receiver's identity (implReceiverIdentity). The interface's type
+// arguments, written or solved from the block's functions, are types, not
+// a key: instantiationsOf compares them. ok is false for a block whose
+// receiver did not resolve.
+func implBlockGroupKey(info *ImplTypeArgs) (string, bool) {
+	recv, _, ok := implReceiverIdentity(info.Receiver, receiverNames{})
+	if !ok || info.Interface == "" {
+		return "", false
+	}
+	return info.Interface + "\x00" + info.Origin + "\x00" + recv, true
 }
 
-// debugEffectiveCollisionGroup applies the universal-Debug shadowing rule
-// (option #1): a project type shadows a stdlib type of the same base name.
-// If the group contains any project (non-stdlib) impl, the stdlib impls are
-// dropped — they're shadowed at runtime by the impl bridge — so only the
-// project impls compete for the single base-name dispatch slot. With no
-// project impl, the group is returned unchanged (a genuine stdlib-internal
-// duplicate would still be flagged). Stdlib home paths are spelled "std/...";
-// the project entry is "" and sibling modules carry their own prefixes.
-func debugEffectiveCollisionGroup(group []*ast.FuncDef, files map[*ast.FuncDef]string) []*ast.FuncDef {
-	// Precedence step 1 — explicit beats auto. An auto-synth Debug impl
-	// (AutoSynth) yields to any hand-written / @derive impl for the same
-	// (Debug, T). This is what lets a type's explicit Debug live in a
-	// different file than its declaration: the per-file synthesis pass still
-	// emits an auto impl for the type (it can't see the sibling's explicit
-	// one), but that auto impl drops out here.
-	var explicit []*ast.FuncDef
-	for _, fn := range group {
-		if !fn.AutoSynth {
-			explicit = append(explicit, fn)
+// implReceiverIdentity is an impl block's receiver as coherence keys it,
+// its declaration whatever its type arguments (a type implements an
+// interface once, not once per instance), and as a diagnostic names it: a
+// struct, enum or distinct type by its declaring origin and name, shown as
+// the declaring module's last segment and the name (`bool.Bool`), or the
+// bare name for one the program entry declares; a built-in primitive, one
+// type wherever it is named, by its name alone, shown through the module
+// that declares it (`int.Int`).
+// receiverNames is what a coherence error names a receiver through: the
+// program entry's origin (entryOriginOf), whose types are named bare, and
+// each primitive's declaring module (primitiveOriginIndex).
+type receiverNames struct {
+	entry      string
+	primitives map[string]string
+}
+
+func implReceiverIdentity(t Type, names receiverNames) (key, display string, ok bool) {
+	t = resolveTypeVar(t)
+	if t == nil {
+		return "", "", false
+	}
+	name := concreteTypeName(t)
+	if name == "" {
+		return "", "", false
+	}
+	if _, prim := t.(*PrimitiveType); prim {
+		if origin := names.primitives[name]; origin != "" {
+			return name, lastSegment(origin) + "." + name, true
+		}
+		return name, name, true
+	}
+	origin, nominal := nominalOrigin(t)
+	if !nominal || origin == "" || origin == OriginUnresolved || origin == OriginEntry || origin == names.entry {
+		return origin + receiverOriginSep + name, name, true
+	}
+	return origin + receiverOriginSep + name, lastSegment(origin) + "." + name, true
+}
+
+// withoutYieldingImpls is group without its universal Debug blocks when an
+// explicit block is among them (ImplPrecedence), or group itself.
+func withoutYieldingImpls(group []implBlockAt) []implBlockAt {
+	explicit := make([]implBlockAt, 0, len(group))
+	for _, b := range group {
+		if ImplPrecedence(b.info.Block) < implUniversal {
+			explicit = append(explicit, b)
 		}
 	}
-	if len(explicit) > 0 {
-		group = explicit
+	if len(explicit) == 0 {
+		return group
 	}
-	// Precedence step 2 — project beats stdlib (option #1). Among the
-	// surviving impls, a project (entry "" or sibling) impl shadows a stdlib
-	// one of the same base name.
-	var project []*ast.FuncDef
-	for _, fn := range group {
-		path := files[fn]
-		if path == "" || !strings.HasPrefix(path, "std/") {
-			project = append(project, fn)
-		}
+	return explicit
+}
+
+// implBlockPos is where a diagnostic about impl block b points: its header;
+// for a derive's block, the interface the derive names; for the universal
+// Debug the front end writes, the declaration it is written for.
+func implBlockPos(b *ast.ImplBlock) (int, int) {
+	if !IsSynthesizedLine(b.Line) {
+		return b.Line, b.Col
 	}
-	if len(project) > 0 {
-		return project
+	if line, col := typeExprPos(b.Interface, 0, 0); line > 0 && !IsSynthesizedLine(line) {
+		return line, col
 	}
-	return group
+	return b.SynthOriginLine, b.SynthOriginCol
 }
 
 // funcDefReceiverBaseName is the base name of an impl method's receiver —
@@ -1386,34 +1259,23 @@ func receiverBaseName(fn *ast.FuncDef, receivers map[*ast.FuncDef]string) string
 	return funcDefReceiverBaseName(fn)
 }
 
-// implCollisionError builds the diagnostic for one colliding group. It names
-// every home module so the user can find and remove the duplicate, and is
-// anchored by collisionAnchor at a position the reader can open.
-//
-// Group order does NOT answer this, and believing it did was a mistake this
-// slice made and then measured. CollisionImplIndex adds the reachable-set
-// members first, which puts the user's impl at index 0 for a program with no
-// imports — but the reachable set ALSO holds std's impl once anything makes
-// that module reachable, and there it comes first. So `impl Equatable for
-// Int` in a file with `import { std::io }` anchored at `line 180, col 6`,
-// std/int.nomi's line, in a file the user cannot open. The import-free
-// version of the same program anchored correctly, which is why a test
-// without an import passed with the anchor removed.
-//
-// The other bad position was `line 1433485312, col 1` for
-// `impl Equatable for Bool`: the derive-synthesis reserved line band leaking
-// into user-facing output.
-func implCollisionError(
-	iface, method, recv string,
-	group []*ast.FuncDef,
-	files map[*ast.FuncDef]string,
-	interfaceKeys map[*ast.FuncDef]string,
-	pathOf func(key string) string,
-) TypeError {
+// implCollisionError builds the diagnostic for group, two or more impl
+// blocks of one instantiation in source order, among insts, every
+// instantiation of the interface for the receiver (instantiationsOf). It
+// names every home module so the user can find and remove the duplicate,
+// is anchored by collisionAnchor at a block the reader can open, and
+// points at another of the program's blocks of the group.
+func implCollisionError(group []implBlockAt, insts [][]implBlockAt, names receiverNames, pathOf func(key string) string) TypeError {
+	first := group[0].info
+	_, recv, _ := implReceiverIdentity(first.Receiver, names)
+	label := first.Interface
+	if first.Written && len(first.Args) > 0 {
+		label = instantiationLabel(first, insts)
+	}
 	mods := make([]string, 0, len(group))
 	seen := map[string]bool{}
-	for _, fn := range group {
-		m := files[fn]
+	for _, b := range group {
+		m := b.key
 		if m == "" {
 			m = "<project entry>"
 		}
@@ -1423,24 +1285,28 @@ func implCollisionError(
 		}
 	}
 	sort.Strings(mods)
-	headers := distinctInterfaceHeaders(group, interfaceKeys)
-	label := iface
-	if len(headers) == 1 {
-		label = headers[0]
+	where := "by modules " + strings.Join(mods, ", ")
+	if len(mods) == 1 {
+		// Every block is in one module, which the error's file names; the
+		// related location is the other block.
+		where = "twice in this module"
 	}
 	msg := fmt.Sprintf(
-		"duplicate impl: `%s` is implemented for `%s` by modules %s (function `%s`); a type implements an interface once at each set of type arguments",
-		label, recv, strings.Join(mods, ", "), method)
+		"duplicate impl: `%s` is implemented for `%s` %s; a type implements an interface once at each set of type arguments",
+		label, recv, where)
 	// A derive beside a hand-written impl in its own module (spec §12
 	// *Derive*): the derive sits in the type's file, so the two are one
 	// author's. A derived impl in another module, std's derived Equatable
 	// for Bool among them, is the other half of a duplicate like any impl.
 	derivedIn, writtenIn := map[string]bool{}, map[string]bool{}
-	for _, fn := range group {
-		if !IsSynthesizedLine(fn.Line) {
-			writtenIn[files[fn]] = true
-		} else if deriveSupported[iface] && !fn.AutoSynth {
-			derivedIn[files[fn]] = true
+	for _, b := range group {
+		switch ImplPrecedence(b.info.Block) {
+		case implWritten:
+			writtenIn[b.key] = true
+		case implDerived:
+			if deriveSupported[first.Interface] {
+				derivedIn[b.key] = true
+			}
 		}
 	}
 	beside := false
@@ -1451,15 +1317,44 @@ func implCollisionError(
 		// The anchor is the hand-written one.
 		msg = fmt.Sprintf(
 			"`derive %s for %s` conflicts with a hand-written `impl %s for %s` block — a derived impl is synthesized whole, so it cannot coexist with a manual impl; drop one",
-			iface, recv, iface, recv)
+			first.Interface, recv, first.Interface, recv)
 	}
-	anchor := collisionAnchor(group, files)
-	return TypeError{
-		Line:    anchor.Line,
-		Col:     anchor.Col,
+	at := collisionAnchor(group)
+	anchor := group[at]
+	line, col := implBlockPos(anchor.info.Block)
+	err := TypeError{
+		Line:    line,
+		Col:     col,
 		Message: msg,
-		File:    fileAt(pathOf, files[anchor]),
+		File:    fileAt(pathOf, anchor.key),
 	}
+	// The first other block of the program's own, as the related location:
+	// a std block is named by its module in the message alone.
+	for i, other := range group {
+		if i == at || strings.HasPrefix(other.key, "std/") {
+			continue
+		}
+		otherLine, otherCol := implBlockPos(other.info.Block)
+		related := RelatedInfo{Line: otherLine, Col: otherCol, Message: "the other impl is here"}
+		if other.key != anchor.key {
+			related.File = fileAt(pathOf, other.key)
+		}
+		err.Related = []RelatedInfo{related}
+		break
+	}
+	return err
+}
+
+// instantiationLabel is the interface at info's type arguments as a
+// collision names it, `From<Error>`, with a type qualified by its module
+// (`From<a.Error>`) where another instantiation among insts prints the same
+// with another declaration of its name (distinctTypeTexts).
+func instantiationLabel(info *ImplTypeArgs, insts [][]implBlockAt) string {
+	others := make([]Type, len(insts))
+	for i, inst := range insts {
+		others[i] = &InterfaceType{Name: info.Interface, TypeArgs: inst[0].info.Args}
+	}
+	return distinctTypeTexts("", []Type{&InterfaceType{Name: info.Interface, TypeArgs: info.Args}}, others)[0]
 }
 
 // fileAt is the path of the file with module key key, which a program-level
@@ -1472,54 +1367,27 @@ func fileAt(pathOf func(key string) string, key string) string {
 	return pathOf(key)
 }
 
-// collisionAnchor picks the impl whose position a reader can act on, where
-// the error is reported: a PROJECT impl over a stdlib one, and a real source
-// line over a synthesized one.
-//
-// Both preferences come from a measured case — see implCollisionError's
-// header for the two positions this replaces. IsSynthesizedLine is the
-// established test for the derive-synthesis line band.
-//
-// Falls back to group[0] when every member is synthesized or homed in std,
-// which is correct there: a stdlib-internal duplicate is a stdlib bug, and
-// `std/...` is a position its maintainer can open.
-func collisionAnchor(group []*ast.FuncDef, files map[*ast.FuncDef]string) *ast.FuncDef {
-	best := group[0]
-	bestScore := -1
-	for _, fn := range group {
+// collisionAnchor is the index in group of the block where the error is
+// reported: a block a reader can act on, a project block over a stdlib one
+// and a written one over a synthesized one, and among those the last, so a
+// second block in one file is reported at the second. That keeps a std
+// block's position, in a file the user cannot edit, and a synthesized
+// block's, in the derive band, out of the report.
+func collisionAnchor(group []implBlockAt) int {
+	best, bestScore := 0, -1
+	for i, b := range group {
 		score := 0
-		if !strings.HasPrefix(files[fn], "std/") {
+		if !strings.HasPrefix(b.key, "std/") {
 			score += 2
 		}
-		if !IsSynthesizedLine(fn.Line) {
+		if !IsSynthesizedLine(b.info.Block.Line) {
 			score++
 		}
-		if score > bestScore {
-			best, bestScore = fn, score
+		if score >= bestScore {
+			best, bestScore = i, score
 		}
 	}
 	return best
-}
-
-// distinctInterfaceHeaders is the sorted set of interface headers the group's
-// impls declared, deduplicated. Empty when no member recorded one, and one
-// entry otherwise, since a group shares its header.
-func distinctInterfaceHeaders(group []*ast.FuncDef, interfaceKeys map[*ast.FuncDef]string) []string {
-	if interfaceKeys == nil {
-		return nil
-	}
-	seen := map[string]bool{}
-	out := make([]string, 0, len(group))
-	for _, fn := range group {
-		key := interfaceKeys[fn]
-		if key == "" || seen[key] {
-			continue
-		}
-		seen[key] = true
-		out = append(out, key)
-	}
-	sort.Strings(out)
-	return out
 }
 
 // detectOrphanImpls reports a TypeError for every impl whose
@@ -1532,8 +1400,8 @@ func distinctInterfaceHeaders(group []*ast.FuncDef, interfaceKeys map[*ast.FuncD
 //
 // Inputs:
 //
-//   - index: the same interface-method-impl index detectImplCollisions
-//     consumes (Program.IfaceMethodImpls unioned with stdlib).
+//   - index: the interface-method-impl index (Program.IfaceMethodImpls
+//     unioned with stdlib).
 //   - declModule: base-name → declaring short-module-name, as built
 //     by declaringModuleIndex. A missing entry on EITHER side means
 //     the analyzer couldn't resolve that name; we silently skip

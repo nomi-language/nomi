@@ -27,16 +27,12 @@ var ErrManifestMissing = errors.New("nomi.toml not found")
 //
 //	[module]
 //	name = "..."
-//	path = "..."
 //	entry_points = [...]
 //
 //	[dependencies]
-//	name = { module = "...", version = "..." }
+//	name = { repo = "...", version = "..." }
 type Manifest struct {
 	Name string // [module].name
-	// Path is [module].path, the module path the module is published
-	// under, or "".
-	Path string
 	// Dependencies is the [dependencies] table as modcache.ParseModuleFile
 	// reads it, sorted by name: each module the module's files import, by
 	// the name they import it by.
@@ -300,11 +296,15 @@ const (
 type manifestFile struct {
 	Module struct {
 		Name        string   `toml:"name"`
-		Path        string   `toml:"path"`
+		Nomi        string   `toml:"nomi"`
 		EntryPoints []string `toml:"entry_points"`
 	} `toml:"module"`
 	Dependencies map[string]modcache.DependencyEntry `toml:"dependencies"`
-	I18n         struct {
+	// Indirect is [indirect], which modcache.ParseModuleFile checks: a
+	// repository's key, quoted, and the lowest version the build takes it
+	// at.
+	Indirect map[string]string `toml:"indirect"`
+	I18n     struct {
 		Locales        *[]string `toml:"locales"`
 		SourceLocale   *string   `toml:"source_locale"`
 		PartialLocales *[]string `toml:"partial_locales"`
@@ -606,6 +606,14 @@ func parseManifestData(data []byte, sourceLabel string, allowStdName bool, tools
 	if err != nil {
 		return nil, fmt.Errorf("parse %s: %w", sourceLabel, err)
 	}
+	// The module's [module] and [dependencies], as the module graph reads
+	// them. A module that needs a later nomi is refused before anything
+	// else is checked, since it may write the rest in a form this nomi
+	// does not read; any other problem there is reported in its turn.
+	mf, mfErr := modcache.ParseModuleFile(data)
+	if tooOld := (*modcache.NomiVersionError)(nil); errors.As(mfErr, &tooOld) {
+		return nil, tooOld
+	}
 	if err := unknownManifestKey(data, md.Undecoded(), md, sourceLabel, tools); err != nil {
 		return nil, err
 	}
@@ -629,18 +637,17 @@ func parseManifestData(data []byte, sourceLabel string, allowStdName bool, tools
 	if err != nil {
 		return nil, err
 	}
-	mf, err := modcache.ParseModuleFile(data)
-	if err != nil {
+	if mfErr != nil {
 		var problem *modcache.ManifestProblem
-		if errors.As(err, &problem) {
+		if errors.As(mfErr, &problem) {
 			return nil, (&ManifestError{Path: sourceLabel, Line: ManifestKeyLine(data, problem.Key...)}).with("%s", problem.Error())
 		}
-		return nil, fmt.Errorf("parse %s: %w", sourceLabel, err)
+		return nil, fmt.Errorf("parse %s: %w", sourceLabel, mfErr)
 	}
 	m := &Manifest{
 		Name:         raw.Module.Name,
-		Path:         mf.Path,
 		Dependencies: mf.Requires,
+
 		EntryPoints:  append([]string(nil), raw.Module.EntryPoints...),
 		Locales:      locales,
 		SourceLocale: DefaultSourceLocale,

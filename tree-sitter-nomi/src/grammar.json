@@ -5485,12 +5485,26 @@
                 "type": "FIELD",
                 "name": "body",
                 "content": {
-                  "type": "PREC",
-                  "value": 2,
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_expression"
-                  }
+                  "type": "CHOICE",
+                  "members": [
+                    {
+                      "type": "PREC",
+                      "value": 2,
+                      "content": {
+                        "type": "SYMBOL",
+                        "name": "_expression"
+                      }
+                    },
+                    {
+                      "type": "ALIAS",
+                      "content": {
+                        "type": "SYMBOL",
+                        "name": "_lambda_discard"
+                      },
+                      "named": true,
+                      "value": "binding"
+                    }
+                  ]
                 }
               }
             ]
@@ -5796,25 +5810,39 @@
                 "type": "FIELD",
                 "name": "body",
                 "content": {
-                  "type": "PREC",
-                  "value": 2,
-                  "content": {
-                    "type": "CHOICE",
-                    "members": [
-                      {
-                        "type": "PREC_DYNAMIC",
-                        "value": 1,
-                        "content": {
-                          "type": "SYMBOL",
-                          "name": "call_expression"
-                        }
-                      },
-                      {
-                        "type": "SYMBOL",
-                        "name": "_lambda_body_expression"
+                  "type": "CHOICE",
+                  "members": [
+                    {
+                      "type": "PREC",
+                      "value": 2,
+                      "content": {
+                        "type": "CHOICE",
+                        "members": [
+                          {
+                            "type": "PREC_DYNAMIC",
+                            "value": 1,
+                            "content": {
+                              "type": "SYMBOL",
+                              "name": "call_expression"
+                            }
+                          },
+                          {
+                            "type": "SYMBOL",
+                            "name": "_lambda_body_expression"
+                          }
+                        ]
                       }
-                    ]
-                  }
+                    },
+                    {
+                      "type": "ALIAS",
+                      "content": {
+                        "type": "SYMBOL",
+                        "name": "_then_lambda_discard"
+                      },
+                      "named": true,
+                      "value": "binding"
+                    }
+                  ]
                 }
               }
             ]
@@ -5891,6 +5919,65 @@
           }
         }
       ]
+    },
+    "_lambda_discard": {
+      "type": "PREC_RIGHT",
+      "value": -1,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "SYMBOL",
+            "name": "identifier"
+          },
+          {
+            "type": "STRING",
+            "value": "="
+          },
+          {
+            "type": "SYMBOL",
+            "name": "_expression"
+          }
+        ]
+      }
+    },
+    "_then_lambda_discard": {
+      "type": "PREC_RIGHT",
+      "value": -1,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "SYMBOL",
+            "name": "identifier"
+          },
+          {
+            "type": "STRING",
+            "value": "="
+          },
+          {
+            "type": "PREC",
+            "value": 2,
+            "content": {
+              "type": "CHOICE",
+              "members": [
+                {
+                  "type": "PREC_DYNAMIC",
+                  "value": 1,
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "call_expression"
+                  }
+                },
+                {
+                  "type": "SYMBOL",
+                  "name": "_lambda_body_expression"
+                }
+              ]
+            }
+          }
+        ]
+      }
     },
     "_lambda_body_expression": {
       "type": "CHOICE",

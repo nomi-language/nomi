@@ -332,9 +332,9 @@ func probeResult(v vmhost.Value) (literalResult, bool) {
 }
 
 // literalEvaluation turns typed-literal evaluation on. It was off while
-// nomi-lsp grew by megabytes per edit; that was every build's scopes kept
-// alive under the shared stdlib scopes (Scope.MarkShared), and evaluation's
-// program loads leaked through the same path.
+// the language server grew by megabytes per edit; that was every build's
+// scopes kept alive under the shared stdlib scopes (Scope.MarkShared), and
+// evaluation's program loads leaked through the same path.
 var literalEvaluation = true
 
 // literalResults answers each literal's result, evaluating the ones not

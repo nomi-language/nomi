@@ -111,6 +111,14 @@
 // type or the function's own name reads the ImplFunc and never parses the
 // name.
 //
+// A [ValType] (valtype.go) is what a temporary holds. A declared generic
+// struct's, enum's or distinct type's carries its type arguments (a
+// distinct's after its inner type), and [ValType.InstanceKey] spells the
+// instance by one rule for all three, `main.Box<Int>`, from the arguments
+// alone. Two instances share a runtime type name, so a value's descriptor
+// carries the key too, and a table of impl bodies keyed by type names an
+// instance's under it.
+//
 // # Lint
 //
 // [Lint] checks one function, and [LintModule] one module and every function
@@ -163,10 +171,12 @@
 // and a parameter's RefLocal join) it answers never, or a need: a mask of
 // the parameters whose arguments the caller must have handed over, and
 // of those it must have handed over deep (bit [DeepBit]+j), for the class
-// to be owned. A class is owned when every write is a literal, an update,
-// a fresh collection, a parameter, an owned callee result, an owned
-// collection operation, a granted field read or a fold that hands its
-// accumulator on, and every read is a move within the class, a field
+// to be owned. A class is owned when every write is a literal (an empty
+// Vector, Set or Map among them), an update, a fresh collection, a
+// parameter, an owned callee result, an owned collection operation (a
+// push, a set, a put or an insert answers a value of its own even when it
+// copies a borrowed receiver), a granted field read or a fold that hands
+// its accumulator on, and every read is a move within the class, a field
 // read, a variant test, a borrowing lookup, a Return, or a read after
 // which no member is live (a move: whoever receives it is its one holder).
 // It is owned deep when the values its fields hold are its own too; a
@@ -176,8 +186,9 @@
 // (`Vector.set`) answers it owned deep, so `Vector.set(v, i, x)!` hands
 // the vector on owned. From that it answers the updates
 // and collection operations that may write in place, the arguments each
-// direct call hands on, the folds (`Iter.reduce`, `Iter.map_reduce`) that
-// may hand their callback the accumulator ([Fold]), and the function's
+// direct call hands on, the folds (`Iter.reduce`, `Iter.map_reduce`, with a
+// lambda or a named function as the step) that may hand their callback the
+// accumulator ([Fold]), and the function's
 // own [ResultOwnership], which its callers' analyses and its folds read
 // through [Callees]. [InPlaceUpdates] is the part that needs no caller and
 // no callee. unique.go's and fields.go's file comments have the rules. The

@@ -1,8 +1,8 @@
-// Smoke test in a real VS Code: `npm run test:smoke`. It builds nomi and
-// nomi-lsp from this checkout, writes a scratch workspace that points the
-// extension at them, downloads VS Code into .vscode-test/ (once), and runs
-// ./suite.ts inside its extension host. Set VSCODE_EXECUTABLE to use an
-// installed VS Code instead of downloading one.
+// Smoke test in a real VS Code: `npm run test:smoke`. It builds nomi from
+// this checkout, writes a scratch workspace that points the extension at it,
+// downloads VS Code into .vscode-test/ (once), and runs ./suite.ts inside its
+// extension host. Set VSCODE_EXECUTABLE to use an installed VS Code instead
+// of downloading one.
 import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -15,13 +15,13 @@ const repo = path.resolve(extensionRoot, "../..");
 async function main(): Promise<void> {
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "nomi-vscode-smoke-"));
   const bin = path.join(scratch, "bin");
-  execFileSync("go", ["build", "-o", bin + path.sep, "./cmd/nomi", "./cmd/nomi-lsp"], { cwd: repo, stdio: "inherit" });
+  execFileSync("go", ["build", "-o", bin + path.sep, "./cmd/nomi"], { cwd: repo, stdio: "inherit" });
 
   const workspace = path.join(scratch, "workspace");
   fs.mkdirSync(path.join(workspace, ".vscode"), { recursive: true });
   fs.writeFileSync(
     path.join(workspace, ".vscode", "settings.json"),
-    JSON.stringify({ "nomi.path": path.join(bin, "nomi"), "nomi.lsp.path": path.join(bin, "nomi-lsp") }, null, 2),
+    JSON.stringify({ "nomi.path": path.join(bin, "nomi") }, null, 2),
   );
   fs.writeFileSync(path.join(workspace, "bad.nomi"), 'fn main() {\n    x: Int = "s"\n}\n');
   fs.writeFileSync(

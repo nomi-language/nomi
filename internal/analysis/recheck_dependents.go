@@ -9,23 +9,26 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// An edit that changes a file's interface changes what the files that
-// import it, directly or through others, may say. A recheck then checks those
-// files afresh with the edited ones, parsed, declared, walked and checked
-// as a full check would, and keeps every other file's analysis as it is:
-// such a file imports none of them, so neither its declarations nor its
-// bodies can name anything they declare (recheckDependents). The program is
+// An edit that changes a file's interface changes what the files whose
+// checks read it may say: those that import it, directly or through others,
+// and those that see an impl whose header names it or a file that imports
+// it (ProgramReads.Readers). A recheck then checks those files afresh with
+// the edited ones, parsed, declared, walked and checked as a full check
+// would, and keeps every other file's analysis as it is: such a file reads
+// none of them, so neither its declarations nor its bodies can name
+// anything they declare (recheckDependents). The program is
 // a new one, folded over the fresh files and the kept ones
 // (checkProgramFrom), and its reductions over every file's bodies run again.
 //
 // What another file may read of a file without importing it is the impls
-// it brings into the program: they are global. An impl applies in a file
-// that can name its interface, receiver and type arguments, so an edit
-// that changes the impls an edited file brings (implsFingerprint) is
-// checked in full only when a file outside those checked afresh can see an
-// impl it added, removed or changed (changedImplsSeenOnlyBy). One where a
-// kept file's analysis already holds something of a file checked afresh (a
-// call dispatched to one of its impls) is checked in full too.
+// it brings into the program: they are global. An impl applies in every
+// file that can name its receiver, whatever file declares its interface
+// (ImplHeader.RelevantTo), so an edit that changes the impls an edited file
+// brings (implsFingerprint) is checked in full only when a file outside
+// those checked afresh can see an impl it added, removed or changed
+// (changedImplsSeenOnlyBy). One where a kept file's analysis already holds
+// something of a file checked afresh (a call dispatched to one of its
+// impls) is checked in full too.
 
 // implsFingerprint renders what of a file's syntax decides the impls it
 // brings into the program: every interface impl block's header and its
@@ -70,8 +73,8 @@ func implsFingerprint(nodes []ast.Node) string {
 }
 
 // recheckDependents is a recheck's answer for edits that change interfaces:
-// it checks the edited files and every file that imports one of them,
-// directly or through others, afresh, and keeps the analyses of the rest
+// it checks the edited files and every file whose check reads one of them
+// (ProgramReads.Readers) afresh, and keeps the analyses of the rest
 // (checkProgramFrom). It answers false with the reason when the edits need
 // a full check. It writes nothing until it has decided; once it has, prev
 // is consumed, since the kept analyses join the answer. One thing it can
@@ -134,25 +137,10 @@ func (dm *DocumentManager) recheckDependents(prev *CheckedProgram, edits []Progr
 		}
 	}
 
-	// The files that import an edited one, directly or through others.
-	importers := map[string][]string{}
-	for key, fa := range prev.Files {
-		for _, imported := range fa.ImportedModules {
-			importers[imported] = append(importers[imported], key)
-		}
-	}
-	fresh := maps.Clone(edited)
-	queue := slices.Collect(maps.Keys(edited))
-	for len(queue) > 0 {
-		key := queue[0]
-		queue = queue[1:]
-		for _, importer := range importers[key] {
-			if !fresh[importer] {
-				fresh[importer] = true
-				queue = append(queue, importer)
-			}
-		}
-	}
+	// The files whose checks read an edited one: those that import it,
+	// directly or through others, and those that see an impl of an
+	// interface it declares or that names it (ProgramReads.Readers).
+	fresh := programReadsOf(prev).Readers(edited, nil)
 	if !fresh[prev.Entry] {
 		// The entry reaches every file, so it imports each edited one.
 		return nil, "the entry does not import the edited files"
@@ -226,20 +214,20 @@ func (dm *DocumentManager) recheckDependents(prev *CheckedProgram, edits []Progr
 		return nil, "the application types a kept file may name changed"
 	}
 	if len(implsChanged) > 0 && !changedImplsSeenOnlyBy(next, fresh, implsChanged, wasImpls, prev.Nodes) {
-		// An impl applies in every file that can name its interface,
-		// receiver and type arguments (the relevant impl set), whether or
-		// not it imports the impl's file.
+		// An impl applies in every file that can name its receiver (the
+		// relevant impl set), whether or not it imports the impl's file or
+		// its interface's.
 		return nil, "an impl the edit changed is seen by a file it did not check"
 	}
 	return next, ""
 }
 
 // seenImpl is an interface impl a file brings: its header and items as
-// fingerprintValue renders them, and the project files its header names
-// (implHeaderFiles).
+// fingerprintValue renders them, and its header's receiver and the project
+// files it names (implHeaderOf).
 type seenImpl struct {
 	fingerprint string
-	files       []string
+	header      ImplHeader
 }
 
 // seenImpls answers the interface impls of a file, fa and nodes its
@@ -256,7 +244,7 @@ func seenImpls(fa *FileAnalysis, nodes []ast.Node, keyOf func(string) string) []
 		}
 		var b strings.Builder
 		fingerprintValue(&b, reflect.ValueOf(block))
-		out = append(out, seenImpl{fingerprint: b.String(), files: implHeaderFiles(fa, block, keyOf)})
+		out = append(out, seenImpl{fingerprint: b.String(), header: implHeaderOf(fa, block, keyOf)})
 	}
 	return out
 }
@@ -275,10 +263,11 @@ func programKeyOfPath(p *CheckedProgram) func(string) string {
 
 // changedImplsSeenOnlyBy reports whether every file of next that can see
 // an impl the edit added, removed or changed in the files of changed is in
-// fresh: a file sees an impl when each project file its header names is
-// the file or one it imports, directly or through others. was holds the
-// impls each such file brought before the edit, and wasNodes its nodes
-// then; a file whose imports changed has all its impls counted as changed.
+// fresh: a file sees an impl when its receiver is declared outside the
+// project, in the file or in one it imports, directly or through others
+// (ProgramReads.Readers). was holds the impls each such file brought
+// before the edit, and wasNodes its nodes then; a file whose imports
+// changed has all its impls counted as changed.
 func changedImplsSeenOnlyBy(next *CheckedProgram, fresh, changed map[string]bool, was map[string][]seenImpl, wasNodes map[string][]ast.Node) bool {
 	keyOf := programKeyOfPath(next)
 	var moved []seenImpl
@@ -305,33 +294,40 @@ func changedImplsSeenOnlyBy(next *CheckedProgram, fresh, changed map[string]bool
 	if len(moved) == 0 {
 		return true
 	}
-	imports := map[string][]string{}
-	for key, fa := range next.Files {
-		if fa != nil {
-			imports[key] = fa.ImportedModules
-		}
+	headers := make([]ImplHeader, len(moved))
+	for i, im := range moved {
+		headers[i] = im.header
 	}
-	for key := range next.Files {
-		if fresh[key] {
-			continue
-		}
-		visible := map[string]bool{key: true}
-		queue := slices.Clone(imports[key])
-		for len(queue) > 0 {
-			k := queue[0]
-			queue = queue[1:]
-			if !visible[k] {
-				visible[k] = true
-				queue = append(queue, imports[k]...)
-			}
-		}
-		for _, im := range moved {
-			if (ImplHeader{Files: im.files}).relevantTo(visible) {
-				return false
-			}
+	for key := range programReadsOf(next).Readers(nil, headers) {
+		if !fresh[key] {
+			return false
 		}
 	}
 	return true
+}
+
+// programReadsOf answers p's project files as ProgramReads, their impl
+// headers read from their analyses and nodes when asked for.
+func programReadsOf(p *CheckedProgram) ProgramReads {
+	keyOf := programKeyOfPath(p)
+	headers := map[string][]ImplHeader{}
+	return ProgramReads{
+		Keys: slices.Sorted(maps.Keys(p.Files)),
+		Imports: func(key string) []string {
+			if fa := p.Files[key]; fa != nil {
+				return fa.ImportedModules
+			}
+			return nil
+		},
+		Headers: func(key string) []ImplHeader {
+			h, ok := headers[key]
+			if !ok {
+				h = FileImplHeaders(p.Files[key], p.Nodes[key], keyOf)
+				headers[key] = h
+			}
+			return h
+		},
+	}
 }
 
 // keptAppTypes answers the application types of program declared outside
@@ -421,16 +417,20 @@ func holdsFrom(fa *FileAnalysis, keys, paths map[string]bool, impls map[ast.Node
 // texts with the same one bring the same impls into the program.
 func ImplsFingerprint(nodes []ast.Node) string { return implsFingerprint(nodes) }
 
-// ImplHeaderFiles answers, for each interface impl of a file, the module
-// keys of the project files its header names (its interface, receiver and
-// type arguments), sorted, one list per impl in the order of nodes, fa and
-// nodes the file's analysis and nodes and keyOf the module key of a path. A
-// lowering of a program file by file reads it to find the files that see
-// an impl an edit changed (vmhost's checklowering_perfile.go).
-func ImplHeaderFiles(fa *FileAnalysis, nodes []ast.Node, keyOf func(path string) string) [][]string {
-	var out [][]string
-	for _, im := range seenImpls(fa, nodes, keyOf) {
-		out = append(out, im.files)
+// FileImplHeaders answers the header of each interface impl of a file, with
+// no ordinal, in the order of nodes, fa and nodes the file's analysis and
+// nodes and keyOf the module key of a path. A lowering of a program file by
+// file reads it to find the files that see an impl an edit changed
+// (vmhost's checklowering_perfile.go).
+func FileImplHeaders(fa *FileAnalysis, nodes []ast.Node, keyOf func(path string) string) []ImplHeader {
+	if fa == nil {
+		fa = &FileAnalysis{}
+	}
+	var out []ImplHeader
+	for _, n := range nodes {
+		if block, ok := n.(*ast.ImplBlock); ok && block.Interface != nil {
+			out = append(out, implHeaderOf(fa, block, keyOf))
+		}
 	}
 	return out
 }

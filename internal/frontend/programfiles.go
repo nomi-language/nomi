@@ -144,7 +144,7 @@ func ProgramRoots(files []string) (roots []string, through map[string][]string) 
 	imports := map[string][]string{}
 	imported := map[string]bool{}
 	for _, f := range files {
-		if _, _, ok := StdlibFile(f); ok {
+		if _, _, ok, refused := StdlibFile(f); ok || refused != nil {
 			continue
 		}
 		// An unreadable import graph leaves the file a root; its own check

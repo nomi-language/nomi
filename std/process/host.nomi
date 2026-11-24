@@ -7,7 +7,7 @@
 import
     bool.Bool
     bytes.Bytes
-    int.{Int, Int64}
+    int.{Int, Int64, PositiveInt}
     io.{Error, Reader, Writer}
     lists.List
     maps.Map
@@ -27,6 +27,7 @@ pub host type Fake
 /// empty). `stdin` is the mode of its standard input (null 0, the
 /// program's 1, `input` 2, piped 3), and `stdout` and `stderr` the modes
 /// of its output and error (null 0, the program's 1, captured 2, piped 3).
+/// `new_group` starts it as the leader of a process group of its own.
 pub host fn start(
     program:   String,
     args:      List<String>,
@@ -37,6 +38,7 @@ pub host fn start(
     input:     Reader,
     stdout:    Int64,
     stderr:    Int64,
+    new_group: Bool,
 ) -> Result<Child, Error>
 
 /// The writer to a piped standard input.
@@ -58,6 +60,16 @@ pub host fn captured(child: Child, stream: Int64) -> Bytes
 
 /// Ends the child if it is still running, and reaps it.
 pub host fn kill(child: Child) -> Unit
+
+/// This process's id.
+pub host fn id() -> PositiveInt
+
+/// The child's process id.
+pub host fn child_id(child: Child) -> PositiveInt
+
+/// Sends the signal POSIX names `name` (`SIGTERM`) to the child, or to the
+/// group it leads when `group` is set.
+pub host fn signal(child: Child, name: String, group: Bool) -> Result<Unit, Error>
 
 /// A fake with no answers.
 pub host fn new_fake() -> Fake

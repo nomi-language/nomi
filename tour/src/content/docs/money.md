@@ -101,8 +101,8 @@ end
 ## Mixing currencies
 
 Adding dollars to euros gives a number with no meaning, so it is an
-`Err(CurrencyMismatch)`, which names both currencies. Here `main` passes it
-on with `?`, and the program stops with it:
+`Err(CurrencyMismatch)`, which names both currencies. Here `?` passes it on,
+so `main` returns the `Err`: the program prints it and exits with status 1.
 
 ```nomi-run error
 import

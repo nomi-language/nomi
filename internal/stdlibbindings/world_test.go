@@ -45,6 +45,29 @@ func TestEveryUnboundedRowIsPure(t *testing.T) {
 	}
 }
 
+// Seeded says that a pure function's answer differs between runs, so only
+// a Pure row carries it: a function with an effect is refused for that
+// already.
+func TestEverySeededRowIsPure(t *testing.T) {
+	n := 0
+	for _, rows := range [][]Binding{Funcs(), RtFuncs()} {
+		for _, b := range rows {
+			if b.Seeded {
+				n++
+				if !b.Pure {
+					t.Errorf("%s is Seeded and not Pure", b.Name)
+				}
+				if b.Unbounded {
+					t.Errorf("%s is Seeded and Unbounded; an evaluation reports a call as one or the other", b.Name)
+				}
+			}
+		}
+	}
+	if n == 0 {
+		t.Fatal("no row is marked Seeded")
+	}
+}
+
 // A function a target can lack acts outside the machine, so every row with
 // an effect class is Outside. Outside is its own fact, set on
 // the row: not derived from the class, and not from Pure.

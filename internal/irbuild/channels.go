@@ -90,6 +90,9 @@ type channelFn struct {
 	// `Receiver`. Part of the row rather than implied, because which of the
 	// three owns a function IS the design question this type encodes.
 	owner string
+	// module declares the owner: "" for std/channels, else the std
+	// module of an intrinsic that takes a channel half.
+	module string
 	// args is the Nomi arity.
 	args int
 	// explicitTypeArg is true for exactly the two constructors, where no
@@ -98,8 +101,12 @@ type channelFn struct {
 	explicitTypeArg bool
 }
 
-// channelFuncs is the lowered surface, and it is the WHOLE surface std declares:
-// two constructors on the pair and four operations on the halves.
+// channelFuncs is the lowered surface: the WHOLE surface std/channels
+// declares, the constructors on the pair, the operations on the halves and
+// `select` with its arms, and the one intrinsic another module declares over
+// a half, std/signals' `Signal.subscribe`, which feeds a Sender from the
+// process's signals. Each is lowered by the checker's solved signature, so
+// a row needs nothing a channel's own rows do not.
 var channelFuncs = map[string]channelFn{
 	"Channel.buffered":        {owner: "Channel", args: 1, explicitTypeArg: true},
 	"Channel.unbuffered":      {owner: "Channel", args: 0, explicitTypeArg: true},
@@ -113,6 +120,8 @@ var channelFuncs = map[string]channelFn{
 	"Arm.receive":    {owner: "Arm", args: 2},
 	"Arm.send":       {owner: "Arm", args: 3},
 	"Arm.after":      {owner: "Arm", args: 2},
+	// Feeding a Sender from the process's signals.
+	"Signal.subscribe": {owner: "Signal", module: "std/signals", args: 3},
 }
 
 // channelSpec is the `Channel` row of the generic-std-struct table, resolved by

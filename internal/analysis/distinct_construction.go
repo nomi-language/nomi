@@ -110,7 +110,12 @@ func (c *checker) freshDistinct(dt *DistinctType) *DistinctType {
 // construction's one argument.
 func (c *checker) checkPipedDistinctCtor(call *ast.Call, piped ast.Node, pipedTy Type, dt *DistinctType) Type {
 	c.recordPositional(call, true)
-	dt = c.freshDistinct(dt)
+	inst, failed := c.constructorInstance(call, dt)
+	if failed {
+		c.checkArgs(call.Args)
+		return nil
+	}
+	dt = c.freshDistinct(inst.(*DistinctType))
 	label := distinctCtorLabel(call.Func, dt)
 	line, col := nodeLineCol(call.Func)
 	if line == 0 {
@@ -155,7 +160,7 @@ func (c *checker) checkDistinctInner(at ast.Node, argTy Type, ctor string, dt *D
 		}
 		return
 	}
-	if !c.argMatchesParam(argTy, inner, c.recPos(line, col), RecordingKindCallSite) {
+	if !c.argMatchesParam(argTy, inner, c.site(line, col, RecordingKindCallSite)) {
 		c.addError(line, col, distinctArgMessage(ctor, dt, argTy))
 	}
 }

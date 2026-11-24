@@ -28,7 +28,7 @@ import (
 // # A bounded type parameter is an existential over its bound
 //
 // In the seam's signature `T` has the kind an interface-typed parameter has,
-// `existential(bound)`. `zeroSized`, `nomi`, `packageNeutral` and equality
+// `existential(bound)`. `nomi`, `packageNeutral` and equality
 // already answer for `tagIface`.
 //
 // # Scope

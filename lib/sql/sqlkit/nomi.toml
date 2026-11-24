@@ -1,8 +1,7 @@
 [module]
 name = "sqlkit"
-path = "github.com/nomi-language/nomi/lib/sql/sqlkit"
 
 [dependencies]
-migrate = { module = "github.com/nomi-language/nomi/lib/sql/migrate", version = "v0.0.0-20261102000000-000000000000", dir = "../migrate" }
-postgres = { module = "github.com/nomi-language/nomi/lib/sql/postgres", version = "v0.0.0-20261102000000-000000000000", dir = "../postgres" }
-sqlite = { module = "github.com/nomi-language/nomi/lib/sql/sqlite", version = "v0.0.0-20261026231947-3434642c92e9", dir = "../sqlite" }
+migrate = { dir = "../migrate" }
+postgres = { dir = "../postgres" }
+sqlite = { dir = "../sqlite" }

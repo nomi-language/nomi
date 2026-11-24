@@ -35,16 +35,16 @@
 // Source attaches the modules a block imports to its source, as the
 // sections of a project that names modules: each module the block imports,
 // and each tour module those name, under ModulesDir/<name>, and a
-// [dependencies] table that names each one by its path and its directory
-// there (`sqlite = { module = "...", version = "v0.0.0", dir =
-// "./tour_modules/sqlite" }`). A block with a nomi.toml section of its own
-// gains the table at the end of that section; one without gets a root
-// nomi.toml that names the module `tour` and its entry. A block that names
-// modules of its own already (virtualproject's namesModules) gets nothing.
-// The dir entries are the main module's, so they also stand for each
-// module's path where one tour module's own nomi.toml names another
-// (sqlkit's migrate). vmhost.LoadMarked writes and loads the result as it
-// loads any such block. TestTourWasmAnswersTheTourBlocks runs such a block
+// [dependencies] table that names each one by its directory there
+// (`sqlite = { dir = "./tour_modules/sqlite" }`). A block with a nomi.toml
+// section of its own gains the table at the end of that section; one
+// without gets a root nomi.toml that names the module `tour` and its
+// entry. A block that names modules of its own already (virtualproject's
+// namesModules) gets nothing. A tour module's own nomi.toml names another
+// by its directory beside it (sqlkit's `migrate = { dir = "../migrate" }`),
+// as in this repository's lib/, so it reaches the same directory under
+// ModulesDir. vmhost.LoadMarked writes and loads the result as it loads
+// any such block. TestTourWasmAnswersTheTourBlocks runs such a block
 // on the staged wasm under Node, held to its expect block;
 // TestTourWasmRunsTheSqliteDriversTests runs the driver's own
 // sqlite_test.nomi there, and cmd/nomi's TestLibModules runs it natively.

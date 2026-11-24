@@ -18,7 +18,9 @@ import (
 // inheritDefaults' `generic impl function` gap). A call knows the binding:
 // the checker records the type argument it instantiated the call at for
 // each method type parameter (calleeTypeArgs). So a call builds one item per
-// (block, method, arguments) under the block's frame plus those, as
+// (block, method, arguments) under the frame of the declaration the member
+// is written in (the block's, or for a default the interface's at the
+// block's arguments) plus those, as
 // genericimpl.go's genericImplInst.subst was written to carry, and queues
 // its body. A type argument inference left open at the call, which no value
 // depends on (`Box.flat(Box.Full(None))`), is read as the type the checker
@@ -159,9 +161,12 @@ func (g *gen) methodInstance(d *implDef, method string, w withheldMember, own []
 	if len(own) != len(w.tps) {
 		return nil
 	}
+	// The parameters in scope where the member is written: a block member
+	// names the block's, an interface default the interface's, at the
+	// block's arguments (enterIfaceCode's frame), never both.
 	frame := map[string]kind{}
 	types := map[string]analysis.Type{}
-	if def := d.recv.def; def != nil && def.genericOf != nil {
+	if def := d.recv.def; w.decl != nil && def != nil && def.genericOf != nil {
 		for i, p := range def.genericOf.params {
 			frame[p] = def.genericArgs[i]
 			if i < len(def.genericTypes) && def.genericTypes[i] != nil {
@@ -169,11 +174,12 @@ func (g *gen) methodInstance(d *implDef, method string, w withheldMember, own []
 			}
 		}
 	}
-	for n, k := range d.ifaceSubst {
-		frame[n] = k
-		delete(types, n)
-		if t, ok := d.ifaceSubstTypes[n]; ok {
-			types[n] = t
+	if w.decl == nil {
+		for n, k := range d.ifaceSubst {
+			frame[n] = k
+			if t, ok := d.ifaceSubstTypes[n]; ok {
+				types[n] = t
+			}
 		}
 	}
 	args := make([]string, 0, len(w.tps))
@@ -205,7 +211,6 @@ func (g *gen) methodInstance(d *implDef, method string, w withheldMember, own []
 	} else {
 		it = &implItem{
 			impl:      d,
-			instKey:   g.substLinkKey(),
 			name:      method,
 			params0:   w.params,
 			body:      w.body,
@@ -248,11 +253,12 @@ func (g *gen) methodInstance(d *implDef, method string, w withheldMember, own []
 			return nil
 		}
 	}
-	if reads != nil {
-		// An instance that reads a refinement is named apart from the one at
-		// its base (refinementinst.go).
-		it.instKey += "!" + strings.Join(reads, ",")
-	}
+	// Its linkage name is its block's (implItemLink) with its own type
+	// arguments, an argument that reads a refinement named apart from its
+	// base (writeInstArgs, refinementinst.go).
+	var inst strings.Builder
+	writeInstArgs(&inst, own, reads)
+	it.instKey = inst.String()
 	if g.methodInsts == nil {
 		g.methodInsts = map[string]*methodInst{}
 	}

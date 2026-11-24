@@ -3,10 +3,12 @@ package stdio
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"math"
 	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 	"unicode/utf8"
 
 	"github.com/nomi-language/nomi/rt"
@@ -242,42 +244,167 @@ func Copy(fr *rt.Frame, files rt.FileSystem, from, to string) rt.Result[rt.Unit,
 	return rt.WriterClose(fr, w)
 }
 
-// Metadata is `fs.metadata`, following symlinks: the kind, the size, the
-// modification time in nanoseconds since the Unix epoch, an Int of any size
-// (rt.InstantFromTime), and the permission bits, which std/fs builds a
-// Metadata from.
-func Metadata(files rt.FileSystem, path string) rt.Result[*rt.List[rt.Int], rt.IOError] {
+// Metadata is `fs.metadata`, following symlinks: Info's fields in order
+// (infoList), which std/fs builds a Metadata from.
+func Metadata(files rt.FileSystem, path string) rt.Result[*rt.List[rt.Option[rt.Int]], rt.IOError] {
 	b, e := reach(files, path)
 	if e != nil {
-		return failed[*rt.List[rt.Int]](e)
+		return failed[*rt.List[rt.Option[rt.Int]]](e)
 	}
 	info, e := b.Stat(path)
 	if e != nil {
-		return failed[*rt.List[rt.Int]](e)
+		return failed[*rt.List[rt.Option[rt.Int]]](e)
 	}
 	return ok(infoList(info))
 }
 
-func infoList(info Info) *rt.List[rt.Int] {
-	var out *rt.List[rt.Int]
-	for _, v := range []rt.Int{rt.SmallInt(info.Mode), rt.InstantFromTime(info.Modified), rt.SmallInt(info.Size), rt.SmallInt(int64(info.Kind))} {
-		out = rt.Cons(v, out)
+// infoList is info as the metadata crossings carry it: the kind, the size,
+// the modification time, the mode, the access, status change and birth
+// times, the link count, the device, the inode, and the owner's user and
+// group. A time is in nanoseconds since the Unix epoch, an Int of any size
+// (rt.InstantFromTime). A field the file system does not keep is None.
+func infoList(info Info) *rt.List[rt.Option[rt.Int]] {
+	some := func(v rt.Int) rt.Option[rt.Int] { return rt.Some(v) }
+	count := func(v uint64) rt.Int { return rt.IntOf(rt.IntFromUint64(v)) }
+	when := func(t time.Time) rt.Option[rt.Int] {
+		if t.IsZero() {
+			return rt.None[rt.Int]()
+		}
+		return some(rt.InstantFromTime(t))
+	}
+	fields := []rt.Option[rt.Int]{
+		some(rt.SmallInt(int64(info.Kind))), some(rt.SmallInt(info.Size)),
+		some(rt.InstantFromTime(info.Modified)), some(rt.SmallInt(info.Mode)),
+		when(info.Accessed), when(info.Changed), when(info.Created),
+		rt.None[rt.Int](), rt.None[rt.Int](), rt.None[rt.Int](), rt.None[rt.Int](), rt.None[rt.Int](),
+	}
+	if info.Links != 0 {
+		fields[7] = some(count(info.Links))
+	}
+	if info.ID != nil {
+		fields[8], fields[9] = some(count(info.ID.Device)), some(count(info.ID.Inode))
+	}
+	if info.Owner != nil {
+		fields[10], fields[11] = some(count(info.Owner.User)), some(count(info.Owner.Group))
+	}
+	var out *rt.List[rt.Option[rt.Int]]
+	for i := len(fields) - 1; i >= 0; i-- {
+		out = rt.Cons(fields[i], out)
 	}
 	return out
 }
 
 // LinkMetadata is `fs.link_metadata`: Metadata's fields, describing a
 // symlink at path as itself.
-func LinkMetadata(files rt.FileSystem, path string) rt.Result[*rt.List[rt.Int], rt.IOError] {
+func LinkMetadata(files rt.FileSystem, path string) rt.Result[*rt.List[rt.Option[rt.Int]], rt.IOError] {
+	b, e := reach(files, path)
+	if e != nil {
+		return failed[*rt.List[rt.Option[rt.Int]]](e)
+	}
+	info, e := b.Lstat(path)
+	if e != nil {
+		return failed[*rt.List[rt.Option[rt.Int]]](e)
+	}
+	return ok(infoList(info))
+}
+
+// SetTimes is `fs.set_times`: the modification and access times, in
+// nanoseconds since the Unix epoch, of what path names; None leaves one as
+// it is.
+func SetTimes(files rt.FileSystem, path string, modified, accessed rt.Option[rt.Int]) rt.Result[rt.Unit, rt.IOError] {
+	b, e := reach(files, path)
+	if e != nil {
+		return failed[rt.Unit](e)
+	}
+	at := func(o rt.Option[rt.Int]) *time.Time {
+		if o.Tag != rt.TagSome {
+			return nil
+		}
+		t := rt.InstantTimeOf(o.Some)
+		return &t
+	}
+	return unit(b.Chtimes(path, at(modified), at(accessed)))
+}
+
+// Touch is `fs.touch`: the modification and access times of what path
+// names set to now, and when nothing is there, an empty file made first,
+// whose open names a missing directory above it.
+func Touch(files rt.FileSystem, path string) rt.Result[rt.Unit, rt.IOError] {
+	b, e := reach(files, path)
+	if e != nil {
+		return failed[rt.Unit](e)
+	}
+	now := time.Now()
+	e = b.Chtimes(path, &now, &now)
+	if e == nil || e.Tag != rt.TagIONotFound {
+		return unit(e)
+	}
+	src, e := b.OpenFile(path, AccessCreate)
+	if e != nil {
+		return failed[rt.Unit](e)
+	}
+	if err := src.Close(); err != nil {
+		return rt.Err[rt.Unit](Classify("close", path, err))
+	}
+	return unit(b.Chtimes(path, &now, &now))
+}
+
+// CreateLink is `fs.create_link`: path as a second name of the file at
+// target.
+func CreateLink(files rt.FileSystem, path, target string) rt.Result[rt.Unit, rt.IOError] {
+	b, e := reach(files, path, target)
+	if e != nil {
+		return failed[rt.Unit](e)
+	}
+	return unit(b.Link(path, target))
+}
+
+// SetOwner is `fs.set_owner`, and `fs.set_link_owner` when follow is not
+// set: the numeric user and group that own what path names. A number past
+// what a Unix id holds (32 bits) is EINVAL, as chown answers one.
+func SetOwner(files rt.FileSystem, path string, user, group rt.Int, follow bool) rt.Result[rt.Unit, rt.IOError] {
+	b, e := reach(files, path)
+	if e != nil {
+		return failed[rt.Unit](e)
+	}
+	u, g := user.Saturated(), group.Saturated()
+	if u < 0 || u > math.MaxUint32 || g < 0 || g > math.MaxUint32 {
+		return rt.Err[rt.Unit](rt.IOError{Tag: rt.TagIOOther, Operation: "chown", Path: path, Code: "EINVAL"})
+	}
+	return unit(b.Chown(path, uint64(u), uint64(g), follow))
+}
+
+// DiskUsageOf is `fs.disk_usage`: the total, free and available bytes of
+// the file system path is on.
+func DiskUsageOf(files rt.FileSystem, path string) rt.Result[*rt.List[rt.Int], rt.IOError] {
 	b, e := reach(files, path)
 	if e != nil {
 		return failed[*rt.List[rt.Int]](e)
 	}
-	info, e := b.Lstat(path)
+	u, e := b.DiskUsage(path)
 	if e != nil {
 		return failed[*rt.List[rt.Int]](e)
 	}
-	return ok(infoList(info))
+	var out *rt.List[rt.Int]
+	for _, v := range []uint64{u.Available, u.Free, u.Total} {
+		out = rt.Cons(rt.IntOf(rt.IntFromUint64(v)), out)
+	}
+	return ok(out)
+}
+
+// OwnerName is `fs.user_name`, and `fs.group_name` when group is set: the
+// name the system gives the number, if it gives one.
+func OwnerName(files rt.FileSystem, id rt.Int, group bool) rt.Option[string] {
+	b, e := reach(files)
+	n := id.Saturated()
+	if e != nil || n < 0 || n > math.MaxUint32 {
+		return rt.None[string]()
+	}
+	name, found := b.OwnerName(uint64(n), group)
+	if !found {
+		return rt.None[string]()
+	}
+	return rt.Some(name)
 }
 
 // CreateSymlink is `fs.create_symlink`: a symlink at path whose target is
@@ -303,9 +430,9 @@ func ReadLink(files rt.FileSystem, path string) rt.Result[string, rt.IOError] {
 	return ok(target)
 }
 
-// SetMode is `fs.set_mode`: the permission bits, 0 to 0o777, of what path
-// names. Any other number is EINVAL, as chmod answers a mode it cannot
-// set.
+// SetMode is `fs.set_mode`: the mode bits, 0 to 0o7777, of what path
+// names, numbered as ModeBits numbers them. Any other number is EINVAL, as
+// chmod answers a mode it cannot set.
 func SetMode(files rt.FileSystem, path string, modeArg rt.Int) rt.Result[rt.Unit, rt.IOError] {
 	b, e := reach(files, path)
 	if e != nil {
@@ -313,7 +440,7 @@ func SetMode(files rt.FileSystem, path string, modeArg rt.Int) rt.Result[rt.Unit
 	}
 	// A mode past int64 saturates, and is out of range as the bound is.
 	mode := modeArg.Saturated()
-	if mode < 0 || mode > 0o777 {
+	if mode < 0 || mode > 0o7777 {
 		return rt.Err[rt.Unit](rt.IOError{Tag: rt.TagIOOther, Operation: "chmod", Path: path, Code: "EINVAL"})
 	}
 	return unit(b.Chmod(path, mode))

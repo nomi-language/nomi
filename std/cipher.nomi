@@ -1,0 +1,535 @@
+//# Authenticated encryption: a `Key` seals bytes so that only a holder of
+//# the key can read them, and opening them checks that nobody changed them
+//# on the way. Use it to encrypt data at rest, such as a field in a
+//# database, a token or a configuration file:
+//#
+//# ```nomi
+//# key = Key.generate(.XChaCha20Poly1305)
+//#
+//# sealed = cipher.seal(key, String.to_bytes("card ending 4242"))
+//#
+//# assert cipher.open(key, sealed) == Ok(String.to_bytes("card ending 4242"))
+//# ```
+//#
+//# `seal` draws a fresh random nonce from the operating system's secure
+//# source each time and puts it before the ciphertext and its tag, so two
+//# seals of one plaintext differ and `open` needs nothing but the key and
+//# the sealed bytes. Associated data is authenticated and not encrypted:
+//# bytes the reader knows already, such as a record's id, that must match
+//# for the sealed bytes to open, so a value sealed for one record does not
+//# open as another's.
+//#
+//# The algorithms:
+//#
+//# - `XChaCha20Poly1305`: a 32-byte key, a 24-byte nonce and a 16-byte
+//#   tag. Use it when nothing else decides.
+//# - `Aes256Gcm` and `Aes128Gcm` (NIST SP 800-38D): a 32- or 16-byte key,
+//#   a 12-byte nonce and a 16-byte tag, for formats that name AES-GCM.
+//# - `ChaCha20Poly1305` (RFC 8439): a 32-byte key, a 12-byte nonce and a
+//#   16-byte tag.
+//# - `Aes128CbcHmacSha256`, `Aes192CbcHmacSha384` and
+//#   `Aes256CbcHmacSha512` (RFC 7518, section 5.2): AES-CBC and HMAC as one
+//#   authenticated algorithm, as JWE's `A128CBC-HS256`, `A192CBC-HS384` and
+//#   `A256CBC-HS512` name it. The key is the MAC key and then the
+//#   encryption key, 32, 48 or 64 bytes in all; the nonce is the 16-byte IV,
+//#   which must be unpredictable, so seal with `seal`, which draws it; the
+//#   tag is 16, 24 or 32 bytes. Opening checks the tag before it decrypts,
+//#   and every way the bytes can fail to open is the one `Unauthentic`.
+//#   CBC without the MAC is not offered.
+//#
+//# How many messages one key may seal: with random nonces, the chance that
+//# two seals draw the same nonce grows with the count, and a repeated nonce
+//# under AES-GCM or ChaCha20-Poly1305 reveals both plaintexts' XOR and lets
+//# anyone who saw them forge messages under the key. NIST limits a key with
+//# random 12-byte nonces to 2^32 messages, about four billion, and the same
+//# limit holds for ChaCha20-Poly1305, whose nonce is as long. The 24-byte
+//# nonce of XChaCha20-Poly1305 makes a repeat negligible for any number of
+//# messages a program seals. For a key that may seal more than 2^32
+//# messages, use XChaCha20-Poly1305 or move to a new key before then.
+//#
+//# A protocol that defines its own nonces (TLS-like records, SSH, a
+//# counter) uses `seal_with_nonce` and `open_with_nonce`, which take the
+//# nonce and return no nonce before the ciphertext. A nonce must never
+//# repeat under one key. `aes_ctr_unauthenticated` is AES in counter mode,
+//# which existing protocols such as SSH need, and authenticates nothing.
+//#
+//# A `Key` never shows its bytes: its `Debug` is `Key(<algorithm>,
+//# <hidden>)`, it has no `Display` and no `ToJson`, and `Key.expose` is the
+//# only way to read them. Two keys are equal when their algorithms and
+//# bytes are, compared in a time that does not depend on where they differ.
+//#
+//# A key derived from a password or a shared secret comes from
+//# std::hash's `hkdf_sha256` (from a high-entropy secret, such as
+//# std::key_exchange's) or std::passwords (from a password).
+
+import
+    bool.Bool
+    bytes.Bytes
+    cipher::host
+    debug.Debug
+    display.Display
+    equatable.Equatable
+    hash.equal_in_constant_time
+    int.{Int, Int64, PositiveInt}
+    iter.Iter
+    lists.List
+    option.Option.{None, Some}
+    random
+    results.Result.{self, Err, Ok}
+    strings.String
+    unit.Unit
+end
+
+/// An authenticated encryption algorithm.
+pub enum Algorithm
+    /// AES-256 in Galois/Counter Mode: a 32-byte key, a 12-byte nonce.
+    Aes256Gcm
+    /// AES-128 in Galois/Counter Mode: a 16-byte key, a 12-byte nonce.
+    Aes128Gcm
+    /// ChaCha20-Poly1305 (RFC 8439): a 32-byte key, a 12-byte nonce.
+    ChaCha20Poly1305
+    /// XChaCha20-Poly1305: a 32-byte key, a 24-byte nonce.
+    XChaCha20Poly1305
+    /// AES-128-CBC with HMAC-SHA-256 (JWE's A128CBC-HS256): a 32-byte key,
+    /// a 16-byte nonce, a 16-byte tag.
+    Aes128CbcHmacSha256
+    /// AES-192-CBC with HMAC-SHA-384 (JWE's A192CBC-HS384): a 48-byte key,
+    /// a 16-byte nonce, a 24-byte tag.
+    Aes192CbcHmacSha384
+    /// AES-256-CBC with HMAC-SHA-512 (JWE's A256CBC-HS512): a 64-byte key,
+    /// a 16-byte nonce, a 32-byte tag.
+    Aes256CbcHmacSha512
+end
+
+derive Equatable for Algorithm
+
+impl Display for Algorithm
+    fn to_string(algorithm: Algorithm) -> String
+        case algorithm
+            .Aes256Gcm           -> "AES-256-GCM"
+            .Aes128Gcm           -> "AES-128-GCM"
+            .ChaCha20Poly1305    -> "ChaCha20-Poly1305"
+            .XChaCha20Poly1305   -> "XChaCha20-Poly1305"
+            .Aes128CbcHmacSha256 -> "AES-128-CBC-HMAC-SHA-256"
+            .Aes192CbcHmacSha384 -> "AES-192-CBC-HMAC-SHA-384"
+            .Aes256CbcHmacSha512 -> "AES-256-CBC-HMAC-SHA-512"
+        end
+    end
+end
+
+/// Why a key could not be made or bytes could not be sealed or opened.
+pub enum Error
+    /// The key is not a length the algorithm takes.
+    WrongKeyLength {expected: List<Int>, got: Int}
+    /// The nonce, or AES-CTR's counter block, is not the length the
+    /// algorithm takes.
+    WrongNonceLength {expected: Int, got: Int}
+    /// The bytes did not open: they were sealed under another key, nonce
+    /// or associated data, or changed since. It never says which.
+    Unauthentic
+    /// The sealed bytes are shorter than a nonce and a tag.
+    TooShort {minimum: Int, got: Int}
+end
+
+derive Equatable for Error
+
+impl Display for Error
+    //! import std::cipher.{self, Algorithm, Key}
+    //!
+    //! assert Err(e) = Key.from_bytes(Algorithm.Aes256Gcm, String.to_bytes("short"))
+    //! assert "${e}" == "a key is 32 bytes, got 5"
+    //!
+    //! assert Err(ctr) = cipher.aes_ctr_unauthenticated(
+    //!     String.to_bytes("short"),
+    //!     String.to_bytes(""),
+    //!     String.to_bytes(""),
+    //! )
+    //!
+    //! assert "${ctr}" == "a key is 16, 24 or 32 bytes, got 5"
+    //
+    fn to_string(error: Error) -> String
+        case error
+            .WrongKeyLength{expected:, got:} ->
+                "a key is ${lengths(expected)} bytes, got ${got}"
+
+            .WrongNonceLength{expected:, got:} ->
+                "a nonce is ${expected} bytes, got ${got}"
+
+            .Unauthentic ->
+                "the sealed bytes did not open under this key"
+
+            .TooShort{minimum:, got:} ->
+                "sealed bytes are at least ${minimum} bytes long, got ${got}"
+        end
+    end
+end
+
+/// A key for one algorithm. Its `Debug` names the algorithm and shows
+/// nothing of the bytes, and `Key.expose` is the only way to read them.
+pub opaque struct Key
+    algorithm: Algorithm
+    data:      Bytes
+end
+
+impl Key
+    /// A new key for `algorithm`, from the operating system's secure
+    /// random source.
+    //! import std::cipher.{Algorithm, Key}
+    //!
+    //! key = Key.generate(Algorithm.XChaCha20Poly1305)
+    //! assert Bytes.length(Key.expose(key)) == 32
+    //! assert Key.algorithm(key) == Algorithm.XChaCha20Poly1305
+    //! assert key != Key.generate(Algorithm.XChaCha20Poly1305)
+    //
+    pub fn generate(algorithm: Algorithm) -> Key
+        Key{algorithm:, data: random.secure_bytes(key_length(algorithm))}
+    end
+
+    /// The key for `algorithm` whose bytes are `data`, or `WrongKeyLength`
+    /// when `data` is not the length `algorithm` takes.
+    //! import std::cipher.{Algorithm, Error, Key}
+    //! import std::hex
+    //!
+    //! data = hex.decode("000102030405060708090a0b0c0d0e0f")!
+    //! key = Key.from_bytes(Algorithm.Aes128Gcm, data)!
+    //! assert Key.expose(key) == data
+    //!
+    //! assert Key.from_bytes(Algorithm.Aes256Gcm, data)
+    //!     == Err(Error.WrongKeyLength{expected: [32], got: 16})
+    //
+    pub fn from_bytes(algorithm: Algorithm, data: Bytes) -> Result<Key, Error>
+        expected = key_length(algorithm)
+        got = Bytes.length(data)
+
+        if got == expected then
+            Ok(Key{algorithm:, data:})
+        else
+            Err(.WrongKeyLength{expected: [expected], got:})
+        end
+    end
+
+    /// The bytes of `key`, for the one call that needs them, such as the
+    /// one that stores a key in a secret manager.
+    pub fn expose(key: Key) -> Bytes
+        key.data
+    end
+
+    /// The algorithm `key` is for.
+    pub fn algorithm(key: Key) -> Algorithm
+        key.algorithm
+    end
+end
+
+impl Debug for Key
+    /// `Key(<algorithm>, <hidden>)`, alone and inside another value.
+    //! import std::cipher.{Algorithm, Key}
+    //!
+    //! key = Key.generate(Algorithm.Aes256Gcm)
+    //! assert Debug.inspect(key) == "Key(AES-256-GCM, <hidden>)"
+    //! assert Debug.inspect([Some(key)]) == "[Some(Key(AES-256-GCM, <hidden>))]"
+    //
+    fn inspect(key: Key) -> String
+        "Key(${key.algorithm}, <hidden>)"
+    end
+end
+
+impl Equatable for Key
+    /// Two keys are equal when they are for one algorithm and hold the same
+    /// bytes, compared by `hash.equal_in_constant_time`.
+    //! import std::cipher.{Algorithm, Key}
+    //!
+    //! data = String.to_bytes(String.repeat("k", 32))
+    //! assert Key.from_bytes(Algorithm.Aes256Gcm, data) == Key.from_bytes(Algorithm.Aes256Gcm, data)
+    //! assert Key.from_bytes(Algorithm.Aes256Gcm, data) != Key.from_bytes(Algorithm.ChaCha20Poly1305, data)
+    //
+    fn equal(a: Key, b: Key) -> Bool
+        a.algorithm == b.algorithm and equal_in_constant_time(a.data, b.data)
+    end
+end
+
+/// `plaintext` sealed under `key`, with `associated` authenticated beside
+/// it: a fresh random nonce, then the ciphertext, then the tag. The result
+/// is `nonce_length` plus `tag_length` bytes longer than `plaintext`.
+//! import std::cipher.{self, Algorithm, Key}
+//!
+//! key = Key.generate(Algorithm.XChaCha20Poly1305)
+//! message = String.to_bytes("meet at noon")
+//!
+//! sealed = cipher.seal(key, message)
+//! assert Bytes.length(sealed) == 24 + Bytes.length(message) + 16
+//! assert cipher.open(key, sealed) == Ok(message)
+//!
+//! // Two seals of one message differ: each draws its own nonce.
+//! assert cipher.seal(key, message) != sealed
+//
+//! import std::cipher.{self, Algorithm, Error, Key}
+//!
+//! // Associated data must match for the bytes to open.
+//! key = Key.generate(Algorithm.Aes256Gcm)
+//! sealed = cipher.seal(key, String.to_bytes("balance: 12"), associated: String.to_bytes("account 7"))
+//!
+//! assert cipher.open(key, sealed, associated: String.to_bytes("account 7"))
+//!     == Ok(String.to_bytes("balance: 12"))
+//!
+//! assert cipher.open(key, sealed, associated: String.to_bytes("account 8")) == Err(Error.Unauthentic)
+//! assert cipher.open(key, sealed) == Err(Error.Unauthentic)
+//
+pub fn seal(key: Key, plaintext: Bytes, associated: Bytes = Bytes.from_list([])) -> Bytes
+    nonce = random.secure_bytes(nonce_length(key.algorithm))
+    Bytes.concat(nonce, host.seal(engine(key.algorithm), key.data, nonce, plaintext, associated))
+end
+
+/// The plaintext `sealed` holds, as `seal` made it under `key` with
+/// `associated`. Bytes sealed under another key or associated data, or
+/// changed by a single bit anywhere, are `Unauthentic`; bytes too short to
+/// hold a nonce and a tag are `TooShort`.
+//! import std::cipher.{self, Algorithm, Error, Key}
+//!
+//! key = Key.generate(Algorithm.ChaCha20Poly1305)
+//! sealed = cipher.seal(key, String.to_bytes("hello"))
+//!
+//! // Flipping one bit of the nonce, the ciphertext or the tag.
+//! flip =
+//!     fn at: Int ->
+//!         flipped = Bytes.get(sealed, at)! ^^^ Int.to_byte(1)!
+//!
+//!         Bytes.concat_all([
+//!             Bytes.slice(sealed, 0, at),
+//!             Bytes.from_list([flipped]),
+//!             Bytes.slice(sealed, at + 1, Bytes.length(sealed)),
+//!         ])
+//!     end
+//!
+//! assert cipher.open(key, flip(0)) == Err(Error.Unauthentic)
+//! assert cipher.open(key, flip(12)) == Err(Error.Unauthentic)
+//! assert cipher.open(key, flip(Bytes.length(sealed) - 1)) == Err(Error.Unauthentic)
+//! assert cipher.open(Key.generate(Algorithm.ChaCha20Poly1305), sealed) == Err(Error.Unauthentic)
+//!
+//! assert cipher.open(key, String.to_bytes("short")) == Err(Error.TooShort{minimum: 28, got: 5})
+//
+pub fn open(
+    key:        Key,
+    sealed:     Bytes,
+    associated: Bytes = Bytes.from_list([]),
+) -> Result<Bytes, Error>
+    size = nonce_length(key.algorithm)
+    minimum = size + tag_length(key.algorithm)
+    got = Bytes.length(sealed)
+    if got < minimum then return Err(.TooShort{minimum:, got:})
+
+    open_with_nonce(key, Bytes.slice(sealed, 0, size), Bytes.slice(sealed, size, got), associated)
+end
+
+/// `plaintext` sealed under `key` with `nonce`, which the caller chooses,
+/// and `associated`: the ciphertext, then the tag, with no nonce before
+/// them. For a protocol that defines its nonces, such as a message
+/// counter. A nonce must never repeat under one key: two messages sealed
+/// with one nonce reveal both plaintexts' XOR and let anyone forge messages
+/// under the key. A nonce of the wrong length is `WrongNonceLength`.
+//! import std::cipher.{self, Algorithm, Key}
+//! import std::hex
+//!
+//! // RFC 8439, section 2.8.2.
+//! key = Key.from_bytes(
+//!     Algorithm.ChaCha20Poly1305,
+//!     hex.decode("808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9f")!,
+//! )!
+//!
+//! nonce = hex.decode("070000004041424344454647")!
+//! associated = hex.decode("50515253c0c1c2c3c4c5c6c7")!
+//!
+//! plaintext = String.to_bytes(
+//!     "Ladies and Gentlemen of the class of '99: If I could offer you only one tip for the future, sunscreen would be it."
+//! )
+//!
+//! sealed = cipher.seal_with_nonce(key, nonce, plaintext, associated)!
+//!
+//! assert hex.encode(Bytes.slice(sealed, Bytes.length(sealed) - 16, Bytes.length(sealed)))
+//!     == "1ae10b594f09e26a7e902ecbd0600691"
+//!
+//! assert cipher.open_with_nonce(key, nonce, sealed, associated) == Ok(plaintext)
+//
+//! import std::cipher.{self, Algorithm, Error, Key}
+//! import std::hex
+//!
+//! // RFC 7518, appendix B.1: AES_128_CBC_HMAC_SHA_256.
+//! key = Key.from_bytes(
+//!     Algorithm.Aes128CbcHmacSha256,
+//!     hex.decode("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f")!,
+//! )!
+//!
+//! iv = hex.decode("1af38c2dc2b96ffdd86694092341bc04")!
+//! associated = String.to_bytes("The second principle of Auguste Kerckhoffs")
+//!
+//! plaintext = String.to_bytes(
+//!     "A cipher system must not be required to be secret, and it must be able to fall into the hands of the enemy without inconvenience"
+//! )
+//!
+//! sealed = cipher.seal_with_nonce(key, iv, plaintext, associated)!
+//!
+//! assert hex.encode(Bytes.slice(sealed, Bytes.length(sealed) - 16, Bytes.length(sealed)))
+//!     == "652c3fa36b0a7c5b3219fab3a30bc1c4"
+//!
+//! assert cipher.open_with_nonce(key, iv, sealed, associated) == Ok(plaintext)
+//! assert cipher.open_with_nonce(key, iv, sealed, String.to_bytes("another")) == Err(Error.Unauthentic)
+//
+pub fn seal_with_nonce(
+    key:        Key,
+    nonce:      Bytes,
+    plaintext:  Bytes,
+    associated: Bytes = Bytes.from_list([]),
+) -> Result<Bytes, Error>
+    check_nonce(key.algorithm, nonce)?
+    Ok(host.seal(engine(key.algorithm), key.data, nonce, plaintext, associated))
+end
+
+/// The plaintext `sealed` (the ciphertext, then the tag) holds under `key`,
+/// `nonce` and `associated`, as `seal_with_nonce` made it.
+//! import std::cipher.{self, Algorithm, Error, Key}
+//!
+//! key = Key.generate(Algorithm.Aes128Gcm)
+//! nonce = String.to_bytes(String.repeat("n", 12))
+//! sealed = cipher.seal_with_nonce(key, nonce, String.to_bytes("record 1"))!
+//!
+//! assert cipher.open_with_nonce(key, nonce, sealed) == Ok(String.to_bytes("record 1"))
+//!
+//! assert cipher.open_with_nonce(key, Bytes.slice(nonce, 0, 8), sealed)
+//!     == Err(Error.WrongNonceLength{expected: 12, got: 8})
+//!
+//! assert cipher.open_with_nonce(key, nonce, Bytes.slice(sealed, 0, 4))
+//!     == Err(Error.TooShort{minimum: 16, got: 4})
+//
+pub fn open_with_nonce(
+    key:        Key,
+    nonce:      Bytes,
+    sealed:     Bytes,
+    associated: Bytes = Bytes.from_list([]),
+) -> Result<Bytes, Error>
+    check_nonce(key.algorithm, nonce)?
+    minimum = tag_length(key.algorithm)
+    got = Bytes.length(sealed)
+    if got < minimum then return Err(.TooShort{minimum:, got:})
+
+    case host.open(engine(key.algorithm), key.data, nonce, sealed, associated)
+        Some(plaintext) -> Ok(plaintext)
+        None            -> Err(.Unauthentic)
+    end
+end
+
+/// `data` encrypted, or decrypted, with AES in counter mode (NIST SP
+/// 800-38A) under `key`, 16, 24 or 32 bytes for AES-128, AES-192 or
+/// AES-256, from the 16-byte `counter` block. Encrypting and decrypting
+/// are the same operation. It gives no integrity: anyone can flip a bit of
+/// the result and the same bit flips in what it decrypts to, unnoticed.
+/// It is here for protocols that pair it with a MAC of their own, such as
+/// SSH's `aes256-ctr`; to encrypt data, use `seal`.
+//! import std::cipher
+//! import std::hex
+//!
+//! // NIST SP 800-38A, F.5.1, the first block.
+//! key = hex.decode("2b7e151628aed2a6abf7158809cf4f3c")!
+//! counter = hex.decode("f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff")!
+//! plaintext = hex.decode("6bc1bee22e409f96e93d7e117393172a")!
+//!
+//! ciphertext = cipher.aes_ctr_unauthenticated(key, counter, plaintext)!
+//! assert hex.encode(ciphertext) == "874d6191b620e3261bef6864990db6ce"
+//! assert cipher.aes_ctr_unauthenticated(key, counter, ciphertext) == Ok(plaintext)
+//
+pub fn aes_ctr_unauthenticated(key: Bytes, counter: Bytes, data: Bytes) -> Result<Bytes, Error>
+    got = Bytes.length(key)
+
+    if got != 16 and got != 24 and got != 32 then
+        return Err(.WrongKeyLength{expected: [16, 24, 32], got:})
+    end
+
+    if Bytes.length(counter) != 16 then
+        return Err(.WrongNonceLength{expected: 16, got: Bytes.length(counter)})
+    end
+
+    Ok(host.aes_ctr(key, counter, data))
+end
+
+/// How many bytes a key for `algorithm` is.
+//! import std::cipher.{self, Algorithm}
+//!
+//! assert cipher.key_length(Algorithm.Aes128Gcm) == 16
+//! assert cipher.key_length(Algorithm.XChaCha20Poly1305) == 32
+//
+pub fn key_length(algorithm: Algorithm) -> PositiveInt
+    case algorithm
+        .Aes128Gcm           -> 16
+        .Aes192CbcHmacSha384 -> 48
+        .Aes256CbcHmacSha512 -> 64
+        _                    -> 32
+    end
+end
+
+/// How many bytes a nonce for `algorithm` is: 24 for XChaCha20-Poly1305,
+/// 16 for an AES-CBC-HMAC algorithm (its IV), 12 for the others.
+//! import std::cipher.{self, Algorithm}
+//!
+//! assert cipher.nonce_length(Algorithm.Aes256Gcm) == 12
+//! assert cipher.nonce_length(Algorithm.XChaCha20Poly1305) == 24
+//
+pub fn nonce_length(algorithm: Algorithm) -> PositiveInt
+    case algorithm
+        .XChaCha20Poly1305   -> 24
+        .Aes128CbcHmacSha256 -> 16
+        .Aes192CbcHmacSha384 -> 16
+        .Aes256CbcHmacSha512 -> 16
+        _                    -> 12
+    end
+end
+
+/// How many bytes the tag `algorithm` appends is: half the hash for an
+/// AES-CBC-HMAC algorithm, 16 for the others.
+//! import std::cipher.{self, Algorithm}
+//!
+//! assert cipher.tag_length(Algorithm.ChaCha20Poly1305) == 16
+//! assert cipher.tag_length(Algorithm.Aes256CbcHmacSha512) == 32
+//
+pub fn tag_length(algorithm: Algorithm) -> PositiveInt
+    case algorithm
+        .Aes192CbcHmacSha384 -> 24
+        .Aes256CbcHmacSha512 -> 32
+        _                    -> 16
+    end
+end
+
+fn check_nonce(algorithm: Algorithm, nonce: Bytes) -> Result<Unit, Error>
+    expected = nonce_length(algorithm)
+    got = Bytes.length(nonce)
+
+    if got == expected then
+        Ok(Unit)
+    else
+        Err(.WrongNonceLength{expected:, got:})
+    end
+end
+
+/// An algorithm's construction, as std/cipher/host numbers it: AES-GCM
+/// takes either key length, and AES-CBC-HMAC picks its AES and its hash by
+/// its key's length.
+fn engine(algorithm: Algorithm) -> Int64
+    case algorithm
+        .Aes256Gcm           -> 0
+        .Aes128Gcm           -> 0
+        .ChaCha20Poly1305    -> 1
+        .XChaCha20Poly1305   -> 2
+        .Aes128CbcHmacSha256 -> 3
+        .Aes192CbcHmacSha384 -> 3
+        .Aes256CbcHmacSha512 -> 3
+    end
+end
+
+/// The lengths `expected` lists, as a sentence names them: `32`, `16, 24
+/// or 32`.
+fn lengths(expected: List<Int>) -> String
+    texts = expected |> Iter.map(Int.to_string) |> Iter.to_list()
+    count = List.length(texts)
+
+    case List.slice(texts, count - 1, count)
+        [last] when count > 1 -> "${String.join(List.slice(texts, 0, count - 1), ", ")} or ${last}"
+        _                     -> String.join(texts)
+    end
+end

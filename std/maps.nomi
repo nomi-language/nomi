@@ -63,7 +63,9 @@ impl Map<K, V>
     pub host fn get<K, V>(m: Map<K, V>, key: K) -> Option<V>
 
     /// Returns a new map with `value` under `key`. A new key goes at the
-    /// end; a key the map already holds keeps its place.
+    /// end; a key the map already holds keeps its place. It copies one path
+    /// of the map's tree, O(log32 n), or writes in place when the compiler
+    /// proves nothing reads `m` again.
     //! assert Map.put({"a" => 1}, "b", 2) == {"a" => 1, "b" => 2}
     //! assert Map.put({"a" => 1}, "a", 9) == {"a" => 9}
     //
@@ -202,7 +204,7 @@ impl Display for Map<K, V> where K: Display, V: Display
     end
 end
 
-impl Debug for Map<K, V>
+impl Debug for Map<K, V> where K: Debug, V: Debug
     fn inspect(value: Map<K, V>) -> String
         if Map.size(value) == 0 then
             "{}"
@@ -218,27 +220,20 @@ impl Debug for Map<K, V>
 end
 
 impl Equatable for Map<K, V>
-    // Structural equality via the built-in `==`, which compares map contents
-    // order-insensitively. Lets a record with a Map field `derive Equatable`.
-    // Map is Hashable but intentionally not Comparable: there is no natural
-    // total order for maps.
-    fn equal(a: Map<K, V>, b: Map<K, V>) -> Bool
-        a == b
-    end
+    // Map is Hashable but not Comparable: there is no natural total order
+    // for maps.
+    /// Whether the two maps hold the same keys, each with an equal value,
+    /// whatever order their entries were put in. The machine compares the
+    /// entries, so the keys and values need equality of their own.
+    host fn equal(a: Map<K, V>, b: Map<K, V>) -> Bool
 end
 
 impl Hashable for Map<K, V> where K: Hashable, V: Hashable
-    // Order-insensitive hash: combine per-entry hashes with a commutative `+`, so
-    // it agrees with `==` (which ignores insertion order). Requires Hashable keys
-    // and values.
-    fn hash(m: Map<K, V>) -> Int
-        Iter.reduce(m, 0, fn acc, (k, v) ->
-            Int.wrapping_add(
-                acc,
-                Int.wrapping_add(Int.wrapping_mul(Hashable.hash(k), 31), Hashable.hash(v)),
-            )
-        end)
-    end
+    /// The hash a Map key of this type takes: each entry's key and value
+    /// mixed together, the entries added, so two maps `==` calls equal
+    /// hash alike whatever order their entries were put in. It is keyed by
+    /// the run, so it may differ between runs.
+    host fn hash(m: Map<K, V>) -> Int
 end
 
 impl Add<Map<K, V>, Map<K, V>> for Map<K, V>

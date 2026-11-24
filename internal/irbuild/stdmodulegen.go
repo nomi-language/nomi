@@ -37,6 +37,10 @@ type stdModuleView struct {
 	// module whose body the builder did not retain, with the reason. See
 	// irnative.go.
 	unlowered map[string]string
+	// twins maps the shared analysis's declarations of this module to the
+	// ones nodes declare, for a module checked from edited source
+	// (implFuncTwins, Module.twins). Nil otherwise.
+	twins map[ast.Node]ast.Node
 }
 
 // stdModuleContext runs lowerStdlibModule's prologue over one module.
@@ -67,7 +71,18 @@ func stdModuleContext(module, path, pkg string, nodes []ast.Node, fa *analysis.F
 // gen builds the gen this module's bodies are lowered through, bound against
 // the settled set exactly as lowerStdlibModule binds it.
 func (v *stdModuleView) gen(earlier *stdlibIndex) *gen {
-	return newStdGen(v.module, v.path, v.pkg, v.nodes, v.fa, v.cands, v.settled, v.onces, earlier)
+	return v.genIn(v.nodes, v.fa, earlier, nil)
+}
+
+// genIn is gen over nodes as fa checked them (the module's cases, which
+// hold its declarations), inside a program's lowering (in, nil for none).
+// Every gen built from a view is built here, so each reads the
+// declarations its records name as the view's module declares them
+// (twins, ownDecl).
+func (v *stdModuleView) genIn(nodes []ast.Node, fa *analysis.FileAnalysis, earlier *stdlibIndex, in *programBuild) *gen {
+	g := newStdGenIn(v.module, v.path, v.pkg, nodes, fa, v.cands, v.settled, v.onces, earlier, in)
+	g.twins = v.twins
+	return g
 }
 
 // stdSettle answers which of a module's declarations are attempted: every host

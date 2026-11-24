@@ -20,8 +20,7 @@ import (
 // every identity pass and impl type-argument template included, so before any
 // CheckTypes runs. Nothing writes a Program's fields or maps after that. The
 // passes inside a build that need part of it earlier (the builder, BuildTypes,
-// CheckDeriveBounds, the boot signature check) are given what they read as
-// arguments.
+// the boot signature check) are given what they read as arguments.
 //
 // The one part that changes after that is Onces' inference state, and only
 // in the phase the program's first CheckTypes runs before it checks
@@ -216,23 +215,73 @@ func (fa *FileAnalysis) HasImpl(typeName, iface string) bool {
 	return (p.ImplIndex != nil && p.ImplIndex.Impls[typeName][iface]) || p.unindexedImpls[typeName][iface]
 }
 
-// ImplementedInterfaces answers, sorted, every interface HasImpl sees an impl
-// of for typeName.
-func (fa *FileAnalysis) ImplementedInterfaces(typeName string) []string {
+// ImplementedInterfaces answers, sorted, the names of the interfaces t
+// implements by its own declaration (interfacesImplementedBy): a type does
+// not list what a same-named type of another module implements. A t with
+// no declaring origin (a built-in primitive, a list) keeps the bare-name
+// answer.
+func (fa *FileAnalysis) ImplementedInterfaces(t Type) []string {
 	if fa == nil {
 		return nil
 	}
+	t = resolveTypeVar(t)
+	origin, ok := nominalOrigin(t)
+	if !ok {
+		origin = OriginUnresolved
+	}
 	seen := map[string]bool{}
 	var out []string
+	for _, id := range fa.interfacesImplementedBy(TypeOwnerName(t), origin) {
+		if !seen[id.Name] {
+			seen[id.Name] = true
+			out = append(out, id.Name)
+		}
+	}
+	return out
+}
+
+// interfacesImplementedBy returns every interface `typeName` impl,
+// per-file union project-wide, each by its identity: the impls of a name
+// for a receiver name the declarations IfaceOriginByPair records, so a
+// type with `impl a.Show` and `impl b.Show` implements two interfaces.
+// There is NO requirement that the checking file's type registry can
+// resolve the interface.
+//
+// That is the whole difference from interfacesDeclaringMethod, which
+// filters this list, and it exists because the registry requirement is a
+// false negative rather than a filter: an interface declared in a sibling
+// file the current file never imported is absent from the checker's
+// registry while its impl IS in the project index. Callers that need the
+// interface's own contract read it by its identity (implementedInterface);
+// fromFragmentsRival needs only the (interface, receiver, method) triple,
+// which resolveConcreteImpl answers off the same index.
+//
+// origin is the receiver's declaring origin. An interface counts only when
+// the receiver supplies it by its own declaration (suppliesOrigin), so a
+// program's `type Shout` does not implement what another file's `Shout`
+// does. OriginUnresolved keeps the bare-name answer.
+func (fa *FileAnalysis) interfacesImplementedBy(typeName, origin string) []ifaceIdentity {
+	if fa == nil || typeName == "" {
+		return nil
+	}
+	p := fa.Program()
+	seen := map[ifaceIdentity]bool{}
+	var out []ifaceIdentity
 	for _, ifaces := range fa.implsOf(typeName) {
 		for iface := range ifaces {
-			if !seen[iface] {
-				seen[iface] = true
-				out = append(out, iface)
+			for _, ifaceOrigin := range p.ImplIndex.implIfaceOrigins(typeName, iface) {
+				id := ifaceIdentity{Origin: ifaceOrigin, Name: iface}
+				if seen[id] {
+					continue
+				}
+				seen[id] = true
+				if p.ImplIndex.suppliesOrigin(origin, typeName, ifaceOrigin, iface, p.unindexed()) {
+					out = append(out, id)
+				}
 			}
 		}
 	}
-	sort.Strings(out)
+	sortIfaceIdentities(out)
 	return out
 }
 

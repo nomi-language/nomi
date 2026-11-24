@@ -3,12 +3,16 @@
 A durable queue for `std/jobs`, kept in a Postgres table, over
 [`lib/sql/postgres`](../../sql/postgres). `pgjobs.queue(db, url)` returns a
 `Queue`, std/jobs' interface, so code written against `Queue` runs on it
-unchanged. It is Nomi with no Go code of its own.
+unchanged. It is written in Nomi.
 
 ```sh
 nomi add github.com/nomi-language/nomi/lib/jobs/postgres
 nomi add github.com/nomi-language/nomi/lib/sql/postgres
 ```
+
+A release `nomi` adds them with those commands; before the first release, or
+with a `nomi` built from source, add each by its directory in a checkout of
+the repository: `nomi add ../nomi/lib/jobs/postgres`.
 
 A job is enqueued in the same transaction as the write it follows, and a
 worker started in `main` runs it:
@@ -138,9 +142,8 @@ end
 
 ## Tests
 
-`nomi test lib/jobs/postgres` runs on `postgres.scratch()`'s throwaway
+`nomi test` in this directory runs on `postgres.scratch()`'s throwaway
 server, so it needs `initdb` and `postgres` on `PATH`. Without them the
-tests fail, since a Nomi test cannot skip itself; `TestLibModules`
-(`cmd/nomi`) skips this module instead. The example in
+tests fail, since a Nomi test cannot skip itself. The example in
 [`../examples/notify`](../examples/notify) ports an app's notification jobs
 from River and runs them on a real worker.

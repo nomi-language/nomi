@@ -2,40 +2,38 @@ package analysis
 
 import (
 	"fmt"
+
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
+// TaskNotSettledCode tags Rule 2's error: a handle bound from `Task.spawn`
+// or `Task.spawn_all` in a `concurrent` block that nothing in the block
+// awaits or cancels. Args holds the binding's name.
+const TaskNotSettledCode = "task-not-settled"
+
 // CheckTaskLifetime enforces Rules 2 and 3 of the task lifetime rules
-// (spec §16):
+// (spec §16 *Static guarantees*):
 //
-//	Rule 2 — every `Task<T>` value bound by a binding inside a
-//	`concurrent { }` block must be consumed (referenced anywhere after
-//	the binding, lexically inside the block — typically by `Task.await(t)`).
-//	A binding whose name is never referenced is rejected with diagnostic
-//	`"Task bound to '<name>' is never awaited"`.
+//	Rule 2: a handle bound from `Task.spawn`, or a list of handles bound
+//	from `Task.spawn_all`, inside a `concurrent` block is settled in that
+//	block: awaited or cancelled. A reference settles it only in a settling
+//	position (settleWalk); any other use, `Task.inspect(t)`, `u = [t]`,
+//	`_ = t`, a call of a function the program declares, does not. An
+//	unsettled binding is the TaskNotSettledCode error at the binding.
 //
-//	Rule 3 — a `Task<T>` value (or any composite containing one) cannot
-//	escape its enclosing `concurrent { }` block. The block's tail
-//	expression is the escape vector: if its syntactic shape produces a
-//	Task value (a direct `Task.spawn(...)` call, a reference to a Task
-//	binding declared inside the block, or a tuple / list / struct
-//	literal containing any of the above), reject with diagnostic
+//	Rule 3: a `Task<T>` value (or any composite containing one) cannot
+//	escape its enclosing `concurrent` block. The block's tail expression
+//	is the escape vector: if its syntactic shape produces a Task value (a
+//	direct `Task.spawn(...)` call, a reference to a Task binding declared
+//	inside the block, or a tuple / list / struct literal containing any of
+//	the above), it is the error
 //	`"Task<T> cannot escape its enclosing concurrent block"`.
 //
-// Both rules are local to a single `ConcurrentBlock`: the only producer
-// of Task values is `Task.spawn(...)` (from `std/tasks` — Rule 1 already
-// enforces that every Task.spawn call is lexically inside some concurrent
-// block), so a syntactic trace from the block's tail back to its
-// spawn-site is sufficient. No interprocedural analysis required.
-//
-// The use-once rule is conservative in v1: we accept "the binding name
-// is referenced anywhere later in the block" as sufficient evidence of
-// consumption, even when the reference isn't `Task.await(t)` directly. The
-// strict await-or-discard-via-await form is the documented preference,
-// but the cases the rule must catch are dominated by "forgot to await
-// my fetch" — which always shows up as a binding whose name is never
-// referenced. Tighter follow-on enforcement (require the use to be a
-// transitive `await` call) can land later without surface change.
+// Both rules are local to a single `ConcurrentBlock`: the only producers
+// of block-owned Task values are `Task.spawn` and `Task.spawn_all` (Rule 1
+// already holds every such call inside some block), so a trace within the
+// block from the spawn to its uses is sufficient. A handle from
+// `Supervisor.spawn` is owned by its supervisor and is not tracked.
 func CheckTaskLifetime(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 	tl := &taskLifetime{fa: fa}
 	for _, node := range nodes {
@@ -62,40 +60,27 @@ func (tl *taskLifetime) walkSubtree(n ast.Node) {
 	})
 }
 
-// checkBlock applies Rules 2 and 3 to one ConcurrentBlock. Rule 2
-// scans bindings inside the block for unreferenced Task bindings.
-// Rule 3 examines the block's tail expression for a Task-producing
+// checkBlock applies Rules 2 and 3 to one ConcurrentBlock. Rule 2 finds
+// the block's Task bindings and reports each one the settle walk does not
+// settle. Rule 3 examines the block's tail expression for a Task-producing
 // shape.
 func (tl *taskLifetime) checkBlock(cb *ast.ConcurrentBlock) {
 	if cb.Body == nil || len(cb.Body.Stmts) == 0 {
 		return
 	}
-	// Rule 2: collect bindings whose RHS is `Task.spawn(...)`. Each binding
-	// records its name + the binding's position (for the diagnostic
-	// anchor). Then sweep the rest of the block for references to that
-	// name; absence means the binding is never awaited.
 	taskBindings := tl.collectTaskBindings(cb.Body)
 	if len(taskBindings) > 0 {
-		// `_ = t` discards the handle, which skips its wait, so it is not
-		// an await: it is the error, at the discard, and the reference it
-		// holds does not count as one.
-		discards := tl.collectHandleDiscards(cb.Body, taskBindings)
-		for _, d := range discards {
-			tl.errors = append(tl.errors, TypeError{
-				Line:    d.Line,
-				Col:     d.Col,
-				Message: fmt.Sprintf("`_ = %[1]s` discards the Task without waiting for it; await it instead: `_ = Task.await(%[1]s)`", discardedName(d)),
-			})
-		}
-		referenced := tl.collectReferencedNames(cb.Body, discards)
+		w := tl.settle(cb.Body)
 		for _, tb := range taskBindings {
-			if referenced[tb.refKey] || discarded(discards, tb.refKey) {
+			if tb.sym != nil && w.settled[tb.sym] {
 				continue
 			}
 			tl.errors = append(tl.errors, TypeError{
 				Line:    tb.line,
 				Col:     tb.col,
-				Message: fmt.Sprintf("Task bound to '%s' is never awaited", tb.name),
+				Message: tb.notSettled(w.uses[tb.sym]),
+				Code:    TaskNotSettledCode,
+				Args:    []string{tb.name},
 			})
 		}
 	}
@@ -116,24 +101,49 @@ func (tl *taskLifetime) checkBlock(cb *ast.ConcurrentBlock) {
 	}
 }
 
-// taskBinding records one binding declared inside a ConcurrentBlock
-// whose RHS is `Task.spawn(...)`. `refKey` mirrors `name` today, but the
-// pair is kept so a future destructure-aware version can switch the
-// lookup key (e.g., one element of a tuple destructure) without
-// changing the diagnostic-facing identifier.
+// taskBinding records one binding declared inside a ConcurrentBlock whose
+// value is a `Task.spawn` or `Task.spawn_all` call: its name, the symbol
+// the checker defined for it, and whether it holds a list of handles.
 type taskBinding struct {
-	name   string
-	refKey string
-	line   int
-	col    int
+	name string
+	sym  *Symbol
+	many bool
+	line int
+	col  int
 }
 
-// collectTaskBindings collects the `name = Task.spawn(...)` bindings
-// anywhere in a ConcurrentBlock's body: in nested blocks, if and case
-// branches, and a block on a binding's right-hand side. A pattern binding
-// (`(a, b) = ...`, `Id(n) = ...`) is not tracked; it does not produce a
-// meaningful "is this binding awaited?" question without per-element type
-// tracking.
+// notSettled is Rule 2's message for tb, naming the first use the block
+// makes of it when there is one.
+func (tb taskBinding) notSettled(use handleUse) string {
+	noun, verb, it := "Task", "is", "it"
+	if tb.many {
+		noun, verb, it = "Tasks", "are", "them"
+	}
+	msg := fmt.Sprintf("%s bound to '%s' %s never awaited or cancelled", noun, tb.name, verb)
+	if use.line > 0 {
+		var did string
+		switch {
+		case use.callee != "":
+			did = fmt.Sprintf("passes %s to `%s`", it, use.callee)
+		case use.binding == "_":
+			did = fmt.Sprintf("discards %s with `_ =`", it)
+		case use.binding != "":
+			did = fmt.Sprintf("copies %s to `%s`", it, use.binding)
+		default:
+			did = "reads " + it
+		}
+		msg += fmt.Sprintf(": line %d %s, which neither awaits nor cancels %s", use.line, did, it)
+	}
+	return msg + fmt.Sprintf("; pass %s to `Task.await`, `Task.await_all`, `Task.outcome` or `Task.cancel`", it)
+}
+
+// collectTaskBindings collects the `name = Task.spawn(...)` and
+// `name = Task.spawn_all(...)` bindings, the call written plain or as a
+// pipe's last stage, anywhere in a ConcurrentBlock's body: in nested
+// blocks, if and case branches, and a block on a binding's right-hand
+// side. A pattern binding (`(a, b) = ...`, `Id(n) = ...`) is not tracked;
+// it does not produce a meaningful "is this binding settled?" question
+// without per-element type tracking.
 //
 // A nested ConcurrentBlock's bindings are its own checkBlock's
 // responsibility, and a Lambda's or FuncDef's bindings live in their own
@@ -146,12 +156,17 @@ func (tl *taskLifetime) collectTaskBindings(block *ast.Block) []taskBinding {
 			case *ast.ConcurrentBlock, *ast.Lambda, *ast.FuncDef:
 				return false
 			case *ast.Binding:
-				if tl.isSpawnCall(node.Value) {
+				value := node.Value
+				if pipe, ok := value.(*ast.Binary); ok && pipe.Op == "|>" {
+					value = pipe.Right
+				}
+				if tl.isSpawnCall(value) {
 					bindings = append(bindings, taskBinding{
-						name:   node.Name,
-						refKey: node.Name,
-						line:   node.Line,
-						col:    node.Col,
+						name: node.Name,
+						sym:  tl.fa.Definitions[Pos{Line: node.Line, Col: node.Col}],
+						many: isTaskFunctionSymbol(tl.fa, tl.calleeSymbol(value.(*ast.Call).Func), "spawn_all"),
+						line: node.Line,
+						col:  node.Col,
 					})
 				}
 			}
@@ -161,147 +176,219 @@ func (tl *taskLifetime) collectTaskBindings(block *ast.Block) []taskBinding {
 	return bindings
 }
 
-// collectReferencedNames returns the set of identifier names used
-// anywhere inside the block, in any expression position. A binding's own
-// name is a declaration, not an Ident, so it is not collected. Nested
-// FuncDef bodies have their own scope and are skipped, and a field name
-// (`x.t`) is not a use of a binding `t`. Rule 2 uses the result to detect
-// "binding never referenced".
+// settleWalk is Rule 2's one pass over a concurrent block's body. It finds
+// the symbols some reference settles, and the first other use of each.
 //
-// Nested ConcurrentBlocks ARE descended: an outer `t = Task.spawn(...)`
-// referenced inside a nested `concurrent { Task.await(t) }` counts as a
-// use of `t`. The nested block has its own checkBlock invocation that
-// applies Rules 2 and 3 to its own bindings; this descent only widens
-// what counts as a *reference* for the OUTER block's Rule 2 sweep.
+// A reference settles what it names in a settling position, which is any
+// part of:
 //
-// Lambda bodies ARE descended: an `Iter.map(tasks, fn t -> Task.await(t))`
-// counts the `t` parameter's uses inside the lambda as references, even
-// though the parameter shadows the outer name. The consumer (Rule 2)
-// matches on names only, so the conservative direction (accept any name
-// match) is correct for the dominant "forgot to await my fetch" case the
-// rule catches.
-func (tl *taskLifetime) collectReferencedNames(block *ast.Block, discards []*ast.Binding) map[string]bool {
-	refs := make(map[string]bool)
-	var visit func(n ast.Node) bool
-	visit = func(n ast.Node) bool {
-		switch node := n.(type) {
-		case *ast.Binding:
-			for _, d := range discards {
-				if node == d {
-					return false
-				}
-			}
-		case *ast.Ident:
-			refs[node.Name] = true
-		case *ast.FuncDef:
-			return false
-		case *ast.FieldAccess:
-			ast.Inspect(node.Object, visit)
-			return false
+//   - an argument of a call of a settling function (isTaskSettleSymbol):
+//     `Task.await(t)`, `Task.await_all([a, b])`;
+//   - an argument of a call where another argument is a settling function,
+//     or a lambda or capture that settles its own parameter:
+//     `Iter.each(handles, Task.cancel)`,
+//     `Iter.each(handles, fn t -> _ = Task.outcome(t))`;
+//   - the left of a `|>` whose stage is either of those calls, or names a
+//     settling function: `handles |> Iter.map(Task.outcome)`.
+//
+// A lambda settles its parameter when the walk of its body settles one of
+// its parameters; a capture, when one of its `&N` stands in a settling
+// position. The walk enters lambdas and nested concurrent blocks, so a
+// reference there settles an outer handle too, and skips nested FuncDefs,
+// which are scopes of their own. It does not depend on the order of the
+// block's statements.
+type settleWalk struct {
+	fa *FileAnalysis
+	// settled holds each symbol a reference settles.
+	settled map[*Symbol]bool
+	// settlesParam holds each Lambda or Capture that settles its own
+	// parameter.
+	settlesParam map[ast.Node]bool
+	// uses holds, per symbol, its earliest reference outside a settling
+	// position, for the message.
+	uses map[*Symbol]handleUse
+}
+
+// handleUse is one reference that does not settle what it names: where it
+// is and what holds it, the call it is an argument of or the binding it is
+// the value of.
+type handleUse struct {
+	line, col int
+	callee    string
+	binding   string
+}
+
+// settle runs the settle walk over a concurrent block's body.
+func (tl *taskLifetime) settle(body *ast.Block) *settleWalk {
+	w := &settleWalk{
+		fa:           tl.fa,
+		settled:      make(map[*Symbol]bool),
+		settlesParam: make(map[ast.Node]bool),
+		uses:         make(map[*Symbol]handleUse),
+	}
+	w.walk(body, false, handleUse{}, nil)
+	return w
+}
+
+// walk visits n once. settling says n is in a settling position, use is
+// what holds n for a use's message, and capture is the capture whose `&N`
+// n's holes are.
+func (w *settleWalk) walk(n ast.Node, settling bool, use handleUse, capture *ast.Capture) {
+	switch node := n.(type) {
+	case nil:
+		return
+	case *ast.FuncDef:
+		return
+	case *ast.Ident:
+		sym := w.fa.References[Pos{Line: node.Line, Col: node.Col}]
+		if sym == nil {
+			return
 		}
-		return true
-	}
-	for _, stmt := range block.Stmts {
-		ast.Inspect(stmt, visit)
-	}
-	return refs
-}
-
-// collectHandleDiscards answers the `_ = t` bindings in block whose value is
-// one of its Task bindings, by name: a discard of the handle, which skips its
-// wait. A nested ConcurrentBlock, Lambda or FuncDef is not entered, as
-// collectTaskBindings does not enter them.
-func (tl *taskLifetime) collectHandleDiscards(block *ast.Block, tasks []taskBinding) []*ast.Binding {
-	var out []*ast.Binding
-	for _, stmt := range block.Stmts {
-		ast.Inspect(stmt, func(n ast.Node) bool {
-			switch node := n.(type) {
-			case *ast.ConcurrentBlock, *ast.Lambda, *ast.FuncDef:
-				return false
-			case *ast.Binding:
-				id, ok := discardedIdent(node)
-				if !ok {
-					return true
-				}
-				for _, tb := range tasks {
-					if tb.refKey == id.Name {
-						out = append(out, node)
-						break
-					}
-				}
+		if settling {
+			w.settled[sym] = true
+			if lam, ok := paramOwner(sym).(*ast.Lambda); ok {
+				w.settlesParam[lam] = true
 			}
-			return true
-		})
-	}
-	return out
-}
-
-// discardedIdent answers the name b discards when b is `_ = name`, through
-// any parentheses.
-func discardedIdent(b *ast.Binding) (*ast.Ident, bool) {
-	if b.Name != "_" {
-		return nil, false
-	}
-	v := b.Value
-	for {
-		g, ok := v.(*ast.GroupedExpr)
-		if !ok {
-			break
+			return
 		}
-		v = g.Expr
+		if prev, ok := w.uses[sym]; !ok || node.Line < prev.line || node.Line == prev.line && node.Col < prev.col {
+			use.line, use.col = node.Line, node.Col
+			w.uses[sym] = use
+		}
+		return
+	case *ast.PlaceholderParam, *ast.Placeholder:
+		if settling && capture != nil {
+			w.settlesParam[capture] = true
+		}
+		return
+	case *ast.FieldAccess:
+		// A field's name is not a reference to a binding.
+		w.walk(node.Object, settling, use, capture)
+		return
+	case *ast.Binding:
+		w.walk(node.Value, settling, handleUse{binding: node.Name}, capture)
+		return
+	case *ast.Lambda:
+		// `&N` inside a lambda is not the enclosing capture's.
+		if node.Body != nil {
+			w.walk(node.Body, settling, handleUse{}, nil)
+		}
+		return
+	case *ast.Capture:
+		w.walk(node.Body, settling, handleUse{}, node)
+		return
+	case *ast.Call:
+		w.walkCall(node, settling, use, capture)
+		return
+	case *ast.Binary:
+		if node.Op == "|>" {
+			stageSettles := w.isSettler(node.Right)
+			stage := handleUse{callee: calleeText(node.Right)}
+			if call, ok := node.Right.(*ast.Call); ok {
+				stageSettles = w.walkCall(call, settling, use, capture)
+				stage.callee = calleeText(call.Func)
+			} else {
+				w.walk(node.Right, settling, use, capture)
+			}
+			w.walk(node.Left, settling || stageSettles, stage, capture)
+			return
+		}
 	}
-	id, ok := v.(*ast.Ident)
-	return id, ok
+	ast.Children(n, func(c ast.Node) {
+		w.walk(c, settling, use, capture)
+	})
 }
 
-// discardedName is the Task name a handle discard discards.
-func discardedName(d *ast.Binding) string {
-	id, _ := discardedIdent(d)
-	return id.Name
+// walkCall visits a call and reports whether it settles its arguments:
+// its callee is a settling function, or another argument is one or is a
+// lambda or capture that settles its parameter. Function arguments are
+// walked first, since what their bodies settle decides the rest.
+func (w *settleWalk) walkCall(call *ast.Call, settling bool, use handleUse, capture *ast.Capture) bool {
+	settles := w.isSettler(call.Func)
+	isFn := make([]bool, len(call.Args))
+	for i, arg := range call.Args {
+		v := arg
+		if named, ok := v.(*ast.NamedArg); ok {
+			v = named.Value
+		}
+		switch v.(type) {
+		case *ast.Lambda, *ast.Capture:
+			isFn[i] = true
+			w.walk(v, settling, use, capture)
+			settles = settles || w.settlesParam[v]
+		default:
+			settles = settles || w.isSettler(v)
+		}
+	}
+	w.walk(call.Func, settling, use, capture)
+	argUse := handleUse{callee: calleeText(call.Func)}
+	for i, arg := range call.Args {
+		if !isFn[i] {
+			w.walk(arg, settling || settles, argUse, capture)
+		}
+	}
+	return settles
 }
 
-// discarded reports whether one of discards discards the Task named name.
-func discarded(discards []*ast.Binding, name string) bool {
-	for _, d := range discards {
-		if id, _ := discardedIdent(d); id != nil && id.Name == name {
+// isSettler reports whether n names one of the functions that settle a
+// task (isTaskSettleSymbol), as a callee or as a value.
+func (w *settleWalk) isSettler(n ast.Node) bool {
+	pos, ok := calleeKey(n)
+	if !ok {
+		return false
+	}
+	return isTaskSettleSymbol(w.fa, resolvedSymbol(w.fa.References[pos]))
+}
+
+// isTaskSettleSymbol reports whether sym is one of std's functions that
+// settle every task they are given: they await it, or cancel it, or both
+// (`Task.try_await_all` awaits each task and, at the first `Err`, cancels
+// the rest and waits for them to stop). The other functions std/tasks
+// declares over a task do neither: `Debug.inspect` renders a handle, and
+// `Task.race` and `Task.within` take bodies, not tasks.
+func isTaskSettleSymbol(fa *FileAnalysis, sym *Symbol) bool {
+	for _, name := range [...]string{"await", "await_all", "try_await_all", "outcome", "cancel"} {
+		if isTaskFunctionSymbol(fa, sym, name) {
 			return true
 		}
 	}
 	return false
 }
 
+// paramOwner is the function or lambda sym is a parameter of, a name a
+// destructured parameter binds included, and nil for any other symbol.
+func paramOwner(sym *Symbol) ast.Node {
+	switch {
+	case sym.Kind == SymbolParam:
+		return sym.Node
+	case sym.ParamOf != nil:
+		return sym.ParamOf
+	}
+	return nil
+}
+
 // isSpawnCall reports whether `n` is a Call to `Task.spawn` or
-// `Task.spawn_all` — the two block-owned spawns.
+// `Task.spawn_all`, the two block-owned spawns.
 //
-// Both bind something that must be consumed before the block closes:
-// `spawn` a `Task<T>` awaited with `Task.await`, `spawn_all` a
-// `List<Task<T>>` awaited with `Task.await_all`. Rule 2's
-// "is this name referenced later in the block?" check does not care
-// which, so recognising the producer is the whole extension.
-//
-// Uses fa.References to resolve the callee through the Resolved chain.
+// Both bind something that must be settled before the block closes:
+// `spawn` a `Task<T>`, `spawn_all` a `List<Task<T>>`. The callee is
+// decided by the symbol the checker resolved it to.
 func (tl *taskLifetime) isSpawnCall(n ast.Node) bool {
 	call, ok := n.(*ast.Call)
 	if !ok {
 		return false
 	}
-	var pos Pos
-	switch fn := call.Func.(type) {
-	case *ast.Ident:
-		pos = Pos{Line: fn.Line, Col: fn.Col}
-	case *ast.FieldAccess:
-		if fn.Field == nil {
-			return false
-		}
-		pos = Pos{Line: fn.Field.Line, Col: fn.Field.Col}
-	default:
-		return false
-	}
-	sym, ok := tl.fa.References[pos]
+	return isTaskSpawnSymbol(tl.fa, tl.calleeSymbol(call.Func))
+}
+
+// calleeSymbol is the symbol the checker resolved a callee to, through
+// any selective import or alias, or nil.
+func (tl *taskLifetime) calleeSymbol(fn ast.Node) *Symbol {
+	pos, ok := calleeKey(fn)
 	if !ok {
-		return false
+		return nil
 	}
-	return isTaskSpawnSymbol(tl.fa, resolvedSymbol(sym))
+	return resolvedSymbol(tl.fa.References[pos])
 }
 
 // tailEscapes reports whether the block's tail expression carries a
@@ -339,7 +426,7 @@ func (tl *taskLifetime) tailEscapes(expr ast.Node, taskBindings []taskBinding) b
 		return tl.isSpawnCall(node)
 	case *ast.Ident:
 		for _, tb := range taskBindings {
-			if tb.refKey == node.Name {
+			if tb.name == node.Name {
 				return true
 			}
 		}

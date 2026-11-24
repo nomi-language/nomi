@@ -109,7 +109,8 @@ type Callee struct {
 	// OperatorStructural where the receiver's type has no block and meets
 	// the interface by its shape (a tuple, an anonymous struct, a
 	// collection, a function, a declared type with no Equatable,
-	// Hashable or Debug block of its own); OperatorDispatched on an
+	// Hashable or Debug block of its own, a derived Equatable, Hashable,
+	// Debug or Display, whose block writes no function); OperatorDispatched on an
 	// interface value; OperatorPerInstance through a type parameter,
 	// which CalleeAt answers at an instance. Zero for a callee no
 	// interface declares, and where the receiver's type is unknown or

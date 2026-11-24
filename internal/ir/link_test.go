@@ -124,6 +124,74 @@ func TestLink_AnImplFunctionKeepsItsBlock(t *testing.T) {
 	tbl.ImplSymbol(plain, loud)
 }
 
+// A dispatch symbol no object defines (a std interface's method) is one
+// symbol across the objects that name it: the one whose call dispatches on
+// it and the ones that record an entry for it. Each object's entries stay its
+// module's. In one lowering it is one symbol already, as CheckLinkage
+// requires of a name no module defines; decoded apart, each object holds its
+// own copy until the linker makes them one.
+func TestLink_ASymbolNoObjectDefinesIsOneAcrossObjects(t *testing.T) {
+	at := func(line int) ir.Pos { return ir.At("link.nomi", line, 1) }
+	hash := ir.NewLinkedSymbol("Hashable.hash", "std/hashable.Hashable.hash")
+	method := func() *ir.Symbol { return hash }
+	caller := ir.NewModule("caller.nomi")
+	f := ir.NewFuncFor(at(1), ir.NewLinkedSymbol("hash_of", "caller.hash_of"))
+	recv := f.AddParam(ir.NewSymbol("value"), ir.ValUnknown)
+	fb := f.NewBlock(at(1), "entry")
+	got := f.NewTemp()
+	fb.Append(ir.NewDispatchCall(at(2), got, ir.OrdinaryCall, method(), 0, recv))
+	f.SetType(got, ir.IntType)
+	fb.SetTerm(ir.NewReturn(at(3), got))
+	caller.AddFunc(f)
+	impl := func(name, typ string, value int64) *ir.Module {
+		m := ir.NewModule(name)
+		body := ir.NewFuncFor(at(10), ir.NewSymbol(typ+".hash"))
+		body.AddParam(ir.NewSymbol("value"), ir.ValUnknown)
+		b := body.NewBlock(at(10), "entry")
+		v := body.NewTemp()
+		b.Append(ir.NewInt(at(11), v, value))
+		body.SetType(v, ir.IntType)
+		b.SetTerm(ir.NewReturn(at(12), v))
+		m.AddFunc(body)
+		m.Implement(method(), ir.NewSymbol(typ), body.Sym())
+		return m
+	}
+	mods := []*ir.Module{caller, impl("a.nomi", "A", 1), impl("b.nomi", "B", 2)}
+	if err := ir.CheckLinkage(mods, nil); err != nil {
+		t.Fatal(err)
+	}
+	l := ir.NewLinker()
+	var linked []*ir.Module
+	for _, m := range mods {
+		data, err := ir.EncodeObject(m)
+		if err != nil {
+			t.Fatal(err)
+		}
+		im, err := l.Decode(data)
+		if err != nil {
+			t.Fatal(err)
+		}
+		linked = append(linked, im.Modules...)
+	}
+	call := calleeOf(t, linked[0])
+	for _, m := range linked[1:] {
+		impls := m.Impls()
+		if len(impls) != 1 || impls[0].Method != call {
+			t.Fatalf("%s records %+v; want one entry on the caller's dispatch symbol %p", m.Name(), impls, call)
+		}
+	}
+	if call == hash || call.Link() != "std/hashable.Hashable.hash" || l.Symbol(ir.NewLinkedSymbol("Hashable.hash", "std/hashable.Hashable.hash")) != call {
+		t.Fatalf("the dispatch symbol is %p %q; want a decoded symbol the linker answers for its name", call, call.Link())
+	}
+	// A second symbol of the name in one lowering is two symbols CheckLinkage
+	// refuses: neither is a definition the linker could keep one of.
+	other := impl("c.nomi", "C", 3)
+	other.Impls()[0].Method = ir.NewLinkedSymbol("Hashable.hash", "std/hashable.Hashable.hash")
+	if err := ir.CheckLinkage([]*ir.Module{caller, other}, nil); err == nil || !strings.Contains(err.Error(), `two symbols have the linkage name "std/hashable.Hashable.hash"`) {
+		t.Fatalf("CheckLinkage = %v; want the second dispatch symbol reported", err)
+	}
+}
+
 func TestLink_ASymbolTwoModulesNameNeedsALinkageName(t *testing.T) {
 	helper := ir.NewSymbol("helper")
 	lib, app := linkFixture(helper, helper, 7)

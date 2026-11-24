@@ -254,7 +254,7 @@ func TestOpenFromRecordEditsMatchAFullCheck(t *testing.T) {
 		steps []editStep
 	}
 	order := orderIncremental()
-	seqs := []sequence{{order, orderEdits}, {layeredProject(), layeredEdits}, {rateProject(), rateEdits}, {anonFieldsProject(), anonFieldsEdits}, {anonTypeFieldsProject(), anonTypeFieldsEdits}}
+	seqs := []sequence{{order, orderEdits}, {layeredProject(), layeredEdits}, {rateProject(), rateEdits}, {anonFieldsProject(), anonFieldsEdits}, {anonTypeFieldsProject(), anonTypeFieldsEdits}, {unseenInterfaceProject(), unseenInterfaceEdits}}
 	for _, key := range sortedTextKeys(order) {
 		seqs = append(seqs, sequence{order, genericEdits(key, order.texts[key])})
 	}
@@ -404,7 +404,9 @@ end
 // record leaves to the program checked whole: diagnostics the program
 // words and no one file's check (its impls' errors and missing impls), a
 // reduction's diagnostic in a file the edit does not check again, an
-// application type, or an impl changed beside a diagnostic.
+// application type, an impl changed beside a diagnostic, or an open
+// document the edit's propagation does not reach that reads what it
+// changed through an impl.
 func reportsWhatNoFileWords(reasons map[string]int) bool {
 	named := false
 	for why := range reasons {
@@ -421,6 +423,7 @@ func reportsWhatNoFileWords(reasons map[string]int) bool {
 			strings.Contains(why, "which the edit does not check again"),
 			strings.Contains(why, "application type"),
 			strings.Contains(why, "the edit changed an impl"),
+			strings.Contains(why, "reads what the edit changed through an impl"),
 			strings.Contains(why, "declares keyword declarations"):
 		default:
 			return false
@@ -523,6 +526,9 @@ func FuzzOpenFromRecordMatchesFull(f *testing.F) {
 		}
 		f.Add(uint(i), uint(0), p.texts[p.entry]+"\nfn zz_added() -> Int\n    1\nend\n", false)
 		f.Add(uint(i), uint(0), p.texts[p.entry]+"\nfn zz_added() -> Int\n    1\nend\n", true)
+	}
+	for _, s := range handSeeds(projects) {
+		f.Add(s.project, s.file, s.src, false)
 	}
 	f.Fuzz(func(t *testing.T, project, file uint, src string, onDisk bool) {
 		if !utf8.ValidString(src) || len(src) > 2*fuzzSeedText {

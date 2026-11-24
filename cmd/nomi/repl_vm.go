@@ -110,8 +110,9 @@ import (
 //     dispatches the type's interface calls to the newest impl, and each of
 //     the old impl's functions is redirected to the new one's
 //     (vmhost.Session.Supersede), so code an earlier input compiled calls
-//     it too. An impl is for the version of its type in force when it was
-//     written: it stays with that version, and replaces only an impl of
+//     it too; a function the new impl does not write (a derived Debug
+//     writes none) is answered by the value's shape. An impl is for the
+//     version of its type in force when it was written: it stays with that version, and replaces only an impl of
 //     the same version (replDecl.typeFile).
 //   - An input may extend an earlier input's type: an inherent impl or a
 //     `derive` for it is the input's (frontend.Checker.SessionSource). A

@@ -144,10 +144,8 @@ end
 }
 
 // buildStdFileForDerive analyses src as if it were the std module file
-// std/<name>.nomi, with the stdlib's impl index attached, and answers
-// CheckDeriveBounds' errors. The missing-impl pass leaves out a demand
-// whose every recording is std's own, so this is the only place a std
-// derive over a component without the impl is reported.
+// std/<name>.nomi, with the stdlib's impl index attached, and answers the
+// check's errors, std's own missing-impl check among them (stdMissingImpls).
 func buildStdFileForDerive(t *testing.T, name, src string) []analysis.TypeError {
 	t.Helper()
 	nodes, perrs := parser.ParseWithRecovery(lexer.Lex(src))
@@ -158,7 +156,9 @@ func buildStdFileForDerive(t *testing.T, name, src string) []analysis.TypeError 
 	lib := loadStdlibOnce()
 	fa := analysis.BuildFileWithStdlibAtPath(nodes, lib.Primitives, lib.Modules, "", nil, "std/"+name+".nomi")
 	analysis.AttachStdlibProjectImpls(fa, lib.Files)
-	return analysis.CheckDeriveBounds(fa, nodes, fa.Program().ImplIndex, nil)
+	errs := analysis.CheckDeriveBounds(fa, nodes, nil)
+	analysis.BuildTypes(fa, nodes)
+	return append(errs, analysis.CheckTypes(fa, nodes)...)
 }
 
 // A derive in std over a component with no impl of the interface is an
@@ -167,11 +167,16 @@ func buildStdFileForDerive(t *testing.T, name, src string) []analysis.TypeError 
 // passed the front end, and its derived bodies (`Hashable`, `Comparable`,
 // `ToJson`) were declined by the builder. The component here is a struct
 // of the same file with no impls at all, so every interface applies but
-// Equatable and Hashable, which its equality meets.
+// Equatable and Hashable, which its equality meets. A JSON derive names
+// its interface through the module's import, as std/jobs does.
 func TestStdDeriveOverAComponentWithoutTheImplIsRefused(t *testing.T) {
 	for _, iface := range componentCheckedDerives {
 		t.Run(iface, func(t *testing.T) {
-			src := fmt.Sprintf(`pub struct Shape
+			imports, line := "", 7
+			if iface == "ToJson" || iface == "FromJson" {
+				imports, line = "import json."+iface+"\n\n", 9
+			}
+			src := imports + fmt.Sprintf(`pub struct Shape
   path: List<String>
 end
 
@@ -194,8 +199,8 @@ derive %s for JwtError
 			if !ok {
 				t.Fatalf("a std derive over a component with no `%s` is admitted: want %q, got:\n  %s", iface, msg, errMsgs(errs))
 			}
-			if e.File != "std/jwtgap.nomi" || e.Line != 7 || e.Col != 3 {
-				t.Errorf("at %s:%d:%d, want std/jwtgap.nomi:7:3 (the variant)", e.File, e.Line, e.Col)
+			if e.File != "std/jwtgap.nomi" || e.Line != line || e.Col != 3 {
+				t.Errorf("at %s:%d:%d, want std/jwtgap.nomi:%d:3 (the variant)", e.File, e.Line, e.Col, line)
 			}
 			help := fmt.Sprintf("add `derive %[1]s` to `Shape` or write an `impl %[1]s for Shape` block", iface)
 			if len(e.Hints) != 1 || e.Hints[0] != help {

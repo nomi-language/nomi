@@ -20,7 +20,7 @@ func TestRespond_WritesOneContentLength(t *testing.T) {
 	defer rt.ResetSupervisors()
 	durations := rt.Cons(rt.SmallInt(0), rt.Cons(rt.SmallInt(0), rt.Cons(rt.SmallInt(0), rt.Cons(rt.SmallInt(0), rt.Cons(rt.SmallInt(int64(5*time.Second)), (*rt.List[rt.Int])(nil))))))
 	flags := rt.Cons(true, rt.Cons(true, rt.Cons(true, (*rt.List[bool])(nil))))
-	res := Listen("127.0.0.1:0", durations, nil, flags, nil, false, nil, nil, nil, false, nil, false, nil, false, nil, false)
+	res := Listen("127.0.0.1:0", rt.None[rt.NetListener](), durations, nil, flags, nil, false, nil, nil, nil, false, nil, false, nil, false, nil, false)
 	if res.Tag != 1 {
 		t.Fatalf("Listen failed: %v", res.Err)
 	}

@@ -4,17 +4,22 @@ A `std/storage` backend for any server that speaks the S3 protocol:
 DigitalOcean Spaces, MinIO, Cloudflare R2, Backblaze B2 and AWS.
 `s3.store(config)` returns a `Store`, std/storage's interface, so code
 written against `Store` runs on it unchanged. It is Nomi over `std/http`,
-with SigV4 signing over `std/hash`, and has no Go code of its own.
+with SigV4 signing over `std/hash`.
 
 ```sh
 nomi add github.com/nomi-language/nomi/lib/storage/s3
 ```
+
+A release `nomi` adds it with that command; before the first release, or with a
+`nomi` built from source, add it by its directory in a checkout of the
+repository: `nomi add ../nomi/lib/storage/s3`.
 
 This `boot` stores files in a Spaces bucket in production and in a local
 directory elsewhere:
 
 ```nomi
 import
+    std::secret.Secret
     std::storage.{self, Store}
     std::url.Url
     s3
@@ -29,7 +34,7 @@ fn boot(startup: Startup) -> Result<App, String>
             bucket: "photos",
             credentials: s3.Credentials{
                 access_key: Map.get(env, "SPACES_ACCESS_KEY") |> Option.with_default(""),
-                secret_key: Map.get(env, "SPACES_SECRET_KEY") |> Option.with_default(""),
+                secret_key: Map.get(env, "SPACES_SECRET_KEY") |> Option.with_default("") |> Secret.new(),
             },
             acl: Some("public-read"),
             cache_control: Some("public, max-age=31536000, immutable"),
@@ -53,6 +58,8 @@ end
 - Requests are path-style (`https://<endpoint>/<bucket>/<key>`) unless
   `addressing: Addressing.VirtualHost`, and sign the body's SHA-256 unless
   `payload: Payload.Unsigned`.
+- The secret key is a `std/secret` `Secret`, so `dbg`, a log line and a
+  failed test's report show `Secret(<hidden>)` in its place.
 - Each attempt is bounded by `timeout` (30 seconds), and a call that fails
   with `Unavailable` is tried again `retries` times (2).
 - `Store.list` is `ListObjectsV2`, read with `std/xml`: a prefix, a
@@ -72,7 +79,7 @@ end
 
 ## Tests
 
-`nomi test lib/storage/s3` needs no server: it checks AWS's published SigV4
+`nomi test` in this directory needs no server: it checks AWS's published SigV4
 examples byte for byte, and the requests the store sends, with
 `std/http/testing`. [`lib/storage/minio`](../minio) runs std/storage's
 conformance suite, presigned URLs and a public object against a throwaway

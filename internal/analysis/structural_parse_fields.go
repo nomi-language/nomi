@@ -18,9 +18,9 @@ func isParseFields(iface *InterfaceType) bool {
 
 // parseFieldFault is the interface a field of type t lacks to be a
 // ParseFields field, or "" when it has both.
-func (c *checker) parseFieldFault(t Type, recPos Pos, recKind RecordingKind) string {
+func (c *checker) parseFieldFault(t Type, site Recording) string {
 	for _, need := range parseFieldNeeds {
-		if d := fieldDemand(t, need); !typeImplementsInterface(c, d.t, d.iface, recPos, recKind) {
+		if d := fieldDemand(t, need); !typeImplementsInterface(c, d.t, d.iface, site) {
 			return need.Name
 		}
 	}
@@ -35,7 +35,7 @@ func (c *checker) parseFieldsHelp(concrete Type) (string, bool) {
 		return "", false
 	}
 	for _, f := range anon.Fields {
-		if lack := c.parseFieldFault(f.Type, Pos{}, RecordingKindCallSite); lack != "" {
+		if lack := c.parseFieldFault(f.Type, Recording{Kind: RecordingKindCallSite}); lack != "" {
 			return fmt.Sprintf("each field's type implements `Parse` and `Display`, and `%s`, the type of `%s`, does not implement `%s`", f.Type, f.Name, lack), true
 		}
 	}

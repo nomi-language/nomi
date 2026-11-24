@@ -621,8 +621,9 @@ var stdEnumSpecs = []stdEnumSpec{{
 	// the stream functions and std/fs's crossings, so without it
 	// none of those signatures projects.
 	//
-	// Sixteen variants over six payload slots: every `path` shares Path, and
-	// `Unsupported` and `Other` share Operation, by the dedup rule. The bare
+	// Eighteen variants over six payload slots: every `path` shares Path,
+	// `InvalidPath` and `Corrupt` share Reason, and `Unsupported` and `Other`
+	// share Operation, by the dedup rule. The bare
 	// variants are the failures that name no path.
 	origin:   "std/io",
 	nomi:     "Error",
@@ -643,6 +644,11 @@ var stdEnumSpecs = []stdEnumSpec{{
 			scalarField("path", "Path", kindString, nil),
 			scalarField("offset", "Offset", kindInt, nil),
 		),
+		structFieldsVariant("Corrupt",
+			scalarField("path", "Path", kindString, nil),
+			scalarField("reason", "Reason", kindString, nil),
+		),
+		structScalarVariant("Truncated", "path", "Path", kindString),
 		structScalarVariant("NoSpace", "path", "Path", kindString),
 		structScalarVariant("ReadOnly", "path", "Path", kindString),
 		bareVariant("TooManyOpen"),

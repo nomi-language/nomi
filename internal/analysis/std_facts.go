@@ -267,7 +267,7 @@ func sortedKeys[V any](m map[string]V) []string {
 }
 
 // stdFactsVersion versions Encode's layout.
-const stdFactsVersion = 5
+const stdFactsVersion = 6
 
 // Encode writes f, naming each file a position names by fileName.
 func (f *StdFacts) Encode(fileName func(string) string) []byte {
@@ -324,6 +324,15 @@ func (f *StdFacts) Encode(fileName func(string) string) []byte {
 			e.String(r.rec.TypeOrigin)
 			e.String(r.rec.IfaceOrigin)
 			e.String(r.rec.IfaceTypeParams)
+			e.String(r.rec.Callee)
+			e.String(r.rec.Param)
+			e.Int(int64(r.rec.Arg))
+			e.String(r.rec.Tag)
+			b := r.rec.Bound
+			e.String(b.Receiver)
+			e.String(b.Iface)
+			e.String(b.Param)
+			e.String(b.Bound)
 		}
 	}
 	e.Uint(uint64(len(f.boot)))
@@ -387,6 +396,10 @@ func DecodeStdFacts(data []byte, filePath func(string) string) (*StdFacts, error
 				r.rec.TypeOrigin = d.String()
 				r.rec.IfaceOrigin = d.String()
 				r.rec.IfaceTypeParams = d.String()
+				r.rec.Callee, r.rec.Param = d.String(), d.String()
+				r.rec.Arg = int(d.Int())
+				r.rec.Tag = d.String()
+				r.rec.Bound = ImplBound{Receiver: d.String(), Iface: d.String(), Param: d.String(), Bound: d.String()}
 				f.manifests[name] = append(f.manifests[name], r)
 			}
 		}

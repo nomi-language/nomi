@@ -61,16 +61,61 @@ type Memory struct {
 	nextOpen int
 	failures []*memFailure
 	temps    int
+	// inodes is the number newNode gave last.
+	inodes uint64
 }
 
 type memNode struct {
 	dir bool
 	// link marks a symlink, whose target is target.
-	link     bool
-	target   string
-	data     []byte
-	modified int64
-	mode     int64
+	link   bool
+	target string
+	data   []byte
+	mode   int64
+	// The times, in nanoseconds since the Unix epoch: the last change to
+	// the contents, the last access set by set_times (a read changes
+	// none, as on a disk mounted noatime), the last change to the
+	// contents or the metadata, and the birth.
+	modified, accessed, changed, created int64
+	// ino is the node's number, which every name of it shares: newNode
+	// gives each node the next one.
+	ino uint64
+	// linked is set once the node has a second name (Link): only then is
+	// its link count found by counting its names (linksOf).
+	linked bool
+	// owner is the numeric owner set_owner gave the node, nil until then.
+	owner *Owner
+}
+
+// newNode is n as a node of m: its own number, and every time now.
+// m.mu is held, or m is being built.
+func (m *Memory) newNode(n memNode) *memNode {
+	m.inodes++
+	n.ino = m.inodes
+	t := now()
+	n.modified, n.accessed, n.changed, n.created = t, t, t, t
+	return &n
+}
+
+// wrote notes a change to n's contents now: its modification and status
+// change times.
+func (n *memNode) wrote() {
+	t := now()
+	n.modified, n.changed = t, t
+}
+
+// linksOf is how many names n has. m.mu is held.
+func (m *Memory) linksOf(n *memNode) uint64 {
+	if !n.linked {
+		return 1
+	}
+	var count uint64
+	for _, other := range m.nodes {
+		if other == n {
+			count++
+		}
+	}
+	return count
 }
 
 func (n *memNode) kind() Kind {
@@ -124,7 +169,8 @@ func NewMemory(cwd string) *Memory {
 	if cwd == "" || cwd[0] != '/' {
 		cwd = "/" + cwd
 	}
-	m := &Memory{cwd: path.Clean(cwd), nodes: map[string]*memNode{"/": {dir: true, mode: 0o755}}, open: map[int]string{}}
+	m := &Memory{cwd: path.Clean(cwd), nodes: map[string]*memNode{}, open: map[int]string{}}
+	m.nodes["/"] = m.newNode(memNode{dir: true, mode: 0o755})
 	m.mkdirAll(m.cwd)
 	m.mkdirAll("/tmp")
 	return m
@@ -137,7 +183,7 @@ func (m *Memory) Put(p string, data []byte) {
 	defer m.mu.Unlock()
 	abs := m.view().abs(p)
 	m.mkdirAll(path.Dir(abs))
-	m.nodes[abs] = &memNode{data: append([]byte(nil), data...), modified: now(), mode: 0o644}
+	m.nodes[abs] = m.newNode(memNode{data: append([]byte(nil), data...), mode: 0o644})
 }
 
 // PutDir makes a directory and the directories above it.
@@ -154,7 +200,7 @@ func (m *Memory) PutLink(p, target string) {
 	defer m.mu.Unlock()
 	abs := m.view().abs(p)
 	m.mkdirAll(path.Dir(abs))
-	m.nodes[abs] = &memNode{link: true, target: target, modified: now(), mode: 0o777}
+	m.nodes[abs] = m.newNode(memNode{link: true, target: target, mode: 0o777})
 }
 
 // Fail makes the nth operation op on p fail with err (every one when nth is
@@ -252,7 +298,7 @@ func (m *Memory) mkdirAll(abs string) {
 	}
 	m.mkdirAll(path.Dir(abs))
 	if n, ok := m.nodes[abs]; !ok || !n.dir {
-		m.nodes[abs] = &memNode{dir: true, modified: now(), mode: 0o755}
+		m.nodes[abs] = m.newNode(memNode{dir: true, mode: 0o755})
 	}
 }
 
@@ -495,7 +541,7 @@ func (s *memSink) Write(b []byte) (int, error) {
 	// A node removed while open keeps the bytes and nobody sees them, as
 	// on a disk.
 	s.node.data = append(s.node.data, b...)
-	s.node.modified = now()
+	s.node.wrote()
 	return len(b), nil
 }
 
@@ -532,10 +578,11 @@ func (v memView) Create(p string, mode WriteMode) (rt.WriteSink, *rt.IOError) {
 	}
 	switch {
 	case !exists:
-		n = &memNode{modified: now(), mode: 0o644}
+		n = v.m.newNode(memNode{mode: 0o644})
 		v.m.nodes[abs] = n
 	case mode == Replace:
-		n.data, n.modified = nil, now()
+		n.data = nil
+		n.wrote()
 	}
 	release := v.m.handle(lexical)
 	sink := &memSink{m: v.m, lexical: lexical, node: n}
@@ -579,7 +626,7 @@ func (v memView) createAtomically(p, lexical string) (rt.WriteSink, *rt.IOError)
 				mode = old.mode
 			}
 		}
-		v.m.nodes[abs] = &memNode{data: sink.pending, modified: now(), mode: mode}
+		v.m.nodes[abs] = v.m.newNode(memNode{data: sink.pending, mode: mode})
 		return nil
 	}
 	return rt.WriteSink{Name: p, W: sink, Close: commit, Abort: func() { _ = release() }, Unbuffered: true}, nil
@@ -619,7 +666,7 @@ func (f *memFile) WriteAt(b []byte, off int64) (int, error) {
 		f.node.data = append(f.node.data, make([]byte, end-int64(len(f.node.data)))...)
 	}
 	copy(f.node.data[off:], b)
-	f.node.modified = now()
+	f.node.wrote()
 	return len(b), nil
 }
 
@@ -634,7 +681,7 @@ func (f *memFile) Truncate(size int64) error {
 	} else {
 		f.node.data = append(f.node.data, make([]byte, size-int64(len(f.node.data)))...)
 	}
-	f.node.modified = now()
+	f.node.wrote()
 	return nil
 }
 
@@ -683,7 +730,7 @@ func (v memView) OpenFile(p string, access Access) (rt.FileSource, *rt.IOError) 
 		if e := v.parentFor(p, abs); e != nil {
 			return rt.FileSource{}, e
 		}
-		n = &memNode{modified: now(), mode: 0o644}
+		n = v.m.newNode(memNode{mode: 0o644})
 		v.m.nodes[abs] = n
 	case !exists:
 		_, e := v.lookup(p, abs)
@@ -787,7 +834,7 @@ func (v memView) CreateDir(p string, parents bool) *rt.IOError {
 	if e := v.parentFor(p, abs); e != nil {
 		return e
 	}
-	v.m.nodes[abs] = &memNode{dir: true, modified: now(), mode: 0o755}
+	v.m.nodes[abs] = v.m.newNode(memNode{dir: true, mode: 0o755})
 	return nil
 }
 
@@ -907,13 +954,25 @@ func (v memView) Rename(from, to string) *rt.IOError {
 	return nil
 }
 
-func infoOfNode(n *memNode) Info {
-	info := Info{Kind: n.kind(), Size: int64(len(n.data)), Modified: time.Unix(0, n.modified), Mode: n.mode}
+// infoOfNode is what n answers: every time, its number on the memory file
+// system's one device (0), its owner when set_owner gave it one, and its
+// link count, except a directory's, whose names are its entries' too on a
+// disk and which memory does not count. m.mu is held.
+func (m *Memory) infoOfNode(n *memNode) Info {
+	info := Info{
+		Kind: n.kind(), Size: int64(len(n.data)), Mode: n.mode,
+		Modified: time.Unix(0, n.modified), Accessed: time.Unix(0, n.accessed),
+		Changed: time.Unix(0, n.changed), Created: time.Unix(0, n.created),
+		ID: &FileID{Inode: n.ino}, Owner: n.owner,
+	}
 	switch {
 	case n.dir:
 		info.Size = 0
 	case n.link:
 		info.Size = int64(len(n.target))
+		info.Links = m.linksOf(n)
+	default:
+		info.Links = m.linksOf(n)
 	}
 	return info
 }
@@ -932,7 +991,7 @@ func (v memView) Stat(p string) (Info, *rt.IOError) {
 	if e != nil {
 		return Info{}, e
 	}
-	return infoOfNode(n), nil
+	return v.m.infoOfNode(n), nil
 }
 
 func (v memView) Lstat(p string) (Info, *rt.IOError) {
@@ -949,7 +1008,7 @@ func (v memView) Lstat(p string) (Info, *rt.IOError) {
 	if e != nil {
 		return Info{}, e
 	}
-	return infoOfNode(n), nil
+	return v.m.infoOfNode(n), nil
 }
 
 func (v memView) Symlink(p, target string) *rt.IOError {
@@ -968,7 +1027,7 @@ func (v memView) Symlink(p, target string) *rt.IOError {
 	if e := v.parentFor(p, abs); e != nil {
 		return e
 	}
-	v.m.nodes[abs] = &memNode{link: true, target: target, modified: now(), mode: 0o777}
+	v.m.nodes[abs] = v.m.newNode(memNode{link: true, target: target, mode: 0o777})
 	return nil
 }
 
@@ -1007,8 +1066,132 @@ func (v memView) Chmod(p string, mode int64) *rt.IOError {
 		return e
 	}
 	n.mode = mode
+	n.changed = now()
 	return nil
 }
+
+// Chtimes sets the times of what p names, following symlinks.
+func (v memView) Chtimes(p string, modified, accessed *time.Time) *rt.IOError {
+	_, e := v.begin("set_times", OpMetadata, p)
+	defer v.m.mu.Unlock()
+	if e != nil {
+		return e
+	}
+	abs, e := v.resolve("chtimes", p, true)
+	if e != nil {
+		return e
+	}
+	n, e := v.lookup(p, abs)
+	if e != nil {
+		return e
+	}
+	if modified != nil {
+		n.modified = modified.UnixNano()
+	}
+	if accessed != nil {
+		n.accessed = accessed.UnixNano()
+	}
+	n.changed = now()
+	return nil
+}
+
+// Link gives the node at target, not followed, the second name p. Both
+// names hold the one node, so a write through either is seen through the
+// other, and each answers the same number and link count.
+func (v memView) Link(p, target string) *rt.IOError {
+	_, e := v.begin("create_link", OpCreate, p)
+	defer v.m.mu.Unlock()
+	if e != nil {
+		return e
+	}
+	at, e := v.resolve("link", target, false)
+	if e != nil {
+		return e
+	}
+	n, e := v.lookup(target, at)
+	if e != nil {
+		return e
+	}
+	if n.dir {
+		return errOf(rt.TagIOPermissionDenied, target)
+	}
+	abs, e := v.resolve("link", p, false)
+	if e != nil {
+		return e
+	}
+	if _, ok := v.m.nodes[abs]; ok {
+		return errOf(rt.TagIOAlreadyExists, p)
+	}
+	if e := v.parentFor(p, abs); e != nil {
+		return e
+	}
+	n.linked = true
+	n.changed = now()
+	v.m.nodes[abs] = n
+	return nil
+}
+
+// Chown gives what p names the owner, following a symlink when follow is
+// set. Memory has one user, who may give a file any owner.
+func (v memView) Chown(p string, user, group uint64, follow bool) *rt.IOError {
+	word := "set_owner"
+	if !follow {
+		word = "set_link_owner"
+	}
+	_, e := v.begin(word, OpMetadata, p)
+	defer v.m.mu.Unlock()
+	if e != nil {
+		return e
+	}
+	abs, e := v.resolve("chown", p, follow)
+	if e != nil {
+		return e
+	}
+	n, e := v.lookup(p, abs)
+	if e != nil {
+		return e
+	}
+	n.owner = &Owner{User: user, Group: group}
+	n.changed = now()
+	return nil
+}
+
+// memCapacity is the size the memory file system reports for itself. It
+// refuses nothing for space.
+const memCapacity = 1 << 30
+
+// DiskUsage is memCapacity, and what the files leave of it, each node
+// counted once however many names it has.
+func (v memView) DiskUsage(p string) (DiskUsage, *rt.IOError) {
+	_, e := v.begin("disk_usage", OpMetadata, p)
+	defer v.m.mu.Unlock()
+	if e != nil {
+		return DiskUsage{}, e
+	}
+	abs, e := v.resolve("statfs", p, true)
+	if e != nil {
+		return DiskUsage{}, e
+	}
+	if _, e := v.lookup(p, abs); e != nil {
+		return DiskUsage{}, e
+	}
+	seen := map[*memNode]bool{}
+	var used uint64
+	for _, n := range v.m.nodes {
+		if !seen[n] {
+			seen[n] = true
+			used += uint64(len(n.data))
+		}
+	}
+	free := uint64(0)
+	if used < memCapacity {
+		free = memCapacity - used
+	}
+	return DiskUsage{Total: memCapacity, Free: free, Available: free}, nil
+}
+
+// OwnerName is nothing: memory has no users.
+func (v memView) OwnerName(uint64, bool) (string, bool) { return "", false }
 
 func (v memView) Within(dir string) (Backend, func(), *rt.IOError) {
 	v.m.mu.Lock()
@@ -1041,7 +1224,7 @@ func (v memView) MakeTempDir() (string, *rt.IOError) {
 		dir := "/tmp/nomi-" + strconv.Itoa(v.m.temps)
 		if _, ok := v.m.nodes[dir]; !ok {
 			v.m.record("create_dir", dir)
-			v.m.nodes[dir] = &memNode{dir: true, modified: now(), mode: 0o700}
+			v.m.nodes[dir] = v.m.newNode(memNode{dir: true, mode: 0o700})
 			return dir, nil
 		}
 	}
@@ -1059,17 +1242,26 @@ func (m *Memory) Create(p string, mode WriteMode) (rt.WriteSink, *rt.IOError) {
 func (m *Memory) OpenFile(p string, access Access) (rt.FileSource, *rt.IOError) {
 	return m.view().OpenFile(p, access)
 }
-func (m *Memory) SyncDir(dir string) *rt.IOError                   { return m.view().SyncDir(dir) }
-func (m *Memory) List(dir string) ([]DirEntry, *rt.IOError)        { return m.view().List(dir) }
-func (m *Memory) CreateDir(p string, parents bool) *rt.IOError     { return m.view().CreateDir(p, parents) }
-func (m *Memory) Remove(p string) *rt.IOError                      { return m.view().Remove(p) }
-func (m *Memory) RemoveAll(p string) *rt.IOError                   { return m.view().RemoveAll(p) }
-func (m *Memory) Rename(from, to string) *rt.IOError               { return m.view().Rename(from, to) }
-func (m *Memory) Stat(p string) (Info, *rt.IOError)                { return m.view().Stat(p) }
-func (m *Memory) Lstat(p string) (Info, *rt.IOError)               { return m.view().Lstat(p) }
-func (m *Memory) Symlink(p, target string) *rt.IOError             { return m.view().Symlink(p, target) }
-func (m *Memory) ReadLink(p string) (string, *rt.IOError)          { return m.view().ReadLink(p) }
-func (m *Memory) Chmod(p string, mode int64) *rt.IOError           { return m.view().Chmod(p, mode) }
+func (m *Memory) SyncDir(dir string) *rt.IOError               { return m.view().SyncDir(dir) }
+func (m *Memory) List(dir string) ([]DirEntry, *rt.IOError)    { return m.view().List(dir) }
+func (m *Memory) CreateDir(p string, parents bool) *rt.IOError { return m.view().CreateDir(p, parents) }
+func (m *Memory) Remove(p string) *rt.IOError                  { return m.view().Remove(p) }
+func (m *Memory) RemoveAll(p string) *rt.IOError               { return m.view().RemoveAll(p) }
+func (m *Memory) Rename(from, to string) *rt.IOError           { return m.view().Rename(from, to) }
+func (m *Memory) Stat(p string) (Info, *rt.IOError)            { return m.view().Stat(p) }
+func (m *Memory) Lstat(p string) (Info, *rt.IOError)           { return m.view().Lstat(p) }
+func (m *Memory) Symlink(p, target string) *rt.IOError         { return m.view().Symlink(p, target) }
+func (m *Memory) ReadLink(p string) (string, *rt.IOError)      { return m.view().ReadLink(p) }
+func (m *Memory) Chmod(p string, mode int64) *rt.IOError       { return m.view().Chmod(p, mode) }
+func (m *Memory) Chtimes(p string, modified, accessed *time.Time) *rt.IOError {
+	return m.view().Chtimes(p, modified, accessed)
+}
+func (m *Memory) Link(p, target string) *rt.IOError { return m.view().Link(p, target) }
+func (m *Memory) Chown(p string, user, group uint64, follow bool) *rt.IOError {
+	return m.view().Chown(p, user, group, follow)
+}
+func (m *Memory) DiskUsage(p string) (DiskUsage, *rt.IOError)      { return m.view().DiskUsage(p) }
+func (m *Memory) OwnerName(id uint64, group bool) (string, bool)   { return "", false }
 func (m *Memory) Within(dir string) (Backend, func(), *rt.IOError) { return m.view().Within(dir) }
 func (m *Memory) TempDir() string                                  { return "/tmp" }
 func (m *Memory) MakeTempDir() (string, *rt.IOError)               { return m.view().MakeTempDir() }

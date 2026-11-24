@@ -1,6 +1,7 @@
 package frontend
 
 import (
+	"bytes"
 	"fmt"
 	"maps"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
+	"github.com/nomi-language/nomi/internal/stdcache"
 	"github.com/nomi-language/nomi/std"
 )
 
@@ -746,10 +748,9 @@ func (c *Checker) AnalyzeStdlibModule(moduleKey string, nodes []ast.Node) (*anal
 	analysis.AttachEditedStdlibImpls(fa, nodes, module, c.lib.Files)
 	var errs []analysis.TypeError
 	errs = append(errs, fa.TypeErrors...)
-	// The derive field check a project build runs over its own files
-	// (Sweep B-bounds), here with the index the module was just given: a
-	// file built on its own has none, and skips it.
-	errs = append(errs, analysis.CheckDeriveBounds(fa, nodes, fa.Program().ImplIndex, nil)...)
+	// The JSON derive gates a project build runs over its own files
+	// (Sweep B-bounds).
+	errs = append(errs, analysis.CheckDeriveBounds(fa, nodes, nil)...)
 	errs = append(errs, analysis.BuildTypes(fa, nodes)...)
 	// Again, now that BuildTypes has typed this file's impls: the index's
 	// function types and receiver identities are read off typed symbols.
@@ -836,8 +837,8 @@ func (c *Checker) CheckFileSource(path, src string, mode Mode) (*Project, error)
 		return nil, err
 	}
 	moduleName := c.PrepareFile(path, absPath)
-	if analysis.IsForeignStdlibDir(c.root) {
-		return nil, ForeignStdlibError(absPath, c.root)
+	if err := c.refuseOtherStdlib(absPath); err != nil {
+		return nil, err
 	}
 	// A test file is not an entry point, so entry_points placement does not
 	// apply to it. It keeps its key all the same: a file in its import
@@ -854,8 +855,8 @@ func (c *Checker) AnalyzeFileSource(path, src string, mode Mode) (*Project, erro
 		return nil, err
 	}
 	moduleName := c.PrepareFile(path, absPath)
-	if analysis.IsForeignStdlibDir(c.root) {
-		return nil, ForeignStdlibError(absPath, c.root)
+	if err := c.refuseOtherStdlib(absPath); err != nil {
+		return nil, err
 	}
 	return c.analyze(path, moduleName, !mode.Tests, src, mode)
 }
@@ -1050,19 +1051,73 @@ func (c *Checker) prepareStdlib(src string, mode Mode) ([]ast.Node, error) {
 	return analysis.SynthesizeUniversalDebug(nodes), nil
 }
 
-// StdlibFile reports whether absPath is a file of the stdlib source tree on
-// disk, and answers its module key ("std/<name>") and the tree's root. An
-// installed binary has no source tree, so the answer there is always no.
-func StdlibFile(absPath string) (moduleKey, stdRoot string, ok bool) {
-	stdRoot, err := analysis.StdlibPath()
-	if err != nil || !sameDirOrChild(absPath, stdRoot) {
-		return "", "", false
+// StdlibFile reports whether path is a .nomi file of this binary's standard
+// library on disk, and answers its module key ("std/<name>") and the root
+// of the tree it is in. Every command that treats a path as a stdlib module
+// asks it. A file is one when it is in the stdlib source tree, or in a copy
+// of the std this binary embeds, written for go-to-definition where there
+// is no source tree (internal/stdcache), whose version directory is this
+// binary's (std.CacheVersion) and whose bytes are its module's. The file and
+// the root are each compared by their real path, so one file is one module
+// however path names it: relative to any working directory, with `..`, or
+// through a symlink.
+//
+// A file of another version's copy, or one changed since it was written, is
+// no module of this binary's, and read as a user project it fails for
+// reasons that say nothing about it (`Add` is a reserved name). err says
+// what it is, and every command that would analyze it refuses it with err.
+func StdlibFile(path string) (moduleKey, stdRoot string, ok bool, err error) {
+	if filepath.Ext(path) != ".nomi" {
+		return "", "", false, nil
 	}
-	rel, err := filepath.Rel(stdRoot, absPath)
+	real := realPath(path)
+	if root, rootErr := analysis.StdlibPath(); rootErr == nil {
+		rel, relErr := filepath.Rel(realPath(root), real)
+		if relErr == nil && rel != "." && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return "std/" + analysis.StdlibLogicalModuleName(rel), root, true, nil
+		}
+	}
+	dir, version, rel, cached := stdcache.Locate(real)
+	if !cached {
+		return "", "", false, nil
+	}
+	copied := fmt.Sprintf("%s is a cached copy of the standard library from version %s, read-only, written for go-to-definition", path, version)
+	if own := std.CacheVersion(); version != own {
+		return "", "", false, fmt.Errorf("%s; this nomi's standard library is version %s", copied, own)
+	}
+	module := analysis.StdlibLogicalModuleName(rel)
+	embedded, isModule := std.ReadFile(module)
+	data, readErr := os.ReadFile(real)
+	if !isModule || readErr != nil || !bytes.Equal(data, embedded) {
+		return "", "", false, fmt.Errorf("%s, and it is no longer the text of that version's module", copied)
+	}
+	return "std/" + module, dir, true, nil
+}
+
+// realPath is path made absolute, with every symlink in it resolved where
+// the path exists.
+func realPath(path string) string {
+	abs, err := filepath.Abs(path)
 	if err != nil {
-		return "", "", false
+		return path
 	}
-	return "std/" + analysis.StdlibLogicalModuleName(rel), stdRoot, true
+	if real, err := filepath.EvalSymlinks(abs); err == nil {
+		return real
+	}
+	return abs
+}
+
+// refuseOtherStdlib refuses absPath, an entry rooted at c.root, when it is
+// a file of a standard library that is not this binary's: another
+// checkout's (ForeignStdlibError), or a cached copy that is not this
+// binary's module (StdlibFile). Such a file is never analyzed as a user
+// project.
+func (c *Checker) refuseOtherStdlib(absPath string) error {
+	if analysis.IsForeignStdlibDir(c.root) {
+		return ForeignStdlibError(absPath, c.root)
+	}
+	_, _, _, err := StdlibFile(absPath)
+	return err
 }
 
 // ForeignStdlibError refuses a file of another checkout's standard library,
@@ -1079,31 +1134,6 @@ func ForeignStdlibError(absPath, stdRoot string) error {
 	}
 	return fmt.Errorf("%s is in the standard library of another Nomi checkout (%s); this nomi's standard library is %s, so run that checkout's nomi",
 		absPath, filepath.Dir(stdRoot), own)
-}
-
-func sameDirOrChild(path, dir string) bool {
-	absPath, err := filepath.Abs(path)
-	if err != nil {
-		return false
-	}
-	absDir, err := filepath.Abs(dir)
-	if err != nil {
-		return false
-	}
-	if real, err := filepath.EvalSymlinks(absPath); err == nil {
-		absPath = real
-	}
-	if real, err := filepath.EvalSymlinks(absDir); err == nil {
-		absDir = real
-	}
-	if absPath == absDir {
-		return true
-	}
-	rel, err := filepath.Rel(absDir, absPath)
-	if err != nil {
-		return false
-	}
-	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
 // collectProjectFiles projects the analyzer's two per-sibling maps onto one

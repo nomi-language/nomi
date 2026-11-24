@@ -9,6 +9,7 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/frontend"
+	"github.com/nomi-language/nomi/internal/ir"
 	"github.com/nomi-language/nomi/internal/irbuild"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
@@ -40,6 +41,10 @@ type sessionFiles struct {
 	boot    string
 	texts   map[string]string
 	objects *irbuild.SessionObjects
+	// shaped holds each earlier impl function Supersede redirected to the
+	// machine's by-shape function, by its linkage name past its file's
+	// key, which a later impl that writes the function takes back.
+	shaped map[string][]*ir.Func
 	// generic holds the files that declare something generic, which a
 	// check reads with their bodies (analysis.ProgramInterfaces.SetBodies),
 	// so a later file can ask for an instance no earlier lowering made.
@@ -218,10 +223,20 @@ func (s *Session) Commit(p *Program) {
 // impl's functions, compiled before or after, runs the later one's. A REPL
 // input that redefines an impl replaces the earlier one for code earlier
 // inputs compiled too.
+//
+// The later impl is the type's impl of the interface from then on, so a
+// function the earlier impl wrote and the later one does not is answered
+// as the later block answers it: a block that writes no function (a
+// derived Equatable, Hashable, Debug or Display) is the machine's by the value's
+// shape, and the earlier
+// function is redirected to the machine's by-shape function for it
+// (vm.Machine.ByShape). A later impl that writes the function again takes
+// back every earlier function redirected so.
 func (s *Session) Supersede(p *Program, key, file, decl string) {
 	if s.sf == nil || s.m == nil || p.entry == nil {
 		return
 	}
+	written := map[string]bool{}
 	for _, f := range p.entry.Funcs() {
 		if f.Sym() == nil {
 			continue
@@ -230,7 +245,25 @@ func (s *Session) Supersede(p *Program, key, file, decl string) {
 		if !ok || !strings.HasPrefix(rest, decl+"[") {
 			continue
 		}
+		written[rest] = true
 		s.m.Redirect(s.sf.objects.Func(file+"."+rest), f)
+		for _, old := range s.sf.shaped[rest] {
+			s.m.Redirect(old, f)
+		}
+		delete(s.sf.shaped, rest)
+	}
+	for _, old := range s.sf.objects.FuncsUnder(file + "." + decl + "[") {
+		rest := strings.TrimPrefix(old.Sym().Link(), file+".")
+		if written[rest] {
+			continue
+		}
+		if shape := s.m.ByShape(old); shape != nil {
+			s.m.Redirect(old, shape)
+			if s.sf.shaped == nil {
+				s.sf.shaped = map[string][]*ir.Func{}
+			}
+			s.sf.shaped[rest] = append(s.sf.shaped[rest], old)
+		}
 	}
 }
 

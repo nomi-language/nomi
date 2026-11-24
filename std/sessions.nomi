@@ -1,6 +1,6 @@
 //# Sessions for server-rendered web apps: a value of the app's own type
-//# that lives across requests in one cookie, encrypted and authenticated
-//# with AES-256-GCM, so a browser can neither read nor change it.
+//# that lives across requests in one cookie, sealed by std::cipher with
+//# AES-256-GCM, so a browser can neither read nor change it.
 //#
 //# `with_session` is middleware that hands the handler the request's
 //# session, by type, beside the request. The handler reads
@@ -57,10 +57,12 @@ import
     base64
     bool.Bool.{self, False, True}
     bytes.Bytes
+    cipher.{self, Algorithm, Key}
+    debug.Debug
+    display.Display
     duration.Duration
     hash
     http.{self, Cookie, Headers, MaxAge, Request, Response, SameSite, Status, ToResponse}
-    http::host
     instant.Instant
     int.Int
     iter.Iter
@@ -72,9 +74,10 @@ import
     strings.String
 end
 
-/// A 32-byte AES-256 key that seals session cookies. Its `Debug` shows
-/// nothing of it.
-pub opaque type SessionKey Bytes
+/// The std::cipher AES-256-GCM key that seals session cookies. Its `Debug`
+/// shows nothing of it: `dbg`, `Debug.inspect` and a failed assertion's
+/// report all read `SessionKey(<hidden>)`. It has no `Display`.
+pub opaque type SessionKey Key
 
 impl SessionKey
     /// The key for `secret`, which must hold at least 32 bytes, such as 32
@@ -91,11 +94,44 @@ impl SessionKey
         data = String.to_bytes(secret)
         length = Bytes.length(data)
 
-        if length < 32 then
-            Err("a session secret needs at least 32 bytes, got ${length}")
-        else
-            Ok(SessionKey(hash.hmac_sha256(data, String.to_bytes("nomi session key"))))
-        end
+        if length < 32 then return Err("a session secret needs at least 32 bytes, got ${length}")
+
+        Key.from_bytes(
+            Algorithm.Aes256Gcm,
+            hash.hmac_sha256(data, String.to_bytes("nomi session key")),
+        )
+        |> Result.map(SessionKey)
+        |> Result.map_err(Display.to_string)
+    end
+end
+
+impl Debug for SessionKey
+    /// `SessionKey(<hidden>)`, alone, inside another value and in a failed
+    /// assertion's report.
+    //! import std::assertions.AssertionFailure
+    //! import std::testing
+    //!
+    //! key = SessionKey.derive("a test secret of 32 bytes or more")!
+    //! other = SessionKey.derive("another secret of 32 bytes or more")!
+    //! store = CookieStore{key:, previous_keys: [other]}
+    //!
+    //! assert Debug.inspect(key) == "SessionKey(<hidden>)"
+    //!
+    //! assert Debug.inspect((Some(key), [other], {1 => key}))
+    //!     == "(Some(SessionKey(<hidden>)), [SessionKey(<hidden>)], {1 => SessionKey(<hidden>)})"
+    //!
+    //! assert Err(failure) = testing.check([store] == [])
+    //! report = AssertionFailure.format(failure)
+    //!
+    //! assert String.contains(
+    //!     report,
+    //!     "[CookieStore{domain: None, idle_timeout: None, key: SessionKey(<hidden>),",
+    //! )
+    //!
+    //! refute String.contains(report, "<<")
+    //
+    fn inspect(SessionKey) -> String
+        "SessionKey(<hidden>)"
     end
 end
 
@@ -143,12 +179,15 @@ pub struct Session<T>
 end
 
 /// What a `Session` carries besides its value: its store, when it began
-/// and was last written, and the flash messages to write.
+/// and was last written, the flash messages to write, and the time its
+/// request read the clock, which every step of the request's session work
+/// takes as now.
 pub opaque struct SessionState
     store:    CookieStore
     created:  Int
     seen:     Int
     outgoing: List<String>
+    now:      Int
 end
 
 impl Session<T>
@@ -171,7 +210,7 @@ impl Session<T>
         state =
             case session.value
                 Some(_) -> session.state
-                None    -> {..session.state, created: now()}
+                None    -> {..session.state, created: session.state.now}
             end
 
         {..session, value: Some(value), state:}
@@ -193,7 +232,7 @@ impl Session<T>
     /// The session with its `max_age` started again now, as at signing in
     /// when a session already held a value.
     pub fn renew<T>(session: Session<T>) -> Session<T>
-        {..session, state: {.., created: now()}}
+        {..session, state: {.., created: session.state.now}}
     end
 end
 
@@ -265,7 +304,7 @@ end
 pub fn write<T>(response: Response, session: Session<T>) -> Response where T: ToJson
     state = session.state
     store = state.store
-    at = now()
+    at = state.now
     left = state.created + Duration.as_seconds(store.max_age) - at
 
     lifetime =
@@ -295,26 +334,18 @@ pub fn write<T>(response: Response, session: Session<T>) -> Response where T: To
         end
 
     plain = String.to_bytes(Json.encode(Json.Obj(payload)))
+    sealed = cipher.seal(key_of(store.key), plain, associated: label(store))
 
-    case host.seal(key_bytes(store.key), plain, label(store))
-        Ok(sealed) ->
-            cookie = {
-                ..base_cookie(store),
-                value:   base64.encode_url(sealed, padded: False),
-                max_age: MaxAge.Seconds(lifetime),
-            }
+    cookie = {
+        ..base_cookie(store),
+        value:   base64.encode_url(sealed, padded: False),
+        max_age: MaxAge.Seconds(lifetime),
+    }
 
-            if String.length("${cookie}") > 4096 then
-                Response.error(
-                    Status.internal_server_error,
-                    "the session is over 4096 bytes sealed",
-                )
-            else
-                replace_cookie(response, cookie)
-            end
-
-        Err(reason) ->
-            Response.error(Status.internal_server_error, reason)
+    if String.length("${cookie}") > 4096 then
+        Response.error(Status.internal_server_error, "the session is over 4096 bytes sealed")
+    else
+        replace_cookie(response, cookie)
     end
 end
 
@@ -339,7 +370,7 @@ fn empty<T>(store: CookieStore, at: Int) -> Session<T>
     Session{
         value: None,
         flash: [],
-        state: SessionState{store:, created: at, seen: at, outgoing: []},
+        state: SessionState{store:, created: at, seen: at, outgoing: [], now: at},
     }
 end
 
@@ -378,13 +409,16 @@ fn open<T>(store: CookieStore, text: String, at: Int) -> Option<Session<T>> wher
     Some(Session{
         value:,
         flash:,
-        state: SessionState{store:, created:, seen:, outgoing: []},
+        state: SessionState{store:, created:, seen:, outgoing: [], now: at},
     })
 end
 
 fn unseal(store: CookieStore, sealed: Bytes) -> Option<Bytes>
     keys = [store.key] + store.previous_keys
-    Iter.find_map(keys, fn key -> host.open_sealed(key_bytes(key), sealed, label(store)))
+
+    Iter.find_map(keys, fn key ->
+        cipher.open(key_of(key), sealed, associated: label(store)) |> Result.to_option()
+    end)
 end
 
 fn int_field(fields: Map<String, Json>, name: String) -> Option<Int>
@@ -414,7 +448,7 @@ end
 fn idle_due<T>(session: Session<T>) -> Bool
     session.value != None
         and session.state.store.idle_timeout != None
-        and now() - session.state.seen >= 60
+        and session.state.now - session.state.seen >= 60
 end
 
 // Whether `response` already sets the cookie `name`.
@@ -461,8 +495,8 @@ fn label(store: CookieStore) -> Bytes
     String.to_bytes("nomi session 1 ${store.name}")
 end
 
-fn key_bytes(SessionKey(data)) -> Bytes
-    data
+fn key_of(SessionKey(key)) -> Key
+    key
 end
 
 fn now() -> Int

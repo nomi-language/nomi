@@ -90,13 +90,13 @@ func TestEqualityBoundRefusesATypeWithoutEquality(t *testing.T) {
 		"Hashable.hash of an Option": {"Hashable.hash(Some(fn x: Int -> x)) == 0",
 			"Option<(Int) -> Int> does not implement Hashable (required by `Hashable.hash`) | `Option<(Int) -> Int>` holds `(Int) -> Int`, and a function value has no equality"},
 		"Hashable.hash of an Option of a declared type": {"Hashable.hash(Some(Op{f: fn x -> x})) == 0",
-			"no impl of `Hashable` for `Op` (required via call site) | `Op` holds a function, an Iter or a handle to running state, which has no equality; write an `impl Hashable for Op` block that leaves it out"},
+			"no impl of `Hashable` for `Op` (required by the call `Hashable.hash`) | `Op` holds a function, an Iter or a handle to running state, which has no equality; write an `impl Hashable for Op` block that leaves it out"},
 		"Hashable.hash of a tuple": {"Hashable.hash((1, fn x: Int -> x)) == 0",
 			"(Int, (Int) -> Int) does not implement Hashable (required by `Hashable.hash`) | `(Int, (Int) -> Int)` holds `(Int) -> Int`, and a function value has no equality"},
 		"Equatable.equal of a list": {"Equatable.equal([fn x: Int -> x], [])",
 			"List<(Int) -> Int> does not implement Equatable (required by `Equatable.equal`) | `List<(Int) -> Int>` holds `(Int) -> Int`, and a function value has no equality"},
 		"a list's in": {"Op{f: fn x -> x} in [Op{f: fn x -> x}]",
-			"no impl of `Equatable` for `Op` (required via membership test `in`) | `Op` holds a function, an Iter or a handle to running state, which has no equality; write an `impl Equatable for Op` block that leaves it out"},
+			"no impl of `Equatable` for `Op` (required via membership test `in`) | `List<T>`'s `Contains` impl requires `T: Equatable` | `Op` holds a function, an Iter or a handle to running state, which has no equality; write an `impl Equatable for Op` block that leaves it out"},
 	} {
 		src := equalityBoundDecls + "fn f() -> Bool\n    " + tc.body + "\nend\n"
 		got := equalityBoundErrors(src)
@@ -106,6 +106,56 @@ func TestEqualityBoundRefusesATypeWithoutEquality(t *testing.T) {
 		}
 		if len(got) != 1 || got[0] != tc.want {
 			t.Errorf("%s: want the one error %q, got:\n%s", name, tc.want, strings.Join(got, "\n"))
+		}
+	}
+}
+
+// `equal` and `hash` called qualified, through the interface or through the
+// type, over a value that holds a function at any depth are refused, for
+// every container, wrapper and structural type, whether std writes the
+// impl (List's, Vector's, Map's and Set's, whose Equatable names no bound
+// on the element) or derives it (Option's, Result's). Each is one error
+// whose help names what the value holds, as `==` on it is.
+func TestQualifiedEqualityOverAValueWithNoEqualityIsRefused(t *testing.T) {
+	const decls = "fn inc(n: Int) -> Int\n    n + 1\nend\n\n"
+	unmet := func(typ, iface, by string) string {
+		return typ + " does not implement " + iface + " (required by `" + by + "`) | `" + typ + "` holds `(Int) -> Int`, and a function value has no equality"
+	}
+	const res = "(Ok(inc) as Result<(Int) -> Int, Int>)"
+	for _, tc := range []struct{ params, body, want string }{
+		{"", "List.equal([inc], [inc])", unmet("List<(Int) -> Int>", "Equatable", "List.equal")},
+		{"", "Equatable.equal([inc], [inc])", unmet("List<(Int) -> Int>", "Equatable", "Equatable.equal")},
+		{"", "Hashable.hash([inc]) == 0", unmet("List<(Int) -> Int>", "Hashable", "Hashable.hash")},
+		{"", "List.equal([[inc]], [[inc]])", unmet("List<List<(Int) -> Int>>", "Equatable", "List.equal")},
+		{"", "List.equal([(1, inc)], [(1, inc)])", unmet("List<(Int, (Int) -> Int)>", "Equatable", "List.equal")},
+		{"", "List.equal([{a: inc}], [{a: inc}])", unmet("List<{a: (Int) -> Int}>", "Equatable", "List.equal")},
+		{"", "Vector.equal(Vector[inc], Vector[inc])", unmet("Vector<(Int) -> Int>", "Equatable", "Vector.equal")},
+		{"", "Equatable.equal(Vector[inc], Vector[inc])", unmet("Vector<(Int) -> Int>", "Equatable", "Equatable.equal")},
+		{"", "Hashable.hash(Vector[inc]) == 0", unmet("Vector<(Int) -> Int>", "Hashable", "Hashable.hash")},
+		{"", "Map.equal({1 => inc}, {1 => inc})", unmet("Map<Int, (Int) -> Int>", "Equatable", "Map.equal")},
+		{"", "Equatable.equal({1 => inc}, {1 => inc})", unmet("Map<Int, (Int) -> Int>", "Equatable", "Equatable.equal")},
+		{"", "Hashable.hash({1 => inc}) == 0", unmet("Map<Int, (Int) -> Int>", "Hashable", "Hashable.hash")},
+		{"s: Set<(Int) -> Int>", "Set.equal(s, s)", unmet("Set<(Int) -> Int>", "Equatable", "Set.equal")},
+		{"s: Set<(Int) -> Int>", "Equatable.equal(s, s)", unmet("Set<(Int) -> Int>", "Equatable", "Equatable.equal")},
+		{"s: Set<(Int) -> Int>", "Hashable.hash(s) == 0", unmet("Set<(Int) -> Int>", "Hashable", "Hashable.hash")},
+		{"", "Option.equal(Some(inc), None)", unmet("Option<(Int) -> Int>", "Equatable", "Option.equal")},
+		{"", "Option.hash(Some(inc)) == 0", unmet("Option<(Int) -> Int>", "Hashable", "Option.hash")},
+		{"", "Option.equal(Some([inc]), None)", unmet("Option<List<(Int) -> Int>>", "Equatable", "Option.equal")},
+		{"", "Result.equal(" + res + ", " + res + ")", unmet("Result<(Int) -> Int, Int>", "Equatable", "Result.equal")},
+		{"", "Result.hash(" + res + ") == 0", unmet("Result<(Int) -> Int, Int>", "Hashable", "Result.hash")},
+		{"", "Equatable.equal((1, inc), (1, inc))", unmet("(Int, (Int) -> Int)", "Equatable", "Equatable.equal")},
+		{"", "Hashable.hash((1, inc)) == 0", unmet("(Int, (Int) -> Int)", "Hashable", "Hashable.hash")},
+		{"", "Equatable.equal({a: inc}, {a: inc})", unmet("{a: (Int) -> Int}", "Equatable", "Equatable.equal")},
+		{"", "Hashable.hash({a: [inc]}) == 0", unmet("{a: List<(Int) -> Int>}", "Hashable", "Hashable.hash")},
+	} {
+		src := decls + "fn f(" + tc.params + ") -> Bool\n    " + tc.body + "\nend\n"
+		got := equalityBoundErrors(src)
+		if len(got) == 0 {
+			t.Errorf("the front end accepts `%s`; want %q", tc.body, tc.want)
+			continue
+		}
+		if len(got) != 1 || got[0] != tc.want {
+			t.Errorf("%s: want the one error %q, got:\n%s", tc.body, tc.want, strings.Join(got, "\n"))
 		}
 	}
 }

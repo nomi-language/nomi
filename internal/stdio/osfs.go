@@ -39,6 +39,10 @@ type osOps interface {
 	Readlink(name string) (string, error)
 	Symlink(oldname, newname string) error
 	Chmod(name string, mode fs.FileMode) error
+	Chtimes(name string, atime, mtime time.Time) error
+	Chown(name string, uid, gid int) error
+	Lchown(name string, uid, gid int) error
+	Link(oldname, newname string) error
 }
 
 // hostOS is osOps over Go's os package: the whole disk.
@@ -58,6 +62,10 @@ func (hostOS) Lstat(n string) (fs.FileInfo, error)       { return os.Lstat(n) }
 func (hostOS) Readlink(n string) (string, error)         { return os.Readlink(n) }
 func (hostOS) Symlink(target, n string) error            { return os.Symlink(target, n) }
 func (hostOS) Chmod(n string, mode fs.FileMode) error    { return os.Chmod(n, mode) }
+func (hostOS) Chtimes(n string, a, m time.Time) error    { return os.Chtimes(n, a, m) }
+func (hostOS) Chown(n string, uid, gid int) error        { return os.Chown(n, uid, gid) }
+func (hostOS) Lchown(n string, uid, gid int) error       { return os.Lchown(n, uid, gid) }
+func (hostOS) Link(target, n string) error               { return linkName(target, n) }
 
 // disk is the operating system's file system: the whole of it, or inside
 // `fs.within` what is under one directory.
@@ -350,9 +358,13 @@ func (d *disk) Rename(from, to string) *rt.IOError {
 	return nil
 }
 
-func infoOf(info fs.FileInfo) Info {
-	return Info{Kind: kindOf(info.Mode().Type()), Size: info.Size(), Modified: info.ModTime(),
-		Mode: int64(info.Mode().Perm())}
+// infoOf is what info, from a stat of the native path n, says, with what
+// the system's own record of it adds (sysInfo).
+func (d *disk) infoOf(n string, info fs.FileInfo) Info {
+	out := Info{Kind: kindOf(info.Mode().Type()), Size: info.Size(), Modified: info.ModTime(),
+		Mode: ModeBits(info.Mode())}
+	sysInfo(&out, info, func() (*os.File, error) { return d.ops.Open(n) })
+	return out
 }
 
 func (d *disk) Stat(p string) (Info, *rt.IOError) {
@@ -364,7 +376,7 @@ func (d *disk) Stat(p string) (Info, *rt.IOError) {
 	if err != nil {
 		return Info{}, d.classify("stat", p, err)
 	}
-	return infoOf(info), nil
+	return d.infoOf(n, info), nil
 }
 
 func (d *disk) Lstat(p string) (Info, *rt.IOError) {
@@ -376,7 +388,7 @@ func (d *disk) Lstat(p string) (Info, *rt.IOError) {
 	if err != nil {
 		return Info{}, d.classify("lstat", p, err)
 	}
-	out := infoOf(info)
+	out := d.infoOf(n, info)
 	if out.Kind == KindSymlink && out.Size == 0 {
 		// A symlink's size is its target's length, which Unix reports and
 		// Windows does not (it answers 0); no target is empty.
@@ -415,10 +427,110 @@ func (d *disk) Chmod(p string, mode int64) *rt.IOError {
 	if e != nil {
 		return e
 	}
-	if err := d.ops.Chmod(n, fs.FileMode(mode)); err != nil {
+	if err := d.ops.Chmod(n, FileMode(mode)); err != nil {
 		return d.classify("chmod", p, err)
 	}
 	return nil
+}
+
+// Chtimes is os.Chtimes and Root.Chtimes, which leave a zero time as it is.
+func (d *disk) Chtimes(p string, modified, accessed *time.Time) *rt.IOError {
+	n, e := d.native(p)
+	if e != nil {
+		return e
+	}
+	var mtime, atime time.Time
+	if modified != nil {
+		mtime = *modified
+	}
+	if accessed != nil {
+		atime = *accessed
+	}
+	if err := d.ops.Chtimes(n, atime, mtime); err != nil {
+		return d.classify("chtimes", p, err)
+	}
+	return nil
+}
+
+// Link makes p a hard link to target. A missing target and a directory
+// there are settled by looking first, so the error names target, as in
+// memory; a failure to make the name names p.
+func (d *disk) Link(p, target string) *rt.IOError {
+	n, e := d.native(p)
+	if e != nil {
+		return e
+	}
+	t, e := d.native(target)
+	if e != nil {
+		return e
+	}
+	info, err := d.ops.Lstat(t)
+	if err != nil {
+		return d.classify("link", target, err)
+	}
+	if info.IsDir() {
+		return errOf(rt.TagIOPermissionDenied, target)
+	}
+	if err := d.ops.Link(t, n); err != nil {
+		return d.writeFailure("link", p, err)
+	}
+	return nil
+}
+
+// Chown is os.Chown, or os.Lchown when follow is not set, and Root's. A
+// system that has no numeric owners (ownerTarget) answers Unsupported.
+func (d *disk) Chown(p string, user, group uint64, follow bool) *rt.IOError {
+	if ownerTarget != "" {
+		operation := "fs.set_owner"
+		if !follow {
+			operation = "fs.set_link_owner"
+		}
+		return unsupported(operation, ownerTarget)
+	}
+	n, e := d.native(p)
+	if e != nil {
+		return e
+	}
+	chown := d.ops.Chown
+	if !follow {
+		chown = d.ops.Lchown
+	}
+	if err := chown(n, int(user), int(group)); err != nil {
+		return d.classify("chown", p, err)
+	}
+	return nil
+}
+
+// DiskUsage opens p, inside a root as any other path, and asks the system
+// about the file system it is on (diskUsage).
+func (d *disk) DiskUsage(p string) (DiskUsage, *rt.IOError) {
+	if diskUsageTarget != "" {
+		return DiskUsage{}, unsupported("fs.disk_usage", diskUsageTarget)
+	}
+	n, e := d.native(p)
+	if e != nil {
+		return DiskUsage{}, e
+	}
+	f, err := d.ops.Open(n)
+	if err != nil {
+		return DiskUsage{}, d.classify("open", p, err)
+	}
+	defer f.Close()
+	usage, err := diskUsage(f)
+	if err != nil {
+		return DiskUsage{}, classify("statfs", p, err)
+	}
+	return usage, nil
+}
+
+// OwnerName looks the number up in the system's users or groups
+// (ownerName). Inside `fs.within` it answers nothing, since the lookup
+// reads files outside the directory.
+func (d *disk) OwnerName(id uint64, group bool) (string, bool) {
+	if d.root != "" {
+		return "", false
+	}
+	return ownerName(id, group)
 }
 
 func (d *disk) Within(dir string) (Backend, func(), *rt.IOError) {

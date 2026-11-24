@@ -391,5 +391,10 @@ func TestIRParamShapeAgreesWithTheVMForStd(t *testing.T) {
 			kinds[body] = f.params[:slot]
 		}
 	}
-	v12RunWithRecordedShapes(t, "std", entries, vmRetainedStd.ranCount(t), kinds)
+	// A function the population test records as `blocks` (it waits past
+	// the probe's bound: timer.every) is one this test's bubble sees enter
+	// and then block, which it counts as run, so the two classes together
+	// are what the free search reaches here.
+	wantRan := vmRetainedStd.ranCount(t) + vmRetainedStd.classCount(t, vmStdBlocks)
+	v12RunWithRecordedShapes(t, "std", entries, wantRan, kinds)
 }
