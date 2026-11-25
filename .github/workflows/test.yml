@@ -1,9 +1,15 @@
 # Runs on every push to main and every pull request.
 #
-# internal/irbuild is its own job: it is the longest single package (about
-# 100 s on a laptop), and run alongside internal/analysis and internal/lsp
-# it would set the wall time of the whole run. Node 22 is installed so the
-# tests that run a js/wasm build under node (cmd/nomi-wasm,
+# The Go packages run in the groups scripts/test-go-packages.sh defines, a
+# job each on Linux and on Windows (the go matrix, whose groups the
+# go-groups job reads from the script): internal/expectation,
+# internal/analysis, internal/lsp, vmhost with internal/vm, and `rest`,
+# every package no other job tests, which also runs go vet. As one job they
+# shared a runner's four cores and took 29 minutes on Linux and 26 on
+# Windows; internal/expectation, 150 s alone on a laptop, took 1368 s
+# there. internal/irbuild is a job of its own on each system: it is the
+# longest single package and needs more memory. Node 22 is installed on
+# Linux so the tests that run a js/wasm build under node (cmd/nomi-wasm,
 # internal/wasmsmoke, cmd/nomi's web builds) run instead of skipping.
 #
 # cmd/nomi runs in the parts scripts/test-cmd-nomi.sh defines, a job each
@@ -25,8 +31,7 @@
 # The tour job builds the tour's wasm bundle, which the go job lacks (the
 # TestTourWasm* tests skip there), and checks it as `make test-tour` does.
 #
-# The windows and windows-irbuild jobs run the go and irbuild jobs' tests on
-# Windows.
+# The windows-irbuild job runs the irbuild job's tests on Windows.
 #
 # Memory: a hosted runner has 4 cores and 16 GB, and each Linux job prints
 # what it has (nproc, free -g) before it tests. go test runs -p 4 test
@@ -57,27 +62,60 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  go:
-    name: go vet and go test (all but irbuild and cmd/nomi)
+  # The package groups, read from the script, so a group it adds runs here
+  # with no change to this file.
+  go-groups:
+    name: the Go package groups
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 5
+    outputs:
+      groups: ${{ steps.groups.outputs.groups }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: groups
+        run: echo "groups=$(bash scripts/test-go-packages.sh groups | jq -R . | jq -s -c .)" >> "$GITHUB_OUTPUT"
+
+  # Each group on Linux and on Windows; `rest` is every package no other
+  # job tests, and runs go vet first. Git on Windows would check the tree
+  # out with CRLF line ends, which every golden file and doctest compares
+  # byte for byte, so autocrlf is off before the checkout. Windows has no
+  # Node: the js/wasm tests skip there, as do the tour, VS Code and
+  # tree-sitter checks, which run on Linux only. A Windows runner has the
+  # same 4 cores and 16 GB and takes the same GOMEMLIMIT and -p, and a
+  # longer limit.
+  go:
+    name: go test ${{ matrix.group }} on ${{ matrix.os }}
+    needs: go-groups
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        group: ${{ fromJSON(needs.go-groups.outputs.groups) }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: ${{ matrix.os == 'windows-latest' && 60 || 45 }}
     env:
       GOMEMLIMIT: 3GiB
     steps:
       - name: runner resources
+        if: runner.os == 'Linux'
         run: |
           nproc
           free -g
+      - if: runner.os == 'Windows'
+        run: git config --global core.autocrlf false
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - uses: actions/setup-node@v4
+      - if: runner.os == 'Linux'
+        uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: go vet ./...
+      - if: matrix.group == 'rest'
+        run: go vet ./...
       - name: go test
-        run: go test -p 4 -count=1 -timeout 40m $(go list ./... | grep -v -e '/internal/irbuild$' -e '/cmd/nomi$')
+        shell: bash
+        run: bash scripts/test-go-packages.sh "${{ matrix.group }}" -p 4 -timeout ${{ matrix.os == 'windows-latest' && '55m' || '40m' }}
 
   irbuild:
     name: go test ./internal/irbuild
@@ -109,7 +147,7 @@ jobs:
       - id: parts
         run: echo "parts=$(bash scripts/test-cmd-nomi.sh parts | jq -R . | jq -s -c .)" >> "$GITHUB_OUTPUT"
 
-  # Each part on Linux and on Windows. On Windows, as in the windows job,
+  # Each part on Linux and on Windows. On Windows, as in the go job,
   # autocrlf is off before the checkout and there is no Node; the script
   # runs under the bash that Git for Windows installs.
   cmdnomi:
@@ -144,30 +182,8 @@ jobs:
         shell: bash
         run: bash scripts/test-cmd-nomi.sh "${{ matrix.part }}" -timeout 30m
 
-  # The Windows jobs run what the go and irbuild jobs run, split the same
-  # way. Git would check the tree out with CRLF line ends, which every
-  # golden file and doctest compares byte for byte, so autocrlf is off
-  # before the checkout. No Node: the js/wasm tests skip, as do the tour,
-  # VS Code and tree-sitter checks, which run on Linux only. A Windows
-  # runner has the same 4 cores and 16 GB and takes the same GOMEMLIMIT
-  # and -p.
-  windows:
-    name: go vet and go test on Windows (all but irbuild and cmd/nomi)
-    runs-on: windows-latest
-    timeout-minutes: 60
-    env:
-      GOMEMLIMIT: 3GiB
-    steps:
-      - run: git config --global core.autocrlf false
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-      - run: go vet ./...
-      - name: go test
-        shell: bash
-        run: go test -p 4 -count=1 -timeout 55m $(go list ./... | grep -v -e '/internal/irbuild$' -e '/cmd/nomi$')
-
+  # internal/irbuild on Windows, as the irbuild job runs it on Linux, with
+  # autocrlf off before the checkout as in the go job.
   windows-irbuild:
     name: go test ./internal/irbuild on Windows
     runs-on: windows-latest

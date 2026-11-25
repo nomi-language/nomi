@@ -12,6 +12,7 @@ import (
 	"io"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
@@ -205,8 +206,14 @@ func TestUpgrade_ReplacesAnOlderRelease(t *testing.T) {
 		"Restart your editor to load the new files.\n"; out != want {
 		t.Errorf("nomi upgrade prints\n%s\nwant\n%s", out, want)
 	}
-	if got, others := s.installed(t); got != "the new nomi" || len(others) != 0 {
-		t.Errorf("the installed nomi holds %q, beside %q", got, others)
+	// On Windows the file that was running is left aside for the next nomi
+	// to remove (TestUpgrade_ReplacingAnExecutable).
+	var beside []string
+	if runtime.GOOS == "windows" {
+		beside = []string{filepath.Base(asideName(s.exe))}
+	}
+	if got, others := s.installed(t); got != "the new nomi" || !slices.Equal(others, beside) {
+		t.Errorf("the installed nomi holds %q, beside %q, want %q", got, others, beside)
 	}
 	if want := [][]string{{s.exe, "editor", "install", "nvim"}}; !slices.EqualFunc(s.newRuns, want, slices.Equal) {
 		t.Errorf("the new nomi ran %q, want %q", s.newRuns, want)
@@ -390,12 +397,65 @@ func TestUpgrade_WhoUpdatesEachInstall(t *testing.T) {
 
 // TestUpgrade_ReplacingAnExecutable: the new file is renamed over the old,
 // so a process reading the old one keeps it, and on Windows the running
-// file is moved aside first, which removeAside removes. Both paths run on
-// every system. A directory that cannot be written is named, and nothing
-// changes.
+// file is moved aside first, which removeAside removes. Off Windows both
+// paths run over a file held open, which stands in for a running one. On
+// Windows a file held open cannot be renamed and a running program's file
+// can, so there the Windows path runs over a nomi that is running. A
+// directory that cannot be written is named, and nothing changes.
 func TestUpgrade_ReplacingAnExecutable(t *testing.T) {
+	t.Run("a nomi that is running, on Windows", func(t *testing.T) {
+		if runtime.GOOS != "windows" {
+			t.Skip("a running program's file is replaced by a plain rename off Windows; the subtests below hold that")
+		}
+		dir := t.TempDir()
+		bin := filepath.Join(dir, "nomi.exe")
+		program, err := os.ReadFile(nomiBin)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(bin, program, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		// The REPL waits on its input, so the program stays running.
+		running := exec.Command(bin)
+		input, err := running.StdinPipe()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := running.Start(); err != nil {
+			t.Fatal(err)
+		}
+		stopped := false
+		stop := func() {
+			if !stopped {
+				stopped = true
+				_ = input.Close()
+				_ = running.Process.Kill()
+				_ = running.Wait()
+			}
+		}
+		defer stop()
+		if err := replaceExecutable(bin, []byte("new"), "windows"); err != nil {
+			t.Fatalf("replacing a running nomi.exe: %v", err)
+		}
+		if got := mustRead(t, bin); got != "new" {
+			t.Errorf("%s holds %d bytes, want the new file", bin, len(got))
+		}
+		if got, want := dirNames(t, dir), []string{"nomi.exe", "nomi.exe.old"}; !slices.Equal(got, want) {
+			t.Errorf("%s holds %q, want %q", dir, got, want)
+		}
+		removeAside(bin) // the old program still runs: nothing is said either way
+		stop()
+		removeAside(bin)
+		if got := dirNames(t, dir); !slices.Equal(got, []string{"nomi.exe"}) {
+			t.Errorf("after the old nomi ended and removeAside, %s holds %q", dir, got)
+		}
+	})
 	for _, goos := range []string{"linux", "windows"} {
 		t.Run(goos, func(t *testing.T) {
+			if runtime.GOOS == "windows" {
+				t.Skip("Windows refuses to rename a file held open, which this subtest stands a running program in with")
+			}
 			dir := t.TempDir()
 			bin := filepath.Join(dir, "nomi")
 			mustWrite(t, bin, "old")

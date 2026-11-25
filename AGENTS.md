@@ -444,7 +444,10 @@ change under test made: check it on `next` before blaming the change, then fix
 it or pin it as a known gap.
 
 **CI and Windows.** CI (`.github/workflows/test.yml`) runs vet and the Go
-tests, including on Windows with `core.autocrlf` off. `internal/irbuild` is
+tests, including on Windows with `core.autocrlf` off. The packages run in
+the groups `scripts/test-go-packages.sh` defines, a job each on each
+system, whose last group, `rest`, is every package no other job tests.
+`internal/irbuild` is
 a job of its own, and `cmd/nomi` is a job per part on each system: the
 parts `scripts/test-cmd-nomi.sh` defines by test name, whose last part is
 every test the others leave, so each test runs in exactly one part.

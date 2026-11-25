@@ -463,14 +463,17 @@ function Install-Nomi {
 
 	# Replace mode sets up the editors itself, so it names no command to.
 	$replace = $env:NOMI_REPLACE -eq '1'
+	# The variable is read as PATH, the name every system gives it: Windows
+	# takes any case, and PowerShell on Linux and macOS, where the tests also
+	# run this script, has only that one.
 	$separator = [string][IO.Path]::PathSeparator
-	if (Test-PathHolds $env:Path $separator $dir) {
+	if (Test-PathHolds $env:PATH $separator $dir) {
 		if (-not $replace) {
 			Write-Host ''
 			Write-Host 'Next, set up your editor:'
 			Write-Host "  $nextCommand"
 		}
-		Find-OtherNomi $dir $env:Path $separator $replace
+		Find-OtherNomi $dir $env:PATH $separator $replace
 		return
 	}
 	if ($env:NOMI_NO_MODIFY_PATH -eq '1' -or $dir.Contains(';')) {
@@ -483,7 +486,7 @@ function Install-Nomi {
 			Write-Host "  $nextCommand"
 		}
 		# The PATH that line gives.
-		Find-OtherNomi $dir "$dir$separator$env:Path" $separator $replace
+		Find-OtherNomi $dir "$dir$separator$env:PATH" $separator $replace
 		return
 	}
 	$userPath = Get-UserPath
@@ -495,13 +498,13 @@ function Install-Nomi {
 		}
 		Write-Host "Added $dir to your user PATH, which terminals opened from now on have."
 	}
-	$env:Path = "$dir$separator$env:Path"
+	$env:PATH = "$dir$separator$env:PATH"
 	if (-not $replace) {
 		Write-Host ''
 		Write-Host 'Next, set up your editor:'
 		Write-Host "  $nextCommand"
 	}
-	Find-OtherNomi $dir $env:Path $separator $replace
+	Find-OtherNomi $dir $env:PATH $separator $replace
 }
 
 Install-Nomi
