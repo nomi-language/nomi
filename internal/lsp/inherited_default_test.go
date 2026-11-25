@@ -17,7 +17,7 @@ import (
 func inheritedDefaultProject(t *testing.T, main string) (*Server, string, string) {
 	t.Helper()
 	dir := writeProject(t, map[string]string{
-		"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+		"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n",
 		"shape.nomi": "pub interface Shape\n    fn area(s: self) -> Int\n\n" +
 			"    /// Says the shape's area.\n    fn describe(s: self) -> String\n        \"area ${area(s)}\"\n    end\nend\n",
 		"square.nomi": "import shape.Shape\n\npub struct Square\n    side: Int\nend\n\n" +

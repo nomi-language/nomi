@@ -1,5 +1,5 @@
 //# SQL databases: the vocabulary every driver and every SQL library
-//# shares. A driver module implements `Conn` for its engine; code that
+//# shares. A driver package implements `Conn` for its engine; code that
 //# talks to a database takes a `Conn` and sends `Statement`s, written with
 //# the `Sql"..."` typed literal, whose `${...}` slots become parameters and
 //# never SQL text. Values cross as `Value`, converted by `ToSql` and
@@ -12,7 +12,7 @@
 //# failed close should be reported.
 //#
 //# std holds no driver. The first-party drivers and the checked-SQL library
-//# sqlkit are modules of their own in the nomi repository, under `lib/sql/`,
+//# sqlkit are packages of their own in the nomi repository, under `lib/sql/`,
 //# which a project adds with `nomi add`:
 //# `github.com/nomi-language/nomi/lib/sql/sqlite`,
 //# `github.com/nomi-language/nomi/lib/sql/postgres` and

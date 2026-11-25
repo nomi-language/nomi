@@ -456,10 +456,10 @@ T dbg line 36: transfer(db, "ada", "bob", 30) = Err(Constraint{kind: Check, name
 T ada: 20
 T bob: 30
 T
-C databases.md:L431
+C databases.md:L434
 E 0
 N 1
-H b15ba2af64a66d291feb271cc348563a99511043832aa7f3c9bd05488c4053a7
+H 134cd8fe93d83232d8ded4641fec7127bae547fe7b6a0ed6d51e7c7f8f487c2b
 T order 1 is paid (1 row changed)
 T user 1: ada@example.com (Ada)
 T ada@example.com: orders 1, last order 1
@@ -467,7 +467,8 @@ T grace@example.com: orders 0, last order none
 T ok the shop / a user reads back as its row
 T ok the shop / a second user with the same email breaks the unique constraint
 T ok generated sql is current
-T test result: ok. 3 passed, 0 failed
+T ok generated sql is from the running sqlkit
+T test result: ok. 4 passed, 0 failed
 T
 C databases.md:L44
 E 0
@@ -2947,7 +2948,7 @@ N 0
 H 9a92adbc0cee38ef658c71ce1b1bf8c65668f166bfb213644c895ccb1ad07a25
 T 14
 T
-C modules-and-imports.md:L172
+C modules-and-imports.md:L174
 E 0
 N 0
 H 81c4e20d4d7c1dc2dc681b8875e2e945be0d0f6f90a274bfe130fea2d98ebd46
@@ -2963,38 +2964,39 @@ T 3
 T abcd
 T Ok(2026-05-27)
 T
-C modules-and-imports.md:L236
+C modules-and-imports.md:L245
 E 0
 N 0
-H 9a92adbc0cee38ef658c71ce1b1bf8c65668f166bfb213644c895ccb1ad07a25
-T 14
+H 20a4c91b3af48c05f9730e47f52db0b12c3a863ae2ccfeda8556d5071c4b22fd
+T 6.5
+T 7.80
 T
-C modules-and-imports.md:L316
+C modules-and-imports.md:L360
 E 0
 N 0
 H 8edb29ad3fa5a82585349eec1056eeb77f2a018f84a67fd640ed9def17226968
 T 42
 T error: user IDs must be positive
 T
-C modules-and-imports.md:L466
+C modules-and-imports.md:L511
 E 0
 N 0
 H 902f4d30a6318ad21ab741f67b38666b0049d410161f1b813e69f49ba1e3897a
 T Hello, Ada!
 T
-C modules-and-imports.md:L520
+C modules-and-imports.md:L565
 E 0
 N 0
 H c059e0adf7079f98201b00fe223ea412bdc2030283353a6c4f1c82e862e00534
 T Total: 59.97
 T
-C modules-and-imports.md:L545
+C modules-and-imports.md:L590
 E 0
 N 0
 H e0caefe9dbd4bc56e05b379569210b208444c5bea7daadb72ef64641b8df767f
 T Buy milk.
 T
-C modules-and-imports.md:L709
+C modules-and-imports.md:L754
 E 0
 N 0
 H 4407083af216f5bc9252370a3029d7e4c7d86e595014bf4cb3b16dd3c794b4da

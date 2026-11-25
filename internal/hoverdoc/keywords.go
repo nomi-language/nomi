@@ -16,8 +16,9 @@ import (
 // expression and as a pipe stage) answers for the place it stands in, and
 // some answers name what the place holds: the type `self` stands for, the
 // function a `return` leaves, the callback a `break` leaves, what a `pub`
-// publishes. A contextual word (`group`, `derive`, `host`, ...) answers only
-// where its construct stands; used as a name it gets the name's hover.
+// publishes or a `private` keeps. A contextual word (`group`, `derive`,
+// `host`, ...) answers only where its construct stands; used as a name it
+// gets the name's hover.
 
 // site is where the links of keywordDocs point.
 const site = "https://nomi-lang.org"
@@ -169,7 +170,7 @@ var keywordDocs = []keywordDoc{
 		text: "Matches a value that either alternative matches, tried left to right. Every alternative binds the same names, each at one type.",
 		link: "/pattern-matching/#matching-alternatives-with-or"},
 	{word: "pub", form: "pub fn name(params) -> Result",
-		text: "Makes a top-level declaration visible to other files, which reach it through the file's qualifier or import it by name. Without `pub` it is private to its file.",
+		text: "Makes a declaration public: every file of every package may name it, through its file's qualifier or an import. Without a modifier it is internal, seen by every file of its package.",
 		link: "/modules-and-imports/#visibility"},
 	{word: "pub", context: "import", form: "pub import path::file.{Item, Other}",
 		text: "Re-exports every item the import selects, under its local name. Items can be re-exported, a file cannot.",
@@ -275,6 +276,9 @@ var keywordDocs = []keywordDoc{
 	{word: "open", form: "open fn name(value: self) -> Result\n    body\nend",
 		text: "An open default of an interface: every implementor gets it, and an impl may write its own. A default without `open` is final.",
 		link: "/spec/interfaces-implementations-and-derive/#item-kinds"},
+	{word: "private", form: "private fn name(params) -> Result",
+		text: "Makes a declaration private: only its own file may name it. Without a modifier it is internal, seen by every file of its package.",
+		link: "/modules-and-imports/#visibility"},
 	{word: "phrase", form: "phrase name(params) `MessageFormat 2 text`",
 		text: "Declares text a person reads, in the source locale, translated in catalogs. It declares a function of the same name that returns a `Phrase`.",
 		link: "/translating-text/#declaring-a-phrase"},
@@ -491,20 +495,21 @@ func skippable(t token.Token) bool {
 	return false
 }
 
-// lineStart is the first token of the keyword's line, after a `pub`.
+// lineStart is the first token of the keyword's line, after a visibility
+// modifier.
 func (k *keywordSite) lineStart() token.Token {
 	j := k.i
 	for j > 0 && k.toks[j-1].Line == k.toks[k.i].Line && k.toks[j-1].Type != token.SEMICOLON {
 		j--
 	}
-	if k.toks[j].Type == token.PUB && j < k.i {
+	if j < k.i && lexer.IsVisibilityModifier(k.toks[j], k.toks[j+1]) {
 		j++
 	}
 	return k.toks[j]
 }
 
 // startsLine reports whether the keyword is the first token of its line
-// or follows a `;` or a `pub`.
+// or follows a `;` or a visibility modifier.
 func (k *keywordSite) startsLine() bool {
 	return k.lineStart().Col == k.at.Col
 }
@@ -593,8 +598,11 @@ func (k *keywordSite) context() (context, extra string, isKeyword bool) {
 			return "pattern", "", true
 		}
 		return "", "", true
-	case "pub":
-		return k.pubContext()
+	case "pub", "private":
+		if !lexer.IsVisibilityModifier(k.toks[k.i], k.next(1)) {
+			return "", "", false
+		}
+		return k.modifierContext(w)
 	case "return":
 		return "", k.returnContext(), true
 	case "break", "continue":
@@ -728,9 +736,9 @@ func is[T ast.Node](n ast.Node) bool {
 	return ok
 }
 
-// pubContext names what a `pub` publishes: the declaration after it, or
-// the items of a `pub import`.
-func (k *keywordSite) pubContext() (string, string, bool) {
+// modifierContext names the declaration a visibility modifier, word, stands
+// on, or for `pub`, the items of a `pub import`.
+func (k *keywordSite) modifierContext(word string) (string, string, bool) {
 	j := 1
 	modifiers := ""
 	for {
@@ -743,14 +751,17 @@ func (k *keywordSite) pubContext() (string, string, bool) {
 		break
 	}
 	kw := k.next(j)
-	if kw.Type == token.IMPORT {
+	if kw.Type == token.IMPORT && word == "pub" {
 		return "import", "", true
 	}
 	name := k.next(j + 1)
 	if kw.Type != token.IDENT && !lexer.IsKeyword(kw.Type) || (name.Type != token.IDENT && name.Type != token.TYPE_IDENT) {
 		return "", "", true
 	}
-	k.form = fmt.Sprintf("pub %s%s %s", modifiers, kw.Lexeme, name.Lexeme)
+	k.form = fmt.Sprintf("%s %s%s %s", word, modifiers, kw.Lexeme, name.Lexeme)
+	if word == "private" {
+		return "", fmt.Sprintf("Here it keeps `%s%s %s` to its file.", modifiers, kw.Lexeme, name.Lexeme), true
+	}
 	return "", fmt.Sprintf("Here it publishes `%s%s %s`.", modifiers, kw.Lexeme, name.Lexeme), true
 }
 

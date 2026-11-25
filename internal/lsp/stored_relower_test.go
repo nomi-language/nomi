@@ -63,7 +63,7 @@ func TestStoredLoweringMatchesTheText(t *testing.T) {
 	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
 	text := storedProjectFiles["main.nomi"]
 	writer := NewServer()
-	writer.docs.SetWorkspaceRoot(dir)
+	writer.docs.SetEditorFolder(dir)
 	writer.docs.Open(uri, text)
 	func() {
 		defer writer.docs.View()()
@@ -89,7 +89,7 @@ func TestStoredLoweringMatchesTheText(t *testing.T) {
 		{"the text back", text, false},
 	}
 	s := NewServer()
-	s.docs.SetWorkspaceRoot(dir)
+	s.docs.SetEditorFolder(dir)
 	s.docs.Open(uri, text)
 	if opened, _ := s.docs.StoredPrograms(); opened != 1 {
 		t.Fatalf("the server opened %d programs from records, want 1", opened)
@@ -133,7 +133,7 @@ func TestStoredLoweringMatchesTheTextGenerated(t *testing.T) {
 	uriOf := func(key string) string { return fileuri.FromPath(filepath.Join(dir, filepath.FromSlash(key)+".nomi")) }
 	entry := uriOf(gen.Entry)
 	writer := NewServer()
-	writer.docs.SetWorkspaceRoot(dir)
+	writer.docs.SetEditorFolder(dir)
 	writer.docs.Open(entry, gen.Files[gen.Entry])
 	if diags := lowerAsARun(writer, entry, gen.Files[gen.Entry]); len(diags) != 0 {
 		t.Fatalf("the entry's lowering reports %v", diags)
@@ -141,7 +141,7 @@ func TestStoredLoweringMatchesTheTextGenerated(t *testing.T) {
 	writer.docs.NoteLoweredClean(entry, gen.Files[gen.Entry], analyzedlowering.Kept)
 
 	s := NewServer()
-	s.docs.SetWorkspaceRoot(dir)
+	s.docs.SetEditorFolder(dir)
 	s.docs.Open(entry, gen.Files[gen.Entry])
 	if opened, _ := s.docs.StoredPrograms(); opened != 1 {
 		t.Fatalf("the server opened %d programs from records, want 1", opened)

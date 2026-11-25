@@ -1,6 +1,7 @@
 package analysis
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -27,26 +28,58 @@ const (
 	ListDeps           = "deps"
 	ListDepsStd        = "deps.std"
 	ListDepsStdInTests = "deps.std_in_tests"
-	ListDepsModules    = "deps.modules"
+	ListDepsPackages   = "deps.packages"
 )
 
 // EffectChange is one name a list gains or loses from one table to
-// another: List is one of the List constants, Module the key of the entry
+// another: List is one of the List constants, Key the key of the entry
 // for one of EntryLists, and Name the std name. Name is "" for a whole
 // table (ListSelf,
 // ListDeps), an entry with no names, and deps.std with no names, whose key
-// one table has and the other lacks.
+// one table has and the other lacks. In JSON the key is `module` for an
+// entry of [effects.self.modules], whose keys are the project's modules,
+// and `package` for one of [effects.deps.packages], whose keys are its
+// dependencies (effectChangeJSON).
 type EffectChange struct {
-	Change string `json:"change"`
-	List   string `json:"list"`
-	Module string `json:"module,omitempty"`
-	Name   string `json:"name"`
+	Change string
+	List   string
+	Key    string
+	Name   string
+}
+
+// effectChangeJSON is an EffectChange as JSON writes it, with the entry's
+// key under the word for its table's keys.
+type effectChangeJSON struct {
+	Change  string `json:"change"`
+	List    string `json:"list"`
+	Module  string `json:"module,omitempty"`
+	Package string `json:"package,omitempty"`
+	Name    string `json:"name"`
+}
+
+func (c EffectChange) MarshalJSON() ([]byte, error) {
+	j := effectChangeJSON{Change: c.Change, List: c.List, Name: c.Name}
+	if c.List == ListDepsPackages {
+		j.Package = c.Key
+	} else {
+		j.Module = c.Key
+	}
+	return json.Marshal(j)
+}
+
+func (c *EffectChange) UnmarshalJSON(data []byte) error {
+	var j effectChangeJSON
+	if err := json.Unmarshal(data, &j); err != nil {
+		return err
+	}
+	*c = EffectChange{Change: j.Change, List: j.List, Key: j.Module + j.Package, Name: j.Name}
+	return nil
 }
 
 // Label is the list a change is to, as the report prints it.
 func (c EffectChange) Label() string {
 	if slices.Contains(EntryLists, c.List) {
-		return fmt.Sprintf("%s %q", c.List, c.Module)
+		return fmt.Sprintf("%s %q", c.List, c.Key)
 	}
 	return c.List
 }
@@ -67,9 +100,9 @@ func EffectChanges(old, to *Effects) []EffectChange {
 	var adds, removes []EffectChange
 	change := func(add bool, list, module, name string) {
 		if add {
-			adds = append(adds, EffectChange{Change: "add", List: list, Module: module, Name: name})
+			adds = append(adds, EffectChange{Change: "add", List: list, Key: module, Name: name})
 		} else {
-			removes = append(removes, EffectChange{Change: "remove", List: list, Module: module, Name: name})
+			removes = append(removes, EffectChange{Change: "remove", List: list, Key: module, Name: name})
 		}
 	}
 	diff := func(list, module string, from, into []string) {
@@ -128,7 +161,7 @@ func EffectChanges(old, to *Effects) []EffectChange {
 	present(ListDepsStd, od.Std != nil, td.Std != nil, len(od.Std)+len(td.Std) == 0)
 	diff(ListDepsStd, "", od.Std, td.Std)
 	diff(ListDepsStdInTests, "", od.StdInTests, td.StdInTests)
-	entries(ListDepsModules)
+	entries(ListDepsPackages)
 	return append(adds, removes...)
 }
 
@@ -158,13 +191,13 @@ type effectTable struct {
 
 // WriteEffectTables is data, the nomi.toml in dir, with its
 // [effects.self], [effects.self.modules], [effects.deps]
-// and [effects.deps.modules] tables written as c
+// and [effects.deps.packages] tables written as c
 // (writeEffectTable), and the text of those tables as written. Every
 // line outside them is kept byte for byte. A table c has and data lacks
 // goes after the table before it, or before the first table data has, or
 // at the end of the file when data has none; a table data has and c lacks
 // goes. [effects.self.modules] is written when c has the table, or
-// data has it; [effects.deps.modules] when c has an entry, or data
+// data has it; [effects.deps.packages] when c has an entry, or data
 // has the table. A file with CRLF line endings gets them on each line of
 // the tables. The edited text must parse back to c, or nothing is
 // written.
@@ -187,7 +220,7 @@ func WriteEffectTables(dir string, data []byte, c *Effects) ([]byte, string, err
 		{path: []string{"effects", "self"}},
 		{path: []string{"effects", "self", "modules"}},
 		{path: []string{"effects", "deps"}},
-		{path: []string{"effects", "deps", "modules"}},
+		{path: []string{"effects", "deps", "packages"}},
 	}
 	for i := range tables {
 		tables[i].at = ManifestTableLayout(data, tables[i].path...)
@@ -205,8 +238,8 @@ func WriteEffectTables(dir string, data []byte, c *Effects) ([]byte, string, err
 	}
 	if c.Deps != nil {
 		tables[2].text = writeEffectTable(lines, tables[2].at, header(tables[2]), depsKeys(c.Deps, cmpDeps(old.Deps)))
-		if len(c.Deps.Modules) > 0 || tables[3].at.Header > 0 {
-			entries(3, ListDepsModules)
+		if len(c.Deps.Packages) > 0 || tables[3].at.Header > 0 {
+			entries(3, ListDepsPackages)
 		}
 	}
 	// Each table the file has is replaced by its lines, with the tables
@@ -341,7 +374,7 @@ func entryKeys(entries, old map[string][]string) []tableKey {
 func moduleKey(module string) string { return fmt.Sprintf("%q", module) }
 
 // ModuleEntryText is module's entry in a table of entries
-// ([effects.self.modules], [effects.deps.modules]) holding
+// ([effects.self.modules], [effects.deps.packages]) holding
 // names, as the tables write an entry the file lacks
 // (writeEffectTable): `"pg" = ["std::fs"]`, one name a
 // line when it does not fit on one.
@@ -532,7 +565,7 @@ func (c *Effects) Clone() *Effects {
 	if c.Deps != nil {
 		d := *c.Deps
 		d.Std, d.StdInTests = slices.Clone(c.Deps.Std), slices.Clone(c.Deps.StdInTests)
-		d.Modules = cloneEntries(c.Deps.Modules)
+		d.Packages = cloneEntries(c.Deps.Packages)
 		out.Deps = &d
 	}
 	return out
@@ -551,14 +584,14 @@ func (c *Effects) SetEntry(list, key string, names []string) {
 			c.Self.Modules = map[string][]string{}
 		}
 		c.Self.Modules[key] = names
-	case ListDepsModules:
+	case ListDepsPackages:
 		if c.Deps == nil {
 			c.Deps = &DepsEffects{}
 		}
-		if c.Deps.Modules == nil {
-			c.Deps.Modules = map[string][]string{}
+		if c.Deps.Packages == nil {
+			c.Deps.Packages = map[string][]string{}
 		}
-		c.Deps.Modules[key] = names
+		c.Deps.Packages[key] = names
 	}
 }
 
@@ -593,7 +626,7 @@ func AllowEffects(path string, data []byte, c *Effects, title string, adds []Eff
 			to.Self = &SelfEffects{}
 		}
 		if !isSelf && to.Deps == nil {
-			to.Deps = &DepsEffects{Modules: map[string][]string{}}
+			to.Deps = &DepsEffects{Packages: map[string][]string{}}
 		}
 		switch a.List {
 		case ListSelfStd:
@@ -604,7 +637,7 @@ func AllowEffects(path string, data []byte, c *Effects, title string, adds []Eff
 			add(&to.Deps.Std, a.Name)
 		case ListDepsStdInTests:
 			add(&to.Deps.StdInTests, a.Name)
-		case ListSelfModules, ListDepsModules:
+		case ListSelfModules, ListDepsPackages:
 			entry := slices.Clone(to.Entries(a.List)[a.Module])
 			add(&entry, a.Name)
 			to.SetEntry(a.List, a.Module, entry)

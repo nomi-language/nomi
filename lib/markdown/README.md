@@ -27,7 +27,7 @@ fn post(title: String, body: String) -> Html
 end
 ```
 
-The module is Nomi alone, and every function it exports is pure.
+The package is Nomi alone, and every function it exports is pure.
 
 ## What it renders
 
@@ -37,8 +37,8 @@ sentence). Headings get no `id`, and there are no footnotes.
 
 Its output is goldmark's, byte for byte: goldmark v1.8.7 with its GFM
 extension rendered every fixture under `testdata/`, and the tests hold this
-module to those renderings. They are the CommonMark spec's examples,
-goldmark's own extension cases, cases written for this module, and
+package to those renderings. They are the CommonMark spec's examples,
+goldmark's own extension cases, cases written for this package, and
 documents from this repository. `testdata/NOTICE.txt` says where each comes
 from.
 

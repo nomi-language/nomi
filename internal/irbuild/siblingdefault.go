@@ -15,9 +15,10 @@ import (
 // that file's private functions and types the caller never imported
 // (`mode: Mode = Mode.ReadWrite`), so it is lowered in the DECLARING file's gen,
 // never at the call site: the declaring unit builds one accessor per
-// defaulted parameter of each `pub fn`, taking the parameters before it and
-// answering that parameter's default (irFileSlotRetain). That is std's rule
-// for its own defaults (stdslotfill.go), for the same reason.
+// defaulted parameter of each `fn` another file may call (anotherFileSees),
+// taking the parameters before it and answering that parameter's default
+// (irFileSlotRetain). That is std's rule for its own defaults
+// (stdslotfill.go), for the same reason.
 //
 // The caller evaluates every written argument, then fills each omitted slot in
 // ascending order with a call to its accessor over the slots below it, then
@@ -80,11 +81,11 @@ func (g *gen) unitGen(to int) *gen {
 }
 
 // irFileSlotDefaults builds the accessors of a `fn` another file may call: a
-// `pub fn`, or a private one when the file's partner test is in the program.
+// `pub fn`, or one a file of the program sees (anotherFileSees).
 // Called from funcDecl, so an instance of a generic template gets its own
 // with the template's type arguments in scope.
 func (g *gen) irFileSlotDefaults(fd *ast.FuncDef, sig *fnSig) {
-	if g.irMod == nil || g.files == nil || sig == nil || (!fd.Public && !g.hasPartnerTest()) ||
+	if g.irMod == nil || g.files == nil || sig == nil || !g.anotherFileSees(fd.Visibility) ||
 		len(sig.params) != len(fd.Params) || sig.dict != nil || sig.tps != nil {
 		return
 	}
@@ -96,8 +97,10 @@ func (g *gen) irFileSlotDefaults(fd *ast.FuncDef, sig *fnSig) {
 	}
 }
 
-// irImplSlotDefaults builds the accessors of a `pub` function of an inherent
-// impl block another file may call, `Fake.new()` against `pub fn new(dialect:
+// irImplSlotDefaults builds the accessors of a function of an inherent impl
+// block another file may call, by the rule irFileSlotDefaults builds a
+// free function's by: a `pub` one, or one a file of the program sees
+// (anotherFileSees). `Fake.new()` against `pub fn new(dialect:
 // Dialect = Dialect.Other("fake"))`, or of an owner function, `Box.pad("p")`
 // against `impl Box<T> { pub fn pad(label: String, width: NonNegativeInt =
 // 3) }`: the functions whose sites another file fills from accessors
@@ -106,7 +109,7 @@ func (g *gen) irFileSlotDefaults(fd *ast.FuncDef, sig *fnSig) {
 func (g *gen) irImplSlotDefaults(d *implDef, it *implItem) {
 	fd := it.decl
 	if g.irMod == nil || g.files == nil || d.iface != nil || d.ifaceName != "" || it.inherited ||
-		fd == nil || !fd.Public || len(it.params) != len(fd.Params) || !it.lowerable {
+		fd == nil || !g.anotherFileSees(fd.Visibility) || len(it.params) != len(fd.Params) || !it.lowerable {
 		return
 	}
 	// A member with type parameters of its own is lowered per instance, and
@@ -132,11 +135,14 @@ func (g *gen) irImplSlotDefaults(d *implDef, it *implItem) {
 }
 
 // accessorDefaults reports whether site's declaring file builds an accessor
-// for each of its defaulted parameters (irImplSlotDefaults).
+// for each of its defaulted parameters (irImplSlotDefaults). The site is a
+// call from another file of the program, which the checker admitted only
+// when that file sees the function, so the declaring file builds them for
+// any function that is not private (anotherFileSees).
 func (site *implMemberSite) accessorDefaults() bool {
 	it := site.item
 	return site.iface == "" && !site.synth && site.withheld == nil && it != nil && !it.inherited &&
-		it.decl != nil && it.decl.Public
+		it.decl != nil && it.decl.Visibility != ast.Private
 }
 
 // irFileSlotRetain builds the accessor for one defaulted parameter: the

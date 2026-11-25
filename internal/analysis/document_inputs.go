@@ -147,16 +147,21 @@ func (dm *DocumentManager) changedInputs(p *CheckedProgram) []string {
 
 // InputsChanged re-analyzes every open document after an input file
 // changed on disk, as rechecks that read the input again, and answers the
-// open documents and the closed files under the input's project root,
-// whose cached analyses are dropped.
+// open documents and the closed files of the projects the input governs,
+// whose cached analyses are dropped: the project whose root the input is
+// under, and each project rooted under the input's directory, as a
+// workspace's members are under its nomi-workspace.toml and nomi.lock.
 func (dm *DocumentManager) InputsChanged(path string) (open []*Document, closed []string) {
 	dm.mu.Lock()
 	dm.closed.clear()
 	for _, doc := range dm.docs {
 		open = append(open, doc)
 	}
+	under := func(p, dir string) bool {
+		return strings.HasPrefix(filepath.Clean(p), filepath.Clean(dir)+string(filepath.Separator))
+	}
 	for uri, entry := range dm.index {
-		if _, isOpen := dm.docs[uri]; !isOpen && entry.Root != "" && strings.HasPrefix(filepath.Clean(path), filepath.Clean(entry.Root)+string(filepath.Separator)) {
+		if _, isOpen := dm.docs[uri]; !isOpen && entry.Root != "" && (under(path, entry.Root) || under(entry.Root, filepath.Dir(path))) {
 			closed = append(closed, uri)
 		}
 	}

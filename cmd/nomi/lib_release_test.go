@@ -9,49 +9,50 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/nomi-language/nomi/internal/modfetch/modfetchtest"
+	"github.com/nomi-language/nomi/internal/pkgfetch/pkgfetchtest"
 )
 
 // libTestVersion is the tag the test's host serves the first-party
-// libraries' repository at.
-const libTestVersion = "v0.9.0"
+// libraries' repository at: the fake release's own, since a release takes
+// the libraries at its version whatever nomi.toml names.
+const libTestVersion = releaseTestVersion
 
 // libTestModules are the libraries the project names, by directory.
 var libTestModules = []string{
 	"lib/image", "lib/markdown", "lib/sql/migrate", "lib/sql/postgres", "lib/sql/sqlite", "lib/sql/sqlkit",
 }
 
-// TestLibRelease_AProjectOfLibModulesNeedsNoGo: a release `nomi`, with no Go
+// TestLibRelease_AProjectOfLibPackagesNeedsNoGo: a release `nomi`, with no Go
 // and no git on PATH, takes sqlite, sqlkit, migrate, markdown and image
-// from their repository's host into the module cache, runs sqlkit's tool
+// from their repository's host into the package cache, runs sqlkit's tool
 // from there, and runs, tests, checks and builds the project. The
 // libraries are Nomi alone, so nothing is generated or built with Go.
 //
 // sqlkit's nomi.toml names its neighbor libraries by directory. In the
-// module cache those are the same directories of the repository at the
-// same tag, the modules the project names, so the tool loads its modules
+// package cache those are the same directories of the repository at the
+// same tag, the packages the project names, so the tool loads its packages
 // as the project names them and writes the shop example's files as
 // committed.
-func TestLibRelease_AProjectOfLibModulesNeedsNoGo(t *testing.T) {
+func TestLibRelease_AProjectOfLibPackagesNeedsNoGo(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("the release environment is a Unix PATH without go (noGoPath)")
 	}
 	t.Parallel()
 	b := releaseBuild(t)
 	root := repoRoot(t)
-	host := modfetchtest.New(t)
+	host := pkgfetchtest.New(t)
 	files := libRepoFiles(t, root, libTestModules)
 	commit := host.Tag("github.com/nomi-language/nomi", libTestVersion, files)
 	var lock strings.Builder
 	for _, dir := range libTestModules {
-		fmt.Fprintf(&lock, "github.com/nomi-language/nomi %s %s %s %s direct\n", dir, libTestVersion, commit, modfetchtest.Hash(files, dir))
+		fmt.Fprintf(&lock, "github.com/nomi-language/nomi %s %s %s %s direct\n", dir, libTestVersion, commit, pkgfetchtest.Hash(files, dir))
 	}
 	proj := t.TempDir()
 	libProject(t, proj, lock.String())
 	cacheRoot := t.TempDir()
 	env := releaseEnv(t, cacheRoot,
-		"NOMI_MODULE_CACHE="+modfetchtest.CacheDir(t),
-		"NOMI_TEST_MODULE_HOSTS="+host.Env("github.com"),
+		"NOMI_PACKAGE_CACHE="+pkgfetchtest.CacheDir(t),
+		"NOMI_TEST_PACKAGE_HOSTS="+host.Env("github.com"),
 	)
 	nomi := exe(filepath.Join(b.install, "nomi"))
 
@@ -120,7 +121,7 @@ func libRepoFiles(t *testing.T, root string, dirs []string) map[string]string {
 	return files
 }
 
-// libProject writes a project at dir that names every lib/ module at
+// libProject writes a project at dir that names every lib/ package at
 // libTestVersion, locked as lock says: the sqlkit shop example, with
 // main.nomi also rendering Markdown and fitting an image, and a test of
 // Markdown.
@@ -153,7 +154,7 @@ func libProject(t *testing.T, dir, lock string) {
 	}
 	mustWrite(t, filepath.Join(dir, "gradient.png"), string(png))
 	var manifest strings.Builder
-	manifest.WriteString("[module]\nname = \"shop\"\nentry_points = [\"main\"]\n\n[dependencies]\n")
+	manifest.WriteString("[package]\nname = \"shop\"\nentry_points = [\"main\"]\n\n[dependencies]\n")
 	for _, m := range libTestModules {
 		fmt.Fprintf(&manifest, "%s = { repo = \"github.com/nomi-language/nomi\", subdir = %q, version = %q }\n", path.Base(m), m, libTestVersion)
 	}

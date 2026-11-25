@@ -49,7 +49,7 @@ func (tc marksCase) run(t *testing.T) {
 	t.Helper()
 	dir := writeProject(t, map[string]string{
 		"main.nomi": tc.src,
-		"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+		"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n",
 	})
 	p, err := Load(filepath.Join(dir, "main.nomi"))
 	if err != nil {

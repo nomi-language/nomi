@@ -167,12 +167,13 @@ fn main()
     a = Task.spawn(fn -> greet(who, base + 1))
     b = Task.spawn(fn -> base * 2)
     total = Task.await(b)
-    if total > 50 then Task.await(a) else "small"
+    greeting = Task.await(a)
+    if total > 50 then greeting else "small"
   end
   dbg label
   Unit
 end
-`, "dbg line 16: label = \"ada-41\"\n"},
+`, "dbg line 17: label = \"ada-41\"\n"},
 		{"nested blocks and a Unit task", `import
   std::io
   std::tasks.Task

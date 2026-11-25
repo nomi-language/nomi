@@ -7,13 +7,13 @@ import
 end
 
 /// A tool's arguments: the migrations directory and the database URL.
-pub struct Options
+struct Options
     dir: String
     url: String
 end
 
 /// The usage line of the tool named `tool`.
-pub fn usage(tool: String) -> String
+fn usage(tool: String) -> String
     "usage: nomi tool migrate ${tool} [--dir db/migrations] [--url URL]\n" + "  --dir defaults to db/migrations, sqlkit's default\n" + "  --url defaults to $DATABASE_URL: postgres://... or postgresql://... for Postgres,\n" + "        sqlite:PATH for a SQLite file"
 end
 
@@ -24,11 +24,7 @@ end
 //! assert Result.is_err(cli.options("up", ["--force"], {}))
 //! assert Result.is_err(cli.options("up", [], {}))
 //
-pub fn options(
-    tool: String,
-    args: List<String>,
-    env:  Map<String, String>,
-) -> Result<Options, String>
+fn options(tool: String, args: List<String>, env: Map<String, String>) -> Result<Options, String>
     start = Options{
         dir: "db/migrations",
         url: Map.get(env, "DATABASE_URL") |> Option.with_default(""),
@@ -53,7 +49,7 @@ fn read(tool: String, args: List<String>, so_far: Options) -> Result<Options, St
 end
 
 /// A connection to the database at `url`.
-pub fn open(url: String) -> Result<Conn, sql.Error>
+fn open(url: String) -> Result<Conn, sql.Error>
     if String.starts_with(url, "postgres://") or String.starts_with(url, "postgresql://") then
         postgres.connect(url)
     else if String.starts_with(url, "sqlite:") then

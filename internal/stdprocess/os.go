@@ -90,7 +90,7 @@ func startOS(fr *rt.Frame, s spec) (*child, *rt.IOError) {
 		}
 		cmd.Stdin = r
 		closeAfterStart = append(closeAfterStart, r)
-		c.stdin = rt.NewWriter(rt.WriteSink{Name: "<" + s.program + " stdin>", W: w, Close: w.Close, Fail: streamFailure})
+		c.stdin = rt.NewWriter(rt.WriteSink{Name: "<" + s.program + " stdin>", W: w, Close: w.Close})
 		c.piped[0] = true
 	}
 	for i, mode := range []int64{s.out, s.err} {
@@ -121,7 +121,7 @@ func startOS(fr *rt.Frame, s spec) (*child, *rt.IOError) {
 			if i == 1 {
 				name = "<" + s.program + " stderr>"
 			}
-			reader := rt.NewReader(rt.ReadSource{Name: name, R: r, Close: r.Close, Fail: streamFailure})
+			reader := rt.NewReader(rt.ReadSource{Name: name, R: r, Close: r.Close})
 			if i == 0 {
 				cmd.Stdout = w
 				c.stdout = reader
@@ -213,7 +213,7 @@ func statusOf(state *os.ProcessState) []int64 {
 }
 
 // workingDir is the directory the child runs in: dir resolved against the
-// program's working directory, which `nomi test` puts at the module root
+// program's working directory, which `nomi test` puts at the package root
 // without changing the process's own. Inside `std::fs::testing.run` the files are
 // in memory, so a relative dir resolves against the process's directory.
 func workingDir(fr *rt.Frame, dir string) string {
@@ -235,12 +235,6 @@ func startError(program string, err error) *rt.IOError {
 	if errors.Is(err, exec.ErrNotFound) {
 		return &rt.IOError{Tag: rt.TagIONotFound, Path: program}
 	}
-	e := stdio.Classify("process.start", program, err)
+	e := rt.IOErrorOf("process.start", program, err)
 	return &e
-}
-
-// streamFailure is the io.Error for a failed read or write of a child's
-// stream.
-func streamFailure(op string, err error) rt.IOError {
-	return stdio.Classify(op, "", err)
 }

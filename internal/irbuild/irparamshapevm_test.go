@@ -32,6 +32,7 @@ package irbuild
 // reader can see how much of the population each covers.
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -145,25 +146,9 @@ func v12RunWithRecordedShapes(t *testing.T, label string, entries []vmProbeEntry
 	t.Helper()
 	vmPrepareBubbles()
 
-	// leaves is `vmArgShapes`'s own list, in its own order, so a declined
-	// parameter and a structure's interior get the same search they get there.
-	leaves := []any{
-		int64(1),
-		"s",
-		true,
-		1.5,
-		rt.Decimal{},
-		rt.Byte(65),
-		rt.Bytes("A"),
-		// vmArgShapes' Option leaf, for an Option only a host call consumes.
-		&probeVariant{enum: "option.Option", variant: "Some", payload: int64(1)},
-	}
-	if re := vmRegexHandle(); re != nil {
-		leaves = append(leaves, re)
-	}
-	leaves = append(leaves, vmCalendarValues()...)
-	leaves = append(leaves, vmChannelHalves()...)
-	leaves = append(leaves, vmHandleLeaves()...)
+	// vmArgShapes' own leaves, in its order, so a declined parameter and a
+	// structure's interior get the same search they get there.
+	leaves := vmSearchLeaves()
 
 	// Every retained function runs on made-up arguments, and a String argument
 	// is "s": a corpus body that writes a file (15-app-and-defer's
@@ -181,14 +166,16 @@ func v12RunWithRecordedShapes(t *testing.T, label string, entries []vmProbeEntry
 	agreed := 0
 	var disagreed []string
 	counted := map[*ir.Func]bool{}
-	// run makes the machine and calls fn in a bubble, with the step budget
-	// vmProbe gives a call, and reports whether the call ran fn (vmRan).
-	run := func(e vmProbeEntry, args []any) (bool, error) {
+	// run makes the machine and calls fn on the vector args builds, in a
+	// bubble, with the step budget vmProbe gives a call, and reports whether
+	// the call ran fn (vmRan). args runs inside the bubble, where a handle
+	// leaf is built (vmLeafValue).
+	run := func(e vmProbeEntry, args func() []any) (bool, error) {
 		w := &vmProbeWatch{}
-		out, answered, bubbleErr := vmInBubble(func() vmProbeResult {
-			m := vmProgram(e.mod, e.links).WithLimits(vm.Limits{Steps: vmProbeSteps})
+		out, answered, bubbleErr := vmInBubble(func(ctx context.Context) vmProbeResult {
+			m := vmProgram(ctx, e.mod, e.links).WithLimits(vm.Limits{Steps: vmProbeSteps})
 			w.watch(m, e.fn)
-			entered, err := vmCall(m, e.fn, args)
+			entered, err := vmCall(m, e.fn, args())
 			return vmProbeResult{ran: vmRan(entered, err), err: err}
 		})
 		if !answered {
@@ -219,8 +206,8 @@ func v12RunWithRecordedShapes(t *testing.T, label string, entries []vmProbeEntry
 			err             error
 		}
 		w := &vmProbeWatch{}
-		boot, answered, bubbleErr := vmInBubble(func() started {
-			isBoot, entered, err := vmStartBoot(mod, e.links, fn, w)
+		boot, answered, bubbleErr := vmInBubble(func(ctx context.Context) started {
+			isBoot, entered, err := vmStartBoot(ctx, mod, e.links, fn, w)
 			return started{isBoot, entered, err}
 		})
 		if !answered {
@@ -241,6 +228,9 @@ func v12RunWithRecordedShapes(t *testing.T, label string, entries []vmProbeEntry
 			sh := &vmShaper{mod: mod, links: e.links, projs: map[*ir.Func]map[ir.Temp][]*ir.Proj{},
 				fwd: map[*ir.Func]map[ir.Temp][]vmFwd{}}
 			args := make([]any, 0, len(fn.Params()))
+			// searched are the leaves search fills, given one value per
+			// vector inside the probe's bubble (vmLeafValue).
+			var searched []*probeLeaf
 			for _, p := range fn.Params() {
 				scalarLeaf, isScalar := v12LeafFor(p.Shape)
 				leaf := &probeLeaf{v: scalarLeaf}
@@ -249,6 +239,7 @@ func v12RunWithRecordedShapes(t *testing.T, label string, entries []vmProbeEntry
 					// result type. Either way the declaration does not
 					// name a leaf and the search supplies one.
 					leaf = &probeLeaf{v: search}
+					searched = append(searched, leaf)
 				}
 				if !counted[fn] {
 					switch {
@@ -279,7 +270,13 @@ func v12RunWithRecordedShapes(t *testing.T, label string, entries []vmProbeEntry
 				args = append(args, arg)
 			}
 			counted[fn] = true
-			if ok, err := run(e, args); ok {
+			if ok, err := run(e, func() []any {
+				built := vmLeafValue(search)
+				for _, l := range searched {
+					l.v = built
+				}
+				return args
+			}); ok {
 				okAny = true
 				break
 			} else {
@@ -303,7 +300,7 @@ func v12RunWithRecordedShapes(t *testing.T, label string, entries []vmProbeEntry
 			}
 			if args, ok := vmArgsForKindsIn(kinds[fn], qual); ok && len(kinds[fn]) == len(fn.Params()) {
 				for _, vector := range [][]any{args, vmAscending(args)} {
-					if ok, err := run(e, vector); ok {
+					if ok, err := run(e, func() []any { return vector }); ok {
 						okAny = true
 						break
 					} else {

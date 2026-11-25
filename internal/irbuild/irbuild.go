@@ -15,12 +15,12 @@ import (
 	"github.com/nomi-language/nomi/internal/ir"
 )
 
-// Module is one Nomi module's checked AST, the unit of lowering.
+// Module is one module's checked AST, the unit of lowering.
 type Module struct {
 	// Path is the .nomi file the module was checked from, absolute. Used to
 	// blame Nomi source in diagnostics.
 	Path string
-	// Name is the module-relative Nomi name ("main", "tools/seed").
+	// Name is the package-relative Nomi name ("main", "tools/seed").
 	Name  string
 	Nodes []ast.Node
 	// FA is the analysis that produced Nodes, and it is here for exactly one
@@ -50,6 +50,13 @@ type Module struct {
 	// generic declarations the file asks for and the earlier lowerings did
 	// not make (session.go).
 	bodies bool
+	// LinesAbove is how many lines of the file its author did not write
+	// above what they did: a REPL session writes imports and declarations
+	// above each input. Every position the module lowers is a line of what
+	// the author wrote (ir.Pos.Below), so a `dbg`, a `todo`, a failed
+	// assertion and a trap name the line the author typed. 0 for a file
+	// read as written.
+	LinesAbove int
 }
 
 // Program is a checked Nomi program. Modules[0] is the entry.
@@ -706,7 +713,7 @@ func definesMain(m *Module) bool {
 	return false
 }
 
-// unitPackage is the unit package name of the i'th Nomi module: a namespace
+// unitPackage is the unit package name of the i'th module: a namespace
 // key that names no compiled artifact (package doc, "Unit packages").
 // Positional rather than derived from the module name, since two module
 // names can collide and the key is not a user-visible surface.

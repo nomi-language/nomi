@@ -12,7 +12,7 @@
 population stdlib
 what one record per stdlib module carrying `//!` prompt cases, run as `nomi test std/<module>` runs it. N is the module's prompt-case count.
 records 99
-declared-cases 1507
+declared-cases 1509
 failing 0
 C actors
 E 0
@@ -435,14 +435,14 @@ T
 C context
 E 0
 N 7
-H cd898599b5d67e836c84b944267276658e76414b28eb3214a27038d1b9e65dfc
-T ok <root>/std/context.nomi :: impl / root //! test lines 43-44
-T ok <root>/std/context.nomi :: impl / deadline //! test line 49
-T ok <root>/std/context.nomi :: impl / deadline_remaining //! test line 55
-T ok <root>/std/context.nomi :: impl / with_deadline //! test lines 64-65
-T ok <root>/std/context.nomi :: impl / with_timeout //! test lines 74-78
-T ok <root>/std/context.nomi :: impl / with_value //! test lines 88-90
-T ok <root>/std/context.nomi :: impl / value //! test lines 100-102
+H 399ea5200933eb69c99ff6960e7483c4d0702155c555002dde75906f9cbd226e
+T ok <root>/std/context.nomi :: impl / root //! test lines 51-52
+T ok <root>/std/context.nomi :: impl / deadline //! test line 58
+T ok <root>/std/context.nomi :: impl / deadline_remaining //! test line 64
+T ok <root>/std/context.nomi :: impl / with_deadline //! test lines 74-75
+T ok <root>/std/context.nomi :: impl / with_timeout //! test lines 84-88
+T ok <root>/std/context.nomi :: impl / with_value //! test lines 98-100
+T ok <root>/std/context.nomi :: impl / value //! test lines 110-112
 T test result: ok. 7 passed, 0 failed
 T
 C csv
@@ -640,7 +640,7 @@ T
 C fs
 E 0
 N 89
-H e5a7addd865623751517ac964b35bf3366c87806b2d12a215046320c18b4d01a
+H fa53da26a66c8a1fa394e04ac6f07773316f37ec7f0f51e71488c0402224e663
 T ok <root>/std/fs.nomi :: WriteMode //! test lines 110-118
 T ok <root>/std/fs.nomi :: read //! test lines 249-252
 T ok <root>/std/fs.nomi :: read_text //! test lines 270-276
@@ -670,66 +670,66 @@ T ok <root>/std/fs.nomi :: link_metadata //! test lines 1305-1313
 T ok <root>/std/fs.nomi :: create_symlink //! test lines 1369-1376
 T ok <root>/std/fs.nomi :: read_link //! test lines 1388-1397
 T ok <root>/std/fs.nomi :: set_mode //! test lines 1417-1424
-T ok <root>/std/fs.nomi :: set_times //! test lines 1439-1449
-T ok <root>/std/fs.nomi :: touch //! test lines 1468-1476
-T ok <root>/std/fs.nomi :: create_link //! test lines 1495-1503
-T ok <root>/std/fs.nomi :: set_owner //! test lines 1523-1530
-T ok <root>/std/fs.nomi :: set_link_owner //! test lines 1543-1550
-T ok <root>/std/fs.nomi :: user_name //! test lines 1566-1568
-T ok <root>/std/fs.nomi :: group_name //! test lines 1580-1582
-T ok <root>/std/fs.nomi :: disk_usage //! test lines 1597-1601
-T ok <root>/std/fs.nomi :: truncate //! test lines 1614-1618
-T ok <root>/std/fs.nomi :: same_file //! test lines 1632-1639
-T ok <root>/std/fs.nomi :: exists //! test lines 1660-1666
-T ok <root>/std/fs.nomi :: temp_dir //! test lines 1681-1683
-T ok <root>/std/fs.nomi :: make_temp_dir //! test lines 1704-1716
-T ok <root>/std/fs.nomi :: current_dir //! test lines 1730-1732
-T ok <root>/std/fs.nomi :: open_dir //! test lines 1753-1764
-T ok <root>/std/fs.nomi :: Dir //! test lines 1800-1819
-T ok <root>/std/fs.nomi :: impl / read //! test lines 1833-1837
-T ok <root>/std/fs.nomi :: impl / read_text //! test lines 1845-1850
-T ok <root>/std/fs.nomi :: impl / write //! test lines 1857-1862
-T ok <root>/std/fs.nomi :: impl / write_text //! test lines 1875-1880
-T ok <root>/std/fs.nomi :: impl / lines //! test lines 1893-1897
-T ok <root>/std/fs.nomi :: impl / chunks //! test lines 1905-1911
-T ok <root>/std/fs.nomi :: impl / open //! test lines 1919-1930
-T ok <root>/std/fs.nomi :: impl / create //! test lines 1939-1953
-T ok <root>/std/fs.nomi :: impl / open_file //! test lines 1962-1977
-T ok <root>/std/fs.nomi :: impl / list //! test lines 1992-1998
-T ok <root>/std/fs.nomi :: impl / walk //! test lines 2006-2015
-T ok <root>/std/fs.nomi :: impl / glob //! test lines 2023-2027
-T ok <root>/std/fs.nomi :: impl / create_dir //! test lines 2034-2039
-T ok <root>/std/fs.nomi :: impl / remove //! test lines 2047-2052
-T ok <root>/std/fs.nomi :: impl / remove_all //! test lines 2060-2065
-T ok <root>/std/fs.nomi :: impl / remove_all_quietly //! test lines 2073-2078
-T ok <root>/std/fs.nomi :: impl / rename //! test lines 2085-2090
-T ok <root>/std/fs.nomi :: impl / sync_dir //! test lines 2098-2103
-T ok <root>/std/fs.nomi :: impl / copy //! test lines 2111-2116
-T ok <root>/std/fs.nomi :: impl / metadata //! test lines 2124-2128
-T ok <root>/std/fs.nomi :: impl / link_metadata //! test lines 2137-2141
-T ok <root>/std/fs.nomi :: impl / create_symlink //! test lines 2152-2157
-T ok <root>/std/fs.nomi :: impl / read_link //! test lines 2164-2168
-T ok <root>/std/fs.nomi :: impl / set_mode //! test lines 2176-2181
-T ok <root>/std/fs.nomi :: impl / set_times //! test lines 2189-2195
-T ok <root>/std/fs.nomi :: impl / touch //! test lines 2213-2218
-T ok <root>/std/fs.nomi :: impl / create_link //! test lines 2226-2231
-T ok <root>/std/fs.nomi :: impl / set_owner //! test lines 2239-2246
-T ok <root>/std/fs.nomi :: impl / set_link_owner //! test lines 2254-2259
-T ok <root>/std/fs.nomi :: impl / disk_usage //! test lines 2272-2276
-T ok <root>/std/fs.nomi :: impl / truncate //! test lines 2287-2292
-T ok <root>/std/fs.nomi :: impl / same_file //! test lines 2303-2307
-T ok <root>/std/fs.nomi :: impl / exists //! test lines 2328-2332
-T ok <root>/std/fs.nomi :: impl / make_temp_dir //! test lines 2345-2358
-T ok <root>/std/fs.nomi :: impl / make_temp_file //! test lines 2367-2383
-T ok <root>/std/fs.nomi :: impl / subdir //! test lines 2392-2401
-T ok <root>/std/fs.nomi :: impl / close //! test lines 2410-2416
-T ok <root>/std/fs.nomi :: impl / watch_each //! test lines 2449-2454
-T ok <root>/std/fs.nomi :: watch_each //! test lines 2562-2565
-T ok <root>/std/fs.nomi :: poll //! test lines 2714-2856
-T ok <root>/std/fs.nomi :: poll //! test lines 2858-2884
-T ok <root>/std/fs.nomi :: poll //! test lines 2886-2903
-T ok <root>/std/fs.nomi :: event_at //! test lines 2975-2982
-T ok <root>/std/fs.nomi :: offer //! test lines 3007-3016
+T ok <root>/std/fs.nomi :: set_times //! test lines 1441-1451
+T ok <root>/std/fs.nomi :: touch //! test lines 1470-1478
+T ok <root>/std/fs.nomi :: create_link //! test lines 1497-1505
+T ok <root>/std/fs.nomi :: set_owner //! test lines 1525-1532
+T ok <root>/std/fs.nomi :: set_link_owner //! test lines 1545-1552
+T ok <root>/std/fs.nomi :: user_name //! test lines 1568-1570
+T ok <root>/std/fs.nomi :: group_name //! test lines 1582-1584
+T ok <root>/std/fs.nomi :: disk_usage //! test lines 1599-1603
+T ok <root>/std/fs.nomi :: truncate //! test lines 1616-1620
+T ok <root>/std/fs.nomi :: same_file //! test lines 1634-1641
+T ok <root>/std/fs.nomi :: exists //! test lines 1662-1668
+T ok <root>/std/fs.nomi :: temp_dir //! test lines 1683-1685
+T ok <root>/std/fs.nomi :: make_temp_dir //! test lines 1706-1718
+T ok <root>/std/fs.nomi :: current_dir //! test lines 1732-1734
+T ok <root>/std/fs.nomi :: open_dir //! test lines 1755-1766
+T ok <root>/std/fs.nomi :: Dir //! test lines 1802-1821
+T ok <root>/std/fs.nomi :: impl / read //! test lines 1835-1839
+T ok <root>/std/fs.nomi :: impl / read_text //! test lines 1847-1852
+T ok <root>/std/fs.nomi :: impl / write //! test lines 1859-1864
+T ok <root>/std/fs.nomi :: impl / write_text //! test lines 1877-1882
+T ok <root>/std/fs.nomi :: impl / lines //! test lines 1895-1899
+T ok <root>/std/fs.nomi :: impl / chunks //! test lines 1907-1913
+T ok <root>/std/fs.nomi :: impl / open //! test lines 1921-1932
+T ok <root>/std/fs.nomi :: impl / create //! test lines 1941-1955
+T ok <root>/std/fs.nomi :: impl / open_file //! test lines 1964-1979
+T ok <root>/std/fs.nomi :: impl / list //! test lines 1994-2000
+T ok <root>/std/fs.nomi :: impl / walk //! test lines 2008-2017
+T ok <root>/std/fs.nomi :: impl / glob //! test lines 2025-2029
+T ok <root>/std/fs.nomi :: impl / create_dir //! test lines 2036-2041
+T ok <root>/std/fs.nomi :: impl / remove //! test lines 2049-2054
+T ok <root>/std/fs.nomi :: impl / remove_all //! test lines 2062-2067
+T ok <root>/std/fs.nomi :: impl / remove_all_quietly //! test lines 2075-2080
+T ok <root>/std/fs.nomi :: impl / rename //! test lines 2087-2092
+T ok <root>/std/fs.nomi :: impl / sync_dir //! test lines 2100-2105
+T ok <root>/std/fs.nomi :: impl / copy //! test lines 2113-2118
+T ok <root>/std/fs.nomi :: impl / metadata //! test lines 2126-2130
+T ok <root>/std/fs.nomi :: impl / link_metadata //! test lines 2139-2143
+T ok <root>/std/fs.nomi :: impl / create_symlink //! test lines 2154-2159
+T ok <root>/std/fs.nomi :: impl / read_link //! test lines 2166-2170
+T ok <root>/std/fs.nomi :: impl / set_mode //! test lines 2178-2183
+T ok <root>/std/fs.nomi :: impl / set_times //! test lines 2191-2197
+T ok <root>/std/fs.nomi :: impl / touch //! test lines 2215-2220
+T ok <root>/std/fs.nomi :: impl / create_link //! test lines 2228-2233
+T ok <root>/std/fs.nomi :: impl / set_owner //! test lines 2241-2248
+T ok <root>/std/fs.nomi :: impl / set_link_owner //! test lines 2256-2261
+T ok <root>/std/fs.nomi :: impl / disk_usage //! test lines 2274-2278
+T ok <root>/std/fs.nomi :: impl / truncate //! test lines 2289-2294
+T ok <root>/std/fs.nomi :: impl / same_file //! test lines 2305-2309
+T ok <root>/std/fs.nomi :: impl / exists //! test lines 2330-2334
+T ok <root>/std/fs.nomi :: impl / make_temp_dir //! test lines 2347-2360
+T ok <root>/std/fs.nomi :: impl / make_temp_file //! test lines 2369-2385
+T ok <root>/std/fs.nomi :: impl / subdir //! test lines 2394-2403
+T ok <root>/std/fs.nomi :: impl / close //! test lines 2412-2418
+T ok <root>/std/fs.nomi :: impl / watch_each //! test lines 2451-2456
+T ok <root>/std/fs.nomi :: watch_each //! test lines 2564-2567
+T ok <root>/std/fs.nomi :: poll //! test lines 2716-2858
+T ok <root>/std/fs.nomi :: poll //! test lines 2860-2886
+T ok <root>/std/fs.nomi :: poll //! test lines 2888-2905
+T ok <root>/std/fs.nomi :: event_at //! test lines 2977-2984
+T ok <root>/std/fs.nomi :: offer //! test lines 3009-3018
 T test result: ok. 89 passed, 0 failed
 T
 C fs/testing
@@ -818,8 +818,8 @@ T test result: ok. 19 passed, 0 failed
 T
 C http
 E 0
-N 77
-H b67919da122bfcb56010534ca918608eecc1260a6cca68c05eb6cd274f534868
+N 78
+H 66c24bca172cdcb825d60718d3a8a6bc7ba05079a9bfda04c137c3c191503730
 T ok <root>/std/http.nomi :: impl / text //! test lines 102-105
 T ok <root>/std/http.nomi :: impl / parse //! test lines 123-126
 T ok <root>/std/http.nomi :: impl / from_code //! test lines 222-225
@@ -858,46 +858,47 @@ T ok <root>/std/http.nomi :: impl / json_as //! test lines 1519-1524
 T ok <root>/std/http.nomi :: ToResponse //! test lines 1564-1583
 T ok <root>/std/http.nomi :: impl //! test lines 1632-1642
 T ok <root>/std/http.nomi :: impl / to_string //! test lines 1881-1883
-T ok <root>/std/http.nomi :: impl / with_tls //! test lines 2106-2109
-T ok <root>/std/http.nomi :: stream //! test lines 2201-2215
-T ok <root>/std/http.nomi :: Route //! test lines 2863-2867
-T ok <root>/std/http.nomi :: impl / parse //! test lines 2880-2903
-T ok <root>/std/http.nomi :: impl / with_method //! test lines 2918-2932
-T ok <root>/std/http.nomi :: impl / path //! test lines 2956-2957
-T ok <root>/std/http.nomi :: impl / path_with //! test lines 2967-2969
-T ok <root>/std/http.nomi :: impl / to_with //! test lines 3013-3024
-T ok <root>/std/http.nomi :: Router //! test lines 3436-3456
-T ok <root>/std/http.nomi :: impl / new //! test lines 3469-3475
-T ok <root>/std/http.nomi :: strip_prefix //! test lines 3584-3592
-T ok <root>/std/http.nomi :: allow_query_semicolons //! test lines 3616-3625
-T ok <root>/std/http.nomi :: timeout //! test lines 3645-3665
-T ok <root>/std/http.nomi :: Origin //! test lines 3695-3699
-T ok <root>/std/http.nomi :: impl / parse //! test lines 3709-3713
-T ok <root>/std/http.nomi :: impl / check //! test lines 3778-3795
-T ok <root>/std/http.nomi :: cross_origin_protection //! test lines 3813-3825
-T ok <root>/std/http.nomi :: limit_body //! test lines 3864-3868
-T ok <root>/std/http.nomi :: wrap_routes //! test lines 3877-3901
-T ok <root>/std/http.nomi :: cors //! test lines 3961-3997
-T ok <root>/std/http.nomi :: log_requests //! test lines 4090-4109
-T ok <root>/std/http.nomi :: security_headers //! test lines 4183-4214
-T ok <root>/std/http.nomi :: request_id //! test lines 4245-4265
-T ok <root>/std/http.nomi :: compress //! test lines 4343-4368
-T ok <root>/std/http.nomi :: basic_auth //! test lines 4552-4586
-T ok <root>/std/http.nomi :: method_override //! test lines 4621-4644
-T ok <root>/std/http.nomi :: serve_file //! test lines 4696-4719
-T ok <root>/std/http.nomi :: file_server //! test lines 4814-4829
-T ok <root>/std/http.nomi :: serve_embedded //! test lines 4877-4924
-T ok <root>/std/http.nomi :: file_server_embedded //! test lines 4998-5032
-T ok <root>/std/http.nomi :: is_page_route //! test lines 5060-5075
-T ok <root>/std/http.nomi :: detect_content_type //! test line 5231
-T ok <root>/std/http.nomi :: format_time //! test lines 5239-5241
-T ok <root>/std/http.nomi :: impl / parse_header //! test lines 5311-5314
-T ok <root>/std/http.nomi :: impl / parse_set_cookie //! test lines 5324-5329
-T ok <root>/std/http.nomi :: impl / cookies //! test lines 5460-5469
-T ok <root>/std/http.nomi :: impl / to_string //! test lines 5500-5502
-T ok <root>/std/http.nomi :: chunked_reader //! test lines 5978-5982
-T ok <root>/std/http.nomi :: multipart_parts //! test lines 6025-6036
-T test result: ok. 77 passed, 0 failed
+T ok <root>/std/http.nomi :: impl / with_tls //! test lines 2105-2108
+T ok <root>/std/http.nomi :: impl / with_max_body //! test lines 2118-2129
+T ok <root>/std/http.nomi :: stream //! test lines 2220-2234
+T ok <root>/std/http.nomi :: Route //! test lines 2882-2886
+T ok <root>/std/http.nomi :: impl / parse //! test lines 2899-2922
+T ok <root>/std/http.nomi :: impl / with_method //! test lines 2937-2951
+T ok <root>/std/http.nomi :: impl / path //! test lines 2975-2976
+T ok <root>/std/http.nomi :: impl / path_with //! test lines 2986-2988
+T ok <root>/std/http.nomi :: impl / to_with //! test lines 3032-3043
+T ok <root>/std/http.nomi :: Router //! test lines 3455-3475
+T ok <root>/std/http.nomi :: impl / new //! test lines 3488-3494
+T ok <root>/std/http.nomi :: strip_prefix //! test lines 3603-3611
+T ok <root>/std/http.nomi :: allow_query_semicolons //! test lines 3635-3644
+T ok <root>/std/http.nomi :: timeout //! test lines 3664-3684
+T ok <root>/std/http.nomi :: Origin //! test lines 3714-3718
+T ok <root>/std/http.nomi :: impl / parse //! test lines 3728-3732
+T ok <root>/std/http.nomi :: impl / check //! test lines 3797-3814
+T ok <root>/std/http.nomi :: cross_origin_protection //! test lines 3832-3844
+T ok <root>/std/http.nomi :: limit_body //! test lines 3883-3887
+T ok <root>/std/http.nomi :: wrap_routes //! test lines 3896-3920
+T ok <root>/std/http.nomi :: cors //! test lines 3980-4016
+T ok <root>/std/http.nomi :: log_requests //! test lines 4109-4128
+T ok <root>/std/http.nomi :: security_headers //! test lines 4202-4233
+T ok <root>/std/http.nomi :: request_id //! test lines 4264-4284
+T ok <root>/std/http.nomi :: compress //! test lines 4362-4387
+T ok <root>/std/http.nomi :: basic_auth //! test lines 4571-4605
+T ok <root>/std/http.nomi :: method_override //! test lines 4640-4663
+T ok <root>/std/http.nomi :: serve_file //! test lines 4715-4738
+T ok <root>/std/http.nomi :: file_server //! test lines 4833-4848
+T ok <root>/std/http.nomi :: serve_embedded //! test lines 4896-4943
+T ok <root>/std/http.nomi :: file_server_embedded //! test lines 5017-5051
+T ok <root>/std/http.nomi :: is_page_route //! test lines 5079-5094
+T ok <root>/std/http.nomi :: detect_content_type //! test line 5250
+T ok <root>/std/http.nomi :: format_time //! test lines 5258-5260
+T ok <root>/std/http.nomi :: impl / parse_header //! test lines 5330-5333
+T ok <root>/std/http.nomi :: impl / parse_set_cookie //! test lines 5343-5348
+T ok <root>/std/http.nomi :: impl / cookies //! test lines 5479-5488
+T ok <root>/std/http.nomi :: impl / to_string //! test lines 5519-5521
+T ok <root>/std/http.nomi :: chunked_reader //! test lines 5997-6001
+T ok <root>/std/http.nomi :: multipart_parts //! test lines 6044-6055
+T test result: ok. 78 passed, 0 failed
 T
 C http/testing
 E 0
@@ -1002,45 +1003,45 @@ T
 C io
 E 0
 N 38
-H 213e5cb8f46a2d2c6152704017b6de258c3568fb8ba811211663ccc11ce9c08f
+H 99ab3a77c14020110a9d1de5252a150b88c96d00ea3fc3594d325d196006ddb2
 T ok <root>/std/io.nomi :: Error //! test lines 116-127
-T ok <root>/std/io.nomi :: print //! test lines 281-287
-T ok <root>/std/io.nomi :: write //! test lines 301-307
-T ok <root>/std/io.nomi :: inspect //! test lines 325-330
-T ok <root>/std/io.nomi :: eprint //! test lines 342-348
-T ok <root>/std/io.nomi :: ewrite //! test lines 358-363
-T ok <root>/std/io.nomi :: read_line //! test lines 383-384
-T ok <root>/std/io.nomi :: lines //! test lines 403-408
-T ok <root>/std/io.nomi :: stdout //! test lines 432-437
-T ok <root>/std/io.nomi :: impl / descriptor //! test lines 467-468
-T ok <root>/std/io.nomi :: is_terminal //! test lines 489-490
-T ok <root>/std/io.nomi :: impl / read_line //! test lines 513-527
-T ok <root>/std/io.nomi :: impl / read //! test lines 542-545
-T ok <root>/std/io.nomi :: impl / read_all //! test lines 556-559
-T ok <root>/std/io.nomi :: impl / read_all_text //! test lines 570-576
-T ok <root>/std/io.nomi :: impl / lines //! test lines 593-604
-T ok <root>/std/io.nomi :: impl / chunks //! test lines 627-633
-T ok <root>/std/io.nomi :: impl / copy_to //! test lines 653-657
-T ok <root>/std/io.nomi :: impl / close //! test lines 667-670
-T ok <root>/std/io.nomi :: impl / close_quietly //! test lines 683-686
-T ok <root>/std/io.nomi :: impl / from_bytes //! test lines 698-699
-T ok <root>/std/io.nomi :: impl / from_text //! test lines 708-709
-T ok <root>/std/io.nomi :: impl / from_fn //! test lines 724-731
-T ok <root>/std/io.nomi :: impl / from_chunks //! test lines 742-749
-T ok <root>/std/io.nomi :: impl / from_text_chunks //! test lines 759-764
-T ok <root>/std/io.nomi :: impl / write //! test lines 785-789
-T ok <root>/std/io.nomi :: impl / write_text //! test lines 798-801
-T ok <root>/std/io.nomi :: impl / print //! test lines 811-820
-T ok <root>/std/io.nomi :: impl / flush //! test lines 832-834
-T ok <root>/std/io.nomi :: impl / close //! test lines 846-848
-T ok <root>/std/io.nomi :: impl / close_quietly //! test lines 863-866
-T ok <root>/std/io.nomi :: impl / discard //! test lines 894-907
-T ok <root>/std/io.nomi :: impl / write_all //! test lines 918-923
-T ok <root>/std/io.nomi :: impl / write_lines //! test lines 941-952
-T ok <root>/std/io.nomi :: impl / from_fn //! test lines 983-997
-T ok <root>/std/io.nomi :: impl / collect //! test lines 1016-1026
-T ok <root>/std/io.nomi :: capture //! test lines 1260-1283
-T ok <root>/std/io.nomi :: replay //! test lines 1410-1519
+T ok <root>/std/io.nomi :: print //! test lines 289-295
+T ok <root>/std/io.nomi :: write //! test lines 309-315
+T ok <root>/std/io.nomi :: inspect //! test lines 333-338
+T ok <root>/std/io.nomi :: eprint //! test lines 350-356
+T ok <root>/std/io.nomi :: ewrite //! test lines 366-371
+T ok <root>/std/io.nomi :: read_line //! test lines 391-392
+T ok <root>/std/io.nomi :: lines //! test lines 411-416
+T ok <root>/std/io.nomi :: stdout //! test lines 440-445
+T ok <root>/std/io.nomi :: impl / descriptor //! test lines 475-476
+T ok <root>/std/io.nomi :: is_terminal //! test lines 497-498
+T ok <root>/std/io.nomi :: impl / read_line //! test lines 521-535
+T ok <root>/std/io.nomi :: impl / read //! test lines 550-553
+T ok <root>/std/io.nomi :: impl / read_all //! test lines 564-567
+T ok <root>/std/io.nomi :: impl / read_all_text //! test lines 578-584
+T ok <root>/std/io.nomi :: impl / lines //! test lines 601-612
+T ok <root>/std/io.nomi :: impl / chunks //! test lines 635-641
+T ok <root>/std/io.nomi :: impl / copy_to //! test lines 661-665
+T ok <root>/std/io.nomi :: impl / close //! test lines 675-678
+T ok <root>/std/io.nomi :: impl / close_quietly //! test lines 691-694
+T ok <root>/std/io.nomi :: impl / from_bytes //! test lines 706-707
+T ok <root>/std/io.nomi :: impl / from_text //! test lines 716-717
+T ok <root>/std/io.nomi :: impl / from_fn //! test lines 732-739
+T ok <root>/std/io.nomi :: impl / from_chunks //! test lines 750-757
+T ok <root>/std/io.nomi :: impl / from_text_chunks //! test lines 767-772
+T ok <root>/std/io.nomi :: impl / write //! test lines 793-797
+T ok <root>/std/io.nomi :: impl / write_text //! test lines 806-809
+T ok <root>/std/io.nomi :: impl / print //! test lines 819-828
+T ok <root>/std/io.nomi :: impl / flush //! test lines 840-842
+T ok <root>/std/io.nomi :: impl / close //! test lines 854-856
+T ok <root>/std/io.nomi :: impl / close_quietly //! test lines 871-874
+T ok <root>/std/io.nomi :: impl / discard //! test lines 902-915
+T ok <root>/std/io.nomi :: impl / write_all //! test lines 926-931
+T ok <root>/std/io.nomi :: impl / write_lines //! test lines 949-960
+T ok <root>/std/io.nomi :: impl / from_fn //! test lines 991-1005
+T ok <root>/std/io.nomi :: impl / collect //! test lines 1024-1034
+T ok <root>/std/io.nomi :: capture //! test lines 1268-1291
+T ok <root>/std/io.nomi :: replay //! test lines 1418-1527
 T test result: ok. 38 passed, 0 failed
 T
 C iter
@@ -1402,15 +1403,15 @@ T
 C net
 E 0
 N 8
-H d3a394a33f6bdc23dccd2f57a7b491d25c580727b40878cdb82da9aaa6427717
-T ok <root>/std/net.nomi :: impl / to_string //! test line 322
-T ok <root>/std/net.nomi :: pipe //! test lines 391-393
-T ok <root>/std/net.nomi :: split_host_port //! test line 404
-T ok <root>/std/net.nomi :: join_host_port //! test line 415
-T ok <root>/std/net.nomi :: lookup_host //! test lines 444-445
-T ok <root>/std/net.nomi :: lookup_port //! test line 492
-T ok <root>/std/net.nomi :: listen_unix //! test lines 581-599
-T ok <root>/std/net.nomi :: inherited_listeners //! test lines 645-646
+H a128f75e33a1045b4b6ebd705f9348601f851228041f073348f6a46a84ed81fb
+T ok <root>/std/net.nomi :: impl / to_string //! test line 325
+T ok <root>/std/net.nomi :: pipe //! test lines 394-396
+T ok <root>/std/net.nomi :: split_host_port //! test line 407
+T ok <root>/std/net.nomi :: join_host_port //! test line 418
+T ok <root>/std/net.nomi :: lookup_host //! test lines 447-448
+T ok <root>/std/net.nomi :: lookup_port //! test line 495
+T ok <root>/std/net.nomi :: listen_unix //! test lines 584-602
+T ok <root>/std/net.nomi :: inherited_listeners //! test lines 648-649
 T test result: ok. 8 passed, 0 failed
 T
 C option
@@ -1502,7 +1503,7 @@ T
 C presence
 E 0
 N 10
-H 4db7b7cb870f60120c146447a0b1d743d3bbd3d5ef0b5b8a6e8640c1fbfc8ad4
+H 0ff3654837f92848e12aada560fff7944b593bb2fc2340a10f00be6bbbc07bb5
 T ok <root>/std/presence.nomi :: Presence //! test lines 29-40
 T ok <root>/std/presence.nomi :: impl / is_present //! test lines 49-51
 T ok <root>/std/presence.nomi :: impl / is_absent //! test lines 61-63
@@ -1511,8 +1512,8 @@ T ok <root>/std/presence.nomi :: impl / with_default //! test lines 86-92
 T ok <root>/std/presence.nomi :: impl / otherwise //! test lines 103-109
 T ok <root>/std/presence.nomi :: impl / to_option //! test lines 121-123
 T ok <root>/std/presence.nomi :: impl / flatten //! test lines 137-143
-T ok <root>/std/presence.nomi :: impl / to_json //! test lines 160-164
-T ok <root>/std/presence.nomi :: impl / from_json //! test lines 184-189
+T ok <root>/std/presence.nomi :: impl / to_json //! test lines 161-165
+T ok <root>/std/presence.nomi :: impl / from_json //! test lines 188-199
 T test result: ok. 10 passed, 0 failed
 T
 C process
@@ -1747,7 +1748,7 @@ T
 C storage
 E 0
 N 11
-H 206caa6bec05519647c5353ff55b6e21ac52c956dee83ffd3fc221736f811ffb
+H 00b2755a23a0a1a75e508b89706f6f6af3feb60e817a012e131ef63e409618d1
 T ok <root>/std/storage.nomi :: Error //! test line 90
 T ok <root>/std/storage.nomi :: Store //! test lines 220-225
 T ok <root>/std/storage.nomi :: check_key //! test lines 255-267
@@ -1758,7 +1759,7 @@ T ok <root>/std/storage.nomi :: join_key //! test lines 448-450
 T ok <root>/std/storage.nomi :: check_content_type //! test lines 461-464
 T ok <root>/std/storage.nomi :: local //! test lines 520-530
 T ok <root>/std/storage.nomi :: local_dir //! test lines 541-576
-T ok <root>/std/storage.nomi :: handler //! test lines 935-952
+T ok <root>/std/storage.nomi :: handler //! test lines 936-953
 T test result: ok. 11 passed, 0 failed
 T
 C storage/testing
@@ -1846,29 +1847,30 @@ T test result: ok. 1 passed, 0 failed
 T
 C system
 E 0
-N 15
-H 8ce0768ec384ea911455b81140229617affe3169f5e759c8355fd29594d97fa8
-T ok <root>/std/system.nomi :: impl / to_string //! test lines 54-55
-T ok <root>/std/system.nomi :: impl / to_string //! test lines 83-84
-T ok <root>/std/system.nomi :: impl / to_string //! test lines 154-158
-T ok <root>/std/system.nomi :: os //! test line 179
-T ok <root>/std/system.nomi :: arch //! test line 193
-T ok <root>/std/system.nomi :: cpu_count //! test line 207
-T ok <root>/std/system.nomi :: hostname //! test line 214
-T ok <root>/std/system.nomi :: executable //! test line 222
-T ok <root>/std/system.nomi :: home_dir //! test line 229
-T ok <root>/std/system.nomi :: cache_dir //! test line 239
-T ok <root>/std/system.nomi :: config_dir //! test line 248
-T ok <root>/std/system.nomi :: data_dir //! test line 258
-T ok <root>/std/system.nomi :: user //! test line 265
-T ok <root>/std/system.nomi :: memory //! test lines 277-279
-T ok <root>/std/system.nomi :: runtime //! test lines 288-304
-T test result: ok. 15 passed, 0 failed
+N 16
+H 9d798359bad63590bee544bae1890e5b27a1c7c5a81c7f7bab5da33765e7e332
+T ok <root>/std/system.nomi :: impl / to_string //! test lines 55-56
+T ok <root>/std/system.nomi :: impl / to_string //! test lines 84-85
+T ok <root>/std/system.nomi :: impl / to_string //! test lines 155-159
+T ok <root>/std/system.nomi :: os //! test line 180
+T ok <root>/std/system.nomi :: arch //! test line 194
+T ok <root>/std/system.nomi :: cpu_count //! test line 208
+T ok <root>/std/system.nomi :: hostname //! test line 215
+T ok <root>/std/system.nomi :: executable //! test line 223
+T ok <root>/std/system.nomi :: home_dir //! test line 230
+T ok <root>/std/system.nomi :: cache_dir //! test line 240
+T ok <root>/std/system.nomi :: config_dir //! test line 249
+T ok <root>/std/system.nomi :: data_dir //! test line 259
+T ok <root>/std/system.nomi :: user //! test line 266
+T ok <root>/std/system.nomi :: memory //! test lines 278-280
+T ok <root>/std/system.nomi :: runtime //! test lines 289-305
+T ok <root>/std/system.nomi :: nomi_release //! test line 318
+T test result: ok. 16 passed, 0 failed
 T
 C tasks
 E 0
 N 10
-H a82901f619eb495ac01fc88dd5d205845030aa5d78fdb4c1c2081810da0cb61c
+H 701ecddd9faf22f4314f5442db3d96e5a2d105b75ff2775f59f8a98836264649
 T ok <root>/std/tasks.nomi :: impl / spawn //! test lines 71-77
 T ok <root>/std/tasks.nomi :: impl / await //! test lines 90-96
 T ok <root>/std/tasks.nomi :: impl / spawn_all //! test lines 111-118
@@ -1876,9 +1878,9 @@ T ok <root>/std/tasks.nomi :: impl / await_all //! test lines 137-144
 T ok <root>/std/tasks.nomi :: impl / try_await_all //! test lines 158-174
 T ok <root>/std/tasks.nomi :: impl / race //! test lines 192-200
 T ok <root>/std/tasks.nomi :: impl / within //! test lines 234-237
-T ok <root>/std/tasks.nomi :: impl / stream //! test lines 256-269
-T ok <root>/std/tasks.nomi :: impl / outcome //! test lines 281-303
-T ok <root>/std/tasks.nomi :: impl / inspect //! test lines 323-329
+T ok <root>/std/tasks.nomi :: impl / stream //! test lines 259-280
+T ok <root>/std/tasks.nomi :: impl / outcome //! test lines 297-319
+T ok <root>/std/tasks.nomi :: impl / inspect //! test lines 339-345
 T test result: ok. 10 passed, 0 failed
 T
 C terminal

@@ -33,7 +33,7 @@ type TypeID struct {
 
 // The identities of the types the compiler represents directly rather than
 // declaring. They live here, once, because `impl Numberish for Int` is legal
-// under the orphan rule in any module and every such impl must key on the same
+// under the orphan rule in any package and every such impl must key on the same
 // Int — one canonical variable is how that is guaranteed rather than hoped for.
 var (
 	TIDInt    = TypeID{Nomi: "Int"}

@@ -132,14 +132,14 @@ func TestMissingImport_IsAnErrorAtThePath(t *testing.T) {
 
 // An import into another module names that module and the file it lacks,
 // with the module's file the path misspells.
-func TestMissingImport_CrossModule(t *testing.T) {
+func TestMissingImport_CrossPackage(t *testing.T) {
 	todoMain := "import stringkit::pda.pad_left\n\nfn main()\n  _ = pad_left(\"hi\")\nend\n"
-	todoRoot, _, entryPath := writeCratePackagingExample(t, todoMain, "pub fn pad_left(s: String) -> String\n  s\nend\n", nil)
+	todoRoot, _, entryPath := writeTwoPackageExample(t, todoMain, "pub fn pad_left(s: String) -> String\n  s\nend\n", nil)
 	data, _ := os.ReadFile(entryPath)
 	entryNodes, _ := parser.ParseWithRecovery(lexer.Lex(string(data)))
 	lib := loadStd()
 	fa := analysis.BuildProject(entryNodes, lib.Primitives, lib.Modules, lib.Files, todoRoot, std.MakeLoader())
-	want := "1:8-22: no module `stringkit::pda`: module `stringkit` has no file pda.nomi; did you mean 'stringkit::pad'?"
+	want := "1:8-22: no module `stringkit::pda`: package `stringkit` has no file pda.nomi; did you mean 'stringkit::pad'?"
 	var got []string
 	for _, e := range fa.TypeErrors {
 		s := fmt.Sprintf("%d:%d-%d: %s", e.Line, e.Col, e.EndCol, e.Message)
@@ -213,8 +213,8 @@ func TestMissingImport_PresentModulesStayAccepted(t *testing.T) {
 // file `std`; it once bound `io` (or its alias) to nothing, and every call
 // through it reached the IR builder with no type. The hint spells the file
 // import when the selected name is a file in the module.
-func TestMissingImport_ModuleRootIsNotAFile(t *testing.T) {
-	const msg = "`std` is a module, not a file; an import names a file in it"
+func TestMissingImport_PackageRootIsNotAFile(t *testing.T) {
+	const msg = "`std` is a package, not a file; an import names a file in it"
 	cases := []struct {
 		name, entry, want string
 	}{
@@ -266,14 +266,14 @@ func TestMissingImport_ModuleRootIsNotAFile(t *testing.T) {
 }
 
 // Another module's short name alone is the same error, naming that module.
-func TestMissingImport_CrossModuleRootIsNotAFile(t *testing.T) {
+func TestMissingImport_CrossPackageRootIsNotAFile(t *testing.T) {
 	todoMain := "import stringkit.pad\n\nfn main()\n  _ = pad.pad_left(\"hi\")\nend\n"
-	todoRoot, _, entryPath := writeCratePackagingExample(t, todoMain, "pub fn pad_left(s: String) -> String\n  s\nend\n", nil)
+	todoRoot, _, entryPath := writeTwoPackageExample(t, todoMain, "pub fn pad_left(s: String) -> String\n  s\nend\n", nil)
 	data, _ := os.ReadFile(entryPath)
 	entryNodes, _ := parser.ParseWithRecovery(lexer.Lex(string(data)))
 	lib := loadStd()
 	fa := analysis.BuildProject(entryNodes, lib.Primitives, lib.Modules, lib.Files, todoRoot, std.MakeLoader())
-	want := "1:8-17: `stringkit` is a module, not a file; an import names a file in it; did you mean `import stringkit::pad`?"
+	want := "1:8-17: `stringkit` is a package, not a file; an import names a file in it; did you mean `import stringkit::pad`?"
 	var got []string
 	for _, e := range fa.TypeErrors {
 		s := fmt.Sprintf("%d:%d-%d: %s", e.Line, e.Col, e.EndCol, e.Message)

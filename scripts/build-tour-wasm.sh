@@ -131,6 +131,11 @@ go run -C "$ROOT" ./cmd/nomi-docgen -examples "$ROOT/tests/exercism" "$ROOT/tour
 echo "==> generate the cheat sheet and llms.txt (cmd/nomi-docgen -llms)"
 go run -C "$ROOT" ./cmd/nomi-docgen -llms "$ROOT" "$ROOT/tour"
 
+# The install script behind `curl -fsSL https://nomi-lang.org/install.sh | sh`,
+# from scripts/install.sh, its one source, to the site root (gitignored).
+echo "==> stage install.sh"
+install -m 0644 "$ROOT/scripts/install.sh" "$ROOT/tour/public/install.sh"
+
 # Stage assets for the Starlight tour (tour): built wasm/grammar from $OUT,
 # plus the committed client JS from the site's src/lib. The Starlight build
 # serves these statically from public/nomi/ (gitignored) — the editable,

@@ -7301,6 +7301,10 @@
           "named": true
         },
         {
+          "type": "private_keyword",
+          "named": true
+        },
+        {
           "type": "pub",
           "named": true
         },
@@ -7548,6 +7552,10 @@
           "named": true
         },
         {
+          "type": "private_keyword",
+          "named": true
+        },
+        {
           "type": "pub",
           "named": true
         },
@@ -7583,6 +7591,10 @@
       "types": [
         {
           "type": "host_keyword",
+          "named": true
+        },
+        {
+          "type": "private_keyword",
           "named": true
         },
         {
@@ -8219,6 +8231,10 @@
         },
         {
           "type": "parameters",
+          "named": true
+        },
+        {
+          "type": "private_keyword",
           "named": true
         },
         {
@@ -10399,6 +10415,10 @@
           "named": true
         },
         {
+          "type": "private_keyword",
+          "named": true
+        },
+        {
           "type": "pub",
           "named": true
         },
@@ -10920,6 +10940,10 @@
       "types": [
         {
           "type": "parameters",
+          "named": true
+        },
+        {
+          "type": "private_keyword",
           "named": true
         },
         {
@@ -13403,6 +13427,10 @@
       "multiple": false,
       "required": false,
       "types": [
+        {
+          "type": "private_keyword",
+          "named": true
+        },
         {
           "type": "pub",
           "named": true
@@ -17340,6 +17368,10 @@
       "required": true,
       "types": [
         {
+          "type": "private_keyword",
+          "named": true
+        },
+        {
           "type": "pub",
           "named": true
         },
@@ -19243,6 +19275,10 @@
       "required": false,
       "types": [
         {
+          "type": "private_keyword",
+          "named": true
+        },
+        {
           "type": "pub",
           "named": true
         },
@@ -19282,6 +19318,10 @@
         },
         {
           "type": "generic_type",
+          "named": true
+        },
+        {
+          "type": "private_keyword",
           "named": true
         },
         {
@@ -20755,6 +20795,10 @@
   },
   {
     "type": "placeholder",
+    "named": true
+  },
+  {
+    "type": "private_keyword",
     "named": true
   },
   {

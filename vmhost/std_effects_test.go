@@ -31,7 +31,7 @@ func TestStdEffects_AnswersOnces(t *testing.T) {
 		var decl *ast.OnceBinding
 		for _, node := range p.prog.Entry().Nodes {
 			ast.Inspect(node, func(n ast.Node) bool {
-				if ob, ok := n.(*ast.OnceBinding); ok && ob.Public && ob.Name == tc.name {
+				if ob, ok := n.(*ast.OnceBinding); ok && ob.Visibility == ast.Public && ob.Name == tc.name {
 					decl = ob
 				}
 				return decl == nil

@@ -1,8 +1,7 @@
 package rt
 
 import (
-	"reflect"
-	"time"
+	"slices"
 )
 
 // `Channel.select` and `Receiver.receive_within`: waiting on several channel
@@ -13,35 +12,35 @@ import (
 // std declares `Arm<R>` over three constructors: a receive on a
 // `Receiver<T>`, a send of a `T` on a `Sender<T>`, and a timer. One select
 // takes arms over channels of different element types, so the wait runs over
-// erased cases (SelectCase), through reflect.Select. The handler each arm
-// carries is a Nomi function the caller runs on the winning case's outcome;
-// rt waits and reports which case won and with what, and runs no Nomi code.
+// erased cases (SelectCase), each over the channel's `any` elements. The
+// handler each arm carries is a Nomi function the caller runs on the winning
+// case's outcome; rt waits and reports which case won and with what, and runs
+// no Nomi code.
 //
 // # Which ready case wins
 //
 // The first listed case that can finish as the select starts wins, so a run
-// repeats exactly. A first pass tries each case in order without blocking;
-// only when none can finish does the select block, and then the first case
-// to become ready wins (Go breaks a tie between cases that become ready at
-// the same instant). std documents the bias and the rotation that undoes it.
+// repeats exactly: the select locks every channel it names, in the order of
+// their ids, and tries each case in order. Only when none can finish does it
+// wait, on every channel's waiter list at once with one parker (wait.go),
+// and then the first case another task completes wins. std documents the
+// bias and the rotation that undoes it.
 //
 // # Closed channels
 //
-// A receive on a closed channel finishes at once with no value, Go's own
-// two-value receive. A send on a closed channel finishes at once as closed:
-// the first pass tests the closed flag under the channel's close mutex, as
-// SenderSend does, so it never reaches Go's panicking send. A select that
-// blocks registers each send case's channel as parked and waits on the
-// channel's done beside it, so a close that lands while it waits finishes
-// that case as closed, as SenderSend's parked send answers Err.
+// A receive on a closed channel finishes at once with no value. A send on a
+// closed channel finishes at once as closed, and a close that lands while
+// the select waits finishes the send case as closed, as SenderSend's waiting
+// send answers Err.
 //
 // # Timers and the clock in force
 //
-// A timer is a time.Timer started when the select starts. Under `clock
-// Clock.Virtual` the case runs inside a testing/synctest bubble, where a
-// timer fires as soon as every goroutine in the bubble is blocked, so a
-// select with a timer never waits in real time there. A timer of zero or
-// less is ready in the first pass.
+// A timer case is one timer started when the select starts to wait, for the
+// shortest of the select's timers; the first listed timer case of that
+// length is the one it finishes. A timer of zero or less is ready at once.
+// Under `clock Clock.Virtual` the case runs inside a testing/synctest
+// bubble, where a timer fires as soon as every goroutine in the bubble is
+// blocked, so a select with a timer never waits in real time there.
 
 // selectKind is what one SelectCase waits for.
 type selectKind uint8
@@ -55,48 +54,21 @@ const (
 // SelectCase is one erased arm of a select.
 type SelectCase struct {
 	kind selectKind
-	// ch is the channel's Go channel, as a reflect.Value so cases over
-	// different element types sit in one list.
-	ch reflect.Value
-	// closed reports whether a send case's channel is closed, read under
-	// lock, which the first pass holds while it tries the send.
-	closed func() bool
-	lock   func()
-	unlock func()
-	// park, unpark and done are the channel's parked-sender registration
-	// (Chan.park, Chan.unpark) and its done channel, for a blocking wait.
-	park   func() bool
-	unpark func()
-	done   reflect.Value
+	c    *channel
 	// value is a send case's value.
-	value reflect.Value
+	value any
 	// wait is a timer case's duration.
 	wait Duration
 }
 
 // SelectReceive is a case that receives from r.
 func SelectReceive[T any](r Receiver[T]) SelectCase {
-	return SelectCase{kind: selectReceive, ch: reflect.ValueOf(r.c.ch)}
+	return SelectCase{kind: selectReceive, c: r.c}
 }
 
 // SelectSend is a case that sends v on s.
 func SelectSend[T any](s Sender[T], v T) SelectCase {
-	c := s.c
-	val := reflect.New(reflect.TypeFor[T]()).Elem()
-	if any(v) != nil {
-		val.Set(reflect.ValueOf(v))
-	}
-	return SelectCase{
-		kind:   selectSend,
-		ch:     reflect.ValueOf(c.ch),
-		closed: c.closed.Load,
-		lock:   c.closeMu.Lock,
-		unlock: c.closeMu.Unlock,
-		park:   c.park,
-		unpark: c.unpark,
-		done:   reflect.ValueOf(c.done),
-		value:  val,
-	}
+	return SelectCase{kind: selectSend, c: s.c, value: v}
 }
 
 // SelectAfter is a case that finishes once d has passed.
@@ -114,124 +86,122 @@ type Selected struct {
 	OK    bool
 }
 
-// Select waits until one of cases can finish and reports it. cases holds
-// at least one: `Channel.select` takes a NonEmptyList.
+// Select waits at site until one of cases can finish and reports it. cases
+// holds at least one: `Channel.select` takes a NonEmptyList.
 //
-// It takes the frame for SenderSend's reason: the blocking wait is a
-// cancellation point, and a cancelled wait unwinds rather than answering.
-func Select(fr *Frame, cases []SelectCase) Selected {
-	if got, ready := selectNow(cases); ready {
+// It takes the frame for SenderSend's reason: the wait is a cancellation
+// point, and a cancelled wait unwinds rather than answering.
+func Select(fr *Frame, site Site, cases []SelectCase) Selected {
+	chans := make([]*channel, 0, len(cases))
+	for _, c := range cases {
+		if c.c != nil && !slices.Contains(chans, c.c) {
+			chans = append(chans, c.c)
+		}
+	}
+	slices.SortFunc(chans, func(a, b *channel) int {
+		switch {
+		case a.id < b.id:
+			return -1
+		case a.id > b.id:
+			return 1
+		}
+		return 0
+	})
+	for _, c := range chans {
+		c.mu.Lock()
+	}
+	unlock := func() {
+		for _, c := range chans {
+			c.mu.Unlock()
+		}
+	}
+	if got, woke, ready := selectNowLocked(cases); ready {
+		unlock()
+		if woke != nil {
+			woke.p.release()
+		}
 		return got
 	}
-	// Register every send case as parked before waiting, so a close while
-	// this waits leaves the Go channel open (Chan.park). A channel closed
-	// since the first pass finishes its case as closed now.
+	p := parkerOf(fr)
+	defer p.close()
+	entries := make([]waitEntry, len(cases))
+	w := wait{kind: waitSelect, site: site, ctx: fr.Context(), cases: cases}
 	for i, c := range cases {
-		if c.kind != selectSend {
-			continue
+		e := &entries[i]
+		e.reset(p, i)
+		switch c.kind {
+		case selectReceive:
+			c.c.recvq.push(e)
+		case selectSend:
+			e.v = c.value
+			c.c.sendq.push(e)
+		case selectAfter:
+			if !w.timed || c.wait < w.after {
+				w.timed, w.after, w.afterWon = true, c.wait, i
+			}
 		}
-		c.lock()
-		ok := c.park()
-		c.unlock()
-		if !ok {
-			return Selected{Index: i}
-		}
-		defer c.unpark()
 	}
-	// Parked for the blocking wait, as ReceiverReceive is: a task waiting
-	// here has no scheduled wake a draining supervisor could see.
-	SupervisedPark(fr)
-	defer SupervisedUnpark(fr)
-	rcases := make([]reflect.SelectCase, 0, len(cases)+1)
-	index := make([]int, 0, len(cases))
-	// closedAt maps an rcases index of a send case's done to its case.
-	closedAt := map[int]int{}
+	p.block(w)
+	unlock()
+	won := p.sleep(w)
+	for _, c := range chans {
+		c.mu.Lock()
+	}
 	for i, c := range cases {
 		switch c.kind {
 		case selectReceive:
-			rcases = append(rcases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: c.ch})
+			c.c.recvq.remove(&entries[i])
 		case selectSend:
-			rcases = append(rcases, reflect.SelectCase{Dir: reflect.SelectSend, Chan: c.ch, Send: c.value})
-			index = append(index, i)
-			closedAt[len(rcases)] = i
-			rcases = append(rcases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: c.done})
-		case selectAfter:
-			timer := time.NewTimer(time.Duration(c.wait))
-			defer stopTimer(timer)
-			rcases = append(rcases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(timer.C)})
+			c.c.sendq.remove(&entries[i])
 		}
-		index = append(index, i)
 	}
-	rcases = append(rcases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(fr.Context().Done())})
-	chosen, v, ok := reflect.Select(rcases)
-	if chosen == len(index) {
+	unlock()
+	switch won {
+	case wonCancelled:
 		raiseCanceled(fr)
-		panic("unreachable")
+	case wonDeadlock:
+		p.deadlocked()
 	}
-	if i, closed := closedAt[chosen]; closed {
-		return Selected{Index: i}
-	}
-	i := index[chosen]
-	switch cases[i].kind {
+	e := &entries[won]
+	switch cases[won].kind {
 	case selectReceive:
-		if !ok {
-			return Selected{Index: i}
+		if !e.ok {
+			return Selected{Index: won}
 		}
-		return Selected{Index: i, Value: v.Interface(), OK: true}
+		return Selected{Index: won, Value: e.v, OK: true}
 	case selectSend:
-		return Selected{Index: i, OK: true}
+		return Selected{Index: won, OK: e.ok}
 	}
-	return Selected{Index: i, OK: true}
+	return Selected{Index: won, OK: true}
 }
 
-// selectNow is the first pass: the first case, in order, that can finish
-// without blocking.
-func selectNow(cases []SelectCase) (Selected, bool) {
+// selectNowLocked is the first case, in order, that can finish without
+// waiting, with every channel's lock held; woke is a waiter it completed,
+// for the caller to release once the locks are let go.
+func selectNowLocked(cases []SelectCase) (got Selected, woke *waitEntry, ready bool) {
 	for i, c := range cases {
 		switch c.kind {
 		case selectReceive:
-			chosen, v, ok := reflect.Select([]reflect.SelectCase{
-				{Dir: reflect.SelectRecv, Chan: c.ch},
-				{Dir: reflect.SelectDefault},
-			})
-			if chosen == 0 {
+			if v, ok, w, now := c.c.tryReceiveLocked(); now {
 				if !ok {
-					return Selected{Index: i}, true
+					return Selected{Index: i}, w, true
 				}
-				return Selected{Index: i, Value: v.Interface(), OK: true}, true
+				return Selected{Index: i, Value: v, OK: true}, w, true
 			}
 		case selectSend:
-			c.lock()
-			if c.closed() {
-				c.unlock()
-				return Selected{Index: i}, true
+			if c.c.closed {
+				return Selected{Index: i}, nil, true
 			}
-			chosen, _, _ := reflect.Select([]reflect.SelectCase{
-				{Dir: reflect.SelectSend, Chan: c.ch, Send: c.value},
-				{Dir: reflect.SelectDefault},
-			})
-			c.unlock()
-			if chosen == 0 {
-				return Selected{Index: i, OK: true}, true
+			if w, now := c.c.trySendLocked(c.value); now {
+				return Selected{Index: i, OK: true}, w, true
 			}
 		case selectAfter:
 			if c.wait <= 0 {
-				return Selected{Index: i, OK: true}, true
+				return Selected{Index: i, OK: true}, nil, true
 			}
 		}
 	}
-	return Selected{}, false
-}
-
-// stopTimer stops a timer and drains a tick it may have delivered, SleepCtx's
-// cleanup.
-func stopTimer(timer *time.Timer) {
-	if !timer.Stop() {
-		select {
-		case <-timer.C:
-		default:
-		}
-	}
+	return Selected{}, nil, false
 }
 
 // TimedOut is Nomi's `std/channels.TimedOut`: the marker
@@ -242,13 +212,13 @@ type TimedOut struct{}
 // ReceiverReceiveWithin is `Receiver.receive_within(receiver, wait)`: a
 // select over the receive and one timer, the receive listed first so a value
 // already waiting wins over a timer of zero.
-func ReceiverReceiveWithin[T any](fr *Frame, r Receiver[T], wait Duration) Result[Option[T], TimedOut] {
-	got := Select(fr, []SelectCase{SelectReceive(r), SelectAfter(wait)})
+func ReceiverReceiveWithin[T any](fr *Frame, site Site, r Receiver[T], wait Duration) Result[Option[T], TimedOut] {
+	got := Select(fr, site, []SelectCase{SelectReceive(r), SelectAfter(wait)})
 	if got.Index == 1 {
 		return Err[Option[T], TimedOut](TimedOut{})
 	}
 	if !got.OK {
 		return Ok[Option[T], TimedOut](None[T]())
 	}
-	return Ok[Option[T], TimedOut](Some(got.Value.(T)))
+	return Ok[Option[T], TimedOut](Some(valueOf[T](got.Value)))
 }

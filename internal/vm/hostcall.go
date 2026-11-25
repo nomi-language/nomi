@@ -204,7 +204,13 @@ func resolveSpec(spec *hostadapt.DescSpec) (*rt.TypeDesc, error) {
 // keeps unwinding, which is what a cancelled task's unwind must do. An rt
 // trap the adapter returns is a fault too: a value the Go side cannot hold
 // (hostadapt.Param, hostadapt.Returned) is the program's, not the machine's.
-func callAdapter(fn hostadapt.Func, runtime *rt.Frame, args []any) (v any, err error) {
+//
+// fr is the activation making the call, at at; a case under a virtual clock
+// notes the call on its task's record while it runs (note, caselimit.go).
+func callAdapter(note bool, fr *frame, at ir.Pos, fn hostadapt.Func, args []any) (v any, err error) {
+	if note {
+		defer rt.LeaveGo(fr.runtime, rt.EnterGo(fr.runtime, siteOf(fr.fn, at)))
+	}
 	defer func() {
 		if err != nil {
 			v, err = adapterFailure(v, err)
@@ -215,12 +221,15 @@ func callAdapter(fn hostadapt.Func, runtime *rt.Frame, args []any) (v any, err e
 			v, err = nil, adapterPanic(p)
 		}
 	}()
-	return fn(runtime, args)
+	return fn(fr.runtime, args)
 }
 
-// callRegs calls a bound adapter's register form on runtime over slots s,
+// callRegs calls a bound adapter's register form over slots s, noting and
 // failing as callAdapter does.
-func callRegs(fn hostadapt.RegFunc, runtime *rt.Frame, s *hostadapt.Slots) (carried bool, err error) {
+func callRegs(note bool, fr *frame, at ir.Pos, fn hostadapt.RegFunc, s *hostadapt.Slots) (carried bool, err error) {
+	if note {
+		defer rt.LeaveGo(fr.runtime, rt.EnterGo(fr.runtime, siteOf(fr.fn, at)))
+	}
 	defer func() {
 		if p := recover(); p != nil {
 			err = adapterPanic(p)
@@ -230,7 +239,7 @@ func callRegs(fn hostadapt.RegFunc, runtime *rt.Frame, s *hostadapt.Slots) (carr
 			carried = false
 		}
 	}()
-	return fn(runtime, s)
+	return fn(fr.runtime, s)
 }
 
 // adapterFailure is the failure an adapter's err becomes: an rt trap is this

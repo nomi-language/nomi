@@ -131,9 +131,9 @@
 // [effects.deps] holds the files of every module the program's code comes
 // from other than the project: its std, a ceiling when the table sets
 // one, with std_in_tests for the tests, and the project's entry for the
-// module under [effects.deps.modules]. When the project has
+// module under [effects.deps.packages]. When the project has
 // [effects.deps], a dependency's calls are held too to the
-// [effects.self] in its own nomi.toml (moduleAt reads it, once per
+// [effects.self] in its own nomi.toml (packageAt reads it, once per
 // module), whose std and entries declare its own code. A table the
 // project leaves out holds nothing. A call over several lists is reported once,
 // over the module's own list first (EffectNotDeclaredCode, whose help
@@ -142,15 +142,15 @@
 // checked by the code that checks the project's, at its own nomi.toml. A
 // key under [effects.self.modules] must name a module of the project
 // (projectModules), and entries_required is checked in each table over the
-// modules whose files the program holds (ownModules, requiredModules). A
-// host's list holds the whole program and is never a dependency's: a
-// program held only by WithEffects reads no dependency's table.
+// modules and packages whose files the program holds (ownModules,
+// requiredPackages). A host's list holds the whole program and is never a
+// dependency's: a program held only by WithEffects reads no dependency's
+// table.
 //
 // The roots `nomi check` holds to the lists (checkedRoots) are main and
 // the boot, the exported functions, the project's public functions and
 // the test cases. A public function is one another module can call
-// (publicFuncs): a `pub fn` outside an `internal/` directory and a test
-// file, at the top of a file or in an inherent impl, and each function of
+// (publicFuncs): a `pub fn` outside a test file, at the top of a file or in an inherent impl, and each function of
 // an interface's impl for a `pub` type that is not `opaque`, which
 // another module can build. The walk takes them as late roots
 // (vm.ReachedEffects): after main's walk, so a function main reaches keeps
@@ -220,7 +220,7 @@
 // the edges the same walk recorded (vm.EffectWalk.Tree), each call
 // standing as the check holds it, HeldChanges the differences `--check`
 // holds a table to, and
-// ModuleReaches and WriteModuleReach the effects each dependency has, as
+// PackageReaches and WritePackageReach the effects each dependency has, as
 // `nomi add` prints them. reachedCalls is what an editor's hover says of
 // the effects code has, read from editorWalks: the walks `nomi check`
 // holds to the lists, then the same walk from every function of the
@@ -418,7 +418,7 @@
 // the program.
 //
 // The record names what the program was built from (Program.inputs): the
-// project root's tree and each dependency module's, walked for every
+// project root's tree and each dependency package's, walked for every
 // `.nomi` file by presence and for the text of every other file a build
 // reads there (manifests, catalogs, nomi.lock: sourceTree); each of the
 // program's own files with its text; each `embed` pattern's base as a tree

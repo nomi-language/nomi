@@ -69,7 +69,7 @@ end
 
 pub type Foo Internal`
 	_, errs := checkSource(src)
-	expectError(t, errs, "private type")
+	expectError(t, errs, "exposes internal type Internal")
 }
 
 // ---------------------------------------------------------------------------

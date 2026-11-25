@@ -14,7 +14,7 @@ import (
 // declares. Expansion is the compiler's general mechanism for a declaration
 // checked against something outside Nomi, and its parts are general:
 //
-//   - Inputs. An expansion reads files under the module root (a
+//   - Inputs. An expansion reads files under the package root (a
 //     `phrase`, its catalogs) through the site's InputReader, and records
 //     each one it read with its text. The files are inputs of the declaring
 //     file: a program keeps them (CheckedProgram.Inputs), and an edit to one
@@ -48,21 +48,21 @@ func DiskInputs(path string) (string, bool) {
 	return string(data), true
 }
 
-// ExpansionSite is where a file's keyword declarations expand: the module
-// root its inputs are under, its path there, the module's manifest, and how
+// ExpansionSite is where a file's keyword declarations expand: the package
+// root its inputs are under, its path there, the package's manifest, and how
 // to read an input.
 type ExpansionSite struct {
-	// Root is the module root, the directory holding nomi.toml; empty for a
+	// Root is the package root, the directory holding nomi.toml; empty for a
 	// file with no project, which has no inputs.
 	Root string
 	// ModulePath is the file's path under Root, slash-separated, without
 	// `.nomi` ("shop/cart").
 	ModulePath string
-	// Manifest is the module's nomi.toml, nil for none.
+	// Manifest is the package's nomi.toml, nil for none.
 	Manifest *Manifest
 	// Read reads an input; nil reads the disk.
 	Read InputReader
-	// Embed is the files an `embed` reads, by their paths from the module
+	// Embed is the files an `embed` reads, by their paths from the package
 	// root (the directory ModulePath is under), or from the program's
 	// directory for a file with no project. Nil for a file with no
 	// directory, whose `embed` is an error.

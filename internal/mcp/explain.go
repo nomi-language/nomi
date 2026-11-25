@@ -47,9 +47,9 @@ var explanations = map[string]string{
 		"of the project's modules, keyed by the module as its own code imports it (`pricing`, `reports::daily`), lists the std " +
 		"modules whose effects that module's files may have within `std`; an empty entry allows no effects, and `entries_required = true` under " +
 		"`[effects.self]` makes every module the program loads have one. `[effects.deps]` holds the calls written in the " +
-		"files of every module the project depends on: `std` is the most effects any dependency may have, with `std_in_tests` for the " +
+		"files of every package the project depends on: `std` is the most effects any dependency may have, with `std_in_tests` for the " +
 		"tests, and under " +
-		"`[effects.deps.modules]` a dependency's entry lists the effects its own files may have. `entries_required = true` " +
+		"`[effects.deps.packages]` a dependency's entry lists the effects its own files may have. `entries_required = true` " +
 		"makes every dependency have an entry, or an `[effects.self]` in its own nomi.toml. A table the project leaves out holds " +
 		"nothing. A dependency whose own nomi.toml has an `[effects.self]` is held to it too; a call over it is " +
 		"`effect-not-declared`. This call has an effect the list the message names does not hold. " +
@@ -59,24 +59,24 @@ var explanations = map[string]string{
 		"ways: add the name to the key the help names; remove the call; or change how the program reaches it, following the chain: a call in a `Display` " +
 		"body, an interface implementation or a function value nothing needs counts, so move it out of the code the program reaches. " +
 		"Args are the name, the list it is over (`self`, " +
-		"`self.modules`, `deps`, `deps.modules`, or `host`), the module whose files hold the call (for `self.modules` the entry's " +
+		"`self.modules`, `deps`, `deps.packages`, or `host`), the package whose files hold the call (for `self.modules` the entry's " +
 		"key), and the names that list allows. A Go program that embeds Nomi can hold it to a list of its own " +
 		"(`vmhost.WithEffects`), which holds the whole program; a call over it says the " +
 		"host allows it, and the fix is the host's. `nomi effects` prints the effects the project's own code and each dependency " +
 		"have, `--why <name>` each call that has an effect, and `--write` writes the tightest tables the program passes.",
-	"effect-not-declared": "A module this project depends on has an `[effects.self]` table in its own nomi.toml: its " +
-		"`std` is the list of effects the module declares for its own files, an entry under its own `[effects.self.modules]` " +
+	"effect-not-declared": "A package this project depends on has an `[effects.self]` table in its own nomi.toml: its " +
+		"`std` is the list of effects the package declares for its own files, an entry under its own `[effects.self.modules]` " +
 		"narrows that for one of its modules. The " +
-		"project's nomi.toml has an `[effects.deps]` table, so the module is held to what it declares, as well as to the " +
-		"project's `[effects.deps]` and its entry for the module under `[effects.deps.modules]`. This call, in the " +
-		"module's own files, has an effect the module's own `std`, or its entry for the file's module, does not hold: " +
-		"the module declares fewer effects than its code has. The fix is in that module: add the name to " +
+		"project's nomi.toml has an `[effects.deps]` table, so the package is held to what it declares, as well as to the " +
+		"project's `[effects.deps]` and its entry for the package under `[effects.deps.packages]`. This call, in the " +
+		"package's own files, has an effect the package's own `std`, or its entry for the file's module, does not hold: " +
+		"the package declares fewer effects than its code has. The fix is in that package: add the name to " +
 		"`std` or to the entry under `[effects.self]` in its nomi.toml, or remove the call. Nothing in the " +
 		"project's own tables can allow it. When the project's tables do not allow the call either, the help says which. " +
-		"Only the module's own `std` and its " +
+		"Only the package's own `std` and its " +
 		"entries are read; its `std_in_tests`, `entries_required` and `[effects.deps]` are for its own " +
 		"builds. The call counts by the same rules as `effect-not-allowed`: anything that can reach it, even if it never runs. " +
-		"Args are the name, `self` (or `self.modules` over its entry), the module, and the names that list holds.",
+		"Args are the name, `self` (or `self.modules` over its entry), the package, and the names that list holds.",
 	"effects-not-determined": "The project's nomi.toml has an `[effects.self]` table, which holds the project's own code, " +
 		"its public functions among it, to the effects it lists. A public generic function runs at whatever types its callers " +
 		"give it, so `nomi check` reads its body with each type parameter held as its bounds: a call through a " +
@@ -84,14 +84,18 @@ var explanations = map[string]string{
 		"read the same way. This function's body does not lower that way, and the help names the reason. A call that " +
 		"gives the function types is still checked " +
 		"at those types; what it does at other types is not known, so the list cannot hold it. Fix it by giving the " +
-		"function a parameter of interface type in place of the type parameter, or by making it private when no other " +
-		"module needs it. " +
+		"function a parameter of interface type in place of the type parameter, or by dropping its `pub` when no other " +
+		"package needs it. " +
 		"Args are the function's name and `self`.",
-	"nomi-version": "A module's nomi.toml says, as `[module]`'s `nomi = \"v0.6.0\"`, the lowest nomi release its source needs, and " +
-		"the running nomi is an older release. The module is the project itself or one it depends on, named by its repository, " +
-		"directory and version. Nomi makes no compatibility promise yet, so nothing else is checked: a newer module's files may " +
-		"not mean to this nomi what they say. Install a newer nomi. A nomi built from source refuses no module. " +
-		"Args are the module as the message names it, the release it needs and the running release.",
+	"nomi-version": "A package's nomi.toml says, as `[package]`'s `nomi = \"v0.0.2\"`, the lowest nomi release its source needs, and " +
+		"the running nomi is an older release. The package is the project itself or one it depends on, named by its repository, " +
+		"directory and version. Nomi makes no compatibility promise yet, so nothing else is checked: a newer package's files may " +
+		"not mean to this nomi what they say. Install a newer nomi. A nomi built from source refuses no package. " +
+		"Args are the package as the message names it, the release it needs and the running release.",
+	"manifest": "A nomi.toml the program is built from cannot be read: the project's own, or that of a package it depends on, " +
+		"has a syntax error, a table or key nomi.toml does not have, a missing or invalid `[package]` name, or another problem " +
+		"the message names, with the file and its line. An import by a package's name and every dependency resolve through " +
+		"these files, so nothing else is checked until the problem is fixed: any other error would follow from it.",
 	"unused-import": "An import names a module or item nothing in the file uses. " +
 		"Unused imports are errors in Nomi. Remove the import, or the unused names from its `{...}` list.",
 	"path-at-use": "A use names a file by its path (`db::posts.find(1)`) after the file was imported " +
@@ -132,6 +136,27 @@ var explanations = map[string]string{
 		"can release it. Bind it to a name and `defer` its release, or do not acquire it.",
 	"uncommitted-resource": "A writer's discard is deferred, and a path returns normally without committing it, so the " +
 		"deferred discard throws the output away. Call `Writer.close(w)?` before each success return; error exits need nothing.",
+	"private-declaration": "Code names a `private` declaration of another file. A private declaration is seen only by its own file: " +
+		"no other file sees it, a test file beside it included, so a test of it is a `test` block in the same file. Drop `private` " +
+		"so every file of the package sees it, write `pub` so every package does, or move the code into the declaring file.",
+	"derive-outside-types-file": "A `derive` names a type another file declares. A derive is written in the file that declares " +
+		"its type, and in no other file, a test file beside it included. Move the derive beside the type's declaration, or write an `impl` " +
+		"of the interface in this file when the package's orphan rule allows it.",
+	"internal-declaration": "Code names a declaration of another package that has no modifier. Such a declaration is internal: " +
+		"every file of its own package sees it, and no file of another package. Write `pub` on the declaration to name it from " +
+		"another package, or call a public function of that package instead. A fetched dependency's files are in the package " +
+		"cache and are not yours to edit, so use what that package makes public. A std declaration is not part of std's public " +
+		"surface, and no program can make it so: use what the module's reference page lists.",
+	"reexport-not-public": "A `pub import` re-exports an item that is not public. A re-export puts the item on the file's public " +
+		"surface, so it may not widen an internal or private declaration. Write `pub` on the declaration, or import it without `pub`.",
+	"exposes-type": "A declaration's signature names a type fewer files see than see the declaration: a `pub` declaration " +
+		"names an internal or private type, or an internal one a private type. A file that may name the declaration could not " +
+		"name the type it takes or returns. Raise the type's visibility, lower the declaration's, or make the type `opaque` " +
+		"where only its representation names the narrower type.",
+	"member-more-visible-than-type": "A function or `once` of an inherent `impl` block is seen by more files than see its type: " +
+		"a `pub` member of an internal or private type, or an internal member of a private type. A file that sees the member " +
+		"but not the type could not name the owner it is reached through (`Money.double`). Give the member its type's level " +
+		"(drop `pub`, or write `private`), or raise the type's. A `private` member is never this error.",
 	"once-shadow": "A name in a pattern names a `once` in scope. A pattern name always binds a new name, " +
 		"so it matches every value instead of comparing with the `once`. Bind another name and compare in a guard " +
 		"(`x when x == limit ->`), or rename the binding if no comparison was meant.",
@@ -150,11 +175,14 @@ var explanations = map[string]string{
 	"recursive-protocol": "An `Equatable` `equal`, `Comparable` `compare` or `Hashable` `hash` impl compares or hashes " +
 		"its own arguments through the function it is defining, which never ends. Compare or hash the fields, or `derive` the impl.",
 	"task-not-settled": "A handle bound from `Task.spawn`, or a list of handles from `Task.spawn_all`, in a `concurrent` block " +
-		"is never awaited or cancelled there. Pass it to `Task.await`, `Task.await_all`, `Task.try_await_all`, `Task.outcome` " +
-		"or `Task.cancel`, directly, through a function argument (`Iter.each(handles, Task.cancel)`, " +
-		"`Iter.each(handles, fn t -> _ = Task.outcome(t))`) or a pipe (`handles |> Task.await_all()`). " +
-		"Reading the handle (`Task.inspect(t)`, `Iter.count(handles)`), copying it to another name (`u = [t]`, `_ = t`) " +
-		"or passing it to a function the program declares does not settle it.",
+		"is not awaited or cancelled on every path to the block's end. Pass it to `Task.await`, `Task.await_all`, " +
+		"`Task.try_await_all`, `Task.outcome` or `Task.cancel`, directly, through a function argument " +
+		"(`Iter.each(handles, Task.cancel)`, `Iter.each(handles, fn t -> _ = Task.outcome(t))`) or a pipe " +
+		"(`handles |> Task.await_all()`), in both branches of an `if` and in every arm of a `case`, or after them. " +
+		"A path that leaves the block early, by `?`, `return`, `break` or `continue`, needs nothing: the block cancels " +
+		"its running tasks. Reading the handle (`Task.inspect(t)`, `Iter.count(handles)`), copying it to another name " +
+		"(`u = [t]`, `_ = t`), passing it to a function the program declares, or settling it inside a lambda that " +
+		"captures it (`check = fn -> Task.outcome(t)`), which may never run, does not settle it.",
 	"infinite-iterator": "An `Iter` that never ends is consumed whole (`Iter.to_list`, `Iter.count`, ...), " +
 		"so the program never finishes. Limit it first with `Iter.take(n)` or `Iter.take_while`.",
 	"reserved-name": "A declaration reuses a name the language reserves for a built-in type (`Int`, `String`, ...). " +
@@ -164,7 +192,7 @@ var explanations = map[string]string{
 	"invalid-literal": "A typed literal checked at compile time does not parse as its type, and the message says why: " +
 		"a backtick literal (``Regex`...` ``, ``Locale`...` ``), or a checked literal in any quotes (`Url\"...\"`), " +
 		"whose error points at the character or slot its type refused. Fix the literal's text.",
-	"unlisted-currency": "A `Currency.custom` call names a currency its module's `nomi.toml` does not list. " +
+	"unlisted-currency": "A `Currency.custom` call names a currency its package's `nomi.toml` does not list. " +
 		"List it, or use the currency's literal.",
 	"custom-currency-call": "A `Currency.custom` call with a literal code and digits writes a currency " +
 		"a ``Currency`...` `` literal already names; the literal is checked at compile time.",
@@ -189,7 +217,7 @@ var explanations = map[string]string{
 		"a variant, or a function the compiler provides for it, `try_from` or `unchecked`, or it relies on the `TryFrom` impl " +
 		"the compiler provides for it: a generic call bounded by `TryFrom` at the type, an impl whose `where` needs it, a " +
 		"conversion to a `TryFrom` value, or `TryFrom.try_from` where the type is expected. An opaque type's construction is private " +
-		"to its file and that file's partner test. Call a public function that returns one instead, such as " +
+		"to its file. Call a public function that returns one instead, such as " +
 		"`Int.to_codepoint` for a `Codepoint`.",
 	"no-type-member": "`Type.member` names a member the type does not have: no function in its `impl` blocks, no variant and no " +
 		"constant by that name. Check the spelling against the help's suggestion, or declare the function in an `impl Type` block.",

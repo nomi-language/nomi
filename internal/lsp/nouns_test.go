@@ -36,7 +36,7 @@ const polishOrder = "[book]\nsource = '''.input {$count :integer} .match $count 
 
 func nounProject() map[string]string {
 	return map[string]string{
-		"nomi.toml":             "[module]\nname = \"shop\"\nentry_points = [\"main\"]\n\n[i18n]\nlocales = [\"en\", \"pl\"]\n",
+		"nomi.toml":             "[package]\nname = \"shop\"\nentry_points = [\"main\"]\n\n[i18n]\nlocales = [\"en\", \"pl\"]\n",
 		"main.nomi":             "import\n    std::io\n    order\nend\n\nfn main()\n    io.print(Phrase.format(order.has_shipped(order.book), Locale\"pl\"))\nend\n",
 		"order.nomi":            orderNouns,
 		"locales/pl/order.toml": polishOrder,
@@ -48,7 +48,7 @@ func nounProject() map[string]string {
 func nounDiagnostics(t *testing.T, root string) []protocol.Diagnostic {
 	t.Helper()
 	s, published := recordingServer()
-	s.docs.SetWorkspaceRoot(root)
+	s.docs.SetEditorFolder(root)
 	for _, f := range []string{"order.nomi", "main.nomi"} {
 		uri := pathToURI(filepath.Join(root, f))
 		data, err := os.ReadFile(filepath.Join(root, f))

@@ -683,9 +683,11 @@ func (e *Entry) walked(path string) (entry, bool) {
 	return entry{}, false
 }
 
-// markers are the files above a tree whose presence decides a program's
-// root (analysis.ProjectRoot).
-var markers = []string{"nomi.toml", "main.nomi"}
+// markers are the files above a tree that decide its program: those
+// whose presence decides the program's root (analysis.ProjectRoot), and a
+// workspace's nomi-workspace.toml and the nomi.lock beside it, which
+// select the versions of a member's dependencies (pkgcache.WorkspaceOf).
+var markers = []string{"nomi.toml", "main.nomi", "nomi-workspace.toml", "nomi.lock"}
 
 // scan walks t. An entry whose stat matches prev's, recorded at prevSnap,
 // and was not changed near it takes prev's hash; any other is hashed. An
@@ -829,8 +831,8 @@ func statPath(p string, prev *entry, prevSnap int64, hash bool) entry {
 }
 
 // keyEnv are the environment variables outside NOMI_ a build reads: what
-// decides the user's cache directory, which holds the module cache unless
-// NOMI_MODULE_CACHE names one (os.UserCacheDir), and the time zone and
+// decides the user's cache directory, which holds the package cache unless
+// NOMI_PACKAGE_CACHE names one (os.UserCacheDir), and the time zone and
 // locale a compile-time check could see.
 var keyEnv = []string{"HOME", "XDG_CACHE_HOME", "LocalAppData", "TZ", "LANG", "LC_ALL"}
 

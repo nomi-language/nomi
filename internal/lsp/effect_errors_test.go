@@ -41,7 +41,7 @@ func TestSemanticTokens_MarksStayBesideAFunctionThatDoesNotCheck(t *testing.T) {
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
-	dir := writeProject(t, map[string]string{"main.nomi": effectErrorsMain, "nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n"})
+	dir := writeProject(t, map[string]string{"main.nomi": effectErrorsMain, "nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n"})
 	s, c := startEffectServer(t, dir, map[string]string{"main.nomi": effectErrorsMain})
 	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
 	requireRefused(t, c.waitDiagnostics(uri), "type mismatch: expected Int, got String")
@@ -114,7 +114,7 @@ func TestSemanticTokens_ADbgBesideAFunctionThatDoesNotCheck(t *testing.T) {
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
-	dir := writeProject(t, map[string]string{"main.nomi": effectErrorsPayment, "nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n"})
+	dir := writeProject(t, map[string]string{"main.nomi": effectErrorsPayment, "nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n"})
 	s, c := startEffectServer(t, dir, map[string]string{"main.nomi": effectErrorsPayment})
 	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
 	requireRefused(t, c.waitDiagnostics(uri), "non-exhaustive case on Payment: missing Cash")

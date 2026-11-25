@@ -310,7 +310,7 @@ func run(image *Image, stdout, stderr io.Writer, stdin io.Reader, args []string,
 	if found := m.Unretained(vm.MainRoots(entry, mainFn), boots); len(found) > 0 {
 		reasons := make([]string, len(found))
 		for i, u := range found {
-			reasons[i] = unretainedReason(u)
+			reasons[i] = u.Reason()
 		}
 		WriteBlocked(stderr, label, reasons)
 		return 1
@@ -374,18 +374,6 @@ func entryMain(entry *ir.Module) *ir.Func {
 		}
 	}
 	return nil
-}
-
-func unretainedReason(u vm.Unretained) string {
-	switch u.Kind {
-	case vm.NoBinding:
-		return fmt.Sprintf("[%s] is a host function, and the VM has no implementation for it", hostadapt.DisplayName(u.Name))
-	case vm.NoImplementation:
-		return fmt.Sprintf("[%s] dispatched, and no implementation was retained", u.Name)
-	case vm.OnceNotRetained:
-		return fmt.Sprintf("[%s] once initializer not retained", u.Name)
-	}
-	return fmt.Sprintf("[%s] not retained", u.Name)
 }
 
 // projectHosts is hosts as a machine binds them: std/compiler's table, first

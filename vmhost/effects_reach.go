@@ -23,14 +23,14 @@ type Reach struct {
 	// Root is the project's directory, the one holding its nomi.toml, or
 	// "" for a program with none.
 	Root string
-	// Project is the project's own module (projectModule), whose own
+	// Project is the project's own package (projectPackage), whose own
 	// files [effects.self] holds.
 	Project string
-	// Modules is each dependency an entry under [effects.deps.modules]
-	// may name that the programs' code comes from: each module the project
-	// needs whose Nomi files the programs hold (requiredModules), by its name,
+	// Packages is each dependency an entry under [effects.deps.packages]
+	// may name that the programs' code comes from: each package the project
+	// needs whose Nomi files the programs hold (requiredPackages), by its name,
 	// sorted.
-	Modules []string
+	Packages []string
 	// OwnModules is each module of the project whose files the programs
 	// hold, by its import path (ownModules), sorted: the keys an entry
 	// under [effects.self.modules] is written for.
@@ -90,14 +90,14 @@ func Reached(path string, opts ...Option) (*Reach, error) {
 // `nomi check` holds to the lists: main, the boot and the exported
 // functions, and the test cases.
 func (p *Program) Reach() *Reach {
-	r := &Reach{Root: p.prog.Root, Project: p.projectModule(), Lists: p.effects, ListProblems: p.effectListProblems(),
+	r := &Reach{Root: p.prog.Root, Project: p.projectPackage(), Lists: p.effects, ListProblems: p.effectListProblems(),
 		declared: map[string]*analysis.SelfEffects{}, sites: map[ir.Pos]shownSite{}}
-	for _, m := range p.requiredModules() {
-		if problem, _ := p.dependencyProblem(m.path); problem == "" && !slices.Contains(r.Modules, m.path) {
-			r.Modules = append(r.Modules, m.path)
+	for _, m := range p.requiredPackages() {
+		if problem, _ := p.dependencyProblem(m.path); problem == "" && !slices.Contains(r.Packages, m.path) {
+			r.Packages = append(r.Packages, m.path)
 		}
 	}
-	slices.Sort(r.Modules)
+	slices.Sort(r.Packages)
 	r.OwnModules = p.ownModules()
 	r.Walks = p.walks(p.checkedRoots())
 	if p.effects != nil && p.effects.Self != nil {
@@ -132,7 +132,7 @@ func (r *Reach) Add(o *Reach) {
 	for _, into := range []struct {
 		list *[]string
 		from []string
-	}{{&r.Modules, o.Modules}, {&r.OwnModules, o.OwnModules}} {
+	}{{&r.Packages, o.Packages}, {&r.OwnModules, o.OwnModules}} {
 		for _, m := range into.from {
 			if !slices.Contains(*into.list, m) {
 				*into.list = append(*into.list, m)
@@ -156,15 +156,15 @@ func (r *Reach) SiteOf(c EffectCall) string {
 	return cmp.Or(r.sites[c.at].text, c.Site)
 }
 
-// ModuleOf is the module c is charged to, by its path: the dependency
+// PackageOf is the package c is charged to, by its path: the dependency
 // whose files hold it, or the project.
-func (r *Reach) ModuleOf(c EffectCall) string {
-	return cmp.Or(c.Module, r.Project)
+func (r *Reach) PackageOf(c EffectCall) string {
+	return cmp.Or(c.Package, r.Project)
 }
 
 // Tightest is the smallest pair of effects tables the walks pass
 // (tightestLists): with it as nomi.toml's, NotAllowed answers only the
-// calls a dependency's own table refuses. Its [effects.deps.modules]
+// calls a dependency's own table refuses. Its [effects.deps.packages]
 // has an entry for each dependency, and its [effects.self.modules] one
 // for each module of the project when nomi.toml has that table or
 // entries_required under [effects.self], and is left out otherwise:
@@ -174,24 +174,24 @@ func (r *Reach) Tightest() *Effects {
 	if s := r.Lists; s != nil && s.Self != nil && (s.Self.Modules != nil || s.Self.EntriesRequired) {
 		own = r.OwnModules
 	}
-	return tightestLists(r.Walks, r.Modules, own)
+	return tightestLists(r.Walks, r.Packages, own)
 }
 
 // EntryKeys is the keys an entry of list, one of analysis.EntryLists, may
 // have for the programs' code: OwnModules for [effects.self.modules],
-// Modules for [effects.deps.modules].
+// Modules for [effects.deps.packages].
 func (r *Reach) EntryKeys(list string) []string {
 	if list == analysis.ListSelfModules {
 		return r.OwnModules
 	}
-	return r.Modules
+	return r.Packages
 }
 
 // Entries is the tightest entry of each of list's keys (EntryKeys): the std
 // names the code of that key reaches from every walk, whether or not
 // nomi.toml has the table.
 func (r *Reach) Entries(list string) map[string][]string {
-	return tightestLists(r.Walks, r.Modules, r.OwnModules).Entries(list)
+	return tightestLists(r.Walks, r.Packages, r.OwnModules).Entries(list)
 }
 
 // NotAllowed is each call the walks reach that lists, with each
@@ -241,17 +241,18 @@ func ReachedAll(files []string, failed func(file string, err error), opts ...Opt
 	return r
 }
 
-// WhyCall is one call that has an effect, or that a module's files make
-// (Reach.Why): the effect's name, the module charged for it, where a
+// WhyCall is one call that has an effect, or that a package's or module's
+// files make (Reach.Why): the effect's name, the package charged for it
+// (PackageOf: the dependency whose files hold it, or the project), where a
 // report shows it (SiteOf), its callee, whether a test case reaches it, and
 // how it is reached in the words a refusal's help uses (ReachText). Import
-// is its file as its own module's code imports it (EffectCall.Import).
+// is its file as its own package's code imports it (EffectCall.Import).
 // Path is its file as the program names it, and Line, Col, EndLine and
 // EndCol the span of its callee, 1-based with byte columns, the end one
 // past the last byte.
 type WhyCall struct {
 	Name    string `json:"name"`
-	Module  string `json:"module"`
+	Package string `json:"package"`
 	Site    string `json:"site"`
 	Callee  string `json:"callee"`
 	Tests   bool   `json:"tests"`
@@ -281,8 +282,8 @@ func (r *Reach) Why(name string) ([]WhyCall, error) {
 			if !slices.Contains(names, c.Name) {
 				names = append(names, c.Name)
 			}
-			module := r.ModuleOf(c)
-			if byName && c.Name != name || !byName && module != name && (c.Module != "" || c.Import != name) {
+			module := r.PackageOf(c)
+			if byName && c.Name != name || !byName && module != name && (c.Package != "" || c.Import != name) {
 				continue
 			}
 			key := c.Site + "\x00" + c.Name
@@ -291,7 +292,7 @@ func (r *Reach) Why(name string) ([]WhyCall, error) {
 			}
 			seen[key] = true
 			site := r.sites[c.at]
-			found = append(found, WhyCall{Name: c.Name, Module: module, Site: r.SiteOf(c), Callee: c.Callee, Tests: wk.Tests, Reach: c.ReachText(),
+			found = append(found, WhyCall{Name: c.Name, Package: module, Site: r.SiteOf(c), Callee: c.Callee, Tests: wk.Tests, Reach: c.ReachText(),
 				Import: c.Import, Path: site.path, Line: site.line, Col: site.col, EndLine: site.endLine, EndCol: site.endCol})
 		}
 	}
@@ -302,7 +303,7 @@ func (r *Reach) Why(name string) ([]WhyCall, error) {
 			lacks = fmt.Sprintf("nothing in %s has effects in this program", name)
 		}
 		return nil, fmt.Errorf("%s; it has %s, and its code comes from %s",
-			lacks, effects.EffectList(names), strings.Join(append([]string{r.Project}, r.Modules...), ", "))
+			lacks, effects.EffectList(names), strings.Join(append([]string{r.Project}, r.Packages...), ", "))
 	}
 	return found, nil
 }
@@ -335,8 +336,8 @@ func (r *Reach) WriteWhy(w io.Writer, name string, calls []WhyCall, limit int) {
 		switch {
 		case !byName:
 			where += ": " + c.Name
-		case c.Module != r.Project:
-			where += " in " + c.Module
+		case c.Package != r.Project:
+			where += " in " + c.Package
 		}
 		fmt.Fprintf(w, "  %s\n    %s\n", where, c.Reach)
 	}
@@ -363,7 +364,7 @@ func HeldChanges(changes []analysis.EffectChange, lists *Effects) []analysis.Eff
 		case self && lists.Self == nil:
 		case !self && lists.Deps == nil:
 		case (c.List == analysis.ListDepsStd || c.List == analysis.ListDepsStdInTests) && lists.Deps.Std == nil:
-		case slices.Contains(analysis.EntryLists, c.List) && c.Change == "add" && !entriesRequired(lists, c.List) && !hasEntry(lists, c.List, c.Module):
+		case slices.Contains(analysis.EntryLists, c.List) && c.Change == "add" && !entriesRequired(lists, c.List) && !hasEntry(lists, c.List, c.Key):
 		default:
 			out = append(out, c)
 		}
@@ -387,9 +388,9 @@ func hasEntry(lists *Effects, list, key string) bool {
 	return has
 }
 
-// ModuleReach is the effects one dependency's own files have, as `nomi
-// effects` prints it under deps' modules (WriteModuleReach).
-type ModuleReach struct {
+// PackageReach is the effects one dependency's own files have, as `nomi
+// effects` prints it under deps' packages (WritePackageReach).
+type PackageReach struct {
 	Path string `json:"path"`
 	// Std is each std name the module's files have; StdTestsOnly those
 	// of them only the tests have.
@@ -397,25 +398,25 @@ type ModuleReach struct {
 	StdTestsOnly []string `json:"std_tests_only"`
 }
 
-// ModuleReaches is the effects each dependency the programs' code comes
+// PackageReaches is the effects each dependency the programs' code comes
 // from has, sorted by path.
-func (r *Reach) ModuleReaches() []ModuleReach {
-	return r.EntryReaches(analysis.ListDepsModules)
+func (r *Reach) PackageReaches() []PackageReach {
+	return r.EntryReaches(analysis.ListDepsPackages)
 }
 
 // EntryReaches is the effects the code of each key of list, one of
 // analysis.EntryLists, has, sorted by key: each module of the project,
 // by its import path, for [effects.self.modules], and each dependency
 // the programs' code comes from, by its path, for
-// [effects.deps.modules]. An effect no list names (a `dbg`) is not
+// [effects.deps.packages]. An effect no list names (a `dbg`) is not
 // among them.
-func (r *Reach) EntryReaches(list string) []ModuleReach {
-	byPath := map[string]*ModuleReach{}
-	use := func(path string) *ModuleReach {
+func (r *Reach) EntryReaches(list string) []PackageReach {
+	byPath := map[string]*PackageReach{}
+	use := func(path string) *PackageReach {
 		if u, ok := byPath[path]; ok {
 			return u
 		}
-		u := &ModuleReach{Path: path, Std: []string{}, StdTestsOnly: []string{}}
+		u := &PackageReach{Path: path, Std: []string{}, StdTestsOnly: []string{}}
 		byPath[path] = u
 		return u
 	}
@@ -426,9 +427,9 @@ func (r *Reach) EntryReaches(list string) []ModuleReach {
 	// none of its module's code.
 	keyOf := func(c EffectCall) (string, bool) {
 		if list == analysis.ListSelfModules {
-			return c.Import, c.Module == ""
+			return c.Import, c.Package == ""
 		}
-		return c.Module, c.Module != ""
+		return c.Package, c.Package != ""
 	}
 	// fromMain is each module and std name that a walk from main reaches.
 	type key struct{ module, name string }
@@ -448,7 +449,7 @@ func (r *Reach) EntryReaches(list string) []ModuleReach {
 			}
 		}
 	}
-	out := []ModuleReach{}
+	out := []PackageReach{}
 	for _, u := range byPath {
 		slices.Sort(u.Std)
 		for _, n := range u.Std {
@@ -458,14 +459,14 @@ func (r *Reach) EntryReaches(list string) []ModuleReach {
 		}
 		out = append(out, *u)
 	}
-	slices.SortFunc(out, func(a, b ModuleReach) int { return strings.Compare(a.Path, b.Path) })
+	slices.SortFunc(out, func(a, b PackageReach) int { return strings.Compare(a.Path, b.Path) })
 	return out
 }
 
-// WriteModuleReach prints, under a dependency's name, indented by indent, the
+// WritePackageReach prints, under a dependency's name, indented by indent, the
 // effects its own files have: its std names, with (tests only) on those
 // only the tests have, or no effects.
-func WriteModuleReach(w io.Writer, indent string, u ModuleReach) {
+func WritePackageReach(w io.Writer, indent string, u PackageReach) {
 	var names []string
 	for _, n := range u.Std {
 		if slices.Contains(u.StdTestsOnly, n) {

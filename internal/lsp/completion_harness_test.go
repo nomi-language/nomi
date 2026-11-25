@@ -138,7 +138,7 @@ func writeProject(t testing.TB, files map[string]string) string {
 	t.Helper()
 	dir := t.TempDir()
 	if _, ok := files["nomi.toml"]; !ok {
-		files["nomi.toml"] = "[module]\nname = \"app\"\n"
+		files["nomi.toml"] = "[package]\nname = \"app\"\n"
 	}
 	for rel, content := range files {
 		path := filepath.Join(dir, rel)

@@ -6,76 +6,61 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/nomi-language/nomi/internal/modcache"
+	"github.com/nomi-language/nomi/internal/pkgcache"
 )
 
 // WriteRequirements is data, a nomi.toml's text, with its [dependencies]
-// table written as deps and its [indirect] table as floors (`nomi add`,
-// `remove` and `update`), each table by writeEntries' rules. A new
-// [dependencies] goes after [module], and a new [indirect] after
-// [dependencies]. The edited text must parse back to deps and floors, or
-// nothing is written.
+// table written as deps (`nomi add`, `remove` and `update`), by
+// writeEntries' rules. A new [dependencies] goes after [package]. The
+// edited text must parse back to deps, or nothing is written.
 //
-// Only those two tables are checked, before and after
-// (modcache.ParseModuleFile). The rest of the file is analysis's to check
-// when a command reads the project (LoadManifest), so an error there, or
-// one the edit itself resolves, such as a tool's table for a dependency
-// the edit adds, never blocks an edit.
-func WriteRequirements(data []byte, deps []modcache.Requirement, floors []modcache.Floor) ([]byte, error) {
-	was, err := modcache.ParseModuleFile(data)
+// Only that table is checked, before and after (pkgcache.ParseManifest).
+// The rest of the file is analysis's to check when a command reads the
+// project (LoadManifest), so an error there, or one the edit itself
+// resolves, such as a tool's table for a dependency the edit adds, never
+// blocks an edit.
+func WriteRequirements(data []byte, deps []pkgcache.Requirement) ([]byte, error) {
+	was, err := pkgcache.ParseManifest(data)
 	if err != nil {
 		return nil, fmt.Errorf("the file does not parse (%v); edit its [dependencies] table by hand", err)
 	}
-	depEntries := func(reqs []modcache.Requirement) []tableEntry {
+	entries := func(reqs []pkgcache.Requirement) []tableEntry {
 		out := make([]tableEntry, len(reqs))
 		for i, d := range reqs {
-			out[i] = tableEntry{key: d.Name, keyText: d.Name, value: dependencyValue(d)}
+			out[i] = tableEntry{key: d.Name, value: dependencyValue(d)}
 		}
 		return out
 	}
-	floorEntries := func(fls []modcache.Floor) []tableEntry {
-		out := make([]tableEntry, len(fls))
-		for i, f := range fls {
-			out[i] = tableEntry{key: f.Repo, keyText: fmt.Sprintf("%q", f.Repo), value: fmt.Sprintf("%q", f.Version)}
-		}
-		return out
-	}
-	edited, err := writeEntries(data, "dependencies", "dependency", []string{"module"}, depEntries(deps), depEntries(was.Requires))
+	edited, err := writeEntries(data, entries(deps), entries(was.Requires))
 	if err != nil {
 		return nil, err
 	}
-	if edited, err = writeEntries(edited, "indirect", "repository", []string{"dependencies", "module"}, floorEntries(floors), floorEntries(was.Indirect)); err != nil {
-		return nil, err
-	}
-	m, err := modcache.ParseModuleFile(edited)
+	m, err := pkgcache.ParseManifest(edited)
 	if err != nil {
 		return nil, fmt.Errorf("the edited file does not parse (%v); edit its [dependencies] table by hand", err)
 	}
-	sortedFloors := slices.Clone(floors)
-	slices.SortFunc(sortedFloors, func(a, b modcache.Floor) int { return strings.Compare(a.Repo, b.Repo) })
-	if !slices.Equal(m.Requires, sortedRequirements(deps)) || !slices.Equal(m.Indirect, sortedFloors) {
+	if !slices.Equal(m.Requires, sortedRequirements(deps)) {
 		return nil, errors.New("the edited file does not hold the dependencies written; edit its [dependencies] table by hand")
 	}
 	return edited, nil
 }
 
-// tableEntry is one entry of a table of entries as writeEntries writes
-// it: its key, the key as a line writes it, and its value's text.
-type tableEntry struct{ key, keyText, value string }
+// tableEntry is one entry of [dependencies] as writeEntries writes it: its
+// key and its value's text.
+type tableEntry struct{ key, value string }
 
-// writeEntries is data with the table name written as want, of which the
-// text now holds was (`dependency` or `repository` names an entry in an
-// error). Every line outside the table is kept byte for byte, and inside
-// it an entry want holds unchanged keeps its lines, an entry that changes
-// keeps its comments and the text after its value, and an entry want
-// lacks goes with its comments. A new entry goes at the end of the table,
-// after a blank line when blank lines separate the table's entries. With
-// no table, the table goes after the first of the tables after that data
-// has, or at the end when it has none; a table left with no entry and no
-// comment goes. A file with CRLF line endings gets them on each line
-// written. An entry written as its own table or with dotted keys can be
-// kept, not changed.
-func writeEntries(data []byte, name, noun string, after []string, want, was []tableEntry) ([]byte, error) {
+// writeEntries is data with [dependencies] written as want, of which the
+// text now holds was. Every line outside the table is kept byte for byte,
+// and inside it an entry want holds unchanged keeps its lines, an entry
+// that changes keeps its comments and the text after its value, and an
+// entry want lacks goes with its comments. A new entry goes at the end of
+// the table, after a blank line when blank lines separate the table's
+// entries. With no table, the table goes after [package], or at the end
+// when data has none; a table left with no entry and no comment goes. A
+// file with CRLF line endings gets them on each line written. An entry
+// written as its own table or with dotted keys can be kept, not changed.
+func writeEntries(data []byte, want, was []tableEntry) ([]byte, error) {
+	const name = "dependencies"
 	text := string(data)
 	cr := ""
 	if strings.Contains(text, "\r\n") {
@@ -99,7 +84,7 @@ func writeEntries(data []byte, name, noun string, after []string, want, was []ta
 	}
 	for key, e := range old {
 		if w, keep := wanted[key]; !inline[key] && (!keep || w != e) {
-			return nil, fmt.Errorf("nomi.toml writes %s %s as a table of its own or with dotted keys; edit its [%s] by hand", noun, key, name)
+			return nil, fmt.Errorf("nomi.toml writes dependency %s as a table of its own or with dotted keys; edit its [%s] by hand", key, name)
 		}
 	}
 	ended := func(table []string) []string {
@@ -133,7 +118,7 @@ func writeEntries(data []byte, name, noun string, after []string, want, was []ta
 	var added []string
 	for _, e := range want {
 		if _, had := old[e.key]; !had {
-			added = append(added, e.keyText+" = "+e.value)
+			added = append(added, e.key+" = "+e.value)
 		}
 	}
 	if spaced && len(added) > 0 && len(body) > 0 {
@@ -159,12 +144,7 @@ func writeEntries(data []byte, name, noun string, after []string, want, was []ta
 		}
 		lines = slices.Concat(lines[:start], ended(table), lines[at.Last:])
 	case len(table) > 0:
-		var prev ManifestTable
-		for _, t := range after {
-			if prev = ManifestTableLayout(data, t); prev.Header > 0 {
-				break
-			}
-		}
+		prev := ManifestTableLayout(data, "package")
 		if prev.Header == 0 {
 			if text != "" && !strings.HasSuffix(text, "\n") {
 				text += cr + "\n"
@@ -187,7 +167,7 @@ func writeEntries(data []byte, name, noun string, after []string, want, was []ta
 // dependencyValue is d's entry as WriteRequirements writes it: an inline
 // table of its repo, subdir, version or commit, and dir, each when it has
 // one.
-func dependencyValue(d modcache.Requirement) string {
+func dependencyValue(d pkgcache.Requirement) string {
 	var parts []string
 	if d.Repo != "" {
 		parts = append(parts, fmt.Sprintf("repo = %q", d.Repo))
@@ -196,7 +176,7 @@ func dependencyValue(d modcache.Requirement) string {
 		parts = append(parts, fmt.Sprintf("subdir = %q", d.Subdir))
 	}
 	switch {
-	case modcache.IsCommit(d.Version):
+	case pkgcache.IsCommit(d.Version):
 		parts = append(parts, fmt.Sprintf("commit = %q", d.Version))
 	case d.Version != "":
 		parts = append(parts, fmt.Sprintf("version = %q", d.Version))
@@ -208,8 +188,8 @@ func dependencyValue(d modcache.Requirement) string {
 }
 
 // sortedRequirements is deps sorted by name, as a manifest holds them.
-func sortedRequirements(deps []modcache.Requirement) []modcache.Requirement {
+func sortedRequirements(deps []pkgcache.Requirement) []pkgcache.Requirement {
 	out := slices.Clone(deps)
-	slices.SortFunc(out, func(a, b modcache.Requirement) int { return strings.Compare(a.Name, b.Name) })
+	slices.SortFunc(out, func(a, b pkgcache.Requirement) int { return strings.Compare(a.Name, b.Name) })
 	return out
 }

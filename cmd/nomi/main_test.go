@@ -264,12 +264,12 @@ end
 	}
 }
 
-// TestRunCommand_ModuleProjectEntryPoints runs both entry points of
+// TestRunCommand_PackageProjectEntryPoints runs both entry points of
 // testdata/modules/todo: main, which its nomi.toml lists, and the tool
 // tools/seed, which it need not list. Each imports a file under an
 // `internal/` directory it may reach, and main also imports a sibling Nomi
-// module, stringkit, which nomi.toml names by its directory.
-func TestRunCommand_ModuleProjectEntryPoints(t *testing.T) {
+// package, stringkit, which nomi.toml names by its directory.
+func TestRunCommand_PackageProjectEntryPoints(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
@@ -524,7 +524,7 @@ end
 	}
 
 	// A module checks its test files with its entries.
-	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[module]\nname = \"checktests\"\nentry_points = [\"main\"]\n")
+	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[package]\nname = \"checktests\"\nentry_points = [\"main\"]\n")
 	out, _ = runNomi(t, cacheRoot, "check", dir)
 	for _, want := range []string{
 		"ok " + filepath.Join(dir, "main.nomi"),

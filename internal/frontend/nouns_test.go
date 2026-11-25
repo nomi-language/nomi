@@ -10,7 +10,7 @@ import (
 // the whole-program checks that hold every noun to every phrase (check 7
 // of the i18n design).
 
-const nounManifest = `[module]
+const nounManifest = `[package]
 name = "shop"
 entry_points = ["main"]
 

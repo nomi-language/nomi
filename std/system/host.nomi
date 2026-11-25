@@ -7,44 +7,48 @@
 import
     int.{Int, PositiveInt}
     lists.List
+    option.Option
     results.Result
     strings.String
 end
 
 /// Go's name for the operating system.
-pub host fn os() -> String
+host fn os() -> String
 
 /// Go's name for the processor architecture.
-pub host fn arch() -> String
+host fn arch() -> String
 
 /// The logical CPUs the process may use.
-pub host fn cpu_count() -> PositiveInt
+host fn cpu_count() -> PositiveInt
 
 /// The machine's name.
-pub host fn hostname() -> Result<String, List<String>>
+host fn hostname() -> Result<String, List<String>>
 
 /// The path of the running program.
-pub host fn executable() -> Result<String, List<String>>
+host fn executable() -> Result<String, List<String>>
 
 /// The user's home directory.
-pub host fn home_dir() -> Result<String, List<String>>
+host fn home_dir() -> Result<String, List<String>>
 
 /// The user's cache directory.
-pub host fn cache_dir() -> Result<String, List<String>>
+host fn cache_dir() -> Result<String, List<String>>
 
 /// The user's configuration directory.
-pub host fn config_dir() -> Result<String, List<String>>
+host fn config_dir() -> Result<String, List<String>>
 
 /// The user's data directory.
-pub host fn data_dir() -> Result<String, List<String>>
+host fn data_dir() -> Result<String, List<String>>
 
 /// The user's name and id.
-pub host fn user() -> Result<List<String>, List<String>>
+host fn user() -> Result<List<String>, List<String>>
 
 /// The bytes the heap's values occupy, and the bytes the runtime obtained
 /// from the operating system.
-pub host fn memory() -> (Int, Int)
+host fn memory() -> (Int, Int)
+
+/// The release the binary was built as, None for a build from source.
+host fn nomi_release() -> Option<String>
 
 /// The live tasks, the tasks ever started, the supervisors, the
 /// collector's finished cycles and the nanoseconds of its pauses.
-pub host fn runtime() -> (Int, Int, Int, Int, Int)
+host fn runtime() -> (Int, Int, Int, Int, Int)

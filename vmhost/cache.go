@@ -335,7 +335,7 @@ func (p *Program) cacheImage() ([]byte, error) {
 }
 
 // inputs are what the program was built from: its root's tree and each
-// other module's root (a dependency's), each walked for its sources
+// other package's root (a dependency's), each walked for its sources
 // (sourceTree), each `embed` pattern's base (the directory or file its
 // literal leading names spell) with every file in it, and each of its
 // files and the catalogs its phrases read. A program relinked from its

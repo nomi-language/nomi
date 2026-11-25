@@ -6,17 +6,22 @@ import (
 	"testing"
 )
 
-// TestModules_AReleaseTakesTheLibModulesAtItsVersion: a release `nomi` adds
-// a first-party library at its own version, and one named on the command
-// line at that version. While nomi.lock takes a library at another
-// version, `run`, `check`, `test` and `build` say so in one note before
-// anything else and still run; `nomi update` moves it back, and a dir
-// entry, or a `nomi` built from source, prints no note. A library the
-// release's tag does not hold is refused with the directory named.
-func TestModules_AReleaseTakesTheLibModulesAtItsVersion(t *testing.T) {
+// TestPackages_AReleaseTakesTheLibPackagesAtItsVersion: a release `nomi`
+// takes a first-party library at its own version whatever version
+// nomi.toml or the command line names, and `nomi add` writes that version
+// and says so. A `nomi` built from source takes the version written. A
+// release that finds nomi.lock at another version refuses `run`, `check`
+// and `test` with the error that says why and to run `nomi fetch`, which
+// locks the release's version; `nomi update` then writes it into
+// nomi.toml. A dir entry keeps its repository and version and has no lock
+// line. A library the release's tag does not hold is refused with the
+// directory named.
+func TestPackages_AReleaseTakesTheLibPackagesAtItsVersion(t *testing.T) {
 	c := newModuleCLI(t)
 	c.bin = releaseNomi(t)
 	c.env = append(c.env, "NOMI_RELEASE_BASE_URL="+unreachableRelease)
+	source := *c
+	source.bin = nomiBin
 	const (
 		repo   = "github.com/nomi-language/nomi"
 		md     = repo + "/lib/markdown"
@@ -25,7 +30,7 @@ func TestModules_AReleaseTakesTheLibModulesAtItsVersion(t *testing.T) {
 	)
 	markdown := func(v string) map[string]string {
 		return map[string]string{
-			"nomi.toml":     "[module]\nname = \"markdown\"\n",
+			"nomi.toml":     "[package]\nname = \"markdown\"\n",
 			"markdown.nomi": "pub fn version() -> String\n    \"" + v + "\"\nend\n",
 		}
 	}
@@ -35,7 +40,7 @@ func TestModules_AReleaseTakesTheLibModulesAtItsVersion(t *testing.T) {
 			files["lib/markdown/"+name] = text
 		}
 		if withSqlite {
-			files["lib/sql/sqlite/nomi.toml"] = "[module]\nname = \"sqlite\"\n"
+			files["lib/sql/sqlite/nomi.toml"] = "[package]\nname = \"sqlite\"\n"
 		}
 		c.host.Tag(repo, v, files)
 	}
@@ -46,63 +51,59 @@ func TestModules_AReleaseTakesTheLibModulesAtItsVersion(t *testing.T) {
 	app := filepath.Join(work, "app")
 	mustWrite(t, filepath.Join(app, "main.nomi"), "import\n    std::io\n    markdown\nend\n\nfn main()\n    io.print(markdown.version())\nend\n")
 	mustWrite(t, filepath.Join(app, "version_test.nomi"), "import markdown\n\ntest \"a version\"\n    assert markdown.version() != \"\"\nend\n")
+	manifest := func() string { return mustRead(t, filepath.Join(app, "nomi.toml")) }
+	runs := func(cli *moduleCLI, want, when string) {
+		t.Helper()
+		if out := cli.must(app, "run", "main.nomi"); out != want {
+			t.Errorf("nomi run %s printed %q, want %q", when, out, want)
+		}
+	}
 
-	if out := c.must(app, "add", md); !strings.HasPrefix(out, "added markdown, "+md+" "+releaseTestVersion+" (import markdown)") {
+	if out := c.must(app, "add", md); !strings.HasPrefix(out, "added markdown, "+md+" "+releaseTestVersion+" (import markdown)\n") {
 		t.Fatalf("a release's nomi add of markdown printed %q", out)
 	}
-	note := "note: nomi.lock takes " + md + " " + later + ", and this nomi is release " + releaseTestVersion +
-		", which takes the first-party libraries at " + releaseTestVersion + "; run `nomi update` to move them to it"
-	noNote := func(cli *moduleCLI, when string) {
-		t.Helper()
-		out, stderr, err := cli.run(app, "run", "main.nomi")
-		if err != nil || strings.Contains(stderr, "note:") {
-			t.Errorf("nomi run %s: %v\nstdout: %s\nstderr: %s", when, err, out, stderr)
-		}
+	pinned := "added markdown, " + md + " " + releaseTestVersion + " (import markdown), at this nomi's own release: a release takes the first-party libraries at its version\n"
+	if out := c.must(app, "add", md+"@"+later); !strings.HasPrefix(out, pinned) {
+		t.Errorf("a release's nomi add %s@%s printed\n%s\nwant it to start\n%s", md, later, out, pinned)
 	}
-	noNote(c, "with markdown at the release")
+	if m := manifest(); !strings.Contains(m, `version = "`+releaseTestVersion+`"`) {
+		t.Fatalf("a release's nomi add %s@%s did not write its own version:\n%s", md, later, m)
+	}
+	runs(c, releaseTestVersion, "at the release")
 
-	c.must(app, "add", md+"@"+later)
-	if manifest := mustRead(t, filepath.Join(app, "nomi.toml")); !strings.Contains(manifest, `version = "`+later+`"`) {
-		t.Fatalf("nomi add %s@%s did not take the version named:\n%s", md, later, manifest)
-	}
+	// A nomi built from source takes the version named, and a release then
+	// finds the lock at it.
+	source.must(app, "add", md+"@"+later)
+	runs(&source, later, "from source")
+	stale := "nomi.lock has no entry for package " + md + " " + releaseTestVersion + ": this nomi is release " + releaseTestVersion +
+		", and takes the first-party libraries at that version; run `nomi fetch` to add it"
 	for _, args := range [][]string{{"run", "main.nomi"}, {"check", "main.nomi"}, {"test", "."}} {
 		out, stderr, err := c.run(app, args...)
-		if err != nil {
-			t.Errorf("nomi %s with markdown off the release: %v\nstdout: %s\nstderr: %s", strings.Join(args, " "), err, out, stderr)
-		}
-		if !strings.HasPrefix(stderr, note) || strings.Count(stderr, "note:") != 1 {
-			t.Errorf("nomi %s with markdown off the release wrote stderr\n%s\nwant it to open with the one note\n%s", strings.Join(args, " "), stderr, note)
-		}
-		if args[0] == "run" && out != later {
-			t.Errorf("nomi run printed %q, want %q", out, later)
+		if err == nil || !strings.Contains(stderr+out, stale) {
+			t.Errorf("a release's nomi %s with nomi.lock at %s: %v\nstdout: %s\nstderr: %s\nwant the error\n%s", strings.Join(args, " "), later, err, out, stderr, stale)
 		}
 	}
-	// This nomi has no runner beside it and its release answers nothing, so
-	// the build fails after the note.
-	_, stderr, _ := c.run(app, "build", "main.nomi", "-o", exe(filepath.Join(t.TempDir(), "app")))
-	if !strings.HasPrefix(stderr, note) || strings.Count(stderr, "note:") != 1 {
-		t.Errorf("nomi build with markdown off the release wrote stderr\n%s\nwant it to open with the one note", stderr)
+	c.must(app, "fetch")
+	runs(c, releaseTestVersion, "after nomi fetch")
+	if m := manifest(); !strings.Contains(m, `version = "`+later+`"`) {
+		t.Errorf("nomi fetch changed nomi.toml:\n%s", m)
 	}
-	source := *c
-	source.bin = nomiBin
-	noNote(&source, "from source with markdown off the release")
-
-	if out := c.must(app, "update"); !strings.HasPrefix(out, md+" "+later+" -> "+releaseTestVersion) {
-		t.Errorf("a release's nomi update printed %q", out)
+	c.must(app, "update")
+	if m := manifest(); !strings.Contains(m, `version = "`+releaseTestVersion+`"`) {
+		t.Errorf("a release's nomi update did not write its own version:\n%s", m)
 	}
-	noNote(c, "after nomi update")
 
 	// A dir entry keeps the repository and version, which stand for the
 	// directory, and has no lock line.
-	c.must(app, "add", md+"@"+later)
+	source.must(app, "add", md+"@"+later)
 	local := filepath.Join(work, "md")
 	for name, text := range markdown("local") {
 		mustWrite(t, filepath.Join(local, name), text)
 	}
-	if out := c.must(app, "add", "../md"); out == "" || !strings.Contains(mustRead(t, filepath.Join(app, "nomi.toml")), `repo = "`+repo+`", subdir = "lib/markdown", version = "`+later+`", dir = "../md"`) {
-		t.Fatalf("nomi add ../md printed %q and wrote\n%s", out, mustRead(t, filepath.Join(app, "nomi.toml")))
+	if out := c.must(app, "add", "../md"); out == "" || !strings.Contains(manifest(), `repo = "`+repo+`", subdir = "lib/markdown", version = "`+later+`", dir = "../md"`) {
+		t.Fatalf("nomi add ../md printed %q and wrote\n%s", out, manifest())
 	}
-	noNote(c, "with markdown from a directory")
+	runs(c, "local", "with markdown from a directory")
 
 	_, stderr, err := c.run(app, "add", sqlite)
 	want := "nomi add: repository " + repo + " has no directory lib/sql/sqlite at " + releaseTestVersion

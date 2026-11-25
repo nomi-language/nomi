@@ -192,7 +192,7 @@ impl Logger
 
     /// The logger for std::log::testing's recorder: one JSON array per record.
     /// Not for programs; `std::log::testing.run` builds it.
-    pub fn records(writer: Writer, min: Level) -> Logger
+    fn records(writer: Writer, min: Level) -> Logger
         Logger{sink: Sink.Records(writer), min:, fields: []}
     end
 

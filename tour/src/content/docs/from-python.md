@@ -45,7 +45,7 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `f"{name} has {n}"` | `"${name} has ${n}"` |
 | `Decimal("1.50")` | `1.50d`, a `Decimal` literal. `+`, `-` and `*` are exact. `/` returns an exact quotient when it ends and otherwise rounds to 34 significant digits, half-even, where Python's default context keeps 28. `Decimal.divide(a, b, 2, RoundingMode.HalfEven)` rounds to a scale you name. See [Exact arithmetic with `Decimal`](/scalars-and-strings/#exact-arithmetic-with-decimal). |
 | `import json`, `from db.posts import find` | `import std::json`, `import db::posts.{find}` |
-| `_helper`, private by convention | A declaration is private to its file unless it is marked `pub` |
+| `_helper`, private by convention | `private fn helper`, which the compiler keeps to its file. An unmarked declaration is seen by every file of its package, and `pub` opens one to other packages |
 | `def test_x():` with pytest | `test "name"` ... `end` beside the code |
 | `@app.get("/users/<int:id>")` in Flask | `Route.to_with("GET /users/{id}", show)` with `fn show(Request, user: {id: Int}) -> Response`. The handler gets `user.id` already parsed, `/users/ann` gets a 404, and the pattern is checked when the program is. See [HTTP](/http/#handlers-and-routes) and [Frontends](/frontends/). |
 

@@ -207,9 +207,8 @@ func (c *checker) shapePatternTarget(n *ast.ListPattern, expectedTy Type, shape 
 		if typeName != nil {
 			c.patternNamesDistinct(typeName, dt, line, col)
 		}
-		if dt.Opaque && (c.fa == nil || !c.fa.inside(dt.OwningSourceFile)) {
-			c.addError(line, col, fmt.Sprintf(
-				"cannot destructure opaque type '%s' outside its defining module", dt.Name))
+		if name, home := c.opaqueOutside(dt); name != "" {
+			c.addError(line, col, opaqueDestructureMessage(name, home))
 			return nil
 		}
 		return distinctInnerOf(dt)

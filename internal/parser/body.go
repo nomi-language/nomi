@@ -2,6 +2,7 @@ package parser
 
 import (
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/token"
 )
 
@@ -278,10 +279,13 @@ func (p *Parser) interfaceBodyFollows() bool {
 	}
 	for i := p.pos; i < len(p.tokens); i++ {
 		t := p.tokens[i]
+		if i+1 < len(p.tokens) && lexer.IsVisibilityModifier(t, p.tokens[i+1]) {
+			return false
+		}
 		switch t.Type {
 		case token.NEWLINE, token.SEMICOLON, token.COMMENT, token.BLANK_LINE:
 			continue
-		case token.END, token.PUB, token.DOC_COMMENT, token.TEST_PROMPT, token.EOF:
+		case token.END, token.DOC_COMMENT, token.TEST_PROMPT, token.EOF:
 			return false
 		case token.FN:
 			// `fn name(` or `fn name<` starts the next member; any other

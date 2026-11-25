@@ -68,7 +68,7 @@ end
   as the page's `next`.
 - `s3.presign_get` and `s3.presign_put` make URLs that read or write one
   object for up to 7 days with no credentials. `s3.sign` and `s3.presign`
-  sign a request this module does not make, such as `CopyObject`.
+  sign a request this package does not make, such as `CopyObject`.
 
 ## Not built
 

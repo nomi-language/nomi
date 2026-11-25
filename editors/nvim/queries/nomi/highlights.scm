@@ -172,6 +172,7 @@
 "once" @keyword.modifier
 "opaque" @keyword.modifier
 (export) @keyword
+(private_keyword) @keyword
 (pub) @keyword.modifier
 
 ; === Specific patterns (highest priority — listed last here) ===

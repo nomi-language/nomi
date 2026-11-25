@@ -330,7 +330,7 @@ func (bl *irScalarBuilder) reachedImplItem(im *ast.InterfaceMethod, kinds []kind
 		if m := d.methods[im.Name]; m == nil || m.decl != im {
 			continue
 		}
-		impl := bl.g.implsByIface[bl.g.implsKey(d)][recv]
+		impl := bl.g.implAt(bl.g.implsKey(d), recv)
 		if impl == nil || !impl.lowerable {
 			return nil
 		}

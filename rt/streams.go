@@ -77,7 +77,9 @@ type ReadSource struct {
 	// Close releases what R reads, or is nil when nothing needs releasing.
 	Close func() error
 	// Fail is the io.Error for err, a failure of operation op (`read`,
-	// `close`), when err is not an IOFailure. Nil makes such a failure Other.
+	// `close`), when err is not an IOFailure, for a source whose package
+	// names errors rt does not link. Nil sorts it with IOErrorOf, Name as
+	// its path.
 	Fail func(op string, err error) IOError
 }
 
@@ -185,7 +187,7 @@ func fail(name, op string, err error, classify func(string, error) IOError) IOEr
 	if classify != nil {
 		return classify(op, err)
 	}
-	return IOError{Tag: TagIOOther, Operation: op, Path: name, Code: ErrnoName(err)}
+	return IOErrorOf(op, name, err)
 }
 
 func (st *readState) fail(op string, err error) IOError {

@@ -1,10 +1,14 @@
-// `nomi tool sqlkit generate [--check]`, run at the root of a module that
+// `nomi tool sqlkit generate [--check]`, run at the root of a package that
 // uses sqlkit: for each database `[sqlkit.database.<name>]` configures
 // (with none, `main` with the defaults), apply its migrations to a scratch
 // database, describe each query of its query files against it, and write
 // the generated files: the schema file, one file of functions per query
-// file, and a test that they are current. With `--check` it writes nothing
-// and fails when a generated file is not what it would write, for CI.
+// file, and a test that they are current. Each file's header records the
+// digest of the inputs and the release of sqlkit that ran (`unreleased`
+// from a `nomi` built from source), and the test checks both. With
+// `--check` it writes nothing and fails when a generated file is not what
+// it would write, for CI. A file another release wrote records that
+// release, so `--check` reports it too.
 //
 // A SQLite database's scratch database is in memory. A Postgres database's
 // is `nomi_prepare_<hash>_<random>` on the development server the
@@ -18,8 +22,8 @@
 // warning, and a Postgres type sqlkit has no family for is a note: it is
 // read as text.
 //
-// `sqlkit` above is the name the module gives sqlkit, its key under
-// `[dependencies]`, which `nomi tool` passes in NOMI_TOOL_MODULE: the tool
+// `sqlkit` above is the name the package gives sqlkit, its key under
+// `[dependencies]`, which `nomi tool` passes in NOMI_TOOL_PACKAGE: the tool
 // reads its table by that name, and the generated code imports sqlkit by
 // it.
 import
@@ -55,7 +59,7 @@ struct Found
     queries: List<Result<List<Column>, QueryError>>
 end
 
-/// One generated file: its path from the module root and its text.
+/// One generated file: its path from the package root and its text.
 struct Generated
     path: String
     text: String
@@ -63,7 +67,7 @@ end
 
 fn main() -> Result<Unit, String>
     kit =
-        case Map.get(App.env, "NOMI_TOOL_MODULE")
+        case Map.get(App.env, "NOMI_TOOL_PACKAGE")
             Some(name) when name != "" ->
                 name
 
@@ -108,7 +112,7 @@ fn main() -> Result<Unit, String>
     end
 end
 
-// The table of the module's nomi.toml named `kit`, the name the module
+// The table of the package's nomi.toml named `kit`, the name the package
 // gives sqlkit, as JSON, `null` when there is none.
 fn sqlkit_config(kit: String) -> Result<Json, String>
     text = fs.read_text("nomi.toml") |> Result.map_err(fn e -> "${e}")?
@@ -284,14 +288,17 @@ fn generate(db: Database) -> Result<List<Generated>, String>
 
     described = found.queries
 
-    digest = inputs.digest(migrations + query_inputs)
+    stamp = codegen.Stamp{
+        digest:  inputs.digest(migrations + query_inputs),
+        release: inputs.release(),
+    }
 
     (made, _) = Iter.reduce(files, ([], described), fn acc, file ->
         (made, rest) = acc
         count = Iter.count(file.queries)
         mine = rest |> Iter.take(count) |> Iter.to_list()
         left = rest |> Iter.drop(count) |> Iter.to_list()
-        ([(file, codegen.queries_file(schema, file, mine, digest)), ..made], left)
+        ([(file, codegen.queries_file(schema, file, mine, stamp)), ..made], left)
     end)
 
     made = Iter.reverse(made)
@@ -323,11 +330,11 @@ fn generate(db: Database) -> Result<List<Generated>, String>
     generated = [
         Generated{
             path: databases.out_file(db, db.schema),
-            text: codegen.schema_file(schema, pairs, digest),
+            text: codegen.schema_file(schema, pairs, stamp),
         },
         Generated{
             path: databases.out_file(db, db.schema + "_test"),
-            text: codegen.test_file(db, digest),
+            text: codegen.test_file(db, stamp),
         },
     ]
 
@@ -337,7 +344,7 @@ fn generate(db: Database) -> Result<List<Generated>, String>
 end
 
 // A generated file as `nomi fmt` writes it. Text that does not parse is
-// sqlkit's fault, not the module's, so the error says so.
+// sqlkit's fault, not the package's, so the error says so.
 fn formatted(file: Generated) -> Result<Generated, String>
     text =
         compiler.format(file.text)

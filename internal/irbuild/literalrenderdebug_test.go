@@ -16,7 +16,7 @@ func TestLiteralRender_StdCalendarCasesReadTheRecord(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	stop := debugImplCensus.start()
-	prog, res, err := GenerateStdlibTestIR("calendar", nil, nil, DeclineHooks{})
+	prog, res, err := GenerateStdlibTestIR("calendar", DeclineHooks{})
 	sites := stop()
 	if err != nil {
 		t.Fatal(err)

@@ -47,7 +47,7 @@
 //# ```
 //#
 //# Then `Box"hello ${name}"` is a `Box`. The full rules, including which
-//# module may write these impls, are in spec §18 *Typed literals*.
+//# package may write these impls, are in spec §18 *Typed literals*.
 
 import
     display.Display

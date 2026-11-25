@@ -5,18 +5,23 @@ import (
 	"testing"
 )
 
-// withStdSources installs sources as std's for the test.
+// withStdSources installs sources as std's for the test, and puts back
+// what was installed before (package std's, in this binary) when it ends,
+// so the tests after it see the real std's exports.
 func withStdSources(t *testing.T, sources map[string]string) {
 	t.Helper()
+	stdExportsMu.Lock()
+	before := stdExportsFunc
+	stdExportsMu.Unlock()
 	SetStdExports(func() map[string]StdModuleExport { return StdExportsFromSources(sources) })
-	t.Cleanup(func() { SetStdExports(nil) })
+	t.Cleanup(func() { SetStdExports(before) })
 }
 
 // A type name the file does not bind is answered with the import that
-// brings it: one std module's, a few modules' each, or none. An internal
-// module's type, a private type and a name no std module exports get no
-// import; a module with public declarations is a module a value name may
-// mean.
+// brings it: one std module's, a few modules' each, or none. A type of a
+// module that declares nothing public (std's plumbing, `http/host`), a
+// private type and a name no std module exports get no import; a module
+// with public declarations is a module a value name may mean.
 func TestStdImportHints(t *testing.T) {
 	withStdSources(t, map[string]string{
 		"http":      "pub enum Method\n    Get\n    Post\nend\n\npub struct Request\n    method: Method\nend\n",
@@ -26,7 +31,7 @@ func TestStdImportHints(t *testing.T) {
 		"c":         "pub struct Wide\n    x: Int\nend\n",
 		"d":         "pub struct Wide\n    x: Int\nend\n",
 		"e":         "pub struct Wide\n    x: Int\nend\n",
-		"http/host": "pub struct Wire\n    x: Int\nend\n",
+		"http/host": "struct Wire\n    x: Int\nend\n\nfn send(w: Wire) end\n",
 		"io":        "pub fn print(s: String) end\n",
 		"empty":     "fn f() end\n",
 	})

@@ -247,7 +247,7 @@ end
 // a task is blocked in the listener's `wait`, so a test closes or cancels
 // it there and not before it starts.
 fn until_waiting(listener: Listener, steps: Int = 1000) -> Bool
-    if postgres.listener_waiting_raw(listener.handle) then
+    if postgres.listener_waiting(listener) then
         True
     else if steps == 0 then
         False
@@ -260,7 +260,7 @@ end
 // Waits the same way until the listener has returned `count`
 // notifications.
 fn until_received(listener: Listener, count: Int, steps: Int = 1000) -> Bool
-    if postgres.listener_received_raw(listener.handle) >= count then
+    if postgres.listener_received(listener) >= count then
         True
     else if steps == 0 then
         False

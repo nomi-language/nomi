@@ -174,7 +174,7 @@ func TestLocaleImage_PhraseCurrencyNames(t *testing.T) {
 		src := "import\n    std::currency.Currency\n    std::io\n    std::money.Money\nend\n\n" +
 			"phrase total(amount: Money) `Razem: {$amount :currency" + c.option + "}`\n\n" +
 			"fn main()\n    io.print(total(Money{amount: 12.5d, currency: Currency\"EUR\"}) |> Phrase.format(Locale\"pl\"))\nend\n"
-		m, err := analysis.ParseManifestData([]byte("[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[i18n]\nsource_locale = \"pl\"\nlocales = [\"pl\"]\n"), "<virtual nomi.toml>")
+		m, err := analysis.ParseManifestData([]byte("[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[i18n]\nsource_locale = \"pl\"\nlocales = [\"pl\"]\n"), "<virtual nomi.toml>")
 		if err != nil {
 			t.Fatal(err)
 		}

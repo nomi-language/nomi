@@ -35,7 +35,7 @@ func TestProgramOfModulesAnswersEachTab(t *testing.T) {
 		"\n// FILE: data/rates.csv\n" + read("rates/data/rates.csv") +
 		"\n// FILE: nomi.toml\n" + strings.Replace(read("rates/nomi.toml"), "../csvdata", "./csvdata", 1) +
 		"\n// FILE: csvdata/csvdata.nomi\n" + read("csvdata/csvdata.nomi") +
-		"\n// FILE: csvdata/nomi.toml\n[module]\nname = \"csvdata\"\n"
+		"\n// FILE: csvdata/nomi.toml\n[package]\nname = \"csvdata\"\n"
 	prog := highlight.AnalyzeProgram(src, t.TempDir(), std.Shared())
 
 	got := prog.HoverIn("main.nomi", 7, colOf(t, prog, "main.nomi", 7, "rates"), nil)
@@ -95,7 +95,7 @@ one {{{$count} produkt w koszyku}}
 '''
 
 // FILE: nomi.toml
-[module]
+[package]
 name = "shop"
 entry_points = ["main"]
 
@@ -172,7 +172,7 @@ end
 Buy milk.
 
 // FILE: nomi.toml
-[module]
+[package]
 name = "notes"
 entry_points = ["main"]
 
@@ -241,7 +241,7 @@ end
 Buy milk.
 
 // FILE: nomi.toml
-[module]
+[package]
 name = "notes"
 entry_points = ["main"]
 
@@ -436,7 +436,7 @@ test "two"
 end
 
 // FILE: nomi.toml
-[module]
+[package]
 name = "notes"
 entry_points = ["main"]
 

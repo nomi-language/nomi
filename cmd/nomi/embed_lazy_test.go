@@ -20,7 +20,7 @@ func TestRunCommand_AnEditToAnEmbeddedDotfileIsReadOnTheNextRun(t *testing.T) {
 		t.Skip("runs nomi; -short")
 	}
 	dir := t.TempDir()
-	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[module]\nname = \"site\"\nentry_points = [\"main\"]\n")
+	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[package]\nname = \"site\"\nentry_points = [\"main\"]\n")
 	mustWrite(t, filepath.Join(dir, "main.nomi"), `import
   std::embed.Files
   std::io
@@ -80,7 +80,7 @@ func TestRunCommand_AnEmbeddedFileChangedAfterCompilingIsRefused(t *testing.T) {
 		t.Skip("runs nomi; -short")
 	}
 	dir := t.TempDir()
-	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[module]\nname = \"site\"\nentry_points = [\"main\"]\n")
+	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[package]\nname = \"site\"\nentry_points = [\"main\"]\n")
 	mustWrite(t, filepath.Join(dir, "main.nomi"), `import
   std::embed.Files
   std::io

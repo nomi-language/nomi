@@ -1431,7 +1431,9 @@ end
 /// a symlink: what an archive's extractor restores. A time left `None`
 /// stays as it is. A file system keeps a time as finely as it can: to the
 /// nanosecond on APFS, ext4 and in memory, to 100 nanoseconds on NTFS, and
-/// `fs.metadata` reads back what it kept.
+/// `fs.metadata` reads back what it kept. `Metadata.changed` is not set:
+/// setting the times moves it to now where the system keeps one, and
+/// Windows keeps none.
 ///
 /// ```nomi
 /// fs.set_times("out/notes.txt", modified: Some(entry.modified))?

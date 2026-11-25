@@ -15,7 +15,7 @@
 //# ```
 //#
 //# The value is a `Files`: a read-only tree whose paths are slash-separated
-//# and run from the module root, as the patterns do, whatever directory
+//# and run from the package root, as the patterns do, whatever directory
 //# the declaring file is in (`static/index.html`).
 //# `.` and the empty path name its root. A path is cleaned first, so
 //# `./static//a.css` is `static/a.css`; one that starts with `/` or leaves

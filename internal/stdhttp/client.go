@@ -183,7 +183,7 @@ var userAgent = sync.OnceValue(func() string { return userAgentOf(buildversion.R
 
 // userAgentOf is the User-Agent of a build whose release tag is tag, or
 // plain `nomi` for no tag. A product token's version has no `v`
-// (`nomi/0.5.0` for the tag v0.5.0), as other clients write theirs.
+// (`nomi/0.0.2` for the tag v0.0.2), as other clients write theirs.
 func userAgentOf(tag string) string {
 	if tag == "" {
 		return "nomi"
@@ -474,7 +474,7 @@ type readerInput struct {
 func (in readerInput) Read(p []byte) (n int, err error) {
 	defer func() {
 		if recover() != nil {
-			n, err = 0, errors.New("http: the request body's read was cancelled")
+			n, err = 0, fmt.Errorf("http: the request body's read was cancelled: %w", context.Canceled)
 		}
 	}()
 	chunk := rt.ReaderRead(in.fr, in.r, rt.SmallInt(int64(len(p))))

@@ -16,7 +16,7 @@ func TestImplFunctionNames_DoNotDependOnWhichUseLowersFirst(t *testing.T) {
 	const decls = "import std::io\n\n" +
 		"struct Loud\n    n: Int\nend\n\n" +
 		"impl Display for Loud\n    fn to_string(l: Loud) -> String\n        \"loud ${l.n}\"\n    end\nend\n\n" +
-		"impl Loud\n    pub fn twice(l: Loud) -> Int\n        l.n * 2\n    end\nend\n\n" +
+		"impl Loud\n    fn twice(l: Loud) -> Int\n        l.n * 2\n    end\nend\n\n" +
 		"struct Score\n    points: Int\nend\n\n" +
 		"impl Equatable for Score\n    fn equal(a: Score, b: Score) -> Bool\n        a.points == b.points\n    end\nend\n\n" +
 		"struct Box<T>\n    v: T\nend\n\n" +

@@ -31,7 +31,7 @@ end
 func openUnwrapProject(t *testing.T, text string) (*Server, string) {
 	t.Helper()
 	return openProject(t, map[string]string{
-		"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+		"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n",
 		"main.nomi": text,
 	}, "main.nomi")
 }

@@ -7,7 +7,6 @@ import (
 	"sync"
 	"unicode"
 
-	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/hoverdoc"
 	"github.com/nomi-language/nomi/std"
@@ -31,7 +30,7 @@ var stdIndex = sync.OnceValue(func() []stdEntry {
 	lib := std.All()
 	modules := make([]string, 0, len(lib.Nodes))
 	for name := range lib.Nodes {
-		if _, internal := analysis.InternalStdModule(name); internal || strings.HasPrefix(name, "_") {
+		if strings.HasPrefix(name, "_") {
 			continue
 		}
 		modules = append(modules, name)
@@ -49,11 +48,11 @@ var stdIndex = sync.OnceValue(func() []stdEntry {
 func entriesOf(module string, n ast.Node) []stdEntry {
 	switch d := n.(type) {
 	case *ast.FuncDef:
-		if d.Public {
+		if d.Visibility == ast.Public {
 			return []stdEntry{entry(module, module+"."+d.Name, d.Name, d.TypeParams, d.Params, d.ReturnTypeExpr, d.Doc, "", d.WhereClauses)}
 		}
 	case *ast.ExternFunc:
-		if d.Public {
+		if d.Visibility == ast.Public {
 			return []stdEntry{entry(module, module+"."+d.Name, d.Name, d.TypeParams, d.Params, d.ReturnTypeExpr, d.Doc, "", d.WhereClauses)}
 		}
 	case *ast.ImplBlock:
@@ -69,18 +68,18 @@ func entriesOf(module string, n ast.Node) []stdEntry {
 		for _, item := range d.Items {
 			switch f := item.(type) {
 			case *ast.FuncDef:
-				if f.Public {
+				if f.Visibility == ast.Public {
 					out = append(out, entry(module, owner+"."+f.Name, f.Name, f.TypeParams, f.Params, f.ReturnTypeExpr, f.Doc, receiver, d.WhereClauses, f.WhereClauses))
 				}
 			case *ast.ExternFunc:
-				if f.Public {
+				if f.Visibility == ast.Public {
 					out = append(out, entry(module, owner+"."+f.Name, f.Name, f.TypeParams, f.Params, f.ReturnTypeExpr, f.Doc, receiver, d.WhereClauses, f.WhereClauses))
 				}
 			}
 		}
 		return out
 	case *ast.InterfaceDef:
-		if !d.Public {
+		if d.Visibility != ast.Public {
 			return nil
 		}
 		var out []stdEntry

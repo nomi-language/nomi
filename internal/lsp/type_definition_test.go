@@ -41,12 +41,12 @@ func TestTypeDefinition(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	write("nomi.toml", "[module]\nname = \"app\"\nentry_points = [\"main\"]\n")
+	write("nomi.toml", "[package]\nname = \"app\"\nentry_points = [\"main\"]\n")
 	write("models/users.nomi", "pub struct User\n    name: String\nend\n\npub fn make() -> User\n    User{name: \"a\"}\nend\n\npub fn option() -> Option<User>\n    None\nend\n")
 	src := strings.Replace(typeDefMain, "import models::users\n", "import models::users\nimport std::io\n", 1)
 	write("main.nomi", src)
 	s := NewServer()
-	s.docs.SetWorkspaceRoot(dir)
+	s.docs.SetEditorFolder(dir)
 	uri := pathToURI(filepath.Join(dir, "main.nomi"))
 	if snap := s.docs.Open(uri, src); snap.Analysis == nil || len(snap.Analysis.TypeErrors) > 0 {
 		t.Fatalf("main.nomi does not check: %v", snap.Analysis.TypeErrors)

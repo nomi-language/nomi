@@ -11,7 +11,7 @@ import
 end
 
 /// A table cell's alignment, from its column's delimiter.
-pub enum Align
+enum Align
     Unaligned
     Left
     Center
@@ -21,7 +21,7 @@ end
 derive Equatable for Align
 
 /// What a block is.
-pub enum Kind
+enum Kind
     Document
     Paragraph
     /// A paragraph in a tight list, rendered without `<p>`.
@@ -47,7 +47,7 @@ end
 
 /// A block: its kind, its parent (-1 for none), its children and its
 /// lines, each held newest first, and whether a blank line came before it.
-pub struct Node
+struct Node
     kind:     Kind
     parent:   Int = -1
     children: List<Int> = []
@@ -56,13 +56,13 @@ pub struct Node
 end
 
 /// A link reference definition's destination and title, as written.
-pub struct Ref
+struct Ref
     destination: Bytes
     title:       Option<Bytes>
 end
 
 /// An open fenced code block: its fence's character, indent and length.
-pub struct Fence
+struct Fence
     char:   Int
     indent: Int
     length: Int
@@ -74,7 +74,7 @@ end
 /// where the line starts), the blocks, the open ones outermost first, the
 /// link reference definitions by label, and what the block parsers keep
 /// between lines.
-pub struct Doc
+struct Doc
     src:     Bytes
     size:    Int
     line:    Int = -1
@@ -146,7 +146,7 @@ enum Parser
 end
 
 /// The blocks of `source`: the document is node 0.
-pub fn parse(source: Bytes) -> Doc
+fn parse(source: Bytes) -> Doc
     st = Doc{
         src:   source,
         size:  Bytes.length(source),
@@ -158,17 +158,17 @@ pub fn parse(source: Bytes) -> Doc
 end
 
 /// The node `id`.
-pub fn node(st: Doc, id: Int) -> Node
+fn node(st: Doc, id: Int) -> Node
     Vector.get(st.nodes, id)!
 end
 
 /// The children of `id`, in order.
-pub fn children(st: Doc, id: Int) -> List<Int>
+fn children(st: Doc, id: Int) -> List<Int>
     Iter.reverse(node(st, id).children)
 end
 
 /// The child after `id`, or None for the last.
-pub fn next_sibling(st: Doc, id: Int) -> Option<Int>
+fn next_sibling(st: Doc, id: Int) -> Option<Int>
     parent = node(st, id).parent
     if parent < 0 then return None
     before(node(st, parent).children, id)

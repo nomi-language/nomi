@@ -18,7 +18,7 @@ import (
 func project(t *testing.T) string {
 	t.Helper()
 	root := filepath.Join(t.TempDir(), "proj")
-	write(t, filepath.Join(root, "nomi.toml"), "[module]\nname = \"proj\"\n")
+	write(t, filepath.Join(root, "nomi.toml"), "[package]\nname = \"proj\"\n")
 	write(t, filepath.Join(root, "main.nomi"), "fn main() end\n")
 	write(t, filepath.Join(root, "lib", "util.nomi"), "pub fn one() -> Int\n    1\nend\n")
 	write(t, filepath.Join(root, "notes.txt"), "not read\n")
@@ -118,7 +118,7 @@ func TestARecordIsReadUntilAFileItReadChanges(t *testing.T) {
 		{"a source edited", func() { write(t, filepath.Join(root, "lib", "util.nomi"), "pub fn one() -> Int\n    2\nend\n") }},
 		{"a source added", func() { write(t, filepath.Join(root, "lib", "more.nomi"), "pub fn two() -> Int\n    2\nend\n") }},
 		{"a source removed", func() { os.Remove(filepath.Join(root, "lib", "more.nomi")) }},
-		{"the manifest edited", func() { write(t, filepath.Join(root, "nomi.toml"), "[module]\nname = \"other\"\n") }},
+		{"the manifest edited", func() { write(t, filepath.Join(root, "nomi.toml"), "[package]\nname = \"other\"\n") }},
 		{"a catalog added", func() { write(t, filepath.Join(root, "messages", "fr", "main.toml"), "") }},
 		{"a nomi.lock added", func() { write(t, filepath.Join(root, "nomi.lock"), "# locked\n") }},
 		{"a manifest above the root", func() { write(t, filepath.Join(filepath.Dir(root), "nomi.toml"), "") }},
@@ -450,7 +450,7 @@ func TestANamedSourcesTreeHoldsTheTextOfTheNamedSources(t *testing.T) {
 	write(t, util, "pub fn one() -> Int\n    11\nend\n")
 	store("with the source back", main, util)
 
-	write(t, filepath.Join(root, "nomi.toml"), "[module]\nname = \"other\"\n")
+	write(t, filepath.Join(root, "nomi.toml"), "[package]\nname = \"other\"\n")
 	if got, _, _, _, _ := answer(); got != "" {
 		t.Fatalf("after an edit to the manifest, the record reads %q", got)
 	}

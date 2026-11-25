@@ -149,7 +149,7 @@ fn main()
     io.print("hi")
 end
 `
-	dir := writeProject(t, map[string]string{"main.nomi": src, "nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n"})
+	dir := writeProject(t, map[string]string{"main.nomi": src, "nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n"})
 	found, err := CheckLowering(context.Background(), filepath.Join(dir, "main.nomi"), src)
 	if err == nil || !strings.Contains(err.Error(), "Amount") {
 		t.Fatalf("CheckLowering answers %v; want the unknown type refused", err)

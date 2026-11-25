@@ -91,8 +91,8 @@ func TestCompletion_PipeOwnerLookupReadsClosedFiles(t *testing.T) {
 		"main.nomi": "fn main() end\n",
 	})
 	s := NewServer()
-	s.docs.SetWorkspaceRoot(dir)
-	s.docs.IndexWorkspace(context.Background())
+	s.docs.SetEditorFolder(dir)
+	s.docs.IndexEditorFolder(context.Background())
 	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
 	items := completeIn(t, s, uri, "import lib\n\nfn main()\n    lib.pause() |> "+cursorMark+"\nend\n").Items
 	labelsInclude(t, items, "Duration.as_seconds")
@@ -128,8 +128,8 @@ func TestCompletion_PipeKeywordStages(t *testing.T) {
 		"main.nomi": "fn main() end\n",
 	})
 	s := NewServer()
-	s.docs.SetWorkspaceRoot(dir)
-	s.docs.IndexWorkspace(context.Background())
+	s.docs.SetEditorFolder(dir)
+	s.docs.IndexEditorFolder(context.Background())
 	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
 	items = completeIn(t, s, uri, "import lib\n\nfn main()\n    _ = \"a\" |> "+cursorMark+"\nend\n").Items
 	labelsBefore(t, items, "lib.shout", "dbg")

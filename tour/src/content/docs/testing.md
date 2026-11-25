@@ -5,10 +5,10 @@ description: Write tests with assertions, check what a program prints, share set
 
 A test is ordinary Nomi code. A `test` declaration gives a name and a block to
 run. You can put tests next to the code they check, or in a file whose name
-ends in `_test.nomi`. `shapes_test.nomi` beside `shapes.nomi` can use that
-file's private declarations, so nothing needs `pub` just to be tested.
-It can also [`derive`](/interfaces-and-dispatch/#deriving-impls) an interface
-for that file's types, and the derive exists only while the tests run.
+ends in `_test.nomi`. `shapes_test.nomi` is an ordinary file of its package:
+it can use every declaration of `shapes.nomi` that is not `private`, so
+nothing needs `pub` to be tested. A test of a `private` function goes in a
+`test` block in that function's own file.
 
 `nomi test` runs them. Anything a test prints, `dbg` included, appears under
 its `ok` or `FAIL` line. `nomi test --watch` runs the tests again each time

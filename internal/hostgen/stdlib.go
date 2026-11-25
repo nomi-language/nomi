@@ -87,7 +87,7 @@ func (tb Table) generator() (*Generator, error) {
 	return g, nil
 }
 
-// Modules is a set of loaded Nomi modules by name.
+// Modules is a set of loaded modules by name.
 type Modules struct {
 	source func(module string) ([]byte, bool)
 	byName map[string]*Module

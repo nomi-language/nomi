@@ -1,7 +1,7 @@
 //# Facts about the machine and the process: the operating system and the
 //# processor, the CPUs, the machine's name, the running program's path,
-//# the user and the user's directories, the memory the program holds, and
-//# its tasks and garbage collector.
+//# the user and the user's directories, the memory the program holds, its
+//# tasks and garbage collector, and the release of Nomi it runs on.
 //#
 //# ```nomi
 //# workers = system.cpu_count()
@@ -18,8 +18,8 @@
 //# A js/wasm or wasip1 module has no machine name, program path, user or
 //# directories: those functions answer `Error.Unsupported` there, when they
 //# are called, so a program that reads one still builds for the browser.
-//# `os`, `arch`, `cpu_count` (1 there), `memory` and `runtime` answer on
-//# every target.
+//# `os`, `arch`, `cpu_count` (1 there), `memory`, `runtime` and
+//# `nomi_release` answer on every target.
 //# Every function here has an effect, `std::system` in an effects list.
 
 import
@@ -28,6 +28,7 @@ import
     equatable.Equatable
     int.{Int, PositiveInt}
     lists.List
+    option.Option
     results.Result.{self, Ok}
     strings.String
     system::host
@@ -307,4 +308,15 @@ pub fn runtime() -> Runtime
     (tasks, tasks_started, supervisors, gc_cycles, pause) = host.runtime()
 
     Runtime{tasks:, tasks_started:, supervisors:, gc_cycles:, gc_pause: Duration.nanoseconds(pause)}
+end
+
+/// The release of Nomi the program runs on, such as `v0.0.2`: the release
+/// of the `nomi` that runs it, or of the runner `nomi build` appended it
+/// to. A `nomi` built from source is no release and answers `None`. A code
+/// generator records it in the files it writes, so that a test can tell
+/// when a different release is running.
+//! refute system.nomi_release() is Some("")
+//
+pub fn nomi_release() -> Option<String>
+    host.nomi_release()
 end

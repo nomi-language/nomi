@@ -13,16 +13,16 @@ import
 end
 
 /// An XML token reader over a `Reader`, which reads it a token at a time.
-pub host type Tokens
+host type Tokens
 
 /// A token reader of the XML in `reader`. A DOCTYPE is an error unless
 /// `allow_doctype`.
-pub host fn open(reader: Reader, allow_doctype: Bool) -> Tokens
+host fn open(reader: Reader, allow_doctype: Bool) -> Tokens
 
 /// Reads the next token and returns its kind: 1 a start tag, 2 an end
 /// tag, 3 text, 4 a comment, 5 a processing instruction, 6 a DOCTYPE, or
 /// 0 once reading stopped (`stopped` says why).
-pub host fn next(tokens: Tokens) -> Int
+host fn next(tokens: Tokens) -> Int
 
 /// The parts of the token `next` read last, by its kind: a start tag's
 /// name, attributes and namespace declarations, an end tag's name, an
@@ -31,32 +31,32 @@ pub host fn next(tokens: Tokens) -> Int
 /// four items each, prefix, local name, namespace and value; namespace
 /// declarations are two items each, the prefix (empty for the default) and
 /// the namespace.
-pub host fn current(tokens: Tokens) -> List<List<String>>
+host fn current(tokens: Tokens) -> List<List<String>>
 
 /// Why reading stopped, as `[kind, line, column]`: kind 0 at the end (or
 /// not yet), 1 a syntax error at the line and column, 2 the reader failed
 /// (`failure`).
-pub host fn stopped(tokens: Tokens) -> List<Int>
+host fn stopped(tokens: Tokens) -> List<Int>
 
 /// The message of the failure `stopped` describes.
-pub host fn message(tokens: Tokens) -> String
+host fn message(tokens: Tokens) -> String
 
 /// The reader's error, once `stopped` says 2.
-pub host fn failure(tokens: Tokens) -> Error
+host fn failure(tokens: Tokens) -> Error
 
 /// Every token of the XML in `data`, read whole by the reader `open`
 /// makes: each token's kind, its parts as `current` gives them, why reading
 /// stopped as `stopped` says it (never 2), and its message.
-pub host fn decode(
+host fn decode(
     data:          Bytes,
     allow_doctype: Bool,
 ) -> (List<Int>, List<List<List<String>>>, List<Int>, String)
 
 /// `text` as XML character data.
-pub host fn escape_text(text: String) -> String
+host fn escape_text(text: String) -> String
 
 /// `text` as a double-quoted attribute value.
-pub host fn escape_attribute(text: String) -> String
+host fn escape_attribute(text: String) -> String
 
 /// Whether `text` is an XML name with no colon.
-pub host fn is_name(text: String) -> Bool
+host fn is_name(text: String) -> Bool

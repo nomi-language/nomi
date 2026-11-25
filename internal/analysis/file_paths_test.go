@@ -15,7 +15,7 @@ import (
 // The files of module app, for the rules of short names, directory imports
 // and paths at a use (spec §14 *Short names*, *Directory imports*).
 var directoryImportFiles = map[string]string{
-	"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+	"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n",
 	"db/schema.nomi": "pub struct Post\n    id: Int\nend\n\npub enum Kind\n    Draft\n    Shown(Int)\nend\n\n" +
 		"pub fn post(id: Int) -> Post\n    Post{id:}\nend\n\nimpl Post\n    pub fn blank() -> Post\n        Post{id: 0}\n    end\nend\n",
 	"db/notifications.nomi":           "pub fn count() -> Int\n    1\nend\n",
@@ -25,7 +25,7 @@ var directoryImportFiles = map[string]string{
 	"views/admin/internal/keys.nomi":  "pub fn key() -> Int\n    4\nend\n",
 	"pages.nomi":                      "pub fn title() -> String\n    \"pages\"\nend\n",
 	"pages/about.nomi":                "pub fn text() -> String\n    \"about\"\nend\n",
-	"plugins/billing/nomi.toml":       "[module]\nname = \"billing\"\n",
+	"plugins/billing/nomi.toml":       "[package]\nname = \"billing\"\n",
 	"plugins/billing/pay.nomi":        "pub fn amount() -> Int\n    5\nend\n",
 	"users.nomi":                      "pub fn count() -> Int\n    6\nend\n",
 	"views/admin/reports/weekly.nomi": "pub fn total() -> Int\n    7\nend\n",
@@ -142,10 +142,10 @@ end
 		"2:5: `db::notifications` is not imported; import the file (`import db::notifications`) and write `notifications.count`, or import its directory (`import db`) and keep `db::notifications.count`")
 }
 
-// A module's own name alone is its root directory when no file at the root
+// A package's own name alone is its root directory when no file at the root
 // has that name, and reaches a root file whose short name a declaration
 // takes. The standard library's root is `std`.
-func TestDirectoryImport_ModuleAndStdRoots(t *testing.T) {
+func TestDirectoryImport_PackageAndStdRoots(t *testing.T) {
 	accepts(t, `import
     app
     std
@@ -162,17 +162,17 @@ end
 	rejects(t, `import std
 
 fn main()
-    std::phrase::format.x()
+    _ = std::phrase::format.variant_name(1)
     std::nosuch.f()
 end
 `,
-		"4:5: `std::phrase::format` is internal to std::phrase",
-		"5:5: `std::nosuch` names no file: std has no nosuch.nomi; std holds `std::actors`, `std::add`, `std::assertions`, `std::averageable`, `std::base64`, `std::bits` and more")
+		"5:5: `std::nosuch` names no file: std has no nosuch.nomi; std holds `std::actors`, `std::add`, `std::assertions`, `std::averageable`, `std::base64`, `std::bits` and more",
+		"4:29: `variant_name` is internal to package `std`; `variant_name` is not part of std's public surface")
 }
 
 // What `std` holds, for its listing and for did-you-mean, includes the
 // modules nested under another (`std::storage::testing`), and leaves out
-// the prelude and the internal modules (`std::fs::host`).
+// the prelude and the modules that declare nothing public (`std::fs::host`).
 func TestDirectoryImport_StdHoldsNestedModules(t *testing.T) {
 	rejects(t, `import std
 
@@ -283,29 +283,22 @@ end
 }
 
 // A directory holding a nomi.toml is another module, which no path of this
-// module reaches; nor does a path reach into another subtree's internal/.
-func TestDirectoryImport_AnotherModuleAndInternal(t *testing.T) {
+// module reaches.
+func TestDirectoryImport_AnotherPackage(t *testing.T) {
 	rejects(t, `import plugins::billing
 
 fn main()
     _ = billing::pay.amount()
 end
 `,
-		"1:8: `plugins::billing` is another module's directory: it holds a nomi.toml; a module is reached by its own name: run `nomi add ./plugins/billing` and import it by that name")
+		"1:8: `plugins::billing` is another package's directory: it holds a nomi.toml; a package is reached by its own name: run `nomi add ./plugins/billing` and import it by that name")
 	rejects(t, `import plugins
 
 fn main()
     _ = plugins::billing::pay.amount()
 end
 `,
-		"4:9: `plugins::billing::pay` is in another module's directory: plugins/billing/ holds a nomi.toml")
-	rejects(t, `import views::admin
-
-fn main()
-    _ = admin::internal::keys.key()
-end
-`,
-		"4:9: cannot import \"views::admin::internal::keys\" from \"main\": outside the parent subtree of views/admin/internal/")
+		"4:9: `plugins::billing::pay` is in another package's directory: plugins/billing/ holds a nomi.toml")
 }
 
 // A local or a parameter named like a directory import's name wins in its

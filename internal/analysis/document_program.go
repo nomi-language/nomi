@@ -383,17 +383,7 @@ func (dm *DocumentManager) checkProgramFrom(root, entry string, texts map[string
 	entryText, _ := text(entry)
 	nodes := expand(entry, parse(entry, entryText))
 	entryPath := filepath.Join(root, filepath.FromSlash(entry)+".nomi")
-	// A partner test's derives for its partner's types read the partner
-	// as the build below loads it.
-	nodes, partnerErrs := LowerPartnerDerives(nodes, entry, func(key string) ([]ast.Node, bool) {
-		src, ok := text(key)
-		if !ok {
-			return nil, false
-		}
-		return expand(key, parseFile(src).nodes), true
-	})
 	nodes, lowerErrs := LowerDerives(nodes)
-	lowerErrs = append(partnerErrs, lowerErrs...)
 	p.entryOwn = len(nodes)
 	testNameErrs := CheckDuplicateTestNames(nodes)
 	prog := nodes

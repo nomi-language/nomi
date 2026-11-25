@@ -112,7 +112,7 @@ end
 		t.Run(c.name, func(t *testing.T) {
 			src := shapesPrelude + c.src
 			got, ds := effectDiagnostics(t, "genlib.nomi", genericLibrary("[]", src))
-			want := "genlib.nomi:" + c.at + ": this module's own code has the effect std::fs, and [effects.self] allows it no effects\n" +
+			want := "genlib.nomi:" + c.at + ": this package's own code has the effect std::fs, and [effects.self] allows it no effects\n" +
 				"genlib.nomi:" + c.at + ": help: " + c.chain + "\n" +
 				"genlib.nomi:" + c.at + ": help: add \"std::fs\" to std under [effects.self] in nomi.toml, or remove the call"
 			if got != want {
@@ -228,7 +228,7 @@ end
 		t.Run(c.name, func(t *testing.T) {
 			src := boxPrelude + c.src
 			got, ds := effectDiagnostics(t, "genlib.nomi", genericLibrary("[]", src))
-			want := "genlib.nomi:" + c.at + ": this module's own code has the effect std::fs, and [effects.self] allows it no effects\n" +
+			want := "genlib.nomi:" + c.at + ": this package's own code has the effect std::fs, and [effects.self] allows it no effects\n" +
 				"genlib.nomi:" + c.at + ": help: " + c.chain + "\n" +
 				"genlib.nomi:" + c.at + ": help: add \"std::fs\" to std under [effects.self] in nomi.toml, or remove the call"
 			if got != want {

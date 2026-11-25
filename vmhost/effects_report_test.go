@@ -37,7 +37,7 @@ func inProject(text, dir string) string {
 	return filepath.ToSlash(strings.ReplaceAll(text, dir+string(filepath.Separator), ""))
 }
 
-const effectManifest = "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = [\"std::io\"]\n"
+const effectManifest = "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = [\"std::io\"]\n"
 
 // Each kind of edge that makes a call count is one exact diagnostic: at
 // the call, the headline naming who reaches what and what the list
@@ -54,7 +54,7 @@ end
 fn main()
     io.print(fs.read_text("notes.txt"))
 end
-`, `main.nomi:7:14: this module's own code has the effect std::fs, and [effects.self] allows it only std::io
+`, `main.nomi:7:14: this package's own code has the effect std::fs, and [effects.self] allows it only std::io
 main.nomi:7:14: help: reached from ` + "`main`" + `
 main.nomi:7:14: help: add "std::fs" to std under [effects.self] in nomi.toml, or remove the call`},
 		{"a function passed as a value", `import
@@ -73,7 +73,7 @@ end
 fn main()
     io.print(ignore(ls))
 end
-`, "main.nomi:7:8: this module's own code has the effect std::process, and [effects.self] allows it only std::io\n" +
+`, "main.nomi:7:8: this package's own code has the effect std::process, and [effects.self] allows it only std::io\n" +
 			"main.nomi:7:8: help: reached from `main`; `main` uses `ls` as a value, which counts whether or not it is called\n" +
 			"main.nomi:7:8: help: add \"std::process\" to std under [effects.self] in nomi.toml, or remove the call"},
 		{"an interface dispatch", `import
@@ -112,7 +112,7 @@ end
 fn main()
     io.print(use(Harmless{x: 1}))
 end
-`, "main.nomi:26:12: this module's own code has the effect std::process, and [effects.self] allows it only std::io\n" +
+`, "main.nomi:26:12: this package's own code has the effect std::process, and [effects.self] allows it only std::io\n" +
 			"main.nomi:26:12: help: reached from `main`; `main` calls `use`; `use` calls `go` through an interface, and any implementation of it counts, including `Runner.go for Shell`\n" +
 			"main.nomi:26:12: help: add \"std::process\" to std under [effects.self] in nomi.toml, or remove the call"},
 		{"a Display body", `import
@@ -137,7 +137,7 @@ end
 fn show(d: Display) -> String
     "${d}"
 end
-`, "main.nomi:12:12: this module's own code has the effect std::process, and [effects.self] allows it only std::io\n" +
+`, "main.nomi:12:12: this package's own code has the effect std::process, and [effects.self] allows it only std::io\n" +
 			"main.nomi:12:12: help: reached from `main`; `main` calls `show`; `show` displays a value that may be or hold a `Job`, so `impl Display for Job` counts\n" +
 			"main.nomi:12:12: help: add \"std::process\" to std under [effects.self] in nomi.toml, or remove the call"},
 		{"a once", `import
@@ -154,7 +154,7 @@ once config = load()
 fn main()
     io.print(config)
 end
-`, "main.nomi:7:5: this module's own code has the effect std::fs, and [effects.self] allows it only std::io\n" +
+`, "main.nomi:7:5: this package's own code has the effect std::fs, and [effects.self] allows it only std::io\n" +
 			"main.nomi:7:5: help: reached from `main`; `main` reads `once config`, so its initializer counts; `once config` calls `load`\n" +
 			"main.nomi:7:5: help: add \"std::fs\" to std under [effects.self] in nomi.toml, or remove the call"},
 		{"a boot that takes a Startup", `import std::io
@@ -170,7 +170,7 @@ end
 fn main()
     io.print(App.name)
 end
-`, "main.nomi:7:4: this module's own code has the effect std::startup, and [effects.self] allows it only std::io\n" +
+`, "main.nomi:7:4: this package's own code has the effect std::startup, and [effects.self] allows it only std::io\n" +
 			"main.nomi:7:4: help: reached from the boot `boot`\n" +
 			"main.nomi:7:4: help: add \"std::startup\" to std under [effects.self] in nomi.toml, or have the boot take no Startup"},
 	}
@@ -189,28 +189,28 @@ end
 	}
 }
 
-// A dependency over its entry under [effects.deps.modules] is
+// A dependency over its entry under [effects.deps.packages] is
 // reported at the call in its file, naming the module; a call over
 // [effects.deps]' ceiling too says so, and the help names both lists.
 // A list that allows nothing says so.
 func TestEffectDiagnostic_ADependencyOverItsEntry(t *testing.T) {
 	got, ds := effectDiagnostics(t, "app/main.nomi", dependencyFiles(effectManifest+
-		"\n[effects.deps]\nstd = [\"std::io\"]\n\n[effects.deps.modules]\n\"pricing\" = []\n", ""))
-	want := "pricing/rules.nomi:4:5: pricing has the effect std::fs, and its entry under [effects.deps.modules] allows it no effects\n" +
+		"\n[effects.deps]\nstd = [\"std::io\"]\n\n[effects.deps.packages]\n\"pricing\" = []\n", ""))
+	want := "pricing/rules.nomi:4:5: pricing has the effect std::fs, and its entry under [effects.deps.packages] allows it no effects\n" +
 		"pricing/rules.nomi:4:5: help: reached from `main`; `main` calls `load`\n" +
 		"pricing/rules.nomi:4:5: help: std under [effects.deps] does not allow std::fs either\n" +
-		"pricing/rules.nomi:4:5: help: add \"std::fs\" to \"pricing\" under [effects.deps.modules] and to std under [effects.deps] in nomi.toml, or remove the call" +
+		"pricing/rules.nomi:4:5: help: add \"std::fs\" to \"pricing\" under [effects.deps.packages] and to std under [effects.deps] in nomi.toml, or remove the call" +
 		"\napp/main.nomi:7:14: note: your code has the effect std::fs in pricing here: `main` calls `load`"
 	if got != want {
 		t.Errorf("diagnostics:\n%s\nwant:\n%s", got, want)
 	}
-	if len(ds) != 1 || !slices.Equal(ds[0].Args, []string{"std::fs", "deps.modules", "pricing"}) {
-		t.Errorf("args %q, want the name, deps.modules and the module", ds[0].Args)
+	if len(ds) != 1 || !slices.Equal(ds[0].Args, []string{"std::fs", "deps.packages", "pricing"}) {
+		t.Errorf("args %q, want the name, deps.packages and the module", ds[0].Args)
 	}
 }
 
 // A dependency over [effects.deps]' ceiling is reported at the call in
-// its file, naming the module and what the ceiling allows dependencies,
+// its file, naming the package and what the ceiling allows dependencies,
 // and the help names deps' std, or std_in_tests for a test.
 func TestEffectDiagnostic_ADependencyOverTheCeiling(t *testing.T) {
 	got, ds := effectDiagnostics(t, "app/main.nomi", dependencyFiles(effectManifest+"\n[effects.deps]\nstd = [\"std::io\"]\n", ""))
@@ -253,7 +253,7 @@ test "runs"
 end
 `,
 	})
-	want := "main.nomi:11:9: this module's tests have the effect std::process, and [effects.self] allows them only std::io, std::fs\n" +
+	want := "main.nomi:11:9: this package's tests have the effect std::process, and [effects.self] allows them only std::io, std::fs\n" +
 		"main.nomi:11:9: help: reached from test \"runs\"\n" +
 		"main.nomi:11:9: help: add \"std::process\" to std_in_tests under [effects.self] in nomi.toml, or remove the call"
 	if got != want {
@@ -276,7 +276,7 @@ fn main()
     io.print(rules.load("prices.txt"))
 end
 `,
-		"pricing/nomi.toml": "[module]\nname = \"pricing\"\n" + table,
+		"pricing/nomi.toml": "[package]\nname = \"pricing\"\n" + table,
 		"pricing/rules.nomi": `import std::fs
 
 pub fn load(path: String) -> String
@@ -289,15 +289,15 @@ end
 // A dependency over the [effects.self] its own nomi.toml declares is
 // reported at the call in its file, coded effect-not-declared: the
 // headline says the list is the module's own, and the help says the fix
-// is in that module, at its nomi.toml, and, when the project's tables
+// is in that package, at its nomi.toml, and, when the project's tables
 // allow the call, nothing about them. When they do not allow it either,
 // the help says which. Its own [effects.deps] does not widen it.
 func TestEffectDiagnostic_ADependencyOverItsOwnList(t *testing.T) {
 	ownTable := "\n[effects.self]\nstd = [\"std::io\"]\n"
-	deps := "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.deps]\nstd = [\"std::io\", \"std::fs\"]\n"
+	deps := "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.deps]\nstd = [\"std::io\", \"std::fs\"]\n"
 	own := "pricing/rules.nomi:4:5: pricing has the effect std::fs, and its own [effects.self] allows it only std::io\n" +
 		"pricing/rules.nomi:4:5: help: reached from `main`; `main` calls `load`\n"
-	fix := "pricing/rules.nomi:4:5: help: pricing declares fewer effects than its code has, and the fix is in that module: add \"std::fs\" to std under [effects.self] in pricing/nomi.toml, or remove the call" +
+	fix := "pricing/rules.nomi:4:5: help: pricing declares fewer effects than its code has, and the fix is in that package: add \"std::fs\" to std under [effects.self] in pricing/nomi.toml, or remove the call" +
 		"\napp/main.nomi:7:14: note: your code has the effect std::fs in pricing here: `main` calls `load`"
 	cases := []struct {
 		name, app, want string
@@ -307,9 +307,9 @@ func TestEffectDiagnostic_ADependencyOverItsOwnList(t *testing.T) {
 		{name: "its own [effects.deps] does not widen it", app: deps,
 			own: ownTable + "\n[effects.deps]\nstd = [\"std::fs\"]\n", want: own + fix},
 		{name: "the project's tables deny it too",
-			app: effectManifest + "\n[effects.deps]\nstd = [\"std::io\"]\n\n[effects.deps.modules]\n\"pricing\" = [\"std::io\"]\n",
+			app: effectManifest + "\n[effects.deps]\nstd = [\"std::io\"]\n\n[effects.deps.packages]\n\"pricing\" = [\"std::io\"]\n",
 			want: own +
-				"pricing/rules.nomi:4:5: help: the project's nomi.toml does not allow std::fs to it either; to allow it there, add \"std::fs\" to \"pricing\" under [effects.deps.modules] and to std under [effects.deps]\n" +
+				"pricing/rules.nomi:4:5: help: the project's nomi.toml does not allow std::fs to it either; to allow it there, add \"std::fs\" to \"pricing\" under [effects.deps.packages] and to std under [effects.deps]\n" +
 				fix},
 	}
 	for _, c := range cases {
@@ -355,7 +355,7 @@ func TestEffectLists_ADependencysOwnEntries(t *testing.T) {
 	if got != want {
 		t.Errorf("problems:\n%s\nwant:\n%s", got, want)
 	}
-	for _, app := range []string{"[module]\nname = \"app\"\nentry_points = [\"main\"]\n", effectManifest} {
+	for _, app := range []string{"[package]\nname = \"app\"\nentry_points = [\"main\"]\n", effectManifest} {
 		if got := listProblems(t, dependencyFiles(app, table)); got != "" {
 			t.Errorf("with no project [effects.deps], problems:\n%s\nwant none", got)
 		}
@@ -364,21 +364,21 @@ func TestEffectLists_ADependencysOwnEntries(t *testing.T) {
 
 // entries_required makes each dependency the program's code comes from have
 // an entry: a dependency with neither an entry under the project's
-// [effects.deps.modules] nor an [effects.self] of its own is an
+// [effects.deps.packages] nor an [effects.self] of its own is an
 // error at the key, naming both fixes. Either satisfies it, its own
 // [effects.deps] does not, and the key false or absent requires
 // nothing.
 func TestEffectLists_EntriesRequired(t *testing.T) {
-	app := "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.deps]\nstd = [\"std::io\", \"std::fs\"]\nentries_required = true\n"
+	app := "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.deps]\nstd = [\"std::io\", \"std::fs\"]\nentries_required = true\n"
 	want := "app/nomi.toml:7: [effects.deps] entries_required: pricing has no entry\n" +
-		"app/nomi.toml:7: help: add \"pricing\" under [effects.deps.modules] in nomi.toml, or give pricing an [effects.self] table in its own nomi.toml"
+		"app/nomi.toml:7: help: add \"pricing\" under [effects.deps.packages] in nomi.toml, or give pricing an [effects.self] table in its own nomi.toml"
 	for _, table := range []string{"", "\n[effects.deps]\nstd = [\"std::fs\"]\n"} {
 		if got := listProblems(t, dependencyFiles(app, table)); got != want {
 			t.Errorf("problems with %q in its own nomi.toml:\n%s\nwant:\n%s", table, got, want)
 		}
 	}
 	for _, c := range []struct{ name, app, table string }{
-		{"a project entry", app + "\n[effects.deps.modules]\n\"pricing\" = [\"std::fs\"]\n", ""},
+		{"a project entry", app + "\n[effects.deps.packages]\n\"pricing\" = [\"std::fs\"]\n", ""},
 		{"its own table", app, "\n[effects.self]\nstd = [\"std::fs\"]\n"},
 		{"the key false", strings.Replace(app, "true", "false", 1), ""},
 		{"the key absent", strings.Replace(app, "entries_required = true\n", "", 1), ""},

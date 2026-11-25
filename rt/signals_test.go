@@ -33,7 +33,7 @@ func raise(t *testing.T, sig syscall.Signal) {
 // within is what a receive on r answers within wait: the value, "closed"
 // for a closed channel, or "" when nothing came.
 func within(fr *Frame, r Receiver[string], wait time.Duration) string {
-	got := ReceiverReceiveWithin(fr, r, Duration(wait))
+	got := ReceiverReceiveWithin(fr, Site{}, r, Duration(wait))
 	switch {
 	case got.Tag != TagOk:
 		return ""
@@ -166,6 +166,29 @@ func TestSignals_AFeedMadeDuringTheDrainIsClosed(t *testing.T) {
 	ResetSupervisors()
 	if caught(syscall.SIGUSR1) {
 		t.Fatal("SIGUSR1 is still caught after the reset")
+	}
+}
+
+// A feed a virtual-clock case makes after its cleanup is closed at once and
+// starts no watch. A watch it started would hold a channel of the case's
+// bubble, which the next case's ReleaseSignals would close from outside it.
+func TestSignals_AFeedMadeAfterACaseEndedStartsNoWatch(t *testing.T) {
+	ResetSupervisors()
+	defer ResetSupervisors()
+
+	var got string
+	err := RunBubbled(bubbleThen(func() {
+		fr, r := feed(t, context.Background(), syscall.SIGUSR1, "usr1")
+		got = within(fr, r, 0)
+	}), func() error { return nil }, nil)
+	if err != nil {
+		t.Fatalf("the case: %v", err)
+	}
+	if got != "closed" {
+		t.Fatalf("a feed made after the case's cleanup answered %q", got)
+	}
+	if caught(syscall.SIGUSR1) {
+		t.Fatal("a feed made after the case's cleanup left SIGUSR1 caught")
 	}
 }
 

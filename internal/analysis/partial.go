@@ -121,10 +121,8 @@ func (c *checker) wholeValueMatches(arg, target Type, recPos Pos) bool {
 // message — the same handled-and-reported convention `fieldTypeFromObject`
 // uses for field access on an opaque struct.
 func (c *checker) partialPatchOK(arg, target Type, line, col int) bool {
-	if tyName, fieldName, found := c.opaquePatchField(arg, target); found {
-		c.addError(line, col, fmt.Sprintf(
-			"cannot update field '%s' of opaque type '%s' outside its defining module — use an exported constructor function",
-			fieldName, tyName))
+	if tyName, home, fieldName := c.opaquePatchField(arg, target); tyName != "" {
+		c.addError(line, col, opaqueUpdateMessage(fieldName, tyName, home))
 		return true
 	}
 	return c.deepPartialMatches(arg, target, c.reg, c.recPos(line, col))
@@ -132,7 +130,8 @@ func (c *checker) partialPatchOK(arg, target Type, line, col int) bool {
 
 // opaquePatchField reports when a `Partial<target>` patch names a field of
 // target, an opaque struct declared outside the file being checked, returning
-// the opaque type's name and the first field the patch names.
+// the opaque type's name, its file as a message names it (opaqueOutside)
+// and the first field the patch names. The name is "" for any other patch.
 //
 // Naming a private field is the exposure, wherever the name appears. Field
 // access (`c.value`), a pattern (`case c { Counter{value:} -> ... }`), a struct
@@ -146,18 +145,32 @@ func (c *checker) partialPatchOK(arg, target Type, line, col int) bool {
 // (checkStructUpdateLit's opaqueUpdateBlocked). A whole-value replacement
 // names no field and is clean, including replacing an opaque field wholesale
 // (`Struct.update(box, {inner: counter.new()})`).
-func (c *checker) opaquePatchField(arg, target Type) (typeName, fieldName string, found bool) {
+func (c *checker) opaquePatchField(arg, target Type) (typeName, home, fieldName string) {
 	anon, ok := resolveTypeVar(arg).(*AnonStructType)
 	if !ok || len(anon.Fields) == 0 {
-		return "", "", false
+		return "", "", ""
 	}
 	if st, ok := resolveTypeVar(target).(*StructType); ok {
-		st = canonicalStructForFieldAccess(c, st)
-		if st != nil && st.Opaque && (c.fa == nil || !c.fa.inside(st.OwningSourceFile)) {
-			return st.Name, anon.Fields[0].Name, true
+		if st = canonicalStructForFieldAccess(c, st); st != nil {
+			if name, home := c.opaqueOutside(st); name != "" {
+				return name, home, anon.Fields[0].Name
+			}
 		}
 	}
-	return "", "", false
+	return "", "", ""
+}
+
+// opaqueUpdateMessage is the error for a patch that names field of the
+// opaque type name declared in home (opaqueOutside), in an update literal
+// or a `Partial` patch.
+func opaqueUpdateMessage(field, name, home string) string {
+	return fmt.Sprintf("cannot update field '%s' of opaque type '%s' outside %s — use an exported constructor function", field, name, home)
+}
+
+// opaqueDestructureMessage is the error for a pattern that takes apart the
+// opaque type name declared in home (opaqueOutside).
+func opaqueDestructureMessage(name, home string) string {
+	return fmt.Sprintf("cannot destructure opaque type '%s' outside %s", name, home)
 }
 
 // partialTargetFields returns the field set of a struct-shaped target, resolving

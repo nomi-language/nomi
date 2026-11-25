@@ -77,7 +77,7 @@ struct Date
 end
 
 impl Date
-  pub fn new(a: String, b: String) -> Date
+  fn new(a: String, b: String) -> Date
     Date{flavor: a + b}
   end
 end
@@ -104,11 +104,11 @@ struct Date
 end
 
 impl Date
-  pub fn new(a: String, b: String) -> Date
+  fn new(a: String, b: String) -> Date
     Date{flavor: a + b}
   end
 
-  pub fn new(a: String) -> Date
+  fn new(a: String) -> Date
     Date{flavor: a}
   end
 end

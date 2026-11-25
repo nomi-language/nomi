@@ -138,7 +138,7 @@ type decoderCall struct {
 func TestEffects_DecodersOfPlainValuesHaveNone(t *testing.T) {
 	dir := t.TempDir()
 	writeFiles(t, dir, map[string]string{
-		"nomi.toml":     "[module]\nname = \"app\"\n\n[effects.self]\nstd = []\n",
+		"nomi.toml":     "[package]\nname = \"app\"\n\n[effects.self]\nstd = []\n",
 		"decoders.nomi": decoders.src,
 	})
 	p, err := vmhost.Load(filepath.Join(dir, "decoders.nomi"))

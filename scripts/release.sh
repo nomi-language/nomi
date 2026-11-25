@@ -44,11 +44,11 @@
 # (`-X github.com/nomi-language/nomi/internal/runners.ReleaseVersion=<version>`): `nomi build --target`
 # downloads another platform's runners archive from the release of that tag
 # and checks it against this script's checksum manifest, and `nomi add` and
-# `nomi update` take the first-party lib/ modules at that version.
+# `nomi update` take the first-party lib/ packages at that version.
 #
 # This script makes no tag and pushes nothing, so it is safe to run as a dry
 # run. A release also needs its tag, the one tag that versions the compiler
-# and every lib/ module: scripts/release-tags.sh <version> prints it and
+# and every lib/ package: scripts/release-tags.sh <version> prints it and
 # checks the libraries' nomi.toml files, and with --create makes it.
 #
 # js/wasm and wasip1/wasm have no `nomi`, only the runners and compiler
@@ -87,6 +87,7 @@
 #	dist/nomi_<version>_wasip1_wasm_runners.tar.gz    (nomi-vm, nomi-vm-nonet, nomi-vm-reactor, nomi-vm-reactor-nonet)
 #	dist/nomi_<version>_wasip1_wasm_compiler.tar.gz   (nomi-vm-compiler, nomi-vm-reactor-compiler)
 #	dist/nomi_<version>_checksums.txt
+#	dist/nomi.rb                                      (the Homebrew formula, for a vX.Y.Z version without NOMI_RELEASE_TARGETS)
 #
 # `nomi build` downloads a runner it does not carry and that is not
 # installed beside `nomi` from the release archive that holds it and checks
@@ -376,3 +377,13 @@ fi
 echo
 echo "$archives archives for $version in $dist_dir"
 cat "$dist_dir/nomi_${version}_checksums.txt"
+
+# The Homebrew formula for the tap, rendered from the checksums just written,
+# when the build holds the four macOS and Linux archives it names and the
+# version is a tag's. It is not a release asset: the tap repository holds it
+# (docs/releasing.md).
+if [ -z "${NOMI_RELEASE_TARGETS:-}" ] && [[ "$version" =~ ^v[0-9] ]]; then
+	"$repo_root/scripts/homebrew-formula.sh" "$version" "$dist_dir/nomi_${version}_checksums.txt" >"$dist_dir/nomi.rb"
+	echo
+	echo "Homebrew formula: $dist_dir/nomi.rb"
+fi

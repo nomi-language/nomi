@@ -573,7 +573,7 @@ func (g *gen) irInstanceImpls() []*implDef {
 		d   *implDef
 	}
 	var entries []entry
-	for key, byRecv := range g.implsByIface {
+	for key, byRecv := range g.implTable() {
 		for recv, d := range byRecv {
 			if d == nil || recv.def == nil || recv.def.preludeOf != nil {
 				continue
@@ -666,8 +666,8 @@ func (g *gen) irRecordRowDebugImpls() {
 // derived impl is structural, which is what the machine answers without an
 // entry, so it is not recorded.
 //
-// It reads implsByIface rather than implOrder because a generic type's
-// per-instance blocks (registerImplAt) are only there, and sorts by type name
+// It reads the impl tables rather than implOrder because a generic type's
+// per-instance blocks (registerInstanceImpls) are only there, and sorts by type name
 // so the module's entries do not follow map order.
 func (g *gen) irRecordKeyImpls() {
 	for _, iface := range []analysis.StdType{stdEquatable, stdHashable} {
@@ -679,7 +679,7 @@ func (g *gen) irRecordKeyImpls() {
 			typ, fn *ir.Symbol
 		}
 		var entries []entry
-		for recv, d := range g.implsByIface[stdIfaceImplKey(iface)] {
+		for recv, d := range g.resolvedImpls(stdIfaceImplKey(iface)) {
 			if d == nil || d.synth || !d.lowerable || !irKeyImplRecv(recv) {
 				continue
 			}

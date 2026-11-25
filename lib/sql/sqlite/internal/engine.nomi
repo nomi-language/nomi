@@ -25,13 +25,13 @@ once compiled: Result<Module, String> =
 
 /// One connection's engine: an instance of the module, and the files its
 /// file layer has open.
-pub opaque struct Engine
+opaque struct Engine
     instance: Instance
     files:    vfs.Files
 end
 
 /// A value as SQLite stores it.
-pub enum Cell
+enum Cell
     Null
     Integer Int
     Real Float
@@ -44,7 +44,7 @@ derive Equatable for Cell
 /// A failure SQLite reported: its extended result code, its message, and
 /// the byte of the SQL it is at (-1 for none). A code of -1 is the engine's
 /// own failure, which leaves it unusable.
-pub struct Failure
+struct Failure
     code:    Int
     message: String
     at:      Int
@@ -52,14 +52,14 @@ end
 
 /// The columns of a statement: their names and declared types (`""` for
 /// none).
-pub struct Columns
+struct Columns
     names: List<String>
     types: List<String>
 end
 
 /// What the statements `exec` ran answer: the rows the connection's last
 /// one changed, and the last one's columns and rows.
-pub struct Answer
+struct Answer
     changed: Int
     columns: Columns
     rows:    List<List<Cell>>
@@ -67,14 +67,14 @@ end
 
 /// A statement `prepare` left for `step`: its handle (0 for none, when the
 /// SQL held no statement) and its columns.
-pub struct Prepared
+struct Prepared
     handle:  Int
     columns: Columns
 end
 
 /// Up to the number of rows `step` was asked for, and whether the
 /// statement has ended.
-pub struct Stepped
+struct Stepped
     rows:  List<List<Cell>>
     ended: Bool
 end
@@ -82,7 +82,7 @@ end
 /// One column of a statement `describe` prepared: its name, its declared
 /// type, the table and column it reads (`""` for an expression), and
 /// whether that column is `NOT NULL` or an `INTEGER PRIMARY KEY`.
-pub struct Described
+struct Described
     name:     String
     declared: String
     table:    String
@@ -92,14 +92,14 @@ end
 
 /// What `describe` says of a statement: whether more statements follow it,
 /// its parameter count and its columns.
-pub struct Description
+struct Description
     more:    Bool
     params:  Int
     columns: List<Described>
 end
 
 /// A new engine, with no database open, whose files are in `place`.
-pub fn start(place: vfs.Place) -> Result<Engine, String>
+fn start(place: vfs.Place) -> Result<Engine, String>
     module = compiled?
     files = vfs.files(place)
 
@@ -112,19 +112,19 @@ end
 
 /// The engine stopped: its instance dropped, any file it left open
 /// closed, and the directories its place owns closed.
-pub fn stop(e: Engine)
+fn stop(e: Engine)
     Instance.drop(e.instance)
     vfs.close_all(e.files)
 end
 
 /// The connection to the database `name` opens, creating it.
-pub fn open(e: Engine, name: String) -> Result<Int, Failure>
+fn open(e: Engine, name: String) -> Result<Int, Failure>
     data = call(e, "open", String.to_bytes(name))?
     Ok(i32(data, 4))
 end
 
 /// Closes the connection `db`, and answers SQLite's code.
-pub fn close(e: Engine, db: Int) -> Int
+fn close(e: Engine, db: Int) -> Int
     case call(
         e,
         "close",
@@ -138,7 +138,7 @@ pub fn close(e: Engine, db: Int) -> Int
 end
 
 /// Runs the statements of `sql` on `db` with `params` bound to each.
-pub fn exec(e: Engine, db: Int, sql: String, params: List<Cell>) -> Result<Answer, Failure>
+fn exec(e: Engine, db: Int, sql: String, params: List<Cell>) -> Result<Answer, Failure>
     data = call(e, "exec", statement(db, sql, params))?
     changed = Bytes.int64_le_at(data, 4)!
     (columns, at) = columns(data, 12)
@@ -149,14 +149,14 @@ end
 
 /// Runs the statements of `sql` on `db` but the last, and prepares the
 /// last, for `step`.
-pub fn prepare(e: Engine, db: Int, sql: String, params: List<Cell>) -> Result<Prepared, Failure>
+fn prepare(e: Engine, db: Int, sql: String, params: List<Cell>) -> Result<Prepared, Failure>
     data = call(e, "prepare", statement(db, sql, params))?
     (columns, _) = columns(data, 8)
     Ok(Prepared{handle: i32(data, 4), columns:})
 end
 
 /// Up to `max` more rows of the statement `handle`, of `width` columns.
-pub fn step(e: Engine, handle: Int, max: Int, width: Int) -> Result<Stepped, Failure>
+fn step(e: Engine, handle: Int, max: Int, width: Int) -> Result<Stepped, Failure>
     data = call(
         e,
         "step",
@@ -172,7 +172,7 @@ pub fn step(e: Engine, handle: Int, max: Int, width: Int) -> Result<Stepped, Fai
 end
 
 /// Ends the statement `handle`, whether or not `step` ended it.
-pub fn finalize(e: Engine, handle: Int)
+fn finalize(e: Engine, handle: Int)
     _ = call(
         e,
         "finalize",
@@ -183,7 +183,7 @@ pub fn finalize(e: Engine, handle: Int)
 end
 
 /// What SQLite says of the first statement of `sql` on `db`.
-pub fn describe(e: Engine, db: Int, sql: String) -> Result<Description, Failure>
+fn describe(e: Engine, db: Int, sql: String) -> Result<Description, Failure>
     data = call(
         e,
         "describe",

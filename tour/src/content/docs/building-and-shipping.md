@@ -34,7 +34,7 @@ code your program uses. To run it, you need the VM: `nomi-vm app.nomic`, or
 
 A program that reads files it ships with, such as pages, templates or
 migrations, can carry them inside itself. An `embed` declaration names
-them by pattern, from the module root as imports are, and the build carries
+them by pattern, from the package root as imports are, and the build carries
 them, so the executable needs no other file. It reads a file's bytes from
 itself when the program reads that file, so a large embed costs nothing at
 startup:

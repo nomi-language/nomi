@@ -86,10 +86,7 @@ func (dm *DocumentManager) rebuildStoredBodies(sp *storedProgram, key, oldText s
 	entry := key == sp.rec.Entry
 	manifest, _ := LoadManifest(sp.rec.Root)
 	site := dm.expansionSite(sp.rec.Root, key, manifest, dm.readInput)
-	prepared, frontEnd := preparedNodes(pf.nodes, entry, nodes, site, key, func(k string) ([]ast.Node, bool) {
-		n, ok := c.FileNodes[k]
-		return n, ok
-	})
+	prepared, frontEnd := preparedNodes(pf.nodes, entry, nodes, site)
 	if len(prepared) != len(nodes) {
 		return "the prepared declarations differ in number", false
 	}

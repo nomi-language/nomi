@@ -24,7 +24,7 @@ import (
 // cache instead (progcache, kind storedKind, keyed by the entry's path):
 // each project file's interface (StoredInterface), the SHA-256 of its text,
 // and the documents whose lowering found nothing. A record is written for
-// a program that reads no file of another module and takes no Go
+// a program that reads no file of another package and takes no Go
 // bindings, every input an expansion read (a phrase catalog) holding on
 // disk what it read and named in the record, and every `embed`'s files as
 // the snapshot found them. It keeps what each file reports

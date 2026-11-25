@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/nomi-language/nomi/internal/osreach"
-	"github.com/nomi-language/nomi/internal/stdio"
 	"github.com/nomi-language/nomi/rt"
 )
 
@@ -28,6 +27,11 @@ import (
 // maxDatagram is the most bytes a receive asks for, whatever `max` says:
 // no datagram a system sends is longer.
 const maxDatagram = 1 << 26
+
+// hasUnixDatagrams is whether the system has Unix datagram sockets.
+// Windows has Unix stream sockets alone. A test sets it to answer as
+// Windows does.
+var hasUnixDatagrams = runtime.GOOS != "windows"
 
 // UDPBind is `std::http::host.udp_bind`: a datagram socket on network
 // ("udp", or "unixgram" for a Unix socket's path) bound to address, with
@@ -54,23 +58,30 @@ func udpOpen(fr *rt.Frame, network, address string, bind, reuseAddress, reusePor
 	if !hasSockets {
 		return fail(errors.New(noSocketsMessage))
 	}
-	if network == "unixgram" && runtime.GOOS == "windows" {
-		return fail(unsupported("Windows has no Unix datagram sockets"))
-	}
 	network = ipNetwork(network, address)
-	ctx := frameContext(fr)
-	if !bind {
-		d, failed := dialer(network, 0, 0, "", reuseAddress, reusePort)
-		if failed != nil {
+	// The class is noted before the platform refuses a Unix socket, so the
+	// classes a call reaches are the same on every operating system
+	// (internal/osreach).
+	var d *net.Dialer
+	if bind {
+		osreach.Note("listen")
+	} else {
+		var failed []string
+		if d, failed = dialer(network, 0, 0, "", reuseAddress, reusePort); failed != nil {
 			return rt.Err[rt.NetConn](listOf(failed))
 		}
+	}
+	if network == "unixgram" && !hasUnixDatagrams {
+		return fail(unsupported("Windows has no Unix datagram sockets"))
+	}
+	ctx := frameContext(fr)
+	if !bind {
 		c, err := d.DialContext(ctx, network, address)
 		if err != nil {
 			return fail(err)
 		}
 		return rt.Ok[rt.NetConn, *rt.List[string]](newConn(ctx, c))
 	}
-	osreach.Note("listen")
 	lc := &net.ListenConfig{Control: bindControl(reuseAddress, reusePort)}
 	pc, err := lc.ListenPacket(ctx, network, address)
 	if err != nil {
@@ -178,7 +189,7 @@ func UDPReceive(fr *rt.Frame, c rt.NetConn, maxArg rt.Int) (rt.Bytes, bool, *rt.
 			sender = []string{"Unix", ""}
 		}
 		switch {
-		case err != nil && stdio.Errno(err) == syscall.EMSGSIZE, err == nil && int64(n) > limit:
+		case err != nil && rt.Errno(err) == syscall.EMSGSIZE, err == nil && int64(n) > limit:
 			return "", false, listOf([]string{"Truncated", addrString(from), strconv.FormatInt(limit, 10)})
 		case err != nil:
 			return "", false, netErr("receive", local, err)

@@ -51,7 +51,7 @@ const portugueseCart = "[cart_items]\nsource = '''\n" + cartItemsSource + "'''\n
 
 func shopProject() map[string]string {
 	return map[string]string{
-		"nomi.toml":            "[module]\nname = \"shop\"\nentry_points = [\"main\"]\n\n[i18n]\nlocales = [\"en\", \"pl\", \"pt\", \"pt-PT\"]\npartial_locales = [\"de\"]\n",
+		"nomi.toml":            "[package]\nname = \"shop\"\nentry_points = [\"main\"]\n\n[i18n]\nlocales = [\"en\", \"pl\", \"pt\", \"pt-PT\"]\npartial_locales = [\"de\"]\n",
 		"main.nomi":            "import\n    std::io\n    cart\nend\n\nfn main()\n    io.print(Phrase.format(cart.cart_items(3), Locale\"pl\"))\n    io.print(Phrase.format(cart.order_status(.Shipped), Locale\"pl\"))\nend\n",
 		"cart.nomi":            shopCart,
 		"locales/pl/cart.toml": polishCart,
@@ -65,7 +65,7 @@ func shopProject() map[string]string {
 func diagnosticsOf(t *testing.T, root string) map[string][]protocol.Diagnostic {
 	t.Helper()
 	s, published := recordingServer()
-	s.docs.SetWorkspaceRoot(root)
+	s.docs.SetEditorFolder(root)
 	for _, f := range []string{"cart.nomi", "main.nomi"} {
 		uri := pathToURI(filepath.Join(root, f))
 		data, err := os.ReadFile(filepath.Join(root, f))
@@ -436,7 +436,7 @@ func TestPhrases_QuickFixAddsAMissingTranslation(t *testing.T) {
 func openProjectAt(t *testing.T, root, open string) (*Server, string) {
 	t.Helper()
 	s := NewServer()
-	s.docs.SetWorkspaceRoot(root)
+	s.docs.SetEditorFolder(root)
 	uri := pathToURI(filepath.Join(root, open))
 	data, err := os.ReadFile(filepath.Join(root, open))
 	if err != nil {

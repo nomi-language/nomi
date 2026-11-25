@@ -78,7 +78,7 @@ func opaquePatchFiles(main string) map[string]string {
 // any diagnostic is the same blind spot one level up.
 func expectOpaquePatchRefused(t *testing.T, errs []analysis.TypeError, field string) {
 	t.Helper()
-	want := "cannot update field '" + field + "' of opaque type 'Counter' outside its defining module"
+	want := "cannot update field '" + field + "' of opaque type 'Counter' outside `counter.nomi`"
 	for _, e := range errs {
 		if strings.Contains(e.Message, want) {
 			return
@@ -287,4 +287,23 @@ fn ok(c: Counter) -> Int
 end
 `))
 	opaqueExpectNoErrors(t, errs)
+}
+
+// TestOpaqueFieldAccess_FromAnotherFileNamesTheTypesFile: reading an opaque
+// struct's field from another file is refused, and the error names the file
+// that declares the type, where the read would be allowed.
+func TestOpaqueFieldAccess_FromAnotherFileNamesTheTypesFile(t *testing.T) {
+	_, errs := opaqueProject(t, opaquePatchFiles(`import counter.{self, Counter}
+
+fn peek(c: Counter) -> Int
+  c.value
+end
+`))
+	const want = "cannot access field 'value' of opaque type 'Counter' outside `counter.nomi` — use an exported accessor"
+	for _, e := range errs {
+		if e.Message == want {
+			return
+		}
+	}
+	t.Fatalf("want %q, got %v", want, errs)
 }

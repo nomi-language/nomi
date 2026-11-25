@@ -1,2 +1,2 @@
-[module]
+[package]
 name = "reexport_order"

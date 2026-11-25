@@ -53,7 +53,7 @@ end
 // of no other type, so a manifest that resolved to std's function could not
 // type-check this.
 impl Seed
-    pub fn from_int(n: Int) -> Seed
+    fn from_int(n: Int) -> Seed
         Seed{flavor: "pumpkin ${n}"}
     end
 end

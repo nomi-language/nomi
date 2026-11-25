@@ -25,7 +25,7 @@ func TestImplAlias_TheEditorReachesTheImplThroughTheAlias(t *testing.T) {
 		"    _ = Figure.area(Sq{side: 1})\n" +
 		"end\n"
 	s, uri := openProject(t, map[string]string{
-		"nomi.toml":   "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+		"nomi.toml":   "[package]\nname = \"app\"\nentry_points = [\"main\"]\n",
 		"shapes.nomi": "pub interface Shape\n    fn area(value: self) -> Int\nend\n",
 		"main.nomi":   main,
 	}, "main.nomi")

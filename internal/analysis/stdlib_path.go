@@ -12,7 +12,7 @@ import (
 )
 
 // StdlibPath returns the absolute filesystem path of the bundled
-// stdlib directory — the source of `std/...` imports. Stdlib is virtually injected into Project.ModuleIndex
+// stdlib directory — the source of `std/...` imports. Stdlib is virtually injected into Project.PackageIndex
 // under the short-name "std" using this path so the regular
 // discovery/buildModule pipeline walks stdlib files just like any
 // other cross-module dependency.
@@ -138,7 +138,7 @@ var StdlibLoadOrder = []string{
 // imports it under: `json.nomi` becomes `json`, and `storage/testing.nomi`
 // becomes `storage/testing` (std::storage::testing).
 //
-// The stdlib is ONE Nomi module and every module's name is its path, so
+// The stdlib is ONE package and every module's name is its path, so
 // this is the suffix and nothing else. It stays a shared
 // function because `std` and `internal/frontend` both derive the module key
 // from a physical path and the two disagreeing is not a cosmetic defect: two

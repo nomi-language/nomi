@@ -448,12 +448,12 @@ test result: ok. 1 passed, 0 failed
 
 ## Modules and imports
 
-- A `.nomi` file is the unit of import and of visibility. Its top-level
-  declarations are private unless marked `pub`. Its partner test,
-  `shapes_test.nomi` for `shapes.nomi`, reads its private ones too.
-- A module is the directory tree under a `nomi.toml`. `entry_points` lists the
-  files with a `fn main`. An `impl Interface for Type` needs the interface,
-  the type or both to be the module's own.
+- A module is one `.nomi` file, the unit of import. A package is the tree
+  under a `nomi.toml`, and its files see each other's declarations. `pub`
+  opens one to other packages, `private` keeps it to its file (test it
+  there), `opaque` keeps a type's inside to its file.
+- `entry_points` lists the files with a `fn main`. `impl Interface for Type`
+  needs the interface, the type or both to be the package's own.
 - Imports name files by path, segments joined by `::` (never `/`):
   `import std::io`, then `io.print(x)`. Braces bring in names:
   `import std::io.{self, Writer}`. Several imports group under `import`
@@ -470,16 +470,16 @@ test result: ok. 1 passed, 0 failed
 
 ```nomi-run
 // FILE: shapes.nomi
-pub struct Box
+struct Box
     side: Int
 end
 
-pub fn area(box: Box) -> Int
+fn area(box: Box) -> Int
     box.side * box.side
 end
 
 // FILE: geo/shapes.nomi
-pub fn area(radius: Int) -> Int
+fn area(radius: Int) -> Int
     3 * radius * radius
 end
 
@@ -492,13 +492,13 @@ end
 
 fn main()
     // Two files are `shapes`, so each is reached through its directory.
-    // The module's own name is its root directory.
+    // The package's own name is its root directory.
     io.print(demo::shapes.area(demo::shapes.Box{side: 3}))
     io.print(geo::shapes.area(2))
 end
 
 // FILE: nomi.toml
-[module]
+[package]
 name = "demo"
 entry_points = ["main"]
 ```

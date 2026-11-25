@@ -74,6 +74,10 @@ func runFmt(args []string) error {
 		return fmt.Errorf("conflicting flags: at most one of -w, -l, -d, -check may be set")
 	}
 
+	// A mode flag with no path at a workspace's root acts on its members.
+	if len(paths) == 0 && modeCount > 0 && atWorkspaceRoot() {
+		paths = []string{"."}
+	}
 	// No paths: read from stdin, write to stdout.
 	if len(paths) == 0 {
 		buf, err := io.ReadAll(os.Stdin)
@@ -145,7 +149,8 @@ func runFmt(args []string) error {
 }
 
 // expandNomiPaths returns a slice of .nomi file paths for the given input path.
-// If the input is a file, it is returned as-is. If it is a directory, it is
+// If the input is a file, it is returned as-is. A workspace's root names
+// its members' files (frontend.WorkspaceFiles). Any other directory is
 // walked recursively and all .nomi files are collected.
 func expandNomiPaths(p string) ([]string, error) {
 	info, err := os.Stat(p)
@@ -154,6 +159,9 @@ func expandNomiPaths(p string) ([]string, error) {
 	}
 	if !info.IsDir() {
 		return []string{p}, nil
+	}
+	if files, ok, err := frontend.WorkspaceFiles(p, expandNomiPaths); ok || err != nil {
+		return files, err
 	}
 	var out []string
 	err = filepath.WalkDir(p, func(path string, d fs.DirEntry, err error) error {

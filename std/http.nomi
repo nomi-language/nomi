@@ -2011,10 +2011,9 @@ pub struct ClientOptions
     /// counted after the body is decompressed: past it, having read the
     /// limit and one byte, `fetch` returns `Error.BodyTooLarge`, so a few
     /// kilobytes of gzip that expand to gigabytes stop there. 64 MiB by
-    /// default; raise it for some requests with `{..client, options: {..,
-    /// max_body: Some(n)}}`, which shares the client's connections. `None`
-    /// reads any size, and `stream` streams any size, as much as its
-    /// reader reads.
+    /// default; change it for some requests with `Client.with_max_body`,
+    /// which shares the client's connections. `None` reads any size, and
+    /// `stream` streams any size, as much as its reader reads.
     max_body: Option<NonNegativeInt> = Some(67_108_864)
     /// Where the client keeps cookies: it sends a jar's cookies with each
     /// request and stores those each response sets. `None` keeps none.
@@ -2023,7 +2022,7 @@ end
 
 /// A client: its options and its connection pool. Make one with
 /// `Client.new` and keep it; every copy of the value shares its pool.
-pub struct Client
+pub opaque struct Client
     handle:  http_host.Client
     options: ClientOptions
 end
@@ -2111,6 +2110,26 @@ impl Client
     pub fn with_tls(client: Client, config: tls.ClientConfig) -> Result<Client, tls.Error>
         host = tls.ClientConfig.host(config)?
         Ok({..client, handle: http_host.with_tls(client.handle, host)})
+    end
+
+    /// The client with `max_body` as the largest response body `fetch`
+    /// reads (`ClientOptions.max_body`), sharing the client's connections
+    /// and its other options. `None` reads any size.
+    //! import std::http.{Body, Client, Request, Response}
+    //! import std::http::testing
+    //!
+    //! hello = fn _: Request -> Response{body: Body.Text("hello, world")}
+    //!
+    //! (limited, whole) = testing.with_server(hello, fn server ->
+    //!     small = Client.with_max_body(server.client, Some(5))
+    //!     (Client.get(small, server.url), Client.get(server.client, server.url))
+    //! end)
+    //!
+    //! assert Result.is_err(limited)
+    //! assert Result.is_ok(whole)
+    //
+    pub fn with_max_body(client: Client, max_body: Option<NonNegativeInt>) -> Client
+        {..client, options: {.., max_body:}}
     end
 
     /// Sends `request` and reads the whole body into `Body.Bytes`.
@@ -2526,7 +2545,7 @@ end
 
 /// A server listening for requests: `listen` binds it, and `serve` responds to
 /// what arrives.
-pub struct Listener
+pub opaque struct Listener
     handle: http_host.Listener
     server: Server
 end
@@ -3455,7 +3474,7 @@ end
 //!
 //! assert Router.serve(router, testing.request(Method.Get, "/nope")).status == Status.not_found
 //
-pub struct Router
+pub opaque struct Router
     mux:      http_host.Mux
     handlers: List<(Request) -> Option<Response>>
 end
@@ -5446,7 +5465,7 @@ end
 /// Where a client keeps cookies, by RFC 6265's rules but with no public
 /// suffix list, so a server at `a.co.uk` can set a cookie that `b.co.uk`
 /// is sent. Give it to a client with `ClientOptions.cookies`.
-pub struct CookieJar
+pub opaque struct CookieJar
     handle: http_host.Jar
 end
 
@@ -5795,7 +5814,7 @@ end
 /// Records what a client does while it sends the requests that name it
 /// in `Request.trace`, as a list of `TraceEvent`s to read after, rather
 /// than callbacks.
-pub struct Tracer
+pub opaque struct Tracer
     handle: http_host.Handle
 end
 

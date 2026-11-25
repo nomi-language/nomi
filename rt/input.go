@@ -185,7 +185,8 @@ func (in *Input) failure(op string) *IOError {
 	if in.end == nil || errors.Is(in.end, io.EOF) {
 		return nil
 	}
-	return &IOError{Tag: TagIOOther, Operation: op, Path: StdinPath, Code: ErrnoName(in.end)}
+	e := IOErrorOf(op, StdinPath, in.end)
+	return &e
 }
 
 // readLine reads the next line of in, waiting under no frame: a capture's

@@ -15,7 +15,7 @@ end
 
 /// `data` compressed: a gzip stream with the header's fields, a zlib or
 /// raw deflate one with `dictionary` preset.
-pub host fn encode(
+host fn encode(
     format:     Int64,
     data:       Bytes,
     level:      Int64,
@@ -27,7 +27,7 @@ pub host fn encode(
 ) -> Bytes
 
 /// What `data` decompresses to, up to `max_length` bytes, and a failure.
-pub host fn decode(
+host fn decode(
     format:     Int64,
     data:       Bytes,
     max_length: Int,
@@ -37,12 +37,12 @@ pub host fn decode(
 /// The header of the gzip member at `offset` in `data`: its name, comment,
 /// modification time in Unix seconds (0 for none) and OS, read without
 /// decoding its data, and a failure.
-pub host fn gzip_header(data: Bytes, offset: Int) -> (String, String, Int, Int, Int, Int, String)
+host fn gzip_header(data: Bytes, offset: Int) -> (String, String, Int, Int, Int, Int, String)
 
 /// What the stream at `offset` in `data` decompresses to, up to
 /// `max_length` bytes (a gzip stream's first member only), the offset just
 /// past the stream's end, and a failure.
-pub host fn decode_at(
+host fn decode_at(
     format:     Int64,
     data:       Bytes,
     offset:     Int,
@@ -52,11 +52,11 @@ pub host fn decode_at(
 
 /// A reader of what `source` decompresses to. Closing it leaves `source`
 /// open.
-pub host fn reader(format: Int64, source: Reader, dictionary: Option<Bytes>) -> Reader
+host fn reader(format: Int64, source: Reader, dictionary: Option<Bytes>) -> Reader
 
 /// A writer that compresses into `sink`. Its flush flushes the compressor
 /// and `sink`; closing it writes the format's end and leaves `sink` open.
-pub host fn writer(
+host fn writer(
     format:     Int64,
     sink:       Writer,
     level:      Int64,
@@ -69,7 +69,7 @@ pub host fn writer(
 
 /// A reader of `source`'s bytes compressed, each read of `source` flushed
 /// through. Closing it leaves `source` open.
-pub host fn encoding_reader(
+host fn encoding_reader(
     format:     Int64,
     source:     Reader,
     level:      Int64,

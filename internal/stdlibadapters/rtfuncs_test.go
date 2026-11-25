@@ -639,7 +639,7 @@ func (p *rtFuncsSuite) concurrencyCases() map[string][]hostCase {
 	busy := rt.SupervisorNewExact(boot, rt.SmallInt(1), rt.DefaultShutdownTimeout, rt.Restart{Tag: rt.TagTemporary},
 		rt.Backoff{Tag: rt.TagExponential, MaxRestarts: rt.SmallInt(1), MaxElapsed: rt.Duration(time.Minute)}, rt.GiveUp{Tag: rt.TagReport})
 	release := make(chan struct{})
-	rt.SupervisorSpawn(boot, busy, func(*rt.Frame) rt.Unit { <-release; return rt.Unit{} })
+	rt.SupervisorSpawn(boot, rt.Site{}, busy, func(*rt.Frame) rt.Unit { <-release; return rt.Unit{} })
 	p.t.Cleanup(func() {
 		close(release)
 		rt.SupervisorFlushBounded(rt.NewFrame(context.Background()), busy, rt.Wait{Tag: rt.TagForever})
@@ -651,7 +651,7 @@ func (p *rtFuncsSuite) concurrencyCases() map[string][]hostCase {
 	finish := make(chan struct{})
 	holder := rt.SupervisorNewExact(boot, rt.SmallInt(1), rt.DefaultShutdownTimeout, rt.Restart{Tag: rt.TagTemporary},
 		rt.Backoff{Tag: rt.TagExponential, MaxRestarts: rt.SmallInt(1), MaxElapsed: rt.Duration(time.Minute)}, rt.GiveUp{Tag: rt.TagReport})
-	task := rt.SupervisorSpawn(boot, holder, func(fr *rt.Frame) rt.Unit {
+	task := rt.SupervisorSpawn(boot, rt.Site{}, holder, func(fr *rt.Frame) rt.Unit {
 		taskFrame <- fr
 		<-finish
 		return rt.Unit{}

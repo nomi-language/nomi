@@ -17,8 +17,8 @@ func TestParseRefine_KeywordAndParents(t *testing.T) {
 	if !ok {
 		t.Fatalf("got %T, want *ast.TypeDef", nodes[0])
 	}
-	if !td.Refinement || !td.Public || td.Rule != nil {
-		t.Fatalf("Refinement %v, Public %v, Rule %v; want a public refinement with no rule", td.Refinement, td.Public, td.Rule)
+	if !td.Refinement || td.Visibility != ast.Public || td.Rule != nil {
+		t.Fatalf("Refinement %v, Public %v, Rule %v; want a public refinement with no rule", td.Refinement, td.Visibility == ast.Public, td.Rule)
 	}
 	if td.InnerTypeExpr.TypeString() != "NonNegativeInt" || len(td.MoreParents) != 1 || td.MoreParents[0].TypeString() != "NonZeroInt" {
 		t.Fatalf("parents %s and %v, want NonNegativeInt and [NonZeroInt]", td.InnerTypeExpr.TypeString(), td.MoreParents)

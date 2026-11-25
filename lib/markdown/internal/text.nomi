@@ -10,7 +10,7 @@ end
 
 /// The byte at `i`, or -1 outside `data`: what a scan compares with a byte
 /// it looks for, so that the end of the data matches nothing.
-pub fn at(data: Bytes, i: Int) -> Int
+fn at(data: Bytes, i: Int) -> Int
     case Bytes.uint8_at(data, i)
         Some(c) -> c
         None    -> -1
@@ -19,12 +19,12 @@ end
 
 /// Whether `c` is a space as CommonMark's parser counts one: a space, a
 /// tab, a line feed, a vertical tab, a form feed or a carriage return.
-pub fn is_space(c: Int) -> Bool
+fn is_space(c: Int) -> Bool
     c == 32 or (c >= 9 and c <= 13)
 end
 
 /// Whether `c` is an ASCII punctuation character.
-pub fn is_punct(c: Int) -> Bool
+fn is_punct(c: Int) -> Bool
     (c >= 33 and c <= 47)
         or (c >= 58 and c <= 64)
         or (c >= 91 and c <= 96)
@@ -32,23 +32,23 @@ pub fn is_punct(c: Int) -> Bool
 end
 
 /// Whether `c` is an ASCII digit.
-pub fn is_digit(c: Int) -> Bool
+fn is_digit(c: Int) -> Bool
     c >= 48 and c <= 57
 end
 
 /// Whether `c` is an ASCII hexadecimal digit.
-pub fn is_hex(c: Int) -> Bool
+fn is_hex(c: Int) -> Bool
     is_digit(c) or (c >= 97 and c <= 102) or (c >= 65 and c <= 70)
 end
 
 /// Whether `c` is an ASCII letter or digit.
-pub fn is_alnum(c: Int) -> Bool
+fn is_alnum(c: Int) -> Bool
     is_digit(c) or (c >= 97 and c <= 122) or (c >= 65 and c <= 90)
 end
 
 /// Every byte but an ASCII letter or digit and the bytes of a multibyte
 /// character: where a run of word bytes ends.
-pub once word_stops: Bytes =
+once word_stops: Bytes =
     0..128
     |> Iter.reject(is_alnum)
     |> Iter.reduce(Builder.new(), Builder.push_int8)
@@ -56,14 +56,14 @@ pub once word_stops: Bytes =
 
 /// `word_stops` without the space: where a run of words and the spaces
 /// between them ends.
-pub once word_or_space_stops: Bytes =
+once word_or_space_stops: Bytes =
     0..128
     |> Iter.reject(fn c -> is_alnum(c) or c == 32)
     |> Iter.reduce(Builder.new(), Builder.push_int8)
     |> Builder.to_bytes()
 
 /// Whether every byte of `data` from `from` up to `to` is a space.
-pub fn is_blank(data: Bytes, from: Int, to: Int) -> Bool
+fn is_blank(data: Bytes, from: Int, to: Int) -> Bool
     if from >= to then return True
     if not is_space(at(data, from)) then return False
     is_blank(data, from + 1, to)
@@ -71,27 +71,27 @@ end
 
 /// How many bytes before `to` are spaces, counting back while they are,
 /// but not before `from`.
-pub fn trailing_spaces(data: Bytes, from: Int, to: Int) -> Int
+fn trailing_spaces(data: Bytes, from: Int, to: Int) -> Int
     if to <= from or not is_space(at(data, to - 1)) then return 0
     1 + trailing_spaces(data, from, to - 1)
 end
 
 /// How many bytes from `from` are spaces, but not past `to`.
-pub fn leading_spaces(data: Bytes, from: Int, to: Int) -> Int
+fn leading_spaces(data: Bytes, from: Int, to: Int) -> Int
     if from >= to or not is_space(at(data, from)) then return 0
     1 + leading_spaces(data, from + 1, to)
 end
 
 /// The first index at or after `from`, and before `to`, whose byte is not
 /// `c`, or `to`.
-pub fn skip_byte(data: Bytes, from: Int, to: Int, c: Int) -> Int
+fn skip_byte(data: Bytes, from: Int, to: Int, c: Int) -> Int
     if from >= to or at(data, from) != c then return from
     skip_byte(data, from + 1, to, c)
 end
 
 /// The code point whose encoding starts at `i`, decoded from UTF-8, and 32
 /// (a space) at the end of `data`.
-pub fn rune_at(data: Bytes, i: Int) -> Int
+fn rune_at(data: Bytes, i: Int) -> Int
     c = at(data, i)
 
     case
@@ -120,7 +120,7 @@ end
 
 /// The code point that ends just before `i`, or a line feed at the start
 /// of `data`.
-pub fn rune_before(data: Bytes, i: Int) -> Int
+fn rune_before(data: Bytes, i: Int) -> Int
     if i <= 0 then return 10
     rune_at(data, rune_start(data, i - 1))
 end
@@ -132,7 +132,7 @@ fn rune_start(data: Bytes, i: Int) -> Int
 end
 
 /// How many bytes the UTF-8 sequence that starts with `c` takes.
-pub fn rune_length(c: Int) -> Int
+fn rune_length(c: Int) -> Int
     case
         c < 0x80 -> 1
         c < 0xE0 -> 2
@@ -143,7 +143,7 @@ end
 
 /// Whether the code point `r` is punctuation or a symbol, as Go's
 /// `unicode.IsPunct` and `unicode.IsSymbol` answer.
-pub fn is_punct_rune(r: Int) -> Bool
+fn is_punct_rune(r: Int) -> Bool
     if r < 128 then return is_punct(r)
 
     case Int.to_codepoint(r)
@@ -154,7 +154,7 @@ end
 
 /// Whether the code point `r` is white space, as Go's `unicode.IsSpace`
 /// answers.
-pub fn is_space_rune(r: Int) -> Bool
+fn is_space_rune(r: Int) -> Bool
     case
         r < 128 ->
             is_space(r)
@@ -174,7 +174,7 @@ end
 
 /// `out` with the UTF-8 encoding of the code point `r`, or of U+FFFD when
 /// `r` is 0, a surrogate or past U+10FFFF.
-pub fn push_rune(out: Builder, r: Int) -> Builder
+fn push_rune(out: Builder, r: Int) -> Builder
     r = if r <= 0 or r > 0x10FFFF or (r >= 0xD800 and r <= 0xDFFF) then 0xFFFD else r
 
     case
@@ -214,7 +214,7 @@ end
 
 /// `out` with `data` from `from` up to `to`, each `&`, `<`, `>` and `"`
 /// escaped and each NUL replaced: goldmark's `RawWrite`.
-pub fn write_raw(out: Builder, data: Bytes, from: Int, to: Int) -> Builder
+fn write_raw(out: Builder, data: Bytes, from: Int, to: Int) -> Builder
     if to <= from then return out
     part = Bytes.slice(data, from, to)
 
@@ -239,18 +239,18 @@ once raw_specials: Bytes = Bytes.from_list([38, 60, 62, 34, 0])
 once text_specials: Bytes = Bytes.from_list([38, 92, 0])
 
 /// `out` with `n` spaces.
-pub fn push_spaces(out: Builder, n: Int) -> Builder
+fn push_spaces(out: Builder, n: Int) -> Builder
     if n <= 0 then return out
     push_spaces(Builder.push_int8(out, 32), n - 1)
 end
 
 /// `out` with all of `data` escaped as `write_raw` escapes it.
-pub fn write_raw_all(out: Builder, data: Bytes) -> Builder
+fn write_raw_all(out: Builder, data: Bytes) -> Builder
     write_raw(out, data, 0, Bytes.length(data))
 end
 
 /// `out` with the bytes of `data` from `from` up to `to`, as they are.
-pub fn push_slice(out: Builder, data: Bytes, from: Int, to: Int) -> Builder
+fn push_slice(out: Builder, data: Bytes, from: Int, to: Int) -> Builder
     if to <= from then return out
     Builder.push_bytes(out, Bytes.slice(data, from, to))
 end
@@ -259,7 +259,7 @@ end
 /// punctuation dropped, each entity and numeric character reference
 /// replaced by its character, and the result escaped as `write_raw`
 /// escapes it. This is goldmark's `Write`, which renders text.
-pub fn write_text(out: Builder, data: Bytes, from: Int, to: Int) -> Builder
+fn write_text(out: Builder, data: Bytes, from: Int, to: Int) -> Builder
     if to <= from then return out
     text_run(out, data, from, from, to, False)
 end
@@ -378,7 +378,7 @@ end
 
 /// The first index at or after `from` and before `to` whose byte fails
 /// `keep`, or `to`.
-pub fn scan_while(data: Bytes, from: Int, to: Int, keep: (Int) -> Bool) -> Int
+fn scan_while(data: Bytes, from: Int, to: Int, keep: (Int) -> Bool) -> Int
     if from >= to or not keep(at(data, from)) then return from
     scan_while(data, from + 1, to, keep)
 end
@@ -545,7 +545,7 @@ end
 /// backslash escapes and character references resolved first; then each
 /// space as `%20` and each other byte a URL does not hold as it is
 /// percent-encoded, keeping an existing `%XX`.
-pub fn url_escape(url: Bytes, resolve: Bool) -> Bytes
+fn url_escape(url: Bytes, resolve: Bool) -> Bytes
     url = if resolve then resolve_references(url) else url
     url_run(Builder.new(), url, 0, 0, Bytes.length(url)) |> Builder.to_bytes()
 end
@@ -590,7 +590,7 @@ end
 /// Whether goldmark's HTML renderer leaves a link to `url` out: a
 /// `javascript:`, `vbscript:`, `file:` or `data:` URL, except a PNG, GIF,
 /// JPEG or WebP image as data.
-pub fn is_dangerous_url(url: Bytes) -> Bool
+fn is_dangerous_url(url: Bytes) -> Bool
     if has_prefix_folded(url, 0, "data:image/") and Bytes.length(url) >= 11 then
         return not (has_prefix_folded(url, 11, "png;")
             or has_prefix_folded(url, 11, "gif;")
@@ -606,7 +606,7 @@ end
 
 /// Whether `data` from `from` starts with `prefix`, ASCII letters compared
 /// without case.
-pub fn has_prefix_folded(data: Bytes, from: Int, prefix: String) -> Bool
+fn has_prefix_folded(data: Bytes, from: Int, prefix: String) -> Bool
     p = String.to_bytes(prefix)
     n = Bytes.length(p)
 
@@ -615,6 +615,6 @@ pub fn has_prefix_folded(data: Bytes, from: Int, prefix: String) -> Bool
 end
 
 /// `c` with an ASCII capital letter made small.
-pub fn lower(c: Int) -> Int
+fn lower(c: Int) -> Int
     if c >= 65 and c <= 90 then c + 32 else c
 end

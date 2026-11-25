@@ -84,8 +84,8 @@ func TestContextValue_LookupWalksPastADeadlineLink(t *testing.T) {
 }
 
 // TestContext_ValueLinkIsInvisibleToTheDeadlineWalk is the other direction, and
-// it is what makes the shared node type safe: a value node leaves `set` false,
-// so contextEffectiveDeadline must skip it rather than read its zero `deadline`
+// it is what makes the shared node type safe: a value node has noDeadline,
+// so chainBound must skip it rather than read its zero `ends`
 // as a deadline in 1970 — which would make every bound context instantly
 // expired.
 func TestContext_ValueLinkIsInvisibleToTheDeadlineWalk(t *testing.T) {

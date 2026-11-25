@@ -28,7 +28,7 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `cond do`, `if .. do` | `case` alone on its line for `cond`, and `if .. then` .. `else` .. `end` for `if`. Without `else`, Elixir's gives `nil` when the condition fails; Nomi's is a statement with no value, and its branch must be `Unit` or leave. Nothing stands in for `nil` there: Elixir's `if c, do: x` is `if c then Some(x) else None`. |
 | `7 / 2` is `3.5`; `div(7, 2)`, `rem(-7, 3)` | `/` on two `Int`s is `div`: `7 / 2` is `3`, truncated toward zero. `%` is `rem`: `-7 % 3` is `-1`. Convert an operand with `Int.to_float` for a `Float` result. The divisor must be a `NonZeroInt`: a literal other than 0 is one, and so is `d` after `if d == 0 then return ..`. |
 | `Task.async(fn -> .. end)`, `Task.await(t)` | `Task.spawn(fn -> ..)` and `Task.await(t)` inside a `concurrent` ... `end` block, which waits for its tasks |
-| `Task.async_stream(xs, f, max_concurrency: 8)` | `Task.stream(xs, f, max_running: 8)`, a lazy stage that yields the results in order as they are read. For a batch, `Task.spawn_all(xs, f, max_running: 8)`, then `Task.await_all` for every result in order, or `Task.try_await_all` to stop at the first `Err` and cancel the rest. `max_running` has no default. |
+| `Task.async_stream(xs, f, max_concurrency: 8)` | `Task.stream(xs, f, max_running: 8)`, a lazy stage that yields the results in order as they are read, or as they finish with `ordered: False`. For a batch, `Task.spawn_all(xs, f, max_running: 8)`, then `Task.await_all` for every result in order, or `Task.try_await_all` to stop at the first `Err` and cancel the rest. `max_running` has no default. |
 | `send(pid, msg)`, `receive do .. end` | An actor's messages: `Actor.cast` and `Actor.call`, which its handler takes one at a time. Channels from `std::channels` are the layer underneath, for a stream of values between tasks. |
 | `File.open(path, fn file -> .. end)` | `defer Reader.close_quietly(r)` on the line after opening; it runs when its block ends, and the checker requires it for a resource |
 
@@ -40,7 +40,7 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `"#{x}"` | `"${x}"` |
 | `Decimal.new("1.50")` from the `decimal` package | `1.50d`, a `Decimal` literal, in the language: `0.1d + 0.2d == 0.3d`. See [Exact arithmetic with `Decimal`](/scalars-and-strings/#exact-arithmetic-with-decimal). |
 | `when` guards | `when` guards, the same |
-| `defp` | A declaration without `pub` |
+| `def`, `defp` | `pub fn`, `private fn`. Between them, an unmarked `fn` is seen by every file of its project and by no other project, a level Elixir lacks |
 | `defprotocol Speak`, `defimpl Speak, for: Dog` | `interface Speak`, `impl Speak for Dog` |
 | `alias MyApp.Db.Posts`, then `Posts.find(1)` | `import db::posts`, then `posts.find(1)`: a file is used by its path's last part. `import db` imports the directory, and `db::posts.find(1)` reaches the file through it. |
 | `Supervisor` | `Supervisor.new` in `boot` |

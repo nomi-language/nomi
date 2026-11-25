@@ -51,7 +51,7 @@ end
 `
 	}
 	p := cacheProject{name: "refinements", entry: "main.nomi", files: map[string]string{
-		"nomi.toml":  "[module]\nname = \"refinements\"\nentry_points = [\"main\"]\n",
+		"nomi.toml":  "[package]\nname = \"refinements\"\nentry_points = [\"main\"]\n",
 		"rules.nomi": rules("1", "s.low <= s.high"),
 		"main.nomi":  main("hello", "80"),
 	}}
@@ -111,7 +111,7 @@ fn main()
 end
 `
 	p := cacheProject{name: "generic-refinements", entry: "main.nomi", files: map[string]string{
-		"nomi.toml":  "[module]\nname = \"generic_refinements\"\nentry_points = [\"main\"]\n",
+		"nomi.toml":  "[package]\nname = \"generic_refinements\"\nentry_points = [\"main\"]\n",
 		"rules.nomi": rules("1"),
 		"main.nomi":  main,
 	}}

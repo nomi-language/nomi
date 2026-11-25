@@ -16,7 +16,7 @@ const embedMain = "import std::embed.Files\n\n/// The site.\nembed site `static 
 
 func embedProject() map[string]string {
 	return map[string]string{
-		"nomi.toml":           "[module]\nname = \"site\"\nentry_points = [\"main\"]\n",
+		"nomi.toml":           "[package]\nname = \"site\"\nentry_points = [\"main\"]\n",
 		"main.nomi":           embedMain,
 		"static/index.html":   "<h1>hi</h1>\n",
 		"static/css/site.css": "body {}\n",
@@ -74,7 +74,7 @@ func TestEmbed_APatternThatMatchesNothingIsADiagnosticAtIt(t *testing.T) {
 	files["main.nomi"] = strings.Replace(embedMain, "page.html", "static/*.png", 1)
 	root := writeProject(t, files)
 	s, published := recordingServer()
-	s.docs.SetWorkspaceRoot(root)
+	s.docs.SetEditorFolder(root)
 	uri := pathToURI(filepath.Join(root, "main.nomi"))
 	s.docs.Open(uri, files["main.nomi"])
 	s.publish(s.notify, uri)
@@ -101,7 +101,7 @@ func TestEmbed_APatternWhoseBaseDoesNotExistIsAWarningAtIt(t *testing.T) {
 	files["main.nomi"] = main
 	root := writeProject(t, files)
 	s, published := recordingServer()
-	s.docs.SetWorkspaceRoot(root)
+	s.docs.SetEditorFolder(root)
 	uri := pathToURI(filepath.Join(root, "main.nomi"))
 	s.docs.Open(uri, main)
 	s.publish(s.notify, uri)
@@ -123,7 +123,7 @@ func TestEmbed_APatternWhoseBaseDoesNotExistIsAWarningAtIt(t *testing.T) {
 	}
 }
 
-// A nested file's pattern names files from the module root: go to
+// A nested file's pattern names files from the package root: go to
 // definition on web/pages.nomi's `static` opens the root's static.
 func TestEmbed_DefinitionOnANestedFilesPatternOpensFromTheRoot(t *testing.T) {
 	pages := "pub embed site `static`\n"
@@ -153,7 +153,7 @@ func TestEmbed_ALiteralPathNamingNoEmbeddedFileIsADiagnosticAtIt(t *testing.T) {
 	files["main.nomi"] = main
 	root := writeProject(t, files)
 	s, published := recordingServer()
-	s.docs.SetWorkspaceRoot(root)
+	s.docs.SetEditorFolder(root)
 	uri := pathToURI(filepath.Join(root, "main.nomi"))
 	s.docs.Open(uri, main)
 	s.publish(s.notify, uri)

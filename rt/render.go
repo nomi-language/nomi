@@ -16,15 +16,16 @@ import (
 // Decimal `1.50` or `1.50d`. The row's leaves are Debug's: a String reads as
 // its literal, a Decimal as `1.50d` and a Dynamic as the value it holds
 // (DecimalInspect and DynamicInspect, the machine's rendering of std's
-// written `impl Debug` of each), at any depth. RowText holds that leaf
+// written `impl Debug` of each), and a host value with no written `impl
+// Debug` its bare type name, `Handle`, at any depth. RowText holds that leaf
 // rule, and RowTextWith and a debugger's variable (inspectText) render
 // their leaves through it. The row and Debug differ only where the spec
 // says they do, which internal/ir/render.go records:
 //
 //	a struct      Row sorted fields      Debug declaration order, as the
 //	                                     literal that builds it is written
-//	a host value  Row `<Handle>`         Debug `Handle`, when its type has
-//	                                     no written `impl Debug`
+//	a function    Row `<func: double>`   Debug `<function>`; a row names
+//	                                     the function a binding holds
 //	a hand impl   RowText ignores it     RowTextWith and Debug honour it,
 //	                                     through the hook
 //
@@ -126,7 +127,9 @@ func DisplayText(v any) string {
 	case *Record:
 		return displayRecord(x)
 	case HostHandle:
-		return "<" + ShortTypeName(x.TypeName) + ">"
+		// A host value with no written `impl Debug` reads as its Debug
+		// does, the bare type name.
+		return ShortTypeName(x.TypeName)
 	case Seq[any]:
 		if x.Src != nil {
 			return DisplayText(x.Src)
@@ -136,7 +139,7 @@ func DisplayText(v any) string {
 		return x.OpaqueText()
 	}
 	if name, ok := HostTypeName(v); ok {
-		return "<" + name + ">"
+		return name
 	}
 	return fmt.Sprintf("<%T>", v)
 }

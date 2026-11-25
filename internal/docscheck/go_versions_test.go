@@ -12,7 +12,7 @@ import (
 // of Go code (the benchmarks' Go programs) to the root go.mod's `go` line.
 // A module left on an older line is built by a different language version
 // than the compiler it exercises, and nobody notices until a toolchain bump
-// breaks it. A Nomi module has no go.mod: nomi.toml and nomi.lock describe
+// breaks it. A Nomi package has no go.mod: nomi.toml and nomi.lock describe
 // it.
 func TestGoVersions_EveryTrackedGoModMatchesTheRoot(t *testing.T) {
 	root, files := trackedFilesMatching(t, "go.mod", "*/go.mod")

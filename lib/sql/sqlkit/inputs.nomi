@@ -1,16 +1,19 @@
-//# The files a database's generated code is made from: the `.sql` files of
-//# its migrations directory and of its queries directory. Each generated
-//# file records their SHA-256 digest, and the generated test computes it
-//# again from the files as they are, so `nomi test` notices a migration or
-//# a query changed after the last `nomi tool sqlkit generate`.
+//# What a database's generated code is made from: the `.sql` files of its
+//# migrations directory and of its queries directory, and the release of
+//# sqlkit that ran. Each generated file records the files' SHA-256 digest
+//# and the release, and the generated test computes the digest again from
+//# the files as they are and compares the release with the running one, so
+//# `nomi test` notices a migration or a query changed, or a different
+//# sqlkit is running, after the last `nomi tool sqlkit generate`.
 
 import
     std::fs
     std::hash
+    std::system
     migrate
 end
 
-/// One input: its path from the module root and its text.
+/// One input: its path from the package root and its text.
 pub struct Input
     path: String
     text: String
@@ -70,10 +73,36 @@ end
 
 /// The digest of the `.sql` files in `migrations` and then in `queries`,
 /// as they are now, by relative paths, which a test resolves under its
-/// module root: what the generated test compares with the digest the
+/// package root: what the generated test compares with the digest the
 /// generated files record.
 pub fn current(migrations: String, queries: String) -> Result<String, String>
     m = read(migrations)?
     q = read(queries)?
     Ok(digest(m + q))
+end
+
+// The release a sqlkit run by a `nomi` built from source records.
+once unreleased: String = "unreleased"
+
+/// The release of sqlkit that is running, which a generated file records:
+/// the running `nomi`'s release (`system.nomi_release`), since sqlkit is
+/// released with Nomi, or `unreleased` for a `nomi` built from source.
+pub fn release() -> String
+    system.nomi_release() |> Option.with_default(unreleased)
+end
+
+/// What is wrong with code sqlkit `recorded` wrote when sqlkit `running`
+/// is running, or None, `kit` being the name the package gives sqlkit. Code
+/// one release wrote may not be what another writes, and another may find
+/// problems in the SQL, so two releases that differ are a mismatch.
+/// `unreleased`, a sqlkit run by a `nomi` built from source, has no
+/// release to compare and matches any.
+pub fn mismatch(recorded: String, running: String, kit: String) -> Option<String>
+    if recorded == running or recorded == unreleased or running == unreleased then
+        None
+    else
+        Some(
+            "the code was written by sqlkit ${recorded}, and sqlkit ${running} is running: run `nomi tool ${kit} generate`"
+        )
+    end
 end

@@ -144,17 +144,17 @@ func interfaceValueCandidates(fa *FileAnalysis, fn *ast.FuncDef, block *ast.Impl
 	}
 	var out []ivCandidate
 	for _, tp := range fn.TypeParams {
-		if c, ok := interfaceValueCandidate(fa, fn, ft, tp, names, block == nil && fn.Public); ok {
+		if c, ok := interfaceValueCandidate(fa, fn, ft, tp, names, signatureLevel(block, fn)); ok {
 			out = append(out, c)
 		}
 	}
 	return out
 }
 
-// public says fn is a top-level `pub fn`, whose parameters may not name a
-// private type of the file (spec §14 *Visibility consistency*), though its
-// bounds may.
-func interfaceValueCandidate(fa *FileAnalysis, fn *ast.FuncDef, ft *FuncType, tp ast.TypeParam, names []string, public bool) (ivCandidate, bool) {
+// level is the visibility fn's parameters answer to: a top-level
+// function's parameters may not name a type fewer files see (spec §14
+// *Visibility consistency*), though its bounds may.
+func interfaceValueCandidate(fa *FileAnalysis, fn *ast.FuncDef, ft *FuncType, tp ast.TypeParam, names []string, level ast.Visibility) (ivCandidate, bool) {
 	c := ivCandidate{fn: fn, tp: tp, param: -1}
 	if tp.Default != nil {
 		return c, false
@@ -249,7 +249,7 @@ func interfaceValueCandidate(fa *FileAnalysis, fn *ast.FuncDef, ft *FuncType, tp
 	if base := c.ownerText[len(c.ownerText)-len(iface.Name):]; len(c.ownerText) < len(iface.Name) || base != iface.Name {
 		return c, false
 	}
-	if public && namesPrivateType(fa, c.bound) {
+	if namesTypeBelow(fa, c.bound, level) {
 		return c, false
 	}
 	c.boundText = c.bound.TypeString()
@@ -400,9 +400,19 @@ func typeExprMentions(t ast.TypeExpr, name string) int {
 	return n
 }
 
-// namesPrivateType reports whether t names a private top-level type of
-// fa's file.
-func namesPrivateType(fa *FileAnalysis, t ast.TypeExpr) bool {
+// signatureLevel is the level a function's signature answers to under
+// the visibility consistency rule: a top-level function's own, and none
+// (Private) for a function of an impl block.
+func signatureLevel(block *ast.ImplBlock, fn *ast.FuncDef) ast.Visibility {
+	if block != nil {
+		return ast.Private
+	}
+	return fn.Visibility
+}
+
+// namesTypeBelow reports whether t names a type of fa's scope that fewer
+// files see than see a declaration of level.
+func namesTypeBelow(fa *FileAnalysis, t ast.TypeExpr, level ast.Visibility) bool {
 	if fa.ModuleScope == nil {
 		return false
 	}
@@ -419,7 +429,11 @@ func namesPrivateType(fa *FileAnalysis, t ast.TypeExpr) bool {
 		default:
 			return true
 		}
-		if top := fa.ModuleScope.LookupLocal(name); top != nil && top.Resolved == nil && isTypeSymbolKind(top.Kind) && !top.Public {
+		top := fa.ModuleScope.LookupLocal(name)
+		for top != nil && top.Resolved != nil {
+			top = top.Resolved
+		}
+		if top != nil && isTypeSymbolKind(top.Kind) && visibilityRank(top.Visibility) < visibilityRank(level) {
 			private = true
 		}
 		return true

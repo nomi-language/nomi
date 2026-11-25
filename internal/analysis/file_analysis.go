@@ -79,9 +79,17 @@ type FileDecls struct {
 	// Set by BuildProject for every project-loaded file. A user file's
 	// symbols carry it as their SourceFile (builder.define). Empty for an
 	// entry whose caller gave no path and for standalone single-file
-	// analysis (BuildFile). Used by the opaque-types boundary check to tell
-	// same-module access apart from out-of-module access.
+	// analysis (BuildFile). The opaque-types boundary and private
+	// declarations read it to tell this file apart from every other
+	// (inside).
 	FilePath string
+	// Session marks a file of a REPL session's program
+	// (SourceProgram.Session), whose files read to its user as one file:
+	// each is inside every other, for their private declarations and the
+	// insides of their opaque types (inside). A session reads no user file
+	// but its own, so every path a session file compares is another of
+	// them. False in every other program, whose files stay apart.
+	Session bool
 	// Origin is the nominal-identity key for types this file declares —
 	// the build's own module-path key (`std/calendar`, `shapes`,
 	// `stringkit/pad`, the entry's own key), or OriginEntry for an entry
@@ -90,6 +98,14 @@ type FileDecls struct {
 	// (for stdlib) points into the per-process materialization cache.
 	// A nominal type's identity is (Origin, Name); see nominal_identity.go.
 	Origin string
+	// Package is the key name of the package the file is in: "" for the
+	// program's own, "std" for the standard library, or a dependency's
+	// (PackageIndex). The program's own package is every file under its
+	// project root, the directory of its nomi.toml or, with none, the one
+	// project-root discovery finds. The file's symbols carry it
+	// (builder.define), and Sees compares the two for an internal
+	// declaration.
+	Package string
 	// reservedNames holds each type name this file declares that the
 	// language reserves (checkReservedTypeName): the declaration is refused
 	// and the name keeps naming the prelude's type, so an impl the compiler

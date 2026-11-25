@@ -15,7 +15,7 @@ import (
 func loadModule(t *testing.T, files map[string]string) (*vmhost.Program, error) {
 	t.Helper()
 	dir := t.TempDir()
-	files["nomi.toml"] = "[module]\nname = \"app\"\nentry_points = [\"main\"]\n"
+	files["nomi.toml"] = "[package]\nname = \"app\"\nentry_points = [\"main\"]\n"
 	writeFiles(t, dir, files)
 	return vmhost.Load(filepath.Join(dir, "main.nomi"))
 }

@@ -556,11 +556,29 @@ func (fa *FileAnalysis) lookupVisibleTypeMethod(typeName, methodName string, mod
 }
 
 // importedTypeMethod is the function the importer fa reaches as
-// `typeName.methodName` in the module file declares: a public one, or any
-// one when fa is file's partner test.
+// `typeName.methodName` in the module file declares: one fa sees (Sees).
 func (fa *FileAnalysis) importedTypeMethod(file *FileAnalysis, typeName, methodName string) *Symbol {
-	if sym := file.LookupTypeMethod(typeName, methodName); sym != nil && (sym.Public || fa.readsPrivateOf(sym)) {
+	if sym := file.LookupTypeMethod(typeName, methodName); sym != nil && fa.Sees(sym) {
 		return sym
+	}
+	return nil
+}
+
+// unseenTypeMethod is the function `typeName.methodName` names in a user
+// file this file imports when this file does not see it (Sees), so the
+// error for the name can say its level; nil when there is none.
+func (fa *FileAnalysis) unseenTypeMethod(typeName, methodName string) *Symbol {
+	if fa == nil {
+		return nil
+	}
+	for _, key := range fa.ImportedModules {
+		file := fa.Program().File(key)
+		if file == nil {
+			continue
+		}
+		if sym := file.LookupTypeMethod(typeName, methodName); sym != nil && !fa.Sees(sym) {
+			return sym
+		}
 	}
 	return nil
 }
@@ -583,7 +601,7 @@ func (fa *FileAnalysis) VisibleTypeMethods(typeName string) map[string]*Symbol {
 			continue
 		}
 		for name, sym := range file.TypeMethods[typeName] {
-			if _, present := out[name]; !present && sym != nil && (sym.Public || fa.readsPrivateOf(sym)) {
+			if _, present := out[name]; !present && sym != nil && fa.Sees(sym) {
 				out[name] = sym
 			}
 		}
@@ -980,6 +998,7 @@ func buildFileWithStdlibAtPath(nodes []ast.Node, primitives *Scope, modules map[
 			ModuleScope: moduleScope,
 			FilePath:    filePath,
 			Origin:      originForStandalonePath(filePath),
+			Package:     filePackage(originForStandalonePath(filePath), ""),
 			References:  make(map[Pos]*Symbol),
 			Definitions: make(map[Pos]*Symbol),
 		},
@@ -1001,18 +1020,18 @@ type builder struct {
 	file *FileAnalysis
 	// qualifier is the identifier a field access is walking as its object,
 	// which may name a module (`todo.create`) where a bare `todo` could not.
-	qualifier         *ast.Ident
-	modules           map[string]*Scope        // module name -> scope (stdlib + resolved user modules)
-	moduleSyms        map[string]*Symbol       // module name -> synthetic symbol for go-to-def
-	blockImports      map[*ast.ImportStmt]bool // imports at the top of a block, which bind only inside it
-	loader            FileLoader
-	projectRoot       string
-	currentModuleName string      // the program's own [module].name from nomi.toml; "" when no manifest
-	moduleIndex       ModuleIndex // the modules the program's files import by name
-	// inModule is the key name of the module this file is in ("" for the
+	qualifier          *ast.Ident
+	modules            map[string]*Scope        // module name -> scope (stdlib + resolved user modules)
+	moduleSyms         map[string]*Symbol       // module name -> synthetic symbol for go-to-def
+	blockImports       map[*ast.ImportStmt]bool // imports at the top of a block, which bind only inside it
+	loader             FileLoader
+	projectRoot        string
+	currentPackageName string       // the program's own [package].name from nomi.toml; "" when no manifest
+	packageIndex       PackageIndex // the packages the program's files import by name
+	// inPackage is the key name of the package this file is in ("" for the
 	// program's own), whose names its imports resolve through
-	// (ModuleIndex.target).
-	inModule    string
+	// (PackageIndex.target).
+	inPackage   string
 	cache       map[string]*FileAnalysis // shared cache for resolved modules
 	loading     map[string]bool          // cycle detection: modules currently being loaded
 	moduleAlias string                   // implicit file import alias (usually the file basename)
@@ -1135,28 +1154,10 @@ func (b *builder) validateInlineOpaqueDecls(nodes []ast.Node) {
 	}
 }
 
-// importerModRel returns the importing file's module-relative path
-// (slash-separated, no .nomi extension) — the form
-// checkInternalAccess expects. Derived from b.file.FilePath against
-// b.projectRoot, so:
-//   - the project entry file (FilePath empty by convention) yields ""
-//     and is treated as module-root for the parent-subtree rule;
-//   - a sibling file at <projectRoot>/tools/seed.nomi yields
-//     "tools/seed";
-//   - any file whose FilePath doesn't sit under projectRoot (raw
-//     BuildFile callers / tests) yields "".
-func (b *builder) importerModRel() string {
-	if b.file == nil {
-		return ""
-	}
-	rel, _ := modRelUnder(b.projectRoot, b.file.FilePath)
-	return rel
-}
-
 // resolveImport attempts to resolve a user module import via the loader.
 // Returns the module's scope and the resolved file path, or nil if unresolved.
 //
-// What the path names is ModuleIndex.target's answer for the module this
+// What the path names is PackageIndex.target's answer for the module this
 // file is in: a first name that names a module (the program's own by its
 // name, or a dependency by a name this file's module gives it) leads into
 // that module's root; any other path is a file of this file's module. A
@@ -1170,9 +1171,9 @@ func (b *builder) resolveImport(modulePath []string) (*Scope, string) {
 }
 
 // importDest is what path, an import path written in this file, names
-// (ModuleIndex.target).
+// (PackageIndex.target).
 func (b *builder) importDest(path []string) importDest {
-	return b.moduleIndex.target(b.inModule, b.currentModuleName, b.projectRoot, path)
+	return b.packageIndex.target(b.inPackage, b.currentPackageName, b.projectRoot, path)
 }
 
 // resolveImportOrMiss is resolveImport that also says, when it finds no
@@ -1189,7 +1190,7 @@ func (b *builder) resolveImportOrMiss(modulePath []string) (*Scope, string, *imp
 	// dep is the module name the path starts with, for a path into
 	// another module, std, or a module's root directory.
 	dep := ""
-	if t.named && (t.module != b.inModule || t.module == "std" || len(loadPath) == 0) {
+	if t.named && (t.pkg != b.inPackage || t.pkg == "std" || len(loadPath) == 0) {
 		dep = modulePath[0]
 	}
 	if len(loadPath) == 0 {
@@ -1197,7 +1198,7 @@ func (b *builder) resolveImportOrMiss(modulePath []string) (*Scope, string, *imp
 			// The path is a module's name and nothing below it: `import
 			// std`, or `import std.io`, which selects `io` from a file
 			// `std`. A module is a directory, so there is no file.
-			return nil, "", &importMiss{root: loadRoot, dep: dep, std: t.module == "std"}
+			return nil, "", &importMiss{root: loadRoot, dep: dep, std: t.pkg == "std"}
 		}
 		return nil, "", nil
 	}
@@ -1242,30 +1243,24 @@ func (b *builder) resolveImportOrMiss(modulePath []string) (*Scope, string, *imp
 			Definitions: make(map[Pos]*Symbol),
 			FilePath:    filePath,
 			Origin:      originForKey(cacheKey),
+			Package:     filePackage(originForKey(cacheKey), t.pkg),
 		},
-		modules:           make(map[string]*Scope),
-		moduleSyms:        make(map[string]*Symbol),
-		loader:            b.loader,
-		projectRoot:       loadRoot,
-		moduleAlias:       moduleAliasForFile(cacheKey, filePath),
-		currentModuleName: b.currentModuleName,
-		moduleIndex:       b.moduleIndex,
-		inModule:          t.module,
-		cache:             b.cache,
-		loading:           b.loading,
+		modules:            make(map[string]*Scope),
+		moduleSyms:         make(map[string]*Symbol),
+		loader:             b.loader,
+		projectRoot:        loadRoot,
+		moduleAlias:        moduleAliasForFile(cacheKey, filePath),
+		currentPackageName: b.currentPackageName,
+		packageIndex:       b.packageIndex,
+		inPackage:          t.pkg,
+		cache:              b.cache,
+		loading:            b.loading,
 	}
 	// Lower derive declarations BEFORE BuildTypes so any synthesized impl blocks
 	// get FuncTypes attached consistently. buildModule lowers its own local copy
 	// internally (idempotent), but BuildTypes runs on the nodes handed here, so
 	// both passes need the same lowered nodes.
-	nodes, partnerErrs := LowerPartnerDerives(nodes, cacheKey, func(k string) ([]ast.Node, bool) {
-		// The partner is in the file's directory.
-		partnerPath := append(slices.Clone(loadPath[:len(loadPath)-1]), k[strings.LastIndex(k, "/")+1:])
-		nodes, err := b.loader(loadRoot, partnerPath)
-		return nodes, err == nil
-	})
 	loweredNodes, lowerErrs := LowerDerives(nodes)
-	sub.file.TypeErrors = append(sub.file.TypeErrors, partnerErrs...)
 	sub.file.TypeErrors = append(sub.file.TypeErrors, lowerErrs...)
 	sub.buildModule(loweredNodes, moduleScope)
 	BuildTypes(sub.file, loweredNodes)
@@ -1303,7 +1298,7 @@ func (b *builder) lookupVisibleTypeMethod(typeName, methodName string) *Symbol {
 
 // stdlibSiblingPath is QualifyIntraStdlibImport bound to the file this
 // builder is building. A stdlib source file names its siblings bare — they are
-// the same Nomi module — and every module key in the toolchain spells the
+// the same package — and every module key in the toolchain spells the
 // stdlib `std/<name>`, so the three resolution entry points below qualify
 // before they answer.
 //
@@ -2138,7 +2133,7 @@ func (b *builder) defineInterfaceMethodSymbols(n *ast.InterfaceDef, iface *Symbo
 			Kind:            SymbolInterfaceMethod,
 			Pos:             Pos{Line: m.Line, Col: m.Col},
 			Doc:             m.Doc,
-			Public:          n.Public,
+			Visibility:      n.Visibility,
 			Node:            m,
 			OwningInterface: n.Name,
 		}
@@ -2174,13 +2169,13 @@ func (b *builder) defineInterface(n *ast.InterfaceDef, scope *Scope) *Scope {
 	if _, alreadyDefined := b.file.Definitions[pos]; !alreadyDefined {
 		b.checkReservedTypeName(n.Name, "interface", n.Line, n.Col)
 		sym := &Symbol{
-			Name:    n.Name,
-			Kind:    SymbolInterface,
-			Pos:     pos,
-			Public:  n.Public,
-			Doc:     n.Doc,
-			Node:    n,
-			Members: make(map[string]*Symbol),
+			Name:       n.Name,
+			Kind:       SymbolInterface,
+			Pos:        pos,
+			Visibility: n.Visibility,
+			Doc:        n.Doc,
+			Node:       n,
+			Members:    make(map[string]*Symbol),
 		}
 		b.defineInterfaceMethodSymbols(n, sym)
 		if !b.checkRedeclareInScope(scope, n.Name, n.Line, n.Col) {
@@ -2229,12 +2224,12 @@ func (b *builder) defineTypeDef(n *ast.TypeDef, scope *Scope) {
 	if _, alreadyDefined := b.file.Definitions[pos]; !alreadyDefined {
 		b.checkReservedTypeName(n.Name, "distinct type", n.Line, n.Col)
 		sym := &Symbol{
-			Name:   n.Name,
-			Kind:   SymbolType,
-			Pos:    pos,
-			Public: n.Public,
-			Doc:    n.Doc,
-			Node:   n,
+			Name:       n.Name,
+			Kind:       SymbolType,
+			Pos:        pos,
+			Visibility: n.Visibility,
+			Doc:        n.Doc,
+			Node:       n,
 		}
 		if !b.checkRedeclareInScope(scope, n.Name, n.Line, n.Col) {
 			scope.Define(sym)
@@ -2255,12 +2250,12 @@ func (b *builder) defineTypeAlias(n *ast.TypeAlias, scope *Scope) {
 	if _, alreadyDefined := b.file.Definitions[pos]; !alreadyDefined {
 		b.checkReservedTypeName(n.Name, "typealias", n.Line, n.Col)
 		sym := &Symbol{
-			Name:   n.Name,
-			Kind:   SymbolTypeAlias,
-			Pos:    pos,
-			Public: n.Public,
-			Doc:    n.Doc,
-			Node:   n,
+			Name:       n.Name,
+			Kind:       SymbolTypeAlias,
+			Pos:        pos,
+			Visibility: n.Visibility,
+			Doc:        n.Doc,
+			Node:       n,
 		}
 		if !b.checkRedeclareInScope(scope, n.Name, n.Line, n.Col) {
 			scope.Define(sym)
@@ -2291,13 +2286,13 @@ func (b *builder) defineEnum(n *ast.EnumDef, scope *Scope) {
 	if enumSym == nil {
 		b.checkReservedTypeName(n.Name, "enum", n.Line, n.Col)
 		enumSym = &Symbol{
-			Name:    n.Name,
-			Kind:    SymbolEnum,
-			Pos:     pos,
-			Public:  n.Public,
-			Doc:     n.Doc,
-			Node:    n,
-			Members: make(map[string]*Symbol),
+			Name:       n.Name,
+			Kind:       SymbolEnum,
+			Pos:        pos,
+			Visibility: n.Visibility,
+			Doc:        n.Doc,
+			Node:       n,
+			Members:    make(map[string]*Symbol),
 		}
 		if !b.checkRedeclareInScope(scope, n.Name, n.Line, n.Col) {
 			scope.Define(enumSym)
@@ -2321,12 +2316,12 @@ func (b *builder) defineEnum(n *ast.EnumDef, scope *Scope) {
 
 		if _, alreadyDefined := b.file.Definitions[vpos]; !alreadyDefined {
 			vsym := &Symbol{
-				Name:   v.Name,
-				Kind:   SymbolEnumVariant,
-				Pos:    vpos,
-				Public: n.Public,
-				Doc:    n.Doc,
-				Node:   n,
+				Name:       v.Name,
+				Kind:       SymbolEnumVariant,
+				Pos:        vpos,
+				Visibility: n.Visibility,
+				Doc:        n.Doc,
+				Node:       n,
 			}
 			if len(v.Fields) > 0 {
 				vsym.Members = make(map[string]*Symbol)
@@ -2381,13 +2376,13 @@ func (b *builder) defineStruct(n *ast.StructDef, scope *Scope) {
 	if _, alreadyDefined := b.file.Definitions[pos]; !alreadyDefined {
 		b.checkReservedTypeName(n.Name, "struct", n.Line, n.Col)
 		sym := &Symbol{
-			Name:    n.Name,
-			Kind:    SymbolStruct,
-			Pos:     pos,
-			Public:  n.Public,
-			Doc:     n.Doc,
-			Node:    n,
-			Members: make(map[string]*Symbol),
+			Name:       n.Name,
+			Kind:       SymbolStruct,
+			Pos:        pos,
+			Visibility: n.Visibility,
+			Doc:        n.Doc,
+			Node:       n,
+			Members:    make(map[string]*Symbol),
 		}
 		for _, f := range n.Fields {
 			fieldSym := &Symbol{
@@ -2414,25 +2409,25 @@ func (b *builder) defineStruct(n *ast.StructDef, scope *Scope) {
 }
 
 // defineOnce registers a OnceBinding's symbol and marks it public when
-// the parser set n.Public from an inline `pub` modifier.
+// the parser set n.Visibility from an inline `pub` or `private` modifier.
 func (b *builder) defineOnce(n *ast.OnceBinding, scope *Scope) {
 	pos := Pos{Line: n.Line, Col: n.Col}
 	if _, alreadyDefined := b.file.Definitions[pos]; alreadyDefined {
 		return
 	}
 	sym := &Symbol{
-		Name:   n.Name,
-		Kind:   SymbolOnce,
-		Pos:    pos,
-		Public: n.Public,
-		Doc:    n.Doc,
-		Node:   n,
+		Name:       n.Name,
+		Kind:       SymbolOnce,
+		Pos:        pos,
+		Visibility: n.Visibility,
+		Doc:        n.Doc,
+		Node:       n,
 	}
 	b.collidesWithImportedModule(scope, n.Name, "once binding", n.Line)
 	if !b.checkRedeclareInScope(scope, n.Name, n.Line, n.Col) {
 		scope.Define(sym)
 	}
-	if n.Public {
+	if n.Visibility == ast.Public {
 		b.defineInterfaceModuleMethods(sym, scope)
 	}
 	b.define(pos, sym)
@@ -2449,12 +2444,12 @@ func (b *builder) defineFunc(n *ast.FuncDef, scope *Scope) *Scope {
 	pos := Pos{Line: n.Line, Col: n.Col}
 	if _, alreadyDefined := b.file.Definitions[pos]; !alreadyDefined {
 		sym := &Symbol{
-			Name:   n.Name,
-			Kind:   SymbolFunction,
-			Pos:    pos,
-			Public: n.Public,
-			Doc:    n.Doc,
-			Node:   n,
+			Name:       n.Name,
+			Kind:       SymbolFunction,
+			Pos:        pos,
+			Visibility: n.Visibility,
+			Doc:        n.Doc,
+			Node:       n,
 		}
 		if !b.checkRedeclareInScope(scope, n.Name, n.Line, n.Col) {
 			scope.Define(sym)
@@ -2512,12 +2507,12 @@ func (b *builder) defineSymbolStub(node ast.Node, scope *Scope) {
 
 	case *ast.ExternFunc:
 		sym := &Symbol{
-			Name:   n.Name,
-			Kind:   SymbolFunction,
-			Pos:    Pos{Line: n.Line, Col: n.Col},
-			Public: n.Public,
-			Doc:    n.Doc,
-			Node:   n,
+			Name:       n.Name,
+			Kind:       SymbolFunction,
+			Pos:        Pos{Line: n.Line, Col: n.Col},
+			Visibility: n.Visibility,
+			Doc:        n.Doc,
+			Node:       n,
 		}
 		applyNodeDefinitionOverride(sym, n)
 		if !b.checkRedeclareInScope(scope, n.Name, n.Line, n.Col) {
@@ -2527,13 +2522,13 @@ func (b *builder) defineSymbolStub(node ast.Node, scope *Scope) {
 
 	case *ast.ExternType:
 		sym := &Symbol{
-			Name:    n.Name,
-			Kind:    SymbolType,
-			Pos:     Pos{Line: n.Line, Col: n.Col},
-			Public:  n.Public,
-			Doc:     n.Doc,
-			Node:    n,
-			Members: make(map[string]*Symbol),
+			Name:       n.Name,
+			Kind:       SymbolType,
+			Pos:        Pos{Line: n.Line, Col: n.Col},
+			Visibility: n.Visibility,
+			Doc:        n.Doc,
+			Node:       n,
+			Members:    make(map[string]*Symbol),
 		}
 		applyNodeDefinitionOverride(sym, n)
 		if !b.checkRedeclareInScope(scope, n.Name, n.Line, n.Col) {
@@ -2667,12 +2662,12 @@ func (b *builder) defineFuncStub(n *ast.FuncDef, scope *Scope) {
 	// methods live inside `impl` blocks (defineImplBlock), not here — so it
 	// is never an impl method and takes the ordinary redeclare check.
 	sym := &Symbol{
-		Name:   n.Name,
-		Kind:   SymbolFunction,
-		Pos:    pos,
-		Public: n.Public,
-		Doc:    n.Doc,
-		Node:   n,
+		Name:       n.Name,
+		Kind:       SymbolFunction,
+		Pos:        pos,
+		Visibility: n.Visibility,
+		Doc:        n.Doc,
+		Node:       n,
 	}
 	b.collidesWithImportedModule(scope, n.Name, "function", n.Line)
 	if !b.checkRedeclareInScope(scope, n.Name, n.Line, n.Col) {
@@ -2740,7 +2735,7 @@ func (b *builder) defineStructStub(n *ast.StructDef, scope *Scope) {
 		Name:       n.Name,
 		Kind:       SymbolStruct,
 		Pos:        pos,
-		Public:     n.Public,
+		Visibility: n.Visibility,
 		Opaque:     n.Opaque,
 		Doc:        n.Doc,
 		Node:       n,
@@ -2819,7 +2814,7 @@ func (b *builder) defineEnumStub(n *ast.EnumDef, scope *Scope) {
 			Name:       n.Name,
 			Kind:       SymbolEnum,
 			Pos:        pos,
-			Public:     n.Public,
+			Visibility: n.Visibility,
 			Opaque:     n.Opaque,
 			Doc:        n.Doc,
 			Node:       n,
@@ -2844,12 +2839,12 @@ func (b *builder) defineEnumStub(n *ast.EnumDef, scope *Scope) {
 			continue
 		}
 		vsym := &Symbol{
-			Name:   v.Name,
-			Kind:   SymbolEnumVariant,
-			Pos:    vpos,
-			Public: n.Public,
-			Doc:    n.Doc,
-			Node:   n,
+			Name:       v.Name,
+			Kind:       SymbolEnumVariant,
+			Pos:        vpos,
+			Visibility: n.Visibility,
+			Doc:        n.Doc,
+			Node:       n,
 		}
 		if len(v.Fields) > 0 {
 			vsym.Members = make(map[string]*Symbol)
@@ -2936,7 +2931,7 @@ func (b *builder) defineTypeDefStub(n *ast.TypeDef, scope *Scope) {
 		Name:       n.Name,
 		Kind:       SymbolType,
 		Pos:        pos,
-		Public:     n.Public,
+		Visibility: n.Visibility,
 		Opaque:     n.Opaque,
 		Doc:        n.Doc,
 		Node:       n,
@@ -2960,12 +2955,12 @@ func (b *builder) defineTypeAliasStub(n *ast.TypeAlias, scope *Scope) {
 	}
 	b.checkReservedTypeName(n.Name, "typealias", n.Line, n.Col)
 	sym := &Symbol{
-		Name:   n.Name,
-		Kind:   SymbolTypeAlias,
-		Pos:    pos,
-		Public: n.Public,
-		Doc:    n.Doc,
-		Node:   n,
+		Name:       n.Name,
+		Kind:       SymbolTypeAlias,
+		Pos:        pos,
+		Visibility: n.Visibility,
+		Doc:        n.Doc,
+		Node:       n,
 	}
 	b.collidesWithImportedModule(scope, n.Name, "type alias", n.Line)
 	if !b.checkRedeclareInScope(scope, n.Name, n.Line, n.Col) {
@@ -2994,20 +2989,20 @@ func (b *builder) defineInterfaceStub(n *ast.InterfaceDef, scope *Scope) {
 	}
 	b.checkReservedTypeName(n.Name, "interface", n.Line, n.Col)
 	sym := &Symbol{
-		Name:    n.Name,
-		Kind:    SymbolInterface,
-		Pos:     pos,
-		Public:  n.Public,
-		Doc:     n.Doc,
-		Node:    n,
-		Members: make(map[string]*Symbol),
+		Name:       n.Name,
+		Kind:       SymbolInterface,
+		Pos:        pos,
+		Visibility: n.Visibility,
+		Doc:        n.Doc,
+		Node:       n,
+		Members:    make(map[string]*Symbol),
 	}
 	b.defineInterfaceMethodSymbols(n, sym)
 	b.collidesWithImportedModule(scope, n.Name, "interface", n.Line)
 	if !b.checkRedeclareInScope(scope, n.Name, n.Line, n.Col) {
 		scope.Define(sym)
 	}
-	if n.Public {
+	if n.Visibility == ast.Public {
 		b.defineInterfaceModuleMethods(sym, scope)
 	}
 	b.define(pos, sym)
@@ -3139,17 +3134,17 @@ func (b *builder) defineImplBlockStub(n *ast.ImplBlock, scope *Scope) {
 	for _, item := range n.Items {
 		var name string
 		var pos Pos
-		var public bool
+		var vis ast.Visibility
 		var doc string
 		var node ast.Node
 		var kind SymbolKind = SymbolFunction
 		switch it := item.(type) {
 		case *ast.FuncDef:
-			name, pos, public, doc, node = it.Name, Pos{Line: it.Line, Col: it.Col}, it.Public, it.Doc, it
+			name, pos, vis, doc, node = it.Name, Pos{Line: it.Line, Col: it.Col}, it.Visibility, it.Doc, it
 		case *ast.ExternFunc:
-			name, pos, public, doc, node = it.Name, Pos{Line: it.Line, Col: it.Col}, it.Public, it.Doc, it
+			name, pos, vis, doc, node = it.Name, Pos{Line: it.Line, Col: it.Col}, it.Visibility, it.Doc, it
 		case *ast.OnceBinding:
-			name, pos, public, doc, node = it.Name, Pos{Line: it.Line, Col: it.Col}, it.Public, it.Doc, it
+			name, pos, vis, doc, node = it.Name, Pos{Line: it.Line, Col: it.Col}, it.Visibility, it.Doc, it
 			kind = SymbolOnce
 		default:
 			continue
@@ -3160,7 +3155,7 @@ func (b *builder) defineImplBlockStub(n *ast.ImplBlock, scope *Scope) {
 				Name:       name,
 				Kind:       kind,
 				Pos:        pos,
-				Public:     public,
+				Visibility: vis,
 				Doc:        doc,
 				Node:       node,
 				OwningType: recv,
@@ -3202,7 +3197,7 @@ func (b *builder) defineImplBlockStub(n *ast.ImplBlock, scope *Scope) {
 				}
 			}
 		}
-		if ownerSym != nil && public {
+		if ownerSym != nil && vis == ast.Public {
 			if ownerSym.Members == nil {
 				ownerSym.Members = make(map[string]*Symbol)
 			}
@@ -3417,7 +3412,7 @@ func (b *builder) defineImplBlockAnnotations(n *ast.ImplBlock, scope *Scope) {
 	//
 	// All five protocols are `pub interface`s; with no scope symbol to read
 	// visibility from, methods are stamped public directly.
-	ifacePublic := true
+	ifaceVis := ast.Public
 	if ifaceSym == nil {
 		if !(IsSynthesizedLine(n.Line) && (ifaceName == "Debug" || deriveSupported[ifaceName])) {
 			b.file.TypeErrors = append(b.file.TypeErrors, TypeError{
@@ -3438,7 +3433,7 @@ func (b *builder) defineImplBlockAnnotations(n *ast.ImplBlock, scope *Scope) {
 			})
 			return
 		}
-		ifacePublic = ifaceReal.Public
+		ifaceVis = ifaceReal.Visibility
 	}
 
 	// Record the (T, Iface) pair even for bodyless impls. Passing
@@ -3454,12 +3449,12 @@ func (b *builder) defineImplBlockAnnotations(n *ast.ImplBlock, scope *Scope) {
 		var name string
 		var pos Pos
 		var explicitIface ast.TypeExpr
-		var public bool
+		var vis ast.Visibility
 		switch it := item.(type) {
 		case *ast.FuncDef:
-			name, pos, explicitIface, public = it.Name, Pos{Line: it.Line, Col: it.Col}, it.ImplIface, it.Public
+			name, pos, explicitIface, vis = it.Name, Pos{Line: it.Line, Col: it.Col}, it.ImplIface, it.Visibility
 		case *ast.ExternFunc:
-			name, pos, explicitIface, public = it.Name, Pos{Line: it.Line, Col: it.Col}, it.ImplIface, it.Public
+			name, pos, explicitIface, vis = it.Name, Pos{Line: it.Line, Col: it.Col}, it.ImplIface, it.Visibility
 		default:
 			continue
 		}
@@ -3479,18 +3474,18 @@ func (b *builder) defineImplBlockAnnotations(n *ast.ImplBlock, scope *Scope) {
 		}
 		// Record each method into the override map so registerImplDefaults
 		// knows which interface defaults are met.
-		if public {
+		if word := vis.Keyword(); word != "" {
 			b.file.TypeErrors = append(b.file.TypeErrors, TypeError{
 				Line: pos.Line, Col: pos.Col,
-				Message: fmt.Sprintf("`pub` is not allowed on implementation function `%s`; visibility comes from `%s`", name, ifaceName),
+				Message: fmt.Sprintf("`%s` is not allowed on implementation function `%s`; visibility comes from `%s`", word, name, ifaceName),
 			})
 		}
 		b.recordInterfaceImpl(recv, ifaceName, name)
 		b.file.DispatchNames[name] = true
 		// Visibility inheritance (spec §14 *Visibility*): stamp the method symbol's
-		// Public from the interface.
+		// visibility from the interface.
 		if sym := b.file.Definitions[pos]; sym != nil {
-			sym.Public = ifacePublic
+			sym.Visibility = ifaceVis
 			sym.IsImplMethod = true
 			sym.ImplInterface = ifaceName
 			// Keep the type-method-table entry's visibility in sync when it is
@@ -3500,7 +3495,7 @@ func (b *builder) defineImplBlockAnnotations(n *ast.ImplBlock, scope *Scope) {
 			// that representative with another method's interface.
 			if tm := b.file.TypeMethods[recv]; tm != nil {
 				if tmSym := tm[name]; tmSym == sym {
-					tmSym.Public = ifacePublic
+					tmSym.Visibility = ifaceVis
 					tmSym.IsImplMethod = true
 					tmSym.ImplInterface = ifaceName
 				}
@@ -3799,11 +3794,11 @@ func (b *builder) registerStructLitFieldRefs(n *ast.StructLit, scope *Scope) {
 }
 
 // define records sym as the symbol this file defines at pos, and records
-// the file as the one that declares it (SourceFile), where sym names none
-// yet. Cross-file go-to-definition, related-information locations and the
-// module-private checks read SourceFile. Only the owning file writes it, so
-// a symbol says where it is declared whichever files import it and in
-// whatever order they are built.
+// the file as the one that declares it (SourceFile) and its module
+// (Module), where sym names none yet. Cross-file go-to-definition,
+// related-information locations and the visibility checks (Sees) read
+// them. Only the owning file writes them, so a symbol says where it is
+// declared whichever files import it and in whatever order they are built.
 //
 // A symbol a stdlib file defines keeps an empty SourceFile. Its symbols
 // belong to the process's one stdlib analysis (std.Shared), which every
@@ -3812,33 +3807,30 @@ func (b *builder) registerStructLitFieldRefs(n *ast.StructLit, scope *Scope) {
 // path (an in-memory entry).
 func (b *builder) define(pos Pos, sym *Symbol) {
 	b.file.Definitions[pos] = sym
-	if sym != nil && sym.SourceFile == "" && b.stampsSourceFile() {
+	if sym == nil {
+		return
+	}
+	if sym.Package == "" {
+		sym.Package = b.file.Package
+	}
+	if sym.SourceFile == "" && b.stampsSourceFile() {
 		sym.SourceFile = b.file.FilePath
 	}
+}
+
+// filePackage is the package a file whose origin is origin is in, when it is
+// built in the package keyed in: a std file is in std whatever builds it.
+func filePackage(origin, in string) string {
+	if IsStdlibKey(origin) {
+		return "std"
+	}
+	return in
 }
 
 // stampsSourceFile reports whether the symbols this builder's file defines
 // carry its path as their SourceFile: a user file with a path.
 func (b *builder) stampsSourceFile() bool {
 	return b.file.FilePath != "" && !IsStdlibKey(b.file.Origin)
-}
-
-// defineImport registers the symbols and module bindings for an import
-// declaration. Called from defineTopLevel for module-level imports and from
-// walkNode for nested imports inside a function body.
-//
-// nested=false (top-level): for file aliases, b.modules is re-keyed
-// under the alias and the original key removed.
-//
-// nested=true (inside a function body): b.modules is NEVER mutated.
-// Aliases are only registered as Symbols in the local scope. b.modules
-// is process-global and would otherwise wipe out module-level entries.
-// internalAccessError is the error for importing checkPath, a file's
-// path (not std's), from this file, when it is inside an `internal/`
-// directory this file is outside of; nil when it may.
-func (b *builder) internalAccessError(checkPath []string) error {
-	t := b.importDest(checkPath)
-	return checkInternalAccess(b.importerModRel(), strings.Join(t.rest, "/"), t.module == b.inModule)
 }
 
 // modRelUnder is file's path under root, slash-separated and without its
@@ -3856,51 +3848,20 @@ func modRelUnder(root, file string) (string, bool) {
 	return filepath.ToSlash(strings.TrimSuffix(rel, ".nomi")), true
 }
 
+// defineImport registers the symbols and module bindings for an import
+// declaration. Called from defineTopLevel for module-level imports and from
+// walkNode for nested imports inside a function body.
+//
+// nested=false (top-level): for file aliases, b.modules is re-keyed
+// under the alias and the original key removed.
+//
+// nested=true (inside a function body): b.modules is NEVER mutated.
+// Aliases are only registered as Symbols in the local scope. b.modules
+// is process-global and would otherwise wipe out module-level entries.
 func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 	modPathStrings := make([]string, len(n.ModulePath))
 	for i, seg := range n.ModulePath {
 		modPathStrings[i] = ast.ImportNodeName(seg)
-	}
-
-	// internal/ access check. Path-only: doesn't depend on whether
-	// resolveImport actually finds the file (an unresolved import
-	// outside the parent subtree is still a contract violation). Skip
-	// stdlib paths — `std/...` is the language's own surface and has
-	// no `internal/` subtree convention.
-	//
-	// For a drill-through selective import (`import foo/Enum.{V}`),
-	// the trailing TypeIdent (PascalCase) names an enum within `foo`,
-	// not a directory segment — the file actually resolved is
-	// foo.nomi. Strip the trailing TypeIdent before path-checking so
-	// the importee path matches what resolveImport will load (mirrors
-	// the same strip the selective-import branch entry does before
-	// calling resolveImport further down).
-	//
-	// sameModule classification: an import is "same module"
-	// iff its head is NOT a cross-module short-name. Concretely:
-	//   - head == currentModuleName → same module (self-name spelling)
-	//   - head in moduleIndex      → DIFFERENT module (cross-module)
-	//   - otherwise (including no manifest / single-file mode) → same module
-	// The intra-module case feeds through the parent-subtree rule;
-	// cross-module flips sameModule=false so any internal/ segment in
-	// the importee is rejected unconditionally.
-	if len(modPathStrings) > 0 && modPathStrings[0] != "std" {
-		checkPath := modPathStrings
-		if len(n.Names) > 0 {
-			for len(checkPath) > 1 {
-				if _, isType := n.ModulePath[len(checkPath)-1].(*ast.TypeIdent); !isType {
-					break
-				}
-				checkPath = checkPath[:len(checkPath)-1]
-			}
-		}
-		if err := b.internalAccessError(checkPath); err != nil {
-			b.file.TypeErrors = append(b.file.TypeErrors, TypeError{
-				Line:    n.Line,
-				Col:     n.Col,
-				Message: err.Error(),
-			})
-		}
 	}
 
 	if len(n.Names) == 0 {
@@ -4090,12 +4051,8 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 				}
 			}
 			b.file.References[Pos{Line: seg.LineNum(), Col: b.nodeCol(seg)}] = ownerSym
-			if !ownerSym.Public && !b.file.readsPrivateOf(ownerSym) {
-				b.file.TypeErrors = append(b.file.TypeErrors, TypeError{
-					Line:    seg.LineNum(),
-					Col:     b.nodeCol(seg),
-					Message: fmt.Sprintf("'%s' is private and cannot be imported through", ownerSym.Name),
-				})
+			if !b.file.Sees(ownerSym) {
+				b.file.TypeErrors = append(b.file.TypeErrors, b.file.unseen(b.packageIndex, ownerSym, ownerSym.Name, seg.LineNum(), b.nodeCol(seg)))
 			}
 			if ownerSym.ModuleScope != nil {
 				ownerScope = ownerSym.ModuleScope
@@ -4229,14 +4186,14 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 					Line:    nameNode.LineNum(),
 					Col:     b.nodeCol(nameNode),
 					Message: fmt.Sprintf("file '%s' has no exported name '%s'", modName, origName),
-				}.Spanning(nameNode).WithHint(importSuggestion(origName, modScope, ownerSegments)))
+				}.Spanning(nameNode).WithHint(importSuggestion(b.file, origName, modScope, ownerSegments)))
 			}
 
 			// A re-export, `pub import mod.{a, b}`, makes each selected
 			// item public under its local name (the alias when there is
 			// one), so importers of this file see the same name.
 			if n.Pub {
-				sym.Public = true
+				sym.Visibility = ast.Public
 			}
 
 			// A user-written selective import and a local DECLARATION of the
@@ -4388,7 +4345,7 @@ func (b *builder) defineDottedImportsForOwner(scope, modScope *Scope, sourceOwne
 	}
 	prefix := sourceOwner + "."
 	for name, member := range modScope.Symbols {
-		if !strings.HasPrefix(name, prefix) || (!member.Public && !b.file.readsPrivateOf(member)) {
+		if !strings.HasPrefix(name, prefix) || !b.file.Sees(member) {
 			continue
 		}
 		dotted := bindOwner + strings.TrimPrefix(name, sourceOwner)

@@ -100,9 +100,9 @@ end`,
 end
 
 impl P
-    pub once zero: P = P{x: Some(0)?}
+    once zero: P = P{x: Some(0)?}
 end`,
-			line: 6, col: 36,
+			line: 6, col: 32,
 			msg: "`?` cannot be used in the initializer of `once zero`",
 		},
 		{

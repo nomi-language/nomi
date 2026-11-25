@@ -236,8 +236,8 @@
 // `irStreamKinds` (internal/irbuild/irsupervisor.go), and the module in
 // `alsoImplements` (internal/hostgen/stdtable) when the Go package is named
 // for the public module (internal/stdcsv is std/csv/host's). The `host`
-// module goes in `internalStdModules` (internal/analysis/internal_std.go),
-// so programs cannot import it and the reference leaves it out. A
+// module declares nothing `pub`, so a program can name none of it and the
+// reference leaves it out. A
 // crossing with several values to give returns them as several Go results,
 // which a declaration's tuple result receives in order (std/csv/host's
 // `decode`).

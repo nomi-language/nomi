@@ -107,8 +107,8 @@ func TestCompletion_ParamTypeImported(t *testing.T) {
 		"main.nomi":  "fn main() end\n",
 	})
 	s := NewServer()
-	s.docs.SetWorkspaceRoot(dir)
-	s.docs.IndexWorkspace(context.Background())
+	s.docs.SetEditorFolder(dir)
+	s.docs.IndexEditorFolder(context.Background())
 	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
 
 	items := completeIn(t, s, uri, "import world.Monster\n\nfn slay(monster"+cursorMark+") {}\n\nfn main()\nend\n").Items

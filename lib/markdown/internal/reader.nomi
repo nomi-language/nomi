@@ -14,7 +14,7 @@ end
 /// took part of. `newline` asks for a line feed after it when it does not
 /// end with one, as a code block's last line at the end of the document
 /// needs.
-pub struct Seg
+struct Seg
     start:   Int
     stop:    Int
     padding: Int = 0
@@ -23,18 +23,18 @@ end
 
 impl Seg
     /// How many bytes the segment stands for, its padding included.
-    pub fn length(s: Seg) -> Int
+    fn length(s: Seg) -> Int
         s.stop - s.start + s.padding
     end
 
     /// `s` with the spaces at its start left out, its padding with them.
-    pub fn trim_left(s: Seg, src: Bytes) -> Seg
+    fn trim_left(s: Seg, src: Bytes) -> Seg
         Seg{start: s.start + text.leading_spaces(src, s.start, s.stop), stop: s.stop}
     end
 
     /// `s` with the spaces at its end left out, or an empty segment at its
     /// start when it is all spaces.
-    pub fn trim_right(s: Seg, src: Bytes) -> Seg
+    fn trim_right(s: Seg, src: Bytes) -> Seg
         n = text.trailing_spaces(src, s.start, s.stop)
 
         if n == s.stop - s.start then
@@ -45,7 +45,7 @@ impl Seg
     end
 
     /// `out` with the bytes `s` stands for.
-    pub fn push(s: Seg, src: Bytes, out: Builder) -> Builder
+    fn push(s: Seg, src: Bytes, out: Builder) -> Builder
         out =
             out
             |> text.push_spaces(s.padding)
@@ -61,7 +61,7 @@ impl Seg
     end
 
     /// The bytes `s` stands for.
-    pub fn value(s: Seg, src: Bytes) -> Bytes
+    fn value(s: Seg, src: Bytes) -> Bytes
         if s.padding == 0 and not s.newline then return Bytes.slice(src, s.start, s.stop)
         push(s, src, Builder.new()) |> Builder.to_bytes()
     end
@@ -71,7 +71,7 @@ end
 /// then the end of the last; `before` holds, for each line, the code point
 /// the source has just before it, which is what comes before the line's
 /// first character.
-pub struct Lines
+struct Lines
     buf:    Bytes
     starts: Vector<Int>
     count:  Int
@@ -82,7 +82,7 @@ end
 
 impl Lines
     /// The lines `segs` stands for, in order, over the source `src`.
-    pub fn of(segs: List<Seg>, src: Bytes) -> Lines
+    fn of(segs: List<Seg>, src: Bytes) -> Lines
         empty = Lines{buf: Bytes.from_list([]), starts: [0], count: 0, before: [], origins: []}
 
         (lines, out) = Iter.reduce(segs, (empty, Builder.new()), fn (lines, out), s ->
@@ -110,29 +110,29 @@ impl Lines
     end
 
     /// Where line `n` starts.
-    pub fn start(lines: Lines, n: Int) -> Int
+    fn start(lines: Lines, n: Int) -> Int
         Vector.get(lines.starts, n) |> Option.with_default(Bytes.length(lines.buf))
     end
 
     /// Where line `n` stops, after its line feed.
-    pub fn stop(lines: Lines, n: Int) -> Int
+    fn stop(lines: Lines, n: Int) -> Int
         start(lines, n + 1)
     end
 
     /// The end of the text.
-    pub fn limit(lines: Lines) -> Int
+    fn limit(lines: Lines) -> Int
         Bytes.length(lines.buf)
     end
 
     /// The byte at `i`, or -1 outside the text.
-    pub fn at(lines: Lines, i: Int) -> Int
+    fn at(lines: Lines, i: Int) -> Int
         text.at(lines.buf, i)
     end
 end
 
 /// A position in a block's lines: the line it is on and the index of its
 /// byte in the text.
-pub struct Cursor
+struct Cursor
     line: Int = 0
     pos:  Int = 0
 end
@@ -140,7 +140,7 @@ end
 impl Cursor
     /// The rest of the current line, from the cursor to just after its
     /// line feed, as a start and a stop; None past the last line.
-    pub fn peek_line(c: Cursor, lines: Lines) -> Option<(Int, Int)>
+    fn peek_line(c: Cursor, lines: Lines) -> Option<(Int, Int)>
         if c.line < lines.count and c.pos < Lines.limit(lines) then
             Some((c.pos, Lines.stop(lines, c.line)))
         else
@@ -149,13 +149,13 @@ impl Cursor
     end
 
     /// The byte at the cursor, or -1 past the last line.
-    pub fn peek(c: Cursor, lines: Lines) -> Int
+    fn peek(c: Cursor, lines: Lines) -> Int
         if c.line < lines.count and c.pos < Lines.limit(lines) then Lines.at(lines, c.pos) else -1
     end
 
     /// The cursor `n` bytes on, onto the lines after when it passes the
     /// end of one.
-    pub fn advance(c: Cursor, lines: Lines, n: Int) -> Cursor
+    fn advance(c: Cursor, lines: Lines, n: Int) -> Cursor
         settle({..c, pos: c.pos + n}, lines)
     end
 
@@ -168,7 +168,7 @@ impl Cursor
     end
 
     /// The cursor at the start of the next line.
-    pub fn advance_line(c: Cursor, lines: Lines) -> Cursor
+    fn advance_line(c: Cursor, lines: Lines) -> Cursor
         line = c.line + 1
 
         Cursor{
@@ -184,14 +184,14 @@ impl Cursor
 
     /// The cursor at the line feed that ends its line, or after the line's
     /// last byte when it has none.
-    pub fn advance_to_eol(c: Cursor, lines: Lines) -> Cursor
+    fn advance_to_eol(c: Cursor, lines: Lines) -> Cursor
         stop = Lines.stop(lines, c.line)
         {..c, pos: if Lines.at(lines, stop - 1) == 10 then stop - 1 else stop}
     end
 
     /// The code point just before the cursor, which decides whether a
     /// delimiter there can open or close.
-    pub fn before(c: Cursor, lines: Lines) -> Int
+    fn before(c: Cursor, lines: Lines) -> Int
         if c.pos == Lines.start(lines, c.line) then
             Vector.get(lines.before, c.line) |> Option.with_default(10)
         else
@@ -201,7 +201,7 @@ impl Cursor
 
     /// The cursor after the spaces at it, across lines, how many it
     /// passed, and whether a byte that is not a space follows.
-    pub fn skip_spaces(c: Cursor, lines: Lines) -> (Cursor, Int, Bool)
+    fn skip_spaces(c: Cursor, lines: Lines) -> (Cursor, Int, Bool)
         skip_counting(c, lines, 0)
     end
 
@@ -219,7 +219,7 @@ impl Cursor
     /// lines, skipping a backslash-escaped one: the text from the cursor up
     /// to the closer, and the cursor after it. None when it does not
     /// close, or when `opener` (when it differs from `closer`) comes first.
-    pub fn find_closure(
+    fn find_closure(
         c:      Cursor,
         lines:  Lines,
         opener: Int,
@@ -233,7 +233,7 @@ impl Cursor
     /// closer: at the end of the lines, or at the start of the line where
     /// an opener stopped the search, or where it was when that is its own
     /// line.
-    pub fn failed_closure(c: Cursor, lines: Lines, opener: Int, closer: Int) -> Cursor
+    fn failed_closure(c: Cursor, lines: Lines, opener: Int, closer: Int) -> Cursor
         (_, stop) = closure_scan(lines, c.pos, opener, closer)
         if stop >= Lines.limit(lines) then return Cursor{line: lines.count, pos: Lines.limit(lines)}
         line = line_of(lines, c.line, stop)
@@ -256,7 +256,7 @@ impl Cursor
     /// Whether `closer` closes from the cursor, as `find_closure` looks for
     /// it, and the index where the search stopped: at the closer, at an
     /// `opener` that came first, or at the end.
-    pub fn closure_end(c: Cursor, lines: Lines, opener: Int, closer: Int) -> (Bool, Int)
+    fn closure_end(c: Cursor, lines: Lines, opener: Int, closer: Int) -> (Bool, Int)
         closure_scan(lines, c.pos, opener, closer)
     end
 
@@ -283,7 +283,7 @@ impl Cursor
     /// after it: the text between `<` and `>` on the line, or the bytes up
     /// to a space or an unbalanced `)`. None for an unclosed `<` or an
     /// empty destination. The text is as written, escapes and all.
-    pub fn destination(c: Cursor, lines: Lines) -> Option<(Bytes, Cursor)>
+    fn destination(c: Cursor, lines: Lines) -> Option<(Bytes, Cursor)>
         (c, _, _) = skip_spaces(c, lines)
         (s, e) = peek_line(c, lines) |> Option.with_default((c.pos, c.pos))
 
@@ -343,7 +343,7 @@ end
 
 /// The key a link label is found by: its spaces at each end left out,
 /// each run of spaces inside it one space, and its case folded.
-pub fn reference_key(label: Bytes) -> String
+fn reference_key(label: Bytes) -> String
     n = Bytes.length(label)
     from = text.leading_spaces(label, 0, n)
     to = n - text.trailing_spaces(label, from, n)

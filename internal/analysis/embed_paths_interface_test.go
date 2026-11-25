@@ -20,7 +20,7 @@ func TestEmbeddedPathsCheckTheSameAgainstInterfaces(t *testing.T) {
 		"web/pages": "pub embed assets `static`\n",
 	}}
 	files := map[string]string{
-		"nomi.toml":           "[module]\nname = \"site\"\nentry_points = [\"main\"]\n",
+		"nomi.toml":           "[package]\nname = \"site\"\nentry_points = [\"main\"]\n",
 		"static/index.html":   "<h1>hi</h1>\n",
 		"static/css/site.css": "body {}\n",
 	}

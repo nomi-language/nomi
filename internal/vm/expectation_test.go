@@ -29,7 +29,7 @@ import (
 	"github.com/nomi-language/nomi/internal/ir"
 	"github.com/nomi-language/nomi/internal/irbuild"
 	"github.com/nomi-language/nomi/internal/stdio"
-	"github.com/nomi-language/nomi/internal/tourmodules"
+	"github.com/nomi-language/nomi/internal/tourpackages"
 	"github.com/nomi-language/nomi/internal/virtualproject"
 	"github.com/nomi-language/nomi/internal/vm"
 	"github.com/nomi-language/nomi/rt"
@@ -450,8 +450,8 @@ func tourBlocksByID(t *testing.T) map[string]string {
 func stageTourBlock(t *testing.T, dir, code string) string {
 	t.Helper()
 	// A block that imports a module the tour links gets its files, as the
-	// tour's runner attaches them (tourmodules.Source).
-	code = tourmodules.Source(code)
+	// tour's runner attaches them (tourpackages.Source).
+	code = tourpackages.Source(code)
 	project, projectErr := virtualproject.FromMarkedSource(code)
 	// A block that names modules is its files already, as the tour's
 	// runner writes them (vmhost.LoadMarked).

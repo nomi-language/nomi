@@ -1,0 +1,2 @@
+go test fuzz v1
+string("fn main()\n    break 0\nend\n")

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/strlit"
 	"github.com/nomi-language/nomi/internal/token"
 	"github.com/nomi-language/nomi/rt"
@@ -496,13 +497,13 @@ func attachTrivia(h ast.HasTrivia, leading, trailing []ast.Trivia) {
 
 func (p *Parser) synchronize() {
 	for !p.atEnd() {
-		if p.atGroupStart() {
+		if p.atGroupStart() || lexer.IsVisibilityModifier(p.peek(), p.peekAt(1)) {
 			return
 		}
 		switch p.peek().Type {
 		case token.FN, token.TYPE, token.STRUCT, token.ENUM,
 			token.TYPEALIAS, token.REFINE, token.INTERFACE,
-			token.IMPORT, token.PUB, token.EXTERN,
+			token.IMPORT, token.EXTERN,
 			token.EXPORT, token.ONCE, token.TEST:
 			return
 		}
@@ -741,11 +742,11 @@ func (p *Parser) blockClosedByColumnOneDecl() bool {
 	switch tok.Type {
 	case token.FN, token.TYPE, token.STRUCT, token.ENUM,
 		token.TYPEALIAS, token.REFINE, token.INTERFACE,
-		token.IMPORT, token.PUB, token.EXTERN,
+		token.IMPORT, token.EXTERN,
 		token.EXPORT, token.ONCE, token.TEST:
 		return true
 	}
-	return p.atGroupStart()
+	return p.atGroupStart() || lexer.IsVisibilityModifier(tok, p.peekAt(1))
 }
 
 // resilientBlockEnd supplies the end position for a block whose closing
@@ -904,7 +905,7 @@ func (p *Parser) collectAttachedTestBodyTokens(openTok token.Token) ([]token.Tok
 			}
 			if tk.Line != prompt.Line &&
 				tk.Line > coveredThroughLine &&
-				(isAttachedTestPostludeStart(tk.Type) || isGroupStart(tk, p.peekAt(1)) || (isHostToken(tk) && (p.peekAt(1).Type == token.FN || p.peekAt(1).Type == token.TYPE))) {
+				(isAttachedTestPostludeStart(tk.Type) || lexer.IsVisibilityModifier(tk, p.peekAt(1)) || isGroupStart(tk, p.peekAt(1)) || (isHostToken(tk) && (p.peekAt(1).Type == token.FN || p.peekAt(1).Type == token.TYPE))) {
 				if !promptHadBody {
 					pendingBlankPrompts++
 				}
@@ -942,7 +943,6 @@ func isAttachedTestPostludeStart(tt token.TokenType) bool {
 	case token.DOC_COMMENT,
 		token.COMMENT,
 		token.AT,
-		token.PUB,
 		token.EXTERN,
 		token.FN,
 		token.ONCE,
@@ -1384,71 +1384,80 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 	if p.peek().Type == token.EXPORT {
 		return p.parseExportFunc()
 	}
-	// Inline visibility modifier: `pub fn`, `pub type`, `pub opaque type`,
-	// `pub interface`, `pub typealias`, `pub once`, and `pub host (fn|type)`.
-	if p.peek().Type == token.PUB {
+	// Inline visibility modifier, `pub` or `private`: `pub fn`, `pub type`,
+	// `pub opaque type`, `pub interface`, `pub typealias`, `pub once`, `pub
+	// host (fn|type)`, a keyword declaration, and `pub import` (a re-export,
+	// which `private` does not take).
+	if vis, ok := p.visibilityModifier(); ok {
 		pubTok := p.peek()
+		word := vis.Keyword()
 		if p.blockDepth > 0 {
-			return nil, errorAt(pubTok.Line, pubTok.Col, "`pub` applies to top-level declarations only")
+			return nil, errorAt(pubTok.Line, pubTok.Col, "`%s` applies to top-level declarations only", word)
 		}
-		p.advance() // consume PUB
+		p.advance() // consume the modifier
 		if p.atEnd() {
-			return nil, errorAt(pubTok.Line, pubTok.Col, "expected 'fn', 'struct', 'enum', 'type', 'opaque', 'interface', 'typealias', 'once', or 'host' after 'pub'")
+			return nil, errorAt(pubTok.Line, pubTok.Col, "expected 'fn', 'struct', 'enum', 'type', 'opaque', 'interface', 'typealias', 'once', or 'host' after '%s'", word)
+		}
+		if _, twice := p.visibilityModifier(); twice {
+			return nil, errorAt(pubTok.Line, pubTok.Col, "a declaration has one visibility: write `pub` or `private`, not both")
 		}
 		switch p.peek().Type {
 		case token.FN:
-			return p.parseFuncDef(true)
+			return p.parseFuncDef(vis)
 		case token.STRUCT:
-			return p.parseStructDef(true, false)
+			return p.parseStructDef(vis, false)
 		case token.ENUM:
-			return p.parseEnumDef(true, false)
+			return p.parseEnumDef(vis, false)
 		case token.TYPE:
-			return p.parseTypeDef(true, false)
+			return p.parseTypeDef(vis, false)
 		case token.REFINE:
-			return p.parseTypeDef(true, false)
+			return p.parseTypeDef(vis, false)
 		case token.OPAQUE:
 			p.advance() // consume OPAQUE
 			if p.atEnd() {
-				return nil, errorAt(pubTok.Line, pubTok.Col, "'pub opaque' must be followed by 'struct', 'enum', or 'type'")
+				return nil, errorAt(pubTok.Line, pubTok.Col, "'%s opaque' must be followed by 'struct', 'enum', or 'type'", word)
 			}
 			switch p.peek().Type {
 			case token.STRUCT:
-				return p.parseStructDef(true, true)
+				return p.parseStructDef(vis, true)
 			case token.ENUM:
-				return p.parseEnumDef(true, true)
+				return p.parseEnumDef(vis, true)
 			case token.TYPE:
-				return p.parseTypeDef(true, true)
+				return p.parseTypeDef(vis, true)
 			case token.REFINE:
-				return p.parseTypeDef(true, true)
+				return p.parseTypeDef(vis, true)
 			default:
-				return nil, errorAt(pubTok.Line, pubTok.Col, "'pub opaque' must be followed by 'struct', 'enum', or 'type'")
+				return nil, errorAt(pubTok.Line, pubTok.Col, "'%s opaque' must be followed by 'struct', 'enum', or 'type'", word)
 			}
 		case token.INTERFACE:
-			return p.parseInterfaceDef(true)
+			return p.parseInterfaceDef(vis)
 		case token.TYPEALIAS:
-			return p.parseTypeAlias(true)
+			return p.parseTypeAlias(vis)
 		case token.ONCE:
-			return p.parseOnceBinding(true)
+			return p.parseOnceBinding(vis)
 		case token.IMPORT:
+			if vis == ast.Private {
+				return nil, errorAt(pubTok.Line, pubTok.Col, "an import takes no `private`: it binds its names in this file only; write `import`")
+			}
 			return p.parseImportStmt(&pubTok)
 		case token.EXPORT:
-			return nil, errorAt(pubTok.Line, pubTok.Col, "an exported function takes no `pub`: write `export fn`")
+			return nil, errorAt(pubTok.Line, pubTok.Col, "an exported function takes no `%s`: write `export fn`", word)
 		case token.IDENT:
 			if p.peek().Lexeme != "host" {
 				if p.startsKeywordDecl() {
-					return p.parseKeywordDecl(true)
+					return p.parseKeywordDecl(vis)
 				}
 				if kw := p.peek(); p.peekAt(1).Type == token.TYPE_IDENT {
 					// `pub strct Point`.
 					return nil, errorAt(kw.Line, kw.Col, "`%s` declares nothing: a type is declared with `struct`, `enum` or `type`", kw.Lexeme)
 				}
-				return nil, errorAt(pubTok.Line, pubTok.Col, "'pub' is not valid before %s", tokenShown(p.peek()))
+				return nil, errorAt(pubTok.Line, pubTok.Col, "'%s' is not valid before %s", word, tokenShown(p.peek()))
 			}
-			return p.parseHost(true)
+			return p.parseHost(vis)
 		case token.EXTERN:
 			return nil, errorAt(pubTok.Line, pubTok.Col, "runtime-provided declarations use `host`, not `extern`")
 		default:
-			return nil, errorAt(pubTok.Line, pubTok.Col, "'pub' is not valid before %s", tokenShown(p.peek()))
+			return nil, errorAt(pubTok.Line, pubTok.Col, "'%s' is not valid before %s", word, tokenShown(p.peek()))
 		}
 	}
 
@@ -1459,7 +1468,7 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 
 	// Host declarations: host fn ... or host type ...
 	if p.startsHostDecl() {
-		return p.parseHost(false)
+		return p.parseHost(ast.Internal)
 	}
 
 	// Function definition: fn name(...) { ... }. A `fn` also starts a
@@ -1468,12 +1477,12 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 	// `fn` whose next tokens can begin nothing but a lambda's parameters is
 	// one, so a declaration missing its `(` keeps the declaration's error.
 	if p.peek().Type == token.FN && (p.blockDepth > 0 && p.startsFuncDecl() || p.blockDepth == 0 && !p.startsLambda()) {
-		return p.parseFuncDef(false)
+		return p.parseFuncDef(ast.Internal)
 	}
 
 	// Interface definition: Interface Name { ... }
 	if p.peek().Type == token.INTERFACE {
-		return p.parseInterfaceDef(false)
+		return p.parseInterfaceDef(ast.Internal)
 	}
 
 	if p.peek().Type == token.IDENT && p.peek().Lexeme == "implements" {
@@ -1489,7 +1498,7 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 	// qualified name and a name, by the general rule
 	// `[pub] [module.]keyword name [(params)] [-> type] [[Tag]raw body]`.
 	if p.blockDepth == 0 && p.startsKeywordDecl() {
-		return p.parseKeywordDecl(false)
+		return p.parseKeywordDecl(ast.Internal)
 	}
 
 	// Top-level impl: impl [<generics>] Iface for Receiver { ... }.
@@ -1506,27 +1515,27 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 
 	// Once binding: once name: T = expression
 	if p.peek().Type == token.ONCE {
-		return p.parseOnceBinding(false)
+		return p.parseOnceBinding(ast.Internal)
 	}
 
 	// Struct definition: struct Name { ... }
 	if p.peek().Type == token.STRUCT {
-		return p.parseStructDef(false, false)
+		return p.parseStructDef(ast.Internal, false)
 	}
 
 	// Enum definition: enum Name { ... }
 	if p.peek().Type == token.ENUM {
-		return p.parseEnumDef(false, false)
+		return p.parseEnumDef(ast.Internal, false)
 	}
 
 	// Type definition: [opaque] type Name [InnerType]
 	if p.peek().Type == token.TYPE {
-		return p.parseTypeDef(false, false)
+		return p.parseTypeDef(ast.Internal, false)
 	}
 
 	// Refinement: refinement Name Parent [and Parent...] [where ...] [when rule]
 	if p.peek().Type == token.REFINE {
-		return p.parseTypeDef(false, false)
+		return p.parseTypeDef(ast.Internal, false)
 	}
 
 	// Opaque distinct-type / struct / enum (private): opaque (struct|enum|type) Name ...
@@ -1538,13 +1547,13 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 		}
 		switch p.peek().Type {
 		case token.STRUCT:
-			return p.parseStructDef(false, true)
+			return p.parseStructDef(ast.Internal, true)
 		case token.ENUM:
-			return p.parseEnumDef(false, true)
+			return p.parseEnumDef(ast.Internal, true)
 		case token.TYPE:
-			return p.parseTypeDef(false, true)
+			return p.parseTypeDef(ast.Internal, true)
 		case token.REFINE:
-			return p.parseTypeDef(false, true)
+			return p.parseTypeDef(ast.Internal, true)
 		default:
 			return nil, errorAt(opaqueTok.Line, opaqueTok.Col, "'opaque' must be followed by 'struct', 'enum', or 'type'")
 		}
@@ -1552,7 +1561,7 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 
 	// Type alias: typealias Name Target
 	if p.peek().Type == token.TYPEALIAS {
-		return p.parseTypeAlias(false)
+		return p.parseTypeAlias(ast.Internal)
 	}
 
 	// Return statement: return [expr]
@@ -5831,7 +5840,7 @@ func (p *Parser) parseAnonStructLit(openTok token.Token, opening []ast.Trivia) (
 
 // parseFuncDef parses a function definition: fn name(params) [-> ReturnType],
 // its body on the lines below and `end`.
-func (p *Parser) parseFuncDef(public bool) (ast.Node, error) {
+func (p *Parser) parseFuncDef(vis ast.Visibility) (ast.Node, error) {
 	tok := p.peek()
 	p.advance() // consume FN
 
@@ -5888,7 +5897,7 @@ func (p *Parser) parseFuncDef(public bool) (ast.Node, error) {
 
 	return &ast.FuncDef{
 		Name:            name,
-		Public:          public,
+		Visibility:      vis,
 		TypeParams:      typeParams,
 		Params:          params,
 		ParamsEndTrivia: paramsEnd,
@@ -6916,7 +6925,7 @@ func (p *Parser) parseAnonStructType() (ast.TypeExpr, error) {
 // paren-wrapped form `Foo(Int)` also parses because its tokens are
 // indistinguishable from the parenthesized type expression `(Int)` —
 // which, per the no-1-tuples rule, collapses to `Int`.
-func (p *Parser) parseEnumBody(public bool, opaque bool, name string, typeParams []ast.TypeParam, whereClauses []ast.WhereConstraint, line, col int) (ast.Node, error) {
+func (p *Parser) parseEnumBody(vis ast.Visibility, opaque bool, name string, typeParams []ast.TypeParam, whereClauses []ast.WhereConstraint, line, col int) (ast.Node, error) {
 	open := token.Token{Line: line, Col: col}
 	if p.atEmptyBody() {
 		return nil, p.errorOnLine(line, "enum `%s` must have at least one variant", name)
@@ -6956,7 +6965,7 @@ func (p *Parser) parseEnumBody(public bool, opaque bool, name string, typeParams
 
 		tk := p.peek()
 		switch {
-		case tk.Type == token.FN || tk.Type == token.PUB || p.startsHostDecl() || tk.Type == token.ONCE:
+		case tk.Type == token.FN || lexer.IsVisibilityModifier(tk, p.peekAt(1)) || p.startsHostDecl() || tk.Type == token.ONCE:
 			return nil, p.typeBodyItemError()
 		case tk.Type == token.IDENT && tk.Lexeme == "embeds" || tk.Type == token.TYPE_IDENT:
 			if err := rejectAttachedTestsOnNonDeclaration(attachedTests, "an enum variant"); err != nil {
@@ -6998,7 +7007,7 @@ func (p *Parser) parseEnumBody(public bool, opaque bool, name string, typeParams
 		return nil, p.errorOnLine(line, "enum `%s` must have at least one variant", name)
 	}
 
-	return &ast.EnumDef{Name: name, Public: public, Opaque: opaque, TypeParams: typeParams, WhereClauses: whereClauses, Variants: variants, EndTrivia: endTrivia, Line: line, Col: col}, nil
+	return &ast.EnumDef{Name: name, Visibility: vis, Opaque: opaque, TypeParams: typeParams, WhereClauses: whereClauses, Variants: variants, EndTrivia: endTrivia, Line: line, Col: col}, nil
 }
 
 // parseEnumVariant parses a single enum variant. enumName is the parent
@@ -7709,7 +7718,7 @@ func (p *Parser) parseImportBlock(importTok token.Token) (ast.Node, error) {
 // `opaque` is true when the declaration was prefixed with `opaque`
 // (`pub opaque type Foo Int`). The flag is preserved on the TypeDef node;
 // the analyzer rejects opaque-on-zero-sized at the declaration site.
-func (p *Parser) parseTypeDef(public bool, opaque bool) (ast.Node, error) {
+func (p *Parser) parseTypeDef(vis ast.Visibility, opaque bool) (ast.Node, error) {
 	tok := p.peek()
 	refinement := tok.Type == token.REFINE
 	keyword := "type"
@@ -7798,7 +7807,7 @@ func (p *Parser) parseTypeDef(public bool, opaque bool) (ast.Node, error) {
 		RuleLine:      ruleTok.Line,
 		RuleCol:       ruleTok.Col,
 		Name:          name,
-		Public:        public,
+		Visibility:    vis,
 		Opaque:        opaque,
 		TypeParams:    typeParams,
 		InnerTypeExpr: innerTypeExpr,
@@ -7812,7 +7821,7 @@ func (p *Parser) parseTypeDef(public bool, opaque bool) (ast.Node, error) {
 // parseStructDef parses: [pub ][opaque ]struct Name[<TypeParams>], its fields
 // on the lines below and `end`. The STRUCT token has not been consumed yet;
 // this function advances past it and delegates the body to parseStructBody.
-func (p *Parser) parseStructDef(public bool, opaque bool) (ast.Node, error) {
+func (p *Parser) parseStructDef(vis ast.Visibility, opaque bool) (ast.Node, error) {
 	tok := p.peek()
 	p.advance() // consume STRUCT
 
@@ -7835,13 +7844,13 @@ func (p *Parser) parseStructDef(public bool, opaque bool) (ast.Node, error) {
 		return nil, err
 	}
 
-	return p.parseStructBody(public, opaque, name, typeParams, whereClauses, tok.Line, nameTok.Col)
+	return p.parseStructBody(vis, opaque, name, typeParams, whereClauses, tok.Line, nameTok.Col)
 }
 
 // parseEnumDef parses: [pub ][opaque ]enum Name[<TypeParams>], its variants
 // on the lines below and `end`. The ENUM token has not been consumed yet;
 // this function advances past it and delegates the body to parseEnumBody.
-func (p *Parser) parseEnumDef(public bool, opaque bool) (ast.Node, error) {
+func (p *Parser) parseEnumDef(vis ast.Visibility, opaque bool) (ast.Node, error) {
 	tok := p.peek()
 	p.advance() // consume ENUM
 
@@ -7864,7 +7873,7 @@ func (p *Parser) parseEnumDef(public bool, opaque bool) (ast.Node, error) {
 		return nil, err
 	}
 
-	return p.parseEnumBody(public, opaque, name, typeParams, whereClauses, tok.Line, nameTok.Col)
+	return p.parseEnumBody(vis, opaque, name, typeParams, whereClauses, tok.Line, nameTok.Col)
 }
 
 // parseStructBody parses the brace body of a struct declaration —
@@ -7878,14 +7887,14 @@ func (p *Parser) parseEnumDef(public bool, opaque bool) (ast.Node, error) {
 // propagates the `opaque` qualifier so the analyzer can reject
 // opaque-on-struct at the declaration site (plan A.9). Enum variant-shaped
 // items are rejected — they belong in enums.
-func (p *Parser) parseStructBody(public bool, opaque bool, name string, typeParams []ast.TypeParam, whereClauses []ast.WhereConstraint, line, col int) (ast.Node, error) {
+func (p *Parser) parseStructBody(vis ast.Visibility, opaque bool, name string, typeParams []ast.TypeParam, whereClauses []ast.WhereConstraint, line, col int) (ast.Node, error) {
 	open := token.Token{Line: line, Col: col}
 	if p.atEmptyBody() {
 		p.advance() // consume END
 		if err := p.rejectRuleAfterStructEnd(); err != nil {
 			return nil, err
 		}
-		return &ast.StructDef{Name: name, Public: public, Opaque: opaque, TypeParams: typeParams, WhereClauses: whereClauses, Line: line, Col: col}, nil
+		return &ast.StructDef{Name: name, Visibility: vis, Opaque: opaque, TypeParams: typeParams, WhereClauses: whereClauses, Line: line, Col: col}, nil
 	}
 	if err := p.headerEnds("a struct's fields"); err != nil {
 		return nil, err
@@ -7960,7 +7969,7 @@ func (p *Parser) parseStructBody(public bool, opaque bool, name string, typePara
 			continue
 		}
 		switch {
-		case tk.Type == token.FN || tk.Type == token.PUB || p.startsHostDecl() || tk.Type == token.ONCE:
+		case tk.Type == token.FN || lexer.IsVisibilityModifier(tk, p.peekAt(1)) || p.startsHostDecl() || tk.Type == token.ONCE:
 			return nil, p.typeBodyItemError()
 		case tk.Type == token.TEST || p.atGroupStart() || p.startsConformanceLine():
 			return nil, p.typeBodyItemError()
@@ -8041,7 +8050,7 @@ func (p *Parser) parseStructBody(public bool, opaque bool, name string, typePara
 		return nil, err
 	}
 
-	return &ast.StructDef{Name: name, Public: public, Opaque: opaque, TypeParams: typeParams, WhereClauses: whereClauses, Fields: fields, EndTrivia: endTrivia, Rule: rule, RuleLine: ruleTok.Line, RuleCol: ruleTok.Col, RuleLeading: ruleLeading, RuleTrailing: ruleTrailing, Line: line, Col: col}, nil
+	return &ast.StructDef{Name: name, Visibility: vis, Opaque: opaque, TypeParams: typeParams, WhereClauses: whereClauses, Fields: fields, EndTrivia: endTrivia, Rule: rule, RuleLine: ruleTok.Line, RuleCol: ruleTok.Col, RuleLeading: ruleLeading, RuleTrailing: ruleTrailing, Line: line, Col: col}, nil
 }
 
 // rejectRuleAfterStructEnd refuses a `when` on the line a struct's `end`
@@ -8082,7 +8091,7 @@ func (p *Parser) parseWhenRule() (ast.Node, token.Token, error) {
 }
 
 // parseTypeAlias parses a type alias: typealias Name Target
-func (p *Parser) parseTypeAlias(public bool) (ast.Node, error) {
+func (p *Parser) parseTypeAlias(vis ast.Visibility) (ast.Node, error) {
 	tok := p.peek()
 	p.advance() // consume TYPEALIAS
 
@@ -8134,7 +8143,7 @@ func (p *Parser) parseTypeAlias(public bool) (ast.Node, error) {
 		}
 		return &ast.TypeAlias{
 			Name:         name,
-			Public:       public,
+			Visibility:   vis,
 			Bounds:       bounds,
 			TypeParams:   typeParams,
 			WhereClauses: where,
@@ -8149,7 +8158,7 @@ func (p *Parser) parseTypeAlias(public bool) (ast.Node, error) {
 	}
 	return &ast.TypeAlias{
 		Name:           name,
-		Public:         public,
+		Visibility:     vis,
 		TargetTypeExpr: first,
 		TypeParams:     typeParams,
 		WhereClauses:   where,
@@ -9336,7 +9345,7 @@ func (p *Parser) parseMapLitEntries(line int, opening []ast.Trivia, spreads []as
 	return entries, spreads, lc.end(), nil
 }
 
-func (p *Parser) parseInterfaceDef(public bool) (ast.Node, error) {
+func (p *Parser) parseInterfaceDef(vis ast.Visibility) (ast.Node, error) {
 	tok := p.peek()
 	p.advance() // consume INTERFACE
 
@@ -9361,7 +9370,7 @@ func (p *Parser) parseInterfaceDef(public bool) (ast.Node, error) {
 	if p.atEmptyBody() {
 		closeTok := p.peek()
 		p.advance() // consume END
-		return &ast.InterfaceDef{Name: name, Public: public, TypeParams: typeParams, WhereClauses: whereClauses, Line: tok.Line, Col: nameTok.Col, EndLine: closeTok.Line, EndCol: closeTok.Col}, nil
+		return &ast.InterfaceDef{Name: name, Visibility: vis, TypeParams: typeParams, WhereClauses: whereClauses, Line: tok.Line, Col: nameTok.Col, EndLine: closeTok.Line, EndCol: closeTok.Col}, nil
 	}
 	if err := p.headerEnds("an interface's functions"); err != nil {
 		return nil, err
@@ -9443,11 +9452,11 @@ func (p *Parser) parseInterfaceDef(public bool) (ast.Node, error) {
 			method.Trailing = p.collectCommentOnLine(p.prevLine())
 			method.Doc = doc
 			methods = append(methods, method)
-		case p.peek().Type == token.PUB:
-			// `pub` is not an interface-item modifier: a method's visibility is
-			// the interface's. (The old inherent-op category `pub` marked is
-			// gone — ops are defaults; host-backed defaults are `host fn`.)
-			return nil, errorAt(p.peek().Line, p.peek().Col, "'pub' is not allowed on interface methods — a method's visibility is the interface's; drop 'pub' (it becomes a default), or use 'host fn' for a host-backed default")
+		case lexer.IsVisibilityModifier(p.peek(), p.peekAt(1)):
+			// A visibility modifier is not an interface-item modifier: a
+			// method's visibility is the interface's.
+			word := p.peek().Lexeme
+			return nil, errorAt(p.peek().Line, p.peek().Col, "'%s' is not allowed on interface methods — a method's visibility is the interface's; drop '%s' (it becomes a default), or use 'host fn' for a host-backed default", word, word)
 		default:
 			return nil, errorAt(p.peek().Line, p.peek().Col, "expected 'fn', 'open fn' or 'host fn' inside interface body, got %s", tokenShown(p.peek()))
 		}
@@ -9475,7 +9484,7 @@ func (p *Parser) parseInterfaceDef(public bool) (ast.Node, error) {
 		return nil, err
 	}
 
-	return &ast.InterfaceDef{Name: name, Public: public, TypeParams: typeParams, WhereClauses: whereClauses, Methods: methods, EndTrivia: endTrivia, Line: tok.Line, Col: nameTok.Col, EndLine: closeTok.Line, EndCol: closeTok.Col}, nil
+	return &ast.InterfaceDef{Name: name, Visibility: vis, TypeParams: typeParams, WhereClauses: whereClauses, Methods: methods, EndTrivia: endTrivia, Line: tok.Line, Col: nameTok.Col, EndLine: closeTok.Line, EndCol: closeTok.Col}, nil
 }
 
 // parseImplBlock parses a top-level `impl` block:
@@ -9613,19 +9622,22 @@ func (p *Parser) parseImplBlockBody(blockNoun string, allowPub bool) ([]ast.Node
 			return nil, nil, closeTok, errorAt(tk.Line, tk.Col, "an %s holds no nested conformance line", blockNoun)
 		case tk.Type == token.TEST || p.atGroupStart():
 			return nil, nil, closeTok, errorAt(tk.Line, tk.Col, "tests are declarations outside impl blocks")
-		case tk.Type == token.ONCE || (tk.Type == token.PUB && p.peekAt(1).Type == token.ONCE):
+		case tk.Type == token.ONCE || (lexer.IsVisibilityModifier(tk, p.peekAt(1)) && p.peekAt(1).Type == token.ONCE):
 			if !allowPub {
 				return nil, nil, closeTok, errorAt(tk.Line, tk.Col, "interface impl blocks hold only `fn` / `host fn` implementation items; write `once` as a file or inherent impl declaration")
 			}
-			public := false
-			if tk.Type == token.PUB {
-				public = true
-				p.advance() // consume PUB
+			start := p.pos
+			vis, modified := p.visibilityModifier()
+			if modified {
+				p.advance() // consume the modifier
 			}
-			item, err := p.parseOnceBinding(public)
+			item, err := p.parseOnceBinding(vis)
 			if err != nil {
 				return nil, nil, closeTok, err
 			}
+			// Its extent starts at the modifier, as a function's does
+			// (parseImplBlockItem).
+			p.recordSpan(item, start)
 			if err := attachTypeBodyItemMeta(item, doc, attachedTests, leading); err != nil {
 				return nil, nil, closeTok, err
 			}
@@ -9637,7 +9649,7 @@ func (p *Parser) parseImplBlockBody(blockNoun string, allowPub bool) ([]ast.Node
 			items = append(items, item)
 		case tk.Type == token.EXPORT:
 			return nil, nil, closeTok, errorAt(tk.Line, tk.Col, "a function in an %s cannot be exported: `export fn` declares a top-level function", blockNoun)
-		case tk.Type == token.FN || tk.Type == token.PUB || p.startsHostFuncDecl():
+		case tk.Type == token.FN || lexer.IsVisibilityModifier(tk, p.peekAt(1)) || p.startsHostFuncDecl():
 			item, err := p.parseImplBlockItem(allowPub, blockNoun)
 			if err != nil {
 				return nil, nil, closeTok, err
@@ -9706,16 +9718,16 @@ func (p *Parser) typeBodyItemError() error {
 		}
 		return errorAt(tk.Line, tk.Col, "derive declarations are written outside the type body as `derive Iface for Type`")
 	}
-	if tk.Type == token.PUB && p.peekAt(1).Type == token.IMPL {
-		return errorAt(tk.Line, tk.Col, "implementation functions do not take `pub` — visibility comes from the implemented interface")
+	if lexer.IsVisibilityModifier(tk, p.peekAt(1)) && p.peekAt(1).Type == token.IMPL {
+		return errorAt(tk.Line, tk.Col, "implementation functions do not take `%s` — visibility comes from the implemented interface", tk.Lexeme)
 	}
 	if tk.Type == token.TEST || p.atGroupStart() {
 		return errorAt(tk.Line, tk.Col, "tests are declarations outside type bodies")
 	}
-	if tk.Type == token.ONCE || (tk.Type == token.PUB && p.peekAt(1).Type == token.ONCE) {
+	if tk.Type == token.ONCE || (lexer.IsVisibilityModifier(tk, p.peekAt(1)) && p.peekAt(1).Type == token.ONCE) {
 		return errorAt(tk.Line, tk.Col, "once bindings are declarations outside type bodies")
 	}
-	if tk.Type == token.FN || p.startsHostDecl() || tk.Type == token.PUB {
+	if tk.Type == token.FN || p.startsHostDecl() || lexer.IsVisibilityModifier(tk, p.peekAt(1)) {
 		return errorAt(tk.Line, tk.Col, "functions are declarations outside type bodies")
 	}
 	return errorAt(tk.Line, tk.Col, "type bodies hold only shape items")
@@ -9849,7 +9861,7 @@ func attachTypeBodyItemMeta(item ast.Node, doc string, attachedTests []ast.Attac
 }
 
 // parseImplBlockItem parses one declaration inside an implementation body.
-// Type-body inherent functions allow ordinary `pub fn` / `pub host fn` items;
+// Inherent functions take a visibility modifier (`pub fn`, `private host fn`);
 // `impl Iface for Type { ... }` bodies do not, because their functions inherit
 // visibility from the interface named by the block header.
 func (p *Parser) parseImplBlockItem(allowPub bool, blockNoun string) (node ast.Node, err error) {
@@ -9859,20 +9871,23 @@ func (p *Parser) parseImplBlockItem(allowPub bool, blockNoun string) (node ast.N
 			p.recordSpan(node, start)
 		}
 	}()
-	public := false
-	if p.peek().Type == token.PUB {
+	vis, modified := p.visibilityModifier()
+	if modified {
+		word := vis.Keyword()
 		if !allowPub {
-			return nil, errorAt(p.peek().Line, p.peek().Col, "methods inside an %s do not take `pub` — visibility is defined by the interface", blockNoun)
+			return nil, errorAt(p.peek().Line, p.peek().Col, "methods inside an %s do not take `%s` — visibility is defined by the interface", blockNoun, word)
 		}
-		public = true
-		p.advance() // consume PUB
+		p.advance() // consume the modifier
 		if p.atEnd() {
-			return nil, errorAt(p.peek().Line, p.peek().Col, "expected 'fn' or 'host fn' after 'pub' in %s", blockNoun)
+			return nil, errorAt(p.peek().Line, p.peek().Col, "expected 'fn' or 'host fn' after '%s' in %s", word, blockNoun)
+		}
+		if _, twice := p.visibilityModifier(); twice {
+			return nil, errorAt(p.peek().Line, p.peek().Col, "a declaration has one visibility: write `pub` or `private`, not both")
 		}
 	}
 	switch p.peek().Type {
 	case token.FN:
-		return p.parseFuncDef(public)
+		return p.parseFuncDef(vis)
 	case token.IDENT:
 		if p.peek().Lexeme != "host" {
 			if allowPub {
@@ -9885,7 +9900,7 @@ func (p *Parser) parseImplBlockItem(allowPub bool, blockNoun string) (node ast.N
 		if p.peekAt(1).Type != token.FN {
 			return nil, errorAt(p.peek().Line, p.peek().Col, "impl block body admits only 'host fn' (not 'host type')")
 		}
-		return p.parseHost(public)
+		return p.parseHost(vis)
 	case token.EXTERN:
 		return nil, errorAt(p.peek().Line, p.peek().Col, "runtime-provided declarations use `host fn`, not `extern fn`")
 	default:
@@ -10234,11 +10249,13 @@ func (p *Parser) blankOrdinaryCommentSeparatesDocBoundary() bool {
 }
 
 func isDocBoundaryStart(tok, next token.Token) bool {
+	if lexer.IsVisibilityModifier(tok, next) {
+		return true
+	}
 	switch tok.Type {
 	case token.DOC_COMMENT,
 		token.TEST_PROMPT,
 		token.AT,
-		token.PUB,
 		token.EXTERN,
 		token.FN,
 		token.ONCE,
@@ -10334,7 +10351,7 @@ func strayDocComment(docTok token.Token, node ast.Node) error {
 // omitted. `once` is the language's only "set once, never changes"
 // declaration: the right-hand side is evaluated lazily on first
 // access and cached forever.
-func (p *Parser) parseOnceBinding(public bool) (ast.Node, error) {
+func (p *Parser) parseOnceBinding(vis ast.Visibility) (ast.Node, error) {
 	onceTok := p.peek()
 	p.advance() // consume ONCE
 
@@ -10367,7 +10384,7 @@ func (p *Parser) parseOnceBinding(public bool) (ast.Node, error) {
 
 	return &ast.OnceBinding{
 		Name:           name,
-		Public:         public,
+		Visibility:     vis,
 		TypeAnnotation: typeAnnotation,
 		Value:          value,
 		Line:           onceTok.Line,
@@ -10407,7 +10424,7 @@ func (p *Parser) startsKeywordDecl() bool {
 //
 // with the cursor at the keyword. The grammar does not know the keyword;
 // the analysis decides what it means (ast.KeywordDecl).
-func (p *Parser) parseKeywordDecl(public bool) (ast.Node, error) {
+func (p *Parser) parseKeywordDecl(vis ast.Visibility) (ast.Node, error) {
 	kwTok := p.peek()
 	p.advance() // consume the keyword
 	nameTok := p.peek()
@@ -10416,16 +10433,16 @@ func (p *Parser) parseKeywordDecl(public bool) (ast.Node, error) {
 		return nil, errorAt(nameTok.Line, nameTok.Col, "the name of a `%s` is snake_case, not the type name `%s`", kwTok.Lexeme, nameTok.Lexeme)
 	}
 	if kwTok.Lexeme == "embed" {
-		return p.parseEmbedDecl(kwTok, nameTok, public)
+		return p.parseEmbedDecl(kwTok, nameTok, vis)
 	}
 	decl := &ast.KeywordDecl{
-		Keyword:  kwTok.Lexeme,
-		Name:     nameTok.Lexeme,
-		Public:   public,
-		Line:     kwTok.Line,
-		Col:      kwTok.Col,
-		NameLine: nameTok.Line,
-		NameCol:  nameTok.Col,
+		Keyword:    kwTok.Lexeme,
+		Name:       nameTok.Lexeme,
+		Visibility: vis,
+		Line:       kwTok.Line,
+		Col:        kwTok.Col,
+		NameLine:   nameTok.Line,
+		NameCol:    nameTok.Col,
 	}
 	written := decl.Keyword
 	if !p.atEnd() && p.peek().Type == token.LPAREN {
@@ -10497,15 +10514,15 @@ func (p *Parser) parseExtern() (ast.Node, error) {
 	}
 }
 
-func (p *Parser) parseHost(public bool) (ast.Node, error) {
+func (p *Parser) parseHost(vis ast.Visibility) (ast.Node, error) {
 	hostTok := p.peek()
 	p.advance() // consume "host"
 
 	switch p.peek().Type {
 	case token.FN:
-		return p.parseExternFunc(hostTok, public)
+		return p.parseExternFunc(hostTok, vis)
 	case token.TYPE:
-		return p.parseExternType(hostTok, public)
+		return p.parseExternType(hostTok, vis)
 	default:
 		return nil, errorAt(hostTok.Line, hostTok.Col, "expected 'fn' or 'type' after 'host'")
 	}
@@ -10523,11 +10540,24 @@ func (p *Parser) startsHostDecl() bool {
 	return next.Type == token.FN || next.Type == token.TYPE
 }
 
+// visibilityModifier reports the visibility modifier at the cursor, by
+// lexer.IsVisibilityModifier.
+func (p *Parser) visibilityModifier() (ast.Visibility, bool) {
+	t := p.peek()
+	if !lexer.IsVisibilityModifier(t, p.peekAt(1)) {
+		return ast.Internal, false
+	}
+	if t.Type == token.PUB {
+		return ast.Public, true
+	}
+	return ast.Private, true
+}
+
 func (p *Parser) startsHostFuncDecl() bool {
 	return isHostToken(p.peek()) && p.peekAt(1).Type == token.FN
 }
 
-func (p *Parser) parseExternFunc(externTok token.Token, public bool) (ast.Node, error) {
+func (p *Parser) parseExternFunc(externTok token.Token, vis ast.Visibility) (ast.Node, error) {
 	p.advance() // consume "fn"
 
 	name, nameTok, err := p.parseFunctionHeaderName(externTok, "host fn")
@@ -10638,7 +10668,7 @@ func (p *Parser) parseExternFunc(externTok token.Token, public bool) (ast.Node, 
 
 	return &ast.ExternFunc{
 		Name:            name,
-		Public:          public,
+		Visibility:      vis,
 		TypeParams:      typeParams,
 		Params:          params,
 		ParamsEndTrivia: paramsEnd,
@@ -10649,7 +10679,7 @@ func (p *Parser) parseExternFunc(externTok token.Token, public bool) (ast.Node, 
 	}, nil
 }
 
-func (p *Parser) parseExternType(externTok token.Token, public bool) (ast.Node, error) {
+func (p *Parser) parseExternType(externTok token.Token, vis ast.Visibility) (ast.Node, error) {
 	p.advance() // consume "type"
 
 	name, nameTok, err := p.parseQualifiedTypeDeclName("host type")
@@ -10673,7 +10703,7 @@ func (p *Parser) parseExternType(externTok token.Token, public bool) (ast.Node, 
 
 	return &ast.ExternType{
 		Name:         name,
-		Public:       public,
+		Visibility:   vis,
 		TypeParams:   typeParams,
 		WhereClauses: whereClauses,
 		Line:         nameTok.Line,
@@ -10714,7 +10744,7 @@ func (p *Parser) parseExportFunc() (ast.Node, error) {
 	if p.atEnd() || p.peek().Type != token.FN {
 		return nil, errorAt(exportTok.Line, exportTok.Col, "`export` marks a function: `export fn name(...)`")
 	}
-	node, err := p.parseFuncDef(false)
+	node, err := p.parseFuncDef(ast.Internal)
 	if err != nil {
 		return nil, err
 	}

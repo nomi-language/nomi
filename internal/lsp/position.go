@@ -2,7 +2,6 @@ package lsp
 
 import (
 	"os"
-	"path/filepath"
 	"sync"
 	"sync/atomic"
 
@@ -66,9 +65,9 @@ func (s *Server) contentForURI(uri protocol.DocumentUri) (string, bool) {
 		return doc.Content, true
 	}
 	if isManifestURI(string(uri)) {
-		// A module's manifest as every analysis reads it: the editor's
-		// text when it is open (analysis.ReadManifest).
-		data, err := analysis.ReadManifest(filepath.Dir(uriToPath(string(uri))))
+		// A manifest as every analysis reads it: the editor's text when it
+		// is open (analysis.ReadManifestFile).
+		data, err := analysis.ReadManifestFile(uriToPath(string(uri)))
 		return string(data), err == nil
 	}
 	if s.followsInput(string(uri)) {

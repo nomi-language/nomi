@@ -1,14 +1,14 @@
 ---
 title: "Modules & Imports"
-description: "Import from other files, choose what each file makes public, hide a type's contents, and group files into a module."
+description: "Import from other files, choose who can use each declaration, hide a type's contents, and group files into a package."
 ---
 
 Nomi organizes code at two levels:
 
-- A file is one `.nomi` file. An import names a file. `pub` makes a
-  declaration visible to other files.
-- A Nomi module is a directory with a `nomi.toml` file, and everything under
-  it. A module is what you publish as a project or library.
+- A module is one `.nomi` file. An import names a module by its path.
+- A package is a directory with a `nomi.toml` file, and everything under
+  it. Its files can use each other's declarations. A package is what you
+  publish as a project or library.
 
 Each file imports the names it uses from other files.
 
@@ -109,23 +109,23 @@ Spec: [Cyclic imports](/spec/files-modules-and-imports/#cyclic-imports),
 
 </div>
 
-## Files and modules
+## Modules and packages
 
 A program in one file, like every example so far, needs nothing more. A
-larger project is a Nomi module: a directory with a `nomi.toml` and one or
+larger project is a package: a directory with a `nomi.toml` and one or
 more `.nomi` files.
 
-Files in a module import each other by their path from the module's
+Files in a package import each other by their path from the package's
 directory, without `.nomi`. A file in the same directory is imported by its
 name (`math`). A file in a subdirectory is imported by its path, with `::`
 between directories (`http::header`).
 
-The next example is a small module with two `.nomi` files and a `nomi.toml`.
+The next example is a small package with two `.nomi` files and a `nomi.toml`.
 In a real project, the three files would sit side by side in one directory.
 
 ```nomi-run
 // FILE: math.nomi
-pub fn double(n: Int) -> Int
+fn double(n: Int) -> Int
     n * 2
 end
 
@@ -140,7 +140,7 @@ fn main()
 end
 
 // FILE: nomi.toml
-[module]
+[package]
 name = "myproject"
 entry_points = ["main"]
 ```
@@ -149,13 +149,15 @@ entry_points = ["main"]
 -->
 
 `entry_points` lists the files that have a `fn main`, and so can be run as a
-program. A file in the module's `tools/` directory is a
+program. A file in the package's `tools/` directory is a
 [tool](/generating-code/), which is an entry point without being listed.
 
-Files under a directory named `internal/` can be imported only by files under
-that directory's parent. `a/internal/x.nomi` is open to `a/` and below; an
-`internal/` at the module root is open to the whole module and closed to other
-modules.
+Packages developed together can form a workspace: a `nomi-workspace.toml`
+in a directory above them lists them as `members`, and they share one
+`nomi.lock`, so every member builds with the same version of each
+dependency. Each member is still a package of its own, and `nomi check` or
+`nomi test` at the workspace's root covers every member
+([Workspaces](/tooling/packages-and-dependencies/#workspaces)).
 
 ## Short names and directory imports
 
@@ -171,17 +173,17 @@ Here two files are both `notifications`, and a function is called `users`:
 
 ```nomi-run
 // FILE: db/notifications.nomi
-pub fn pending() -> Int
+fn pending() -> Int
     3
 end
 
 // FILE: jobs/notifications.nomi
-pub fn pending() -> Int
+fn pending() -> Int
     7
 end
 
 // FILE: views/users.nomi
-pub fn heading() -> String
+fn heading() -> String
     "Users"
 end
 
@@ -203,7 +205,7 @@ fn main()
 end
 
 // FILE: nomi.toml
-[module]
+[package]
 name = "app"
 entry_points = ["main"]
 ```
@@ -220,7 +222,7 @@ Users: [ada, grace]
 - Two imports of one short name are an error at the second, and so is an
   import whose short name a declaration has.
 - Where `views/admin.nomi` sits beside `views/admin/`, `import views::admin`
-  names the file. `import app`, the module's own name, imports its root.
+  names the file. `import app`, the package's own name, imports its root.
 
 Spec: [Short names](/spec/files-modules-and-imports/#short-names),
 [Directory imports](/spec/files-modules-and-imports/#directory-imports).
@@ -229,68 +231,108 @@ Spec: [Short names](/spec/files-modules-and-imports/#short-names),
 
 ## Visibility
 
-A declaration at the top of a file is private unless you mark it `pub`. Only
-its own file can use a private declaration. Mark it `pub` to let other files
-use it:
+Every file of a package can use the declarations of the others, as
+`main.nomi` used `math.double` above. Sharing between your own files needs
+nothing written. Two words change who can use a declaration:
+
+- `pub` lets other packages use it too. An application rarely writes `pub`.
+  A library writes it on the functions and types that make up its API.
+- `private` keeps it to its own file. It is the exception, for a helper that
+  belongs to the one file that uses it.
+
+This package has all three levels:
 
 ```nomi-run
-// FILE: math.nomi
-pub fn double(n: Int) -> Int
-    n * 2
+// FILE: prices.nomi
+// Public: any package may call it.
+pub fn total(items: List<Decimal>) -> Decimal
+    with_tax(subtotal(items))
 end
 
-// Private: only math.nomi can call this directly.
-fn helper(n: Int) -> Int
-    n + 1
+// Internal: every file of this package may call it.
+fn subtotal(items: List<Decimal>) -> Decimal
+    Iter.sum(items)
+end
+
+// Private: only prices.nomi may call it.
+private fn with_tax(amount: Decimal) -> Decimal
+    amount * 1.2d
 end
 
 // FILE: main.nomi
 import
     std::io
-    math
+    prices
 end
 
 fn main()
-    io.print(math.double(7))
-
-    // Uncomment to see that main.nomi can't call math.nomi's private
-    // `helper`:
-    // io.print(math.helper(7))
+    items = [2.5d, 4d]
+    io.print(prices.subtotal(items))
+    io.print(prices.total(items))
 end
 
 // FILE: nomi.toml
-[module]
-name = "vis_demo"
+[package]
+name = "shop"
 entry_points = ["main"]
 ```
 <!-- expect
-14
+6.5
+7.80
 -->
 
-Every kind of declaration can be `pub`: `pub fn`, `pub struct`, `pub enum`,
-`pub interface`, `pub type` and `pub once`.
+Naming a private declaration from another file is an error, whose help says
+what would make it reachable:
 
-Privacy is per file, not per module. Two files in the same module still can't
-see each other's private declarations. The one exception is a file's partner
-test, `math_test.nomi` for `math.nomi`, which can use them
-([Testing](/testing/)).
+```nomi-run error
+// FILE: prices.nomi
+private fn with_tax(amount: Decimal) -> Decimal
+    amount * 1.2d
+end
 
-Functions in an `impl Interface for Type` block don't take `pub`. If the
-interface is `pub`, other files can call them. If the interface is private,
-so are they.
+// FILE: main.nomi
+import
+    std::io
+    prices
+end
 
-Other functions take `pub` one by one, like any declaration. A file can't add
-functions to a type declared in another file. To give another file's type new
-behavior, implement an interface for it.
+fn main()
+    io.print(prices.with_tax(10d))
+end
+
+// FILE: nomi.toml
+[package]
+name = "shop"
+entry_points = ["main"]
+```
+<!-- expect
+main.nomi:7:21: `with_tax` is private to `prices.nomi`
+main.nomi:7:21: help: drop `private` to name it from the other files of its package, or write `pub` to name it from any package
+-->
+
+A test file such as `prices_test.nomi` is an ordinary file of its package, so
+it can't call `with_tax` either. Test a private function in a `test` block in
+its own file ([Testing](/testing/)).
+
+`pub` and `private` stand on any top-level declaration (`fn`, `struct`,
+`enum`, `interface`, `type`, `once` and the rest) and on each function in an
+`impl Type` block. A file can't add functions to a type declared in another
+file. To give another file's type new behavior, implement an interface for
+it. Functions in an `impl Interface for Type` block take no level of their
+own: they can be called wherever the interface can be named.
+
+To protect a type's rule, such as an ID that must be positive, reach for
+`opaque`, below, rather than `private` helpers.
 
 <div class="tour-details">
 <p class="tour-details-label">Fine print</p>
 
-- A `pub` declaration can't expose a private type. A `pub fn` that returns
-  a private `Secret` is `function return exposes private type Secret`, and
-  the same holds for parameters, fields, `embeds`, aliases and `pub once`.
-  A `pub opaque` type is the exception, since nothing outside reaches its
-  contents.
+- A declaration can't expose a type that fewer files can see. A `pub fn`
+  that returns an internal `Secret` is
+  `function return exposes internal type Secret`, and an internal function
+  can't return a private type. The same holds for parameters, fields,
+  `embeds`, aliases and `once`. An `opaque` type's contents are the
+  exception, since no other file reaches them.
 - A file may still pass its private type to another file's generic
   function. Only its own file can name it.
 - A file qualifier is not a value: `x = io` is `` `io` is a file, not a value ``.
@@ -305,20 +347,22 @@ Spec: [Visibility](/spec/files-modules-and-imports/#visibility),
 
 ## Opaque types
 
-A `pub` type shows its contents to other files: a struct's fields, an enum's
-variants, or the value a distinct type wraps. Other files can build a value,
-take one apart and read its fields.
+A type shows its contents to every file that can name it: a struct's
+fields, an enum's variants, or the value a distinct type wraps. Those files
+can build a value, take one apart and read its fields.
 
 Sometimes you want to stop that. The constructor may check something, such
 as that a number is positive. Or you may want to change the contents later.
-`opaque` makes the type's name public and keeps its contents private:
+`opaque` keeps the type's contents to its own file, whatever the type's
+level. Other files, in its package or another, can use the type's name, but
+only its own file can build a value:
 
 ```nomi-run
 // FILE: ids.nomi
-pub opaque type UserId Int
+opaque type UserId Int
 
 impl UserId
-    pub fn new(n: Int) -> Result<UserId, String>
+    fn new(n: Int) -> Result<UserId, String>
         if n > 0 then
             Ok(UserId(n))
         else
@@ -326,7 +370,7 @@ impl UserId
         end
     end
 
-    pub fn value(id: UserId) -> Int
+    fn value(id: UserId) -> Int
         UserId(n) = id // only ids.nomi can destructure UserId
         n
     end
@@ -355,7 +399,7 @@ fn main()
 end
 
 // FILE: nomi.toml
-[module]
+[package]
 name = "ids_demo"
 entry_points = ["main"]
 ```
@@ -366,15 +410,16 @@ error: user IDs must be positive
 
 In `main.nomi`, you can hold a `UserId`, pass it around and store it in a
 list. You can't build one with `UserId(7)`, take one apart with
-`UserId(raw) = id`, or read the `Int` inside. Only `UserId`'s `pub` functions
-can do those things. Since `UserId.new` checks its argument, every `UserId`
-holds a positive number.
+`UserId(raw) = id`, or read the `Int` inside. Only the functions in
+`ids.nomi` can do those things. Since `UserId.new` checks its argument, every
+`UserId` holds a positive number. A library writes `pub opaque type UserId Int`
+and `pub fn new`, so other packages can use them too.
 
 `opaque` works with each of the three kinds of type:
 
-- `pub opaque struct` hides the fields.
-- `pub opaque enum` hides the variants.
-- `pub opaque type Name InnerType` hides the wrapped value, as above.
+- `opaque struct` hides the fields.
+- `opaque enum` hides the variants.
+- `opaque type Name InnerType` hides the wrapped value, as above.
 
 Declarations with no contents to hide can't be `opaque`. These are
 functions, type aliases, interfaces, `once` bindings, and `type` declarations
@@ -383,7 +428,7 @@ that wrap nothing.
 ## Re-exports
 
 `pub import` imports items and makes them public from your file too. Other
-files can then import them from your file. This lets one file gather an API
+files, in any package, can then import them from your file. This lets one file gather an API
 from several files, so its users import from one place:
 
 ```nomi
@@ -435,14 +480,14 @@ Spec: [Re-exporting imported names](/spec/files-modules-and-imports/#re-exportin
 
 </div>
 
-## Nomi modules
+## Packages
 
-A `nomi.toml` makes a directory a module. The standard library is one module.
+A `nomi.toml` makes a directory a package. The standard library is one package of many modules.
 
-A module lists the modules it uses in its `nomi.toml`'s `[dependencies]`
+A package lists the packages it uses in its `nomi.toml`'s `[dependencies]`
 table, one entry per dependency. The entry's key is the name your imports
 use. `nomi` writes the table, and `nomi.lock` beside it, which locks the
-version and hash of each module it fetches. Commit both. A module is
+version and hash of each package it fetches. Commit both. A package is
 published by pushing a version tag, such as `v1.2.0`, to its git
 repository, and fetched from that repository's host.
 
@@ -450,11 +495,11 @@ repository, and fetched from that repository's host.
   makes the current directory one.
 - `nomi add github.com/user/somelib` fetches a dependency from its host,
   locks it and writes `somelib = { repo = "github.com/user/somelib", version = "v1.2.0" }`.
-  `nomi add ../shared` adds a module beside yours by its directory.
+  `nomi add ../shared` adds a package beside yours by its directory.
 - `nomi remove` and `nomi update` take one out or move it to a newer
   release, and `nomi fetch` fetches everything ahead of time.
 
-The tooling reference's [Modules and dependencies](/tooling/modules-and-dependencies/)
+The tooling reference's [Packages and dependencies](/tooling/packages-and-dependencies/)
 covers each command, versions and working offline.
 
 This example holds two projects: `app`, which runs, and `shared` beside it,
@@ -475,7 +520,7 @@ fn main()
 end
 
 // FILE: app/nomi.toml
-[module]
+[package]
 name = "app"
 entry_points = ["main"]
 
@@ -489,7 +534,7 @@ pub fn greet(name: String) -> String
 end
 
 // FILE: shared/nomi.toml
-[module]
+[package]
 name = "shared"
 ```
 <!-- expect
@@ -502,7 +547,7 @@ dependency's own `nomi.toml` unless you give another, as in
 `nomi add lib=github.com/user/somelib`. With the entry `somelib`,
 `import somelib::parse` imports the dependency's file `parse.nomi`.
 `import somelib` alone imports the file at its root that has that name,
-`somelib.nomi`. If your own module also has a file named `somelib.nomi`,
+`somelib.nomi`. If your own package also has a file named `somelib.nomi`,
 the import still means the dependency's file. A dependency's own files
 import through its own `[dependencies]`, so the names you choose never
 change what its imports mean.
@@ -527,7 +572,7 @@ fn main()
 end
 
 // FILE: nomi.toml
-[module]
+[package]
 name = "shop"
 entry_points = ["main"]
 
@@ -558,7 +603,7 @@ end
 Buy milk.
 
 // FILE: nomi.toml
-[module]
+[package]
 name = "notes"
 entry_points = ["main"]
 
@@ -591,7 +636,7 @@ end
 ```
 
 A project can limit each dependency too. In the project's own `nomi.toml`,
-an entry under `[effects.deps.modules]`, keyed by the dependency's name in
+an entry under `[effects.deps.packages]`, keyed by the dependency's name in
 `[dependencies]`, lists the effects its files may have, and
 `entries_required = true` makes the project write one for every
 dependency; the dependency itself declares nothing. Here `app`
@@ -612,7 +657,7 @@ fn main()
 end
 
 // FILE: app/nomi.toml
-[module]
+[package]
 name = "app"
 entry_points = ["main"]
 
@@ -626,7 +671,7 @@ std = ["std::io"]
 [effects.deps]
 entries_required = true
 
-[effects.deps.modules]
+[effects.deps.packages]
 "prices" = []
 "receipts" = ["std::fs"]
 
@@ -643,7 +688,7 @@ pub fn total(count: Decimal) -> Decimal
 end
 
 // FILE: prices/nomi.toml
-[module]
+[package]
 name = "prices"
 
 // FILE: receipts/receipts.nomi
@@ -655,13 +700,13 @@ pub fn footer() -> String
 end
 
 // FILE: receipts/nomi.toml
-[module]
+[package]
 name = "receipts"
 ```
 <!-- expect
-prices/prices.nomi:8:9: prices has the effect std::http, and its entry under [effects.deps.modules] allows it no effects
+prices/prices.nomi:8:9: prices has the effect std::http, and its entry under [effects.deps.packages] allows it no effects
 prices/prices.nomi:8:9: help: reached from `main`; `main` calls `total`
-prices/prices.nomi:8:9: help: add "std::http" to "prices" under [effects.deps.modules] in nomi.toml, or remove the call
+prices/prices.nomi:8:9: help: add "std::http" to "prices" under [effects.deps.packages] in nomi.toml, or remove the call
 app/main.nomi:8:24: note: your code has the effect std::http in prices here: `main` calls `total`
 -->
 
@@ -685,24 +730,24 @@ what counts as an effect.
 Suppose two libraries each wrote `impl Display for Int`. Each would
 compile on its own, but a program that used both would have two impls of
 `Display` for `Int`. The **orphan rule** prevents this. An
-`impl Iface for T` block must be in the Nomi module that declares
+`impl Iface for T` block must be in the package that declares
 `Iface` or the one that declares `T`. An impl anywhere else is called an
 orphan impl, and it is a compile error. The rule covers generic impls too,
 such as `impl Iface for Box<T> where T: Bound`.
 
-A program with no `nomi.toml`, such as a lone script, is a module of its own.
+A program with no `nomi.toml`, such as a lone script, is a package of its own.
 It declares neither `Display` nor `Int`, so it can't write
 `impl Display for Int` either.
 
 To implement someone else's interface for someone else's type, wrap the type
-in one of your own. Declare `type MyId Int` in your module. Then
+in one of your own. Declare `type MyId Int` in your package. Then
 `impl Display for MyId` is allowed, because `MyId` is yours.
 
 A generic interface, one with type parameters, gives one more way. Take
 `Multiply<Rhs, Out>`, which `*` uses. Its one function is
 `multiply(lhs: self, rhs: Rhs) -> Out`, so `Rhs` is the type of a parameter.
 When a type you declare fills a parameter's slot like that, you may implement
-the interface for someone else's type. A module that declares `Rate` may
+the interface for someone else's type. A package that declares `Rate` may
 write `impl Multiply<Rate, Decimal> for Decimal`, and then `price * rate`
 works:
 
@@ -728,7 +773,7 @@ end
 53.125
 -->
 
-Two libraries can't clash this way. No other module can write an impl that
+Two libraries can't clash this way. No other package can write an impl that
 names your `Rate`. If one library writes `Multiply<Rate, Decimal>` and
 another writes `Multiply<Shares, Decimal>`, those are two impls at different
 type arguments. Each call uses the one that matches the type on the right of

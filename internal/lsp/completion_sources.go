@@ -14,7 +14,7 @@ import (
 // operand position does plus the statement-only forms.
 var (
 	topLevelKeywords = []string{
-		"fn", "pub", "export", "import", "struct", "enum", "impl", "interface", "type",
+		"fn", "pub", "private", "export", "import", "struct", "enum", "impl", "interface", "type",
 		"refine", "typealias", "group", "test", "once", "derive", "opaque", "host",
 	}
 	expressionKeywords = []string{"if", "case", "dbg", "todo", "unreachable", "concurrent"}
@@ -235,10 +235,11 @@ func (r *completionRequest) enumSymbol(et *analysis.EnumType) *analysis.Symbol {
 	return nil
 }
 
-// moduleMemberCandidates offers the public members of the file object bound
-// to name at the cursor (`io` after `import std::io`), filtered by keep.
+// moduleMemberCandidates offers the members the document sees of the file
+// object bound to name at the cursor (`io` after `import std::io`),
+// filtered by keep.
 func (r *completionRequest) moduleMemberCandidates(name string, keep func(*analysis.Symbol) bool) []candidate {
-	return scopeMemberCandidates(r.moduleScopeOf(name), keep)
+	return r.scopeMemberCandidates(r.moduleScopeOf(name), keep)
 }
 
 // moduleScopeOf returns the member scope of the file object bound to name at

@@ -22,7 +22,7 @@ func writeImplImportProgram(t *testing.T, main string) string {
 	t.Helper()
 	dir := t.TempDir()
 	for name, src := range map[string]string{
-		"nomi.toml":  "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+		"nomi.toml":  "[package]\nname = \"app\"\nentry_points = [\"main\"]\n",
 		"types.nomi": implImportTypes,
 		"impls.nomi": implImportImpls,
 		"main.nomi":  main,

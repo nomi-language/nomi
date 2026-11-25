@@ -2955,7 +2955,7 @@ func (e *Encoder) structEmbedDecl(x *ast.EmbedDecl) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.string(string(x.Name))
-	e.bool(x.Public)
+	e.uint(uint64(x.Visibility))
 	if x.Body == nil {
 		e.uint(0)
 	} else if e.ptr(x.Body) {
@@ -2979,7 +2979,7 @@ func (d *Decoder) structEmbedDecl(x *ast.EmbedDecl) {
 	d.structTriviaCarrier(&x.TriviaCarrier)
 	d.structSpanCarrier(&x.SpanCarrier)
 	x.Name = string(d.string())
-	x.Public = bool(d.bool())
+	x.Visibility = ast.Visibility(d.uint())
 	if p1, fresh2 := d.ptr(); p1 != nil {
 		x.Body = p1.(*ast.StringLit)
 	} else if fresh2 {
@@ -3074,7 +3074,7 @@ func (e *Encoder) structEnumDef(x *ast.EnumDef) {
 		}
 	}
 	e.string(string(x.Name))
-	e.bool(x.Public)
+	e.uint(uint64(x.Visibility))
 	e.bool(x.Opaque)
 	e.len(x.TypeParams == nil, len(x.TypeParams))
 	if len(x.TypeParams) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.TypeParams)), len(x.TypeParams), "[]ast.TypeParam") {
@@ -3142,7 +3142,7 @@ func (d *Decoder) structEnumDef(x *ast.EnumDef) {
 		}
 	}
 	x.Name = string(d.string())
-	x.Public = bool(d.bool())
+	x.Visibility = ast.Visibility(d.uint())
 	x.Opaque = bool(d.bool())
 	if n14 := d.sharedLen(); n14 == 0 {
 		x.TypeParams = []ast.TypeParam{}
@@ -3420,7 +3420,7 @@ func (e *Encoder) structExternFunc(x *ast.ExternFunc) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.string(string(x.Name))
-	e.bool(x.Public)
+	e.uint(uint64(x.Visibility))
 	e.len(x.AttachedTests == nil, len(x.AttachedTests))
 	if len(x.AttachedTests) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.AttachedTests)), len(x.AttachedTests), "[]ast.AttachedTest") {
 		for i1 := range x.AttachedTests {
@@ -3467,7 +3467,7 @@ func (d *Decoder) structExternFunc(x *ast.ExternFunc) {
 	d.structTriviaCarrier(&x.TriviaCarrier)
 	d.structSpanCarrier(&x.SpanCarrier)
 	x.Name = string(d.string())
-	x.Public = bool(d.bool())
+	x.Visibility = ast.Visibility(d.uint())
 	if n2 := d.sharedLen(); n2 == 0 {
 		x.AttachedTests = []ast.AttachedTest{}
 	} else if n2 > 0 {
@@ -3569,7 +3569,7 @@ func (e *Encoder) structExternType(x *ast.ExternType) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.string(string(x.Name))
-	e.bool(x.Public)
+	e.uint(uint64(x.Visibility))
 	e.len(x.TypeParams == nil, len(x.TypeParams))
 	if len(x.TypeParams) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.TypeParams)), len(x.TypeParams), "[]ast.TypeParam") {
 		for i1 := range x.TypeParams {
@@ -3609,7 +3609,7 @@ func (d *Decoder) structExternType(x *ast.ExternType) {
 	d.structTriviaCarrier(&x.TriviaCarrier)
 	d.structSpanCarrier(&x.SpanCarrier)
 	x.Name = string(d.string())
-	x.Public = bool(d.bool())
+	x.Visibility = ast.Visibility(d.uint())
 	if n2 := d.sharedLen(); n2 == 0 {
 		x.TypeParams = []ast.TypeParam{}
 	} else if n2 > 0 {
@@ -3859,7 +3859,7 @@ func (e *Encoder) structFuncDef(x *ast.FuncDef) {
 		}
 	}
 	e.string(string(x.Name))
-	e.bool(x.Public)
+	e.uint(uint64(x.Visibility))
 	e.bool(x.Export)
 	e.int(int64(x.ExportLine))
 	e.int(int64(x.ExportCol))
@@ -3938,7 +3938,7 @@ func (d *Decoder) structFuncDef(x *ast.FuncDef) {
 		}
 	}
 	x.Name = string(d.string())
-	x.Public = bool(d.bool())
+	x.Visibility = ast.Visibility(d.uint())
 	x.Export = bool(d.bool())
 	x.ExportLine = int(d.int())
 	x.ExportCol = int(d.int())
@@ -4828,7 +4828,7 @@ func (e *Encoder) structInterfaceDef(x *ast.InterfaceDef) {
 		}
 	}
 	e.string(string(x.Name))
-	e.bool(x.Public)
+	e.uint(uint64(x.Visibility))
 	e.len(x.TypeParams == nil, len(x.TypeParams))
 	if len(x.TypeParams) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.TypeParams)), len(x.TypeParams), "[]ast.TypeParam") {
 		for i7 := range x.TypeParams {
@@ -4881,7 +4881,7 @@ func (d *Decoder) structInterfaceDef(x *ast.InterfaceDef) {
 		}
 	}
 	x.Name = string(d.string())
-	x.Public = bool(d.bool())
+	x.Visibility = ast.Visibility(d.uint())
 	if n8 := d.sharedLen(); n8 == 0 {
 		x.TypeParams = []ast.TypeParam{}
 	} else if n8 > 0 {
@@ -5109,7 +5109,7 @@ func (e *Encoder) structKeywordDecl(x *ast.KeywordDecl) {
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.string(string(x.Keyword))
 	e.string(string(x.Name))
-	e.bool(x.Public)
+	e.uint(uint64(x.Visibility))
 	e.bool(x.HasParams)
 	e.len(x.Params == nil, len(x.Params))
 	if len(x.Params) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Params)), len(x.Params), "[]ast.Param") {
@@ -5143,7 +5143,7 @@ func (d *Decoder) structKeywordDecl(x *ast.KeywordDecl) {
 	d.structSpanCarrier(&x.SpanCarrier)
 	x.Keyword = string(d.string())
 	x.Name = string(d.string())
-	x.Public = bool(d.bool())
+	x.Visibility = ast.Visibility(d.uint())
 	x.HasParams = bool(d.bool())
 	if n2 := d.sharedLen(); n2 == 0 {
 		x.Params = []ast.Param{}
@@ -5653,7 +5653,7 @@ func (e *Encoder) structOnceBinding(x *ast.OnceBinding) {
 		}
 	}
 	e.string(string(x.Name))
-	e.bool(x.Public)
+	e.uint(uint64(x.Visibility))
 	e.value(x.TypeAnnotation)
 	e.value(x.Value)
 	e.string(string(x.Doc))
@@ -5682,7 +5682,7 @@ func (d *Decoder) structOnceBinding(x *ast.OnceBinding) {
 		}
 	}
 	x.Name = string(d.string())
-	x.Public = bool(d.bool())
+	x.Visibility = ast.Visibility(d.uint())
 	if v7 := d.value(); v7 != nil {
 		x.TypeAnnotation = v7.(ast.TypeExpr)
 	}
@@ -6320,7 +6320,7 @@ func (e *Encoder) structStructDef(x *ast.StructDef) {
 		}
 	}
 	e.string(string(x.Name))
-	e.bool(x.Public)
+	e.uint(uint64(x.Visibility))
 	e.bool(x.Opaque)
 	e.len(x.TypeParams == nil, len(x.TypeParams))
 	if len(x.TypeParams) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.TypeParams)), len(x.TypeParams), "[]ast.TypeParam") {
@@ -6403,7 +6403,7 @@ func (d *Decoder) structStructDef(x *ast.StructDef) {
 		}
 	}
 	x.Name = string(d.string())
-	x.Public = bool(d.bool())
+	x.Visibility = ast.Visibility(d.uint())
 	x.Opaque = bool(d.bool())
 	if n14 := d.sharedLen(); n14 == 0 {
 		x.TypeParams = []ast.TypeParam{}
@@ -7330,7 +7330,7 @@ func (e *Encoder) structTypeAlias(x *ast.TypeAlias) {
 		}
 	}
 	e.string(string(x.Name))
-	e.bool(x.Public)
+	e.uint(uint64(x.Visibility))
 	e.value(x.TargetTypeExpr)
 	e.len(x.Bounds == nil, len(x.Bounds))
 	if len(x.Bounds) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Bounds)), len(x.Bounds), "[]ast.TypeExpr") {
@@ -7375,7 +7375,7 @@ func (d *Decoder) structTypeAlias(x *ast.TypeAlias) {
 		}
 	}
 	x.Name = string(d.string())
-	x.Public = bool(d.bool())
+	x.Visibility = ast.Visibility(d.uint())
 	if v7 := d.value(); v7 != nil {
 		x.TargetTypeExpr = v7.(ast.TypeExpr)
 	}
@@ -7455,7 +7455,7 @@ func (e *Encoder) structTypeDef(x *ast.TypeDef) {
 		}
 	}
 	e.string(string(x.Name))
-	e.bool(x.Public)
+	e.uint(uint64(x.Visibility))
 	e.bool(x.Opaque)
 	e.len(x.TypeParams == nil, len(x.TypeParams))
 	if len(x.TypeParams) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.TypeParams)), len(x.TypeParams), "[]ast.TypeParam") {
@@ -7521,7 +7521,7 @@ func (d *Decoder) structTypeDef(x *ast.TypeDef) {
 		}
 	}
 	x.Name = string(d.string())
-	x.Public = bool(d.bool())
+	x.Visibility = ast.Visibility(d.uint())
 	x.Opaque = bool(d.bool())
 	if n14 := d.sharedLen(); n14 == 0 {
 		x.TypeParams = []ast.TypeParam{}
@@ -8592,4 +8592,4 @@ var forms = []any{
 
 // CodecDigest is a digest of the code above it: a reader keys bytes this
 // codec wrote by it when the writer may be another binary.
-const CodecDigest = "311649e2c60964b4"
+const CodecDigest = "ca4d039ca98411ec"

@@ -254,7 +254,7 @@ func stdlibTestUnit(path string) (string, *ir.Module, *irbuild.Result) {
 		return "", nil, nil
 	}
 	module := strings.TrimPrefix(key, "std/")
-	prog, res, err := irbuild.GenerateStdlibTestIR(module, nil, nil, irbuild.DeclineHooks{})
+	prog, res, err := irbuild.GenerateStdlibTestIR(module, irbuild.DeclineHooks{})
 	if err != nil {
 		return module, nil, nil
 	}

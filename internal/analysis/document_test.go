@@ -77,7 +77,7 @@ func TestDocumentManager_CloseIndexesTheDiskText(t *testing.T) {
 	os.WriteFile(filePath, []byte("fn disk_version() -> Int\n    1\nend"), 0644)
 
 	dm := NewDocumentManager()
-	dm.SetWorkspaceRoot(dir)
+	dm.SetEditorFolder(dir)
 	uri := fileuri.FromPath(filePath)
 
 	doc := dm.Open(uri, "fn editor_version() -> Int\n    2\nend")
@@ -87,7 +87,7 @@ func TestDocumentManager_CloseIndexesTheDiskText(t *testing.T) {
 
 	// Closing drops the analysis and indexes the disk text.
 	if !dm.Close(uri) {
-		t.Fatal("Close of a file on disk should report it is still a workspace file")
+		t.Fatal("Close of a file on disk should report it is still a file of the editor folder")
 	}
 	if dm.Get(uri) != nil || dm.IsOpen(uri) {
 		t.Fatal("expected no open document after Close")
@@ -201,7 +201,7 @@ func TestDocumentManager_ClosedCacheIsBounded(t *testing.T) {
 	}
 }
 
-func TestDocumentManager_IndexWorkspace(t *testing.T) {
+func TestDocumentManager_IndexEditorFolder(t *testing.T) {
 	dir := t.TempDir()
 	write := func(rel, src string) {
 		path := filepath.Join(dir, rel)
@@ -216,8 +216,8 @@ func TestDocumentManager_IndexWorkspace(t *testing.T) {
 	write("lib/text.nomi", "pub fn shout(s: String) -> String\n    s\nend")
 
 	dm := NewDocumentManager()
-	dm.SetWorkspaceRoot(dir)
-	uris := dm.IndexWorkspace(context.Background())
+	dm.SetEditorFolder(dir)
+	uris := dm.IndexEditorFolder(context.Background())
 	var rels []string
 	for _, uri := range uris {
 		rel, _ := filepath.Rel(dir, fileuri.ToPath(uri))
@@ -233,7 +233,7 @@ func TestDocumentManager_IndexWorkspace(t *testing.T) {
 		}
 	}
 	if dm.Covers(fileuri.FromPath(filepath.Join(filepath.Dir(dir), "elsewhere.nomi"))) {
-		t.Error("Covers a file outside the workspace root")
+		t.Error("Covers a file outside the editor folder")
 	}
 
 	mathURI := fileuri.FromPath(filepath.Join(dir, "math.nomi"))
@@ -242,9 +242,9 @@ func TestDocumentManager_IndexWorkspace(t *testing.T) {
 		t.Error("indexing must not open or analyze a file")
 	}
 	decls := dm.FileDecls(filepath.Join(dir, "math.nomi"))
-	if len(decls) != 2 || decls[0].Name != "double" || !decls[0].Public || decls[0].Kind != SymbolFunction ||
+	if len(decls) != 2 || decls[0].Name != "double" || decls[0].Visibility != ast.Public || decls[0].Kind != SymbolFunction ||
 		decls[0].Pos != (Pos{Line: 2, Col: 8}) || decls[0].Doc != "Doubles." || len(decls[0].Params) != 1 ||
-		decls[1].Name != "Hidden" || decls[1].Public || decls[1].Kind != SymbolStruct {
+		decls[1].Name != "Hidden" || decls[1].Visibility == ast.Public || decls[1].Kind != SymbolStruct {
 		t.Errorf("unexpected decls %+v", decls)
 	}
 	deps := dm.ReverseDeps(mathURI)
@@ -260,8 +260,8 @@ func TestDocumentManager_PropagateChange(t *testing.T) {
 	os.WriteFile(filepath.Join(dir, "app.nomi"), []byte("import main\nfn run()\n    1\nend"), 0644)
 
 	dm := NewDocumentManager()
-	dm.SetWorkspaceRoot(dir)
-	dm.IndexWorkspace(context.Background())
+	dm.SetEditorFolder(dir)
+	dm.IndexEditorFolder(context.Background())
 
 	mathURI := fileuri.FromPath(filepath.Join(dir, "math.nomi"))
 	mainURI := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
@@ -288,8 +288,8 @@ func TestDocumentManager_UpdateRebuildsImportEdges(t *testing.T) {
 	os.WriteFile(filepath.Join(dir, "main.nomi"), []byte("import math\nfn main()\n    math.double(21)\nend"), 0644)
 
 	dm := NewDocumentManager()
-	dm.SetWorkspaceRoot(dir)
-	dm.IndexWorkspace(context.Background())
+	dm.SetEditorFolder(dir)
+	dm.IndexEditorFolder(context.Background())
 
 	mathURI := fileuri.FromPath(filepath.Join(dir, "math.nomi"))
 	utilsURI := fileuri.FromPath(filepath.Join(dir, "utils.nomi"))
@@ -353,8 +353,8 @@ func TestDocumentManager_CrossFileDiagnostics(t *testing.T) {
 	lib := NewScope(nil)
 	dm := NewDocumentManager()
 	dm.SetStdlib(lib, nil, nil)
-	dm.SetWorkspaceRoot(dir)
-	dm.IndexWorkspace(context.Background())
+	dm.SetEditorFolder(dir)
+	dm.IndexEditorFolder(context.Background())
 
 	mathURI := fileuri.FromPath(filepath.Join(dir, "math.nomi"))
 	mainURI := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
@@ -461,7 +461,7 @@ func TestFindProjectRoot_FallsBackToFileDirWhenNoMarker(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Pass tmp as the workspace root so the walk doesn't escape it
+	// Pass tmp as the editor folder so the walk doesn't escape it
 	// looking for unrelated markers higher in the filesystem.
 	root := ProjectRoot(foo, tmp)
 	if root != tmp {
@@ -570,7 +570,7 @@ end
 `)
 
 	dm := NewDocumentManager()
-	dm.SetWorkspaceRoot(tmp)
+	dm.SetEditorFolder(tmp)
 	src, _ := os.ReadFile(appPath)
 	dm.Open(fileuri.FromPath(appPath), string(src))
 
@@ -637,7 +637,7 @@ func TestFindProjectRoot_TestFileOutsideTestProgramsUsesProjectRoot(t *testing.T
 	if err := os.MkdirAll(tests, 0755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(project, "nomi.toml"), []byte("[module]\nname = \"pkg\"\n"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(project, "nomi.toml"), []byte("[package]\nname = \"pkg\"\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	fixture := filepath.Join(tests, "feature_test.nomi")
@@ -694,28 +694,28 @@ func TestDocumentManager_SubdirectoryImportResolvesAgainstProjectRoot(t *testing
 	}
 }
 
-func TestFindProjectRoot_StopsAtWorkspaceRoot(t *testing.T) {
+func TestFindProjectRoot_StopsAtTheEditorFolder(t *testing.T) {
 	tmp := t.TempDir()
 	// <tmp>/main.nomi             ← marker that walk would reach
-	// <tmp>/workspace/sub/foo.nomi ← file; workspace root is <tmp>/workspace
-	if err := os.MkdirAll(filepath.Join(tmp, "workspace", "sub"), 0755); err != nil {
+	// <tmp>/folder/sub/foo.nomi ← file; the editor folder is <tmp>/folder
+	if err := os.MkdirAll(filepath.Join(tmp, "folder", "sub"), 0755); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(tmp, "main.nomi"), []byte(""), 0644); err != nil {
 		t.Fatal(err)
 	}
-	foo := filepath.Join(tmp, "workspace", "sub", "foo.nomi")
+	foo := filepath.Join(tmp, "folder", "sub", "foo.nomi")
 	if err := os.WriteFile(foo, []byte(""), 0644); err != nil {
 		t.Fatal(err)
 	}
 
-	// Workspace bound stops the walk at <tmp>/workspace; the outer
-	// main.nomi must not be picked up because it's above the workspace.
-	workspace := filepath.Join(tmp, "workspace")
-	root := ProjectRoot(foo, workspace)
-	wantFallback := filepath.Join(tmp, "workspace", "sub")
+	// The editor folder stops the walk at <tmp>/folder; the outer
+	// main.nomi must not be picked up because it's above the folder.
+	folder := filepath.Join(tmp, "folder")
+	root := ProjectRoot(foo, folder)
+	wantFallback := filepath.Join(tmp, "folder", "sub")
 	if root != wantFallback {
-		t.Errorf("expected fallback %q (walk bounded at workspace), got %q", wantFallback, root)
+		t.Errorf("expected fallback %q (walk bounded at the folder), got %q", wantFallback, root)
 	}
 }
 

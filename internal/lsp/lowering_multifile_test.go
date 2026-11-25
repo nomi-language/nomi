@@ -13,7 +13,7 @@ import (
 	"github.com/nomi-language/nomi/internal/frontend"
 )
 
-const multiManifest = "[module]\nname = \"app\"\nentry_points = [\"main\"]\n"
+const multiManifest = "[package]\nname = \"app\"\nentry_points = [\"main\"]\n"
 
 // multiMain imports shapes and calls `shapes.evens`, which the IR builder
 // declines under plantDecline (loweringBlocked's shape), and declines a body

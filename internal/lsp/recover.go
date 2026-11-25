@@ -27,7 +27,7 @@ import (
 //     and the publish after a run, which log the panic only.
 //   - each background evaluation of typed literals (literal_eval.go), whose
 //     literals are recorded as skipped.
-//   - each closed file's diagnostics pass, the workspace scan, and the
+//   - each closed file's diagnostics pass, the editor folder's scan, and the
 //     propagation of a change to the files that import it (workspace.go,
 //     server.go), which log the panic only.
 //

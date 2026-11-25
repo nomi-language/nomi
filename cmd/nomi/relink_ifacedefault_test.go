@@ -40,7 +40,7 @@ fn big(n: Int) -> Bool
 end
 `
 	p := cacheProject{name: "iface-default", entry: "main.nomi", files: map[string]string{
-		"nomi.toml":  "[module]\nname = \"ifacedefault\"\nentry_points = [\"main\"]\n",
+		"nomi.toml":  "[package]\nname = \"ifacedefault\"\nentry_points = [\"main\"]\n",
 		"shape.nomi": shape,
 		"shapes.nomi": `import shape.Shape
 

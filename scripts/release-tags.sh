@@ -5,22 +5,22 @@
 # One tag versions the whole repository: the compiler and every first-party
 # library under lib/. A project names a library by this repository, its
 # directory and the tag (`sqlite = { repo = "github.com/nomi-language/nomi",
-# subdir = "lib/sql/sqlite", version = "v0.5.0" }`), and a release `nomi`
-# takes the libraries at its own version (internal/modfetch's Options.Release),
+# subdir = "lib/sql/sqlite", version = "v0.0.2" }`), and a release `nomi`
+# takes the libraries at its own version (internal/pkgcache's SetRelease),
 # so a release without its tag fails each `nomi add` of a library with the tag
 # it lacks.
 #
 # Before tagging, the script checks the libraries, every directory under
 # lib/ that holds a nomi.toml:
 #
-#   - each nomi.toml's [module] gives the module a name;
+#   - each nomi.toml's [package] gives the package a name;
 #   - no [dependencies] entry names this repository. A library names
 #     another by `dir` alone (`sqlite = { dir = "../sqlite" }`), which a
 #     project that fetches it reads as the neighbor at the same tag. An
 #     entry with this repository's version would pin a library to an older
 #     release of its neighbors.
 #
-# It lists each problem and exits 1. TestReleaseTagsChecksTheLibModules
+# It lists each problem and exits 1. TestReleaseTagsChecksTheLibPackages
 # (cmd/nomi) runs it on this tree and on a tree with each problem.
 #
 # Usage:
@@ -62,38 +62,38 @@ done
 if ! [[ "$version" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$ ]] ||
 	[[ "$version" =~ [0-9]{14}-[0-9a-f]{12}$ ]] ||
 	[[ "$version" =~ -[0-9]+-g[0-9a-f]+(-dirty)?$|-dirty$ ]]; then
-	echo "release-tags.sh: $version is not a release version such as v0.5.0" >&2
+	echo "release-tags.sh: $version is not a release version such as v0.0.2" >&2
 	exit 2
 fi
 
-modules=()
+packages=()
 while IFS= read -r manifest; do
-	modules+=("$(dirname "${manifest#"$repo_root"/}")")
+	packages+=("$(dirname "${manifest#"$repo_root"/}")")
 done < <(find "$repo_root/lib" \( -name testdata -o -name node_modules -o -name '.*' \) -prune -o -name nomi.toml -print | LC_ALL=C sort)
 
-if [ "${#modules[@]}" -eq 0 ]; then
-	echo "release-tags.sh: found no module under lib/" >&2
+if [ "${#packages[@]}" -eq 0 ]; then
+	echo "release-tags.sh: found no package under lib/" >&2
 	exit 1
 fi
 
 problems=0
-for m in "${modules[@]}"; do
+for m in "${packages[@]}"; do
 	while IFS= read -r line; do
 		echo "release-tags.sh: $line" >&2
 		problems=$((problems + 1))
 	done < <(awk -v file="$m/nomi.toml" -v repo="$this_repo" '
 		/^[[:space:]]*\[/ {
-			module = ($0 ~ /^[[:space:]]*\[module\][[:space:]]*(#.*)?$/)
+			package = ($0 ~ /^[[:space:]]*\[package\][[:space:]]*(#.*)?$/)
 			deps = ($0 ~ /^[[:space:]]*\[dependencies(\.[^]]*)?\][[:space:]]*(#.*)?$/)
 			next
 		}
-		module && $0 ~ /^[[:space:]]*name[[:space:]]*=[[:space:]]*"[^"]+"/ { named = 1 }
+		package && $0 ~ /^[[:space:]]*name[[:space:]]*=[[:space:]]*"[^"]+"/ { named = 1 }
 		deps && index($0, "\"" repo "\"") > 0 {
 			name = $1; sub(/[[:space:]]*=.*/, "", name)
 			printf "%s:%d: %s names %s by version; a library names another by dir alone\n", file, NR, name, repo
 		}
 		END {
-			if (!named) printf "%s: [module] gives no name\n", file
+			if (!named) printf "%s: [package] gives no name\n", file
 		}
 	' "$repo_root/$m/nomi.toml")
 done

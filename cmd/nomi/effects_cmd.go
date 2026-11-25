@@ -123,12 +123,45 @@ func parseEffectsArgs(args []string) (effectsArgs, error) {
 	return parsed, nil
 }
 
-// runEffects is `nomi effects`, writing its report to w.
+// runEffects is `nomi effects`, writing its report to w. Each package has
+// its own [effects] tables, so at a workspace's root it reports on each
+// member in turn (frontend.WorkspaceMembers), each report as `nomi effects`
+// in the member gives it, and fails when one of them does.
 func runEffects(w io.Writer, args []string) error {
 	parsed, err := parseEffectsArgs(args)
 	if err != nil {
 		return err
 	}
+	members, err := frontend.WorkspaceMembers(parsed.path)
+	if err != nil {
+		return fmt.Errorf("nomi effects: %w", err)
+	}
+	if members == nil {
+		return effectsOf(w, parsed)
+	}
+	var failed error
+	for i, m := range members {
+		if !parsed.json {
+			// A JSON report names its project; a text one is headed by
+			// the member it is about.
+			if i > 0 {
+				fmt.Fprintln(w)
+			}
+			fmt.Fprintf(w, "%s:\n", filepath.ToSlash(m))
+		}
+		one := parsed
+		one.path = m
+		if err := effectsOf(w, one); errors.Is(err, errCheckFailed) {
+			failed = err
+		} else if err != nil {
+			return err
+		}
+	}
+	return failed
+}
+
+// effectsOf is `nomi effects` on one package's, or one file's, programs.
+func effectsOf(w io.Writer, parsed effectsArgs) error {
 	r, err := reachOf(parsed.path, os.Stderr)
 	if err != nil {
 		return err
@@ -237,15 +270,15 @@ func (rep effectsReport) writeText(w io.Writer) {
 	fmt.Fprintln(w, "deps")
 	fmt.Fprintln(w, effects.Wrapped("  std            ", t.Deps.Std))
 	fmt.Fprintln(w, effects.Wrapped("  std_in_tests   ", t.Deps.StdInTests))
-	modules := rep.r.ModuleReaches()
+	modules := rep.r.PackageReaches()
 	if len(modules) == 0 {
-		fmt.Fprintln(w, "  modules        (none)")
+		fmt.Fprintln(w, "  packages       (none)")
 	} else {
-		fmt.Fprintln(w, "  modules")
+		fmt.Fprintln(w, "  packages")
 	}
 	for _, u := range modules {
 		fmt.Fprintln(w, "    "+u.Path)
-		vmhost.WriteModuleReach(w, "      ", u)
+		vmhost.WritePackageReach(w, "      ", u)
 	}
 	fmt.Fprintln(w)
 	rep.writeTable(w, false)
@@ -346,12 +379,12 @@ func (rep effectsReport) writeChanges(w io.Writer, add, remove string) {
 func (rep effectsReport) writeDeclaredLess(w io.Writer) {
 	seen := map[string]bool{}
 	for _, n := range rep.r.NotAllowed(rep.tight) {
-		key := n.Module + "\x00" + n.Name
+		key := n.Package + "\x00" + n.Name
 		if n.List != vmhost.OverDeclared || seen[key] {
 			continue
 		}
 		seen[key] = true
-		fmt.Fprintf(w, "%s declares fewer effects than its code has: its own [effects.self] does not allow %s, and nomi check refuses it until it does\n", n.Module, n.Name)
+		fmt.Fprintf(w, "%s declares fewer effects than its code has: its own [effects.self] does not allow %s, and nomi check refuses it until it does\n", n.Package, n.Name)
 	}
 }
 
@@ -391,12 +424,12 @@ type selfJSON struct {
 }
 
 // depsJSON is the tightest [effects.deps], with the effects each
-// dependency has, from which its entry under [effects.deps.modules] is
+// dependency has, from which its entry under [effects.deps.packages] is
 // written.
 type depsJSON struct {
-	Std        []string             `json:"std"`
-	StdInTests []string             `json:"std_in_tests"`
-	Modules    []vmhost.ModuleReach `json:"modules"`
+	Std        []string              `json:"std"`
+	StdInTests []string              `json:"std_in_tests"`
+	Packages   []vmhost.PackageReach `json:"packages"`
 }
 
 type effectsTableJSON struct {
@@ -409,8 +442,8 @@ type effectsTableJSON struct {
 }
 
 type declaredLessJSON struct {
-	Module string `json:"module"`
-	Name   string `json:"name"`
+	Package string `json:"package"`
+	Name    string `json:"name"`
 }
 
 func (rep effectsReport) writeJSON(w io.Writer) error {
@@ -424,7 +457,7 @@ func (rep effectsReport) writeJSON(w io.Writer) error {
 	out := effectsJSON{
 		Project: rep.r.Project,
 		Self:    selfJSON{Std: orEmpty(t.Self.Std), StdInTests: orEmpty(t.Self.StdInTests)},
-		Deps:    depsJSON{Std: orEmpty(t.Deps.Std), StdInTests: orEmpty(t.Deps.StdInTests), Modules: rep.r.ModuleReaches()},
+		Deps:    depsJSON{Std: orEmpty(t.Deps.Std), StdInTests: orEmpty(t.Deps.StdInTests), Packages: rep.r.PackageReaches()},
 		Written: rep.written != "", DeclaredLess: []declaredLessJSON{},
 	}
 	if rep.r.Lists != nil {
@@ -438,7 +471,7 @@ func (rep effectsReport) writeJSON(w io.Writer) error {
 	}
 	seen := map[declaredLessJSON]bool{}
 	for _, n := range rep.r.NotAllowed(rep.tight) {
-		d := declaredLessJSON{Module: n.Module, Name: n.Name}
+		d := declaredLessJSON{Package: n.Package, Name: n.Name}
 		if n.List == vmhost.OverDeclared && !seen[d] {
 			seen[d] = true
 			out.DeclaredLess = append(out.DeclaredLess, d)
@@ -475,7 +508,7 @@ func writeWhy(w io.Writer, r *vmhost.Reach, name string, asJSON bool) error {
 
 // writeTightest writes tight into the project's nomi.toml as its
 // [effects.self], [effects.self.modules], [effects.deps]
-// and [effects.deps.modules] tables (analysis.WriteEffectTables),
+// and [effects.deps.packages] tables (analysis.WriteEffectTables),
 // unless nomi.toml's tables already allow exactly what tight does, and
 // answers the tables' text, or "" when it wrote nothing. Tight has
 // [effects.self.modules] only when nomi.toml has it or asks for it

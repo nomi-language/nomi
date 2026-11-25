@@ -77,17 +77,17 @@ import (
 // AwaitedCancelledTaskText. See raiseAwaitedCancel.
 
 // Scope is one `concurrent { }` block: the cancellation context its tasks
-// observe, and the wait group that makes the block wait for them.
+// observe, and the latch that makes the block wait for them.
 //
-// Read-only after construction. `wg`,
-// `cancel` and `ctx` are concurrency primitives the goroutines drive directly,
-// and Go's own implementations are goroutine-safe, so there is no surrounding
-// mutex — the two fields that do need one are `failed`/`firstFailure`, and they
-// take a `sync.Once` rather than a mutex because they are written exactly once.
+// Read-only after construction but for the two latches, wait objects with
+// locks of their own (wait.go), and firstFailure, which a `sync.Once` writes
+// exactly once.
 type Scope struct {
 	ctx    context.Context
 	cancel context.CancelFunc
-	wg     sync.WaitGroup
+	// live counts the block's tasks still running; the block's end waits
+	// for it to open (ScopeExit).
+	live latch
 
 	// failedOnce guards the pair below, which together are "some task in this
 	// scope has failed, and here is which one failed first".
@@ -98,11 +98,11 @@ type Scope struct {
 	// would otherwise need one watcher goroutine per task, which a synctest
 	// bubble counts as leftover work.
 	//
-	// The cost of the shared channel rather than per-task watching is std's own
+	// The cost of the shared latch rather than per-task watching is std's own
 	// documented cost: "with two failures you get whichever happened first
-	// rather than the lowest-indexed one".
+	// rather than the lowest-indexed one". It holds a count of 1 until then.
 	failedOnce   sync.Once
-	failed       chan struct{}
+	failed       latch
 	firstFailure Failure
 }
 
@@ -113,14 +113,14 @@ func (s *Scope) Context() context.Context { return s.ctx }
 // noteFailure records the first failure in this scope and wakes every
 // `await_all` waiting on it.
 //
-// The write happens inside the Once and before the close, so a reader that
-// observed the closed channel is guaranteed to see the value — the close is the
-// happens-before edge, which is what makes `firstFailure` safe to read without
-// a lock.
+// The write happens inside the Once and before the latch opens, so a reader
+// that found it open is guaranteed to see the value — the latch's lock is the
+// happens-before edge, which is what makes `firstFailure` safe to read
+// without one of its own.
 func (s *Scope) noteFailure(f Failure) {
 	s.failedOnce.Do(func() {
 		s.firstFailure = f
-		close(s.failed)
+		s.failed.add(-1)
 	})
 }
 
@@ -146,9 +146,10 @@ func (s *Scope) noteFailure(f Failure) {
 // TestEnterScope_InheritsDeadline pins it.
 func EnterScope(parent *Frame) *Frame {
 	ctx, cancel := context.WithCancel(parent.ctx)
-	s := &Scope{ctx: ctx, cancel: cancel, failed: make(chan struct{})}
+	s := &Scope{ctx: ctx, cancel: cancel}
+	s.failed.count = 1
 	return &Frame{ctx: ctx, forcing: parent.forcing, app: parent.app,
-		booted: parent.booted, scope: s, inTask: parent.inTask, underDeadline: parent.underDeadline, host: parent.host, stop: parent.stop, park: parent.park, capture: parent.capture,
+		booted: parent.booted, scope: s, inTask: parent.inTask, underDeadline: parent.underDeadline, host: parent.host, stop: parent.stop, task: parent.task, capture: parent.capture,
 		files: parent.files, processes: parent.processes, network: parent.network, debug: parent.debug}
 }
 
@@ -171,8 +172,9 @@ func EnterScope(parent *Frame) *Frame {
 // a safe point (stopFlag), so only a task inside one long crossing into Go
 // can keep the block waiting after the cancel; the `drain:` budget that bounds a supervisor's
 // shutdown is a supervisor concept and a block has no equivalent, because a
-// block's tasks are all awaited by Rule 2.
-func ScopeExit(fr *Frame) {
+// block's tasks are all awaited by Rule 2. The wait is at site, the block,
+// and does not end with the frame's context, which the cancel just ended.
+func ScopeExit(fr *Frame, site Site) {
 	s := fr.scope
 	if s == nil {
 		// Not reachable from the VM: it calls this only behind an EnterScope
@@ -181,7 +183,9 @@ func ScopeExit(fr *Frame) {
 		Trap("concurrent: ScopeExit outside a block")
 	}
 	s.cancel()
-	s.wg.Wait()
+	if waitLatches(fr, wait{kind: waitBlock, site: site}, &s.live) == wonDeadlock {
+		Trap(fr.task.deadlock)
+	}
 }
 
 // --- the cancellation sentinel ----------------------------------------------
@@ -317,17 +321,25 @@ func CancelIfDone(fr *Frame) {
 
 // task is one in-flight or completed task's state.
 //
-// `value`, `tag` and `fail` are written by the task goroutine before it closes
-// `done`, and read by an awaiter only after receiving on `done`. The close is
-// the happens-before edge, so no mutex is needed and the race detector agrees —
-// which is asserted rather than assumed, see the `-race` fixtures in
-// concurrent_test.go.
+// `value`, `tag` and `fail` are written by the task goroutine before it opens
+// `end`, and read by an awaiter only after finding it open. The latch's lock
+// is the happens-before edge, so no mutex of the task's is needed and the
+// race detector agrees — which is asserted rather than assumed, see the
+// `-race` fixtures in concurrent_test.go.
 type task[T any] struct {
-	done   chan struct{}
+	// end holds a count of 1 until the task settles.
+	end    latch
 	cancel context.CancelFunc
 	value  T
 	fail   Failure
 	tag    uint8
+}
+
+// newTaskState is a task not yet settled.
+func newTaskState[T any](cancel context.CancelFunc) *task[T] {
+	t := &task[T]{cancel: cancel}
+	t.end.count = 1
+	return t
 }
 
 // Task is Nomi's `std/tasks.Task<T>`: a handle on work running in the enclosing
@@ -342,13 +354,13 @@ type Task[T any] struct {
 	t *task[T]
 }
 
-// TaskSpawn is `Task.spawn(body)`: run body as a parallel task in the frame's
-// enclosing `concurrent { }` block.
+// TaskSpawn is `Task.spawn(body)` at site: run body as a parallel task in the
+// frame's enclosing `concurrent { }` block.
 //
-// The goroutine, its four deferred actions and the body's frame are
+// The goroutine, its deferred actions and the body's frame are
 // `spawnScopeTask`'s, shared with `Task.spawn_all`. `spawn` is that with no
 // batch semaphore, which is the whole of the difference.
-func TaskSpawn[T any](fr *Frame, body func(*Frame) T) Task[T] {
+func TaskSpawn[T any](fr *Frame, site Site, body func(*Frame) T) Task[T] {
 	s := fr.scope
 	if s == nil {
 		// Not reachable from checked source: the analyzer rejects a
@@ -357,7 +369,7 @@ func TaskSpawn[T any](fr *Frame, body func(*Frame) T) Task[T] {
 		// analyzer rule ever relaxes, the failure names itself.
 		Trap("Task.spawn: no enclosing concurrent block")
 	}
-	return spawnScopeTask(fr, s, nil, body)
+	return spawnScopeTask(fr, site, s, nil, body)
 }
 
 // spawnScopeTask enrols one task in a scope and returns its handle.
@@ -369,21 +381,26 @@ func TaskSpawn[T any](fr *Frame, body func(*Frame) T) Task[T] {
 // outcome is classified, and two copies of that classification are two things
 // that can disagree about whether a Go panic is `Panicked` or `Errored`.
 //
-// # The goroutine's four deferred actions, in the order they run
+// # The goroutine's deferred actions, in the order they run
 //
 // Go runs deferred functions LIFO, so they are registered in reverse. The order
 // matters and each step depends on the one before it:
 //
 //  1. Recover, and classify. This must be innermost: it is what stops a task's
 //     panic from killing the process, and it is where the outcome is decided.
-//  2. `close(done)`, which publishes the outcome. After the recover, so an
-//     awaiter never observes a `done` channel whose task has not settled.
+//  2. Open `end`, which publishes the outcome and wakes the awaiters. After
+//     the recover, so an awaiter never finds a task open that has not
+//     settled.
 //  3. `cancel()`, releasing the derived context. After the publish, because a
 //     context leak is cheap and an unpublished outcome is a hang.
-//  4. `wg.Done()`, which is what `ScopeExit` waits for. Outermost, so the block
-//     cannot proceed until every step above has run.
+//  4. Count the task out of the block's `live` latch, which is what
+//     `ScopeExit` waits for, so the block cannot proceed until every step
+//     above has run.
+//  5. Take the task's record out of the registry. Outermost, so every wake
+//     above is recorded while the task still counts as running (package
+//     doc, "Deadlock").
 //
-// Between the last two, taskEnded takes the task off the live count
+// Between the third and fourth, taskEnded takes the task off the live count
 // (runtimecounts.go), so a block that has exited counts none of its tasks.
 //
 // # The body's frame
@@ -391,7 +408,9 @@ func TaskSpawn[T any](fr *Frame, body func(*Frame) T) Task[T] {
 // A fresh Frame over the task's context, not the scope's, so `Task.cancel` on
 // this task alone reaches this body and no sibling's. `inTask` is set here and
 // nowhere else: it is the fact that makes a cancellation raisable, and this
-// wrapper is the thing that recovers it.
+// wrapper is the thing that recovers it. It carries the task's record, made
+// here by the spawner, which runs, so the registry never counts the new task
+// out before it starts.
 //
 // # The semaphore, when there is one
 //
@@ -403,19 +422,32 @@ func TaskSpawn[T any](fr *Frame, body func(*Frame) T) Task[T] {
 //
 // A task still queued when the block unwinds never runs and settles
 // `Cancelled` — starting work the block is about to cancel helps nobody. The
-// select is on the task's `ctx`, which is the `fr.ctx` of the frame this body
+// wait is on the task's `ctx`, which is the `fr.ctx` of the frame this body
 // will run on, so this wait obeys the one deadline chokepoint like every other
 // blocking operation in this package rather than reading a second clock.
-func spawnScopeTask[T any](fr *Frame, s *Scope, sem chan struct{}, body func(*Frame) T) Task[T] {
+func spawnScopeTask[T any](fr *Frame, site Site, s *Scope, sem *semaphore, body func(*Frame) T) Task[T] {
 	ctx, cancel := context.WithCancel(s.ctx)
-	t := &task[T]{done: make(chan struct{}), cancel: cancel}
-	s.wg.Add(1)
+	t := newTaskState[T](cancel)
+	rec := newTask(fr, site, nil)
+	// `app` is carried from the spawn site's frame: a snapshot taken at
+	// spawn. A block task keeps the spawner's deadline, unlike a supervised
+	// one, because the block joins it — see supervisorEnrol.
+	//
+	// `scope` is the block's: the body runs in the block's dynamic extent,
+	// so a spawn inside it, directly or through a helper, enrols in the same
+	// block (spec §16 *Static guarantees*, rule 1). Such a task is the
+	// block's like any other: its context is the block's, so cancelling the
+	// task that spawned it does not reach it, and the block cancels and
+	// waits for it on exit.
+	taskFr := &Frame{ctx: ctx, forcing: fr.forcing, app: fr.app, booted: fr.booted, scope: s, inTask: true, stop: stopFlag(ctx), task: rec, capture: fr.capture, files: fr.files, processes: fr.processes, network: fr.network}
+	s.live.add(1)
 	taskBegan()
 	go func() {
-		defer s.wg.Done()
+		defer tasks.remove(rec)
+		defer s.live.add(-1)
 		defer taskEnded()
 		defer cancel()
-		defer close(t.done)
+		defer t.end.add(-1)
 		defer func() {
 			switch r := recover().(type) {
 			case nil:
@@ -441,34 +473,21 @@ func spawnScopeTask[T any](fr *Frame, s *Scope, sem chan struct{}, body func(*Fr
 			}
 		}()
 		if sem != nil {
-			select {
-			case sem <- struct{}{}:
-				// Released ahead of the classification defer, which is
-				// correct in both directions: on the normal path the slot
-				// frees as soon as the body ends, and while a panic unwinds
-				// the release runs first and the recover above still catches
-				// it — a later-running defer recovers a panic just as an
-				// earlier one would.
-				defer func() { <-sem }()
-			case <-ctx.Done():
+			if !sem.acquire(taskFr, wait{kind: waitSlot, site: site, ctx: ctx}) {
 				// `case nil:` above leaves this tag alone, so returning here
 				// settles the task Cancelled without the body ever running.
 				t.tag = TagCancelled
 				return
 			}
+			// Released ahead of the classification defer, which is correct
+			// in both directions: on the normal path the slot frees as soon
+			// as the body ends, and while a panic unwinds the release runs
+			// first and the recover above still catches it — a later-running
+			// defer recovers a panic just as an earlier one would.
+			defer sem.release()
 		}
-		// `app` is carried from the spawn site's frame: a snapshot taken at
-		// spawn. A block task keeps the spawner's deadline,
-		// unlike a supervised one, because the block joins it — see
-		// supervisorEnrol.
-		//
-		// `scope` is the block's: the body runs in the block's dynamic
-		// extent, so a spawn inside it, directly or through a helper,
-		// enrols in the same block (spec §16 *Static guarantees*, rule 1).
-		// Such a task is the block's like any other: its context is the
-		// block's, so cancelling the task that spawned it does not reach it,
-		// and the block cancels and waits for it on exit.
-		t.value = body(&Frame{ctx: ctx, forcing: fr.forcing, app: fr.app, booted: fr.booted, scope: s, inTask: true, stop: stopFlag(ctx), park: fr.park, capture: fr.capture, files: fr.files, processes: fr.processes, network: fr.network})
+		tasks.inBody(rec, true)
+		t.value = body(taskFr)
 		t.tag = TagCompleted
 	}()
 	return Task[T]{t: t}
@@ -490,16 +509,12 @@ func spawnScopeTask[T any](fr *Frame, s *Scope, sem chan struct{}, body func(*Fr
 // to absorb that sibling's failure with `Task.outcome` — reacting here would
 // take that decision away from them.
 //
-// The caller's own context is watched beside the task's `done`, which is how an
+// The caller's own context is watched beside the task's end, which is how an
 // ancestor's cancellation reaches an awaiter parked on a task that will never
-// finish.
-func TaskAwait[T any](fr *Frame, h Task[T]) T {
+// finish. The wait is at site.
+func TaskAwait[T any](fr *Frame, site Site, h Task[T]) T {
 	t := h.t
-	select {
-	case <-t.done:
-	case <-fr.ctx.Done():
-		raiseCanceled(fr)
-	}
+	awaitTask(fr, site, t)
 	switch t.tag {
 	case TagCompleted:
 		return t.value
@@ -526,13 +541,9 @@ func TaskAwait[T any](fr *Frame, h Task[T]) T {
 //
 // The wait is identical to `await`'s. The distinction is what happens after it,
 // not whether there is one.
-func TaskOutcomeOf[T any](fr *Frame, h Task[T]) Outcome[T] {
+func TaskOutcomeOf[T any](fr *Frame, site Site, h Task[T]) Outcome[T] {
 	t := h.t
-	select {
-	case <-t.done:
-	case <-fr.ctx.Done():
-		raiseCanceled(fr)
-	}
+	awaitTask(fr, site, t)
 	switch t.tag {
 	case TagCompleted:
 		return Completed(t.value)
@@ -540,6 +551,17 @@ func TaskOutcomeOf[T any](fr *Frame, h Task[T]) Outcome[T] {
 		return Cancelled[T]()
 	default:
 		return Failed[T](t.fail)
+	}
+}
+
+// awaitTask waits at site until t settles, unwinding when fr's context ends
+// first, the one wait `await` and `outcome` share.
+func awaitTask[T any](fr *Frame, site Site, t *task[T]) {
+	switch waitLatches(fr, wait{kind: waitTask, site: site, ctx: fr.ctx}, &t.end) {
+	case wonCancelled:
+		raiseCanceled(fr)
+	case wonDeadlock:
+		Trap(fr.task.deadlock)
 	}
 }
 
@@ -590,7 +612,7 @@ func TaskCancel[T any](h Task[T]) Unit {
 // std declares max_running a PositiveInt, so a bound of 0, which would spawn
 // tasks that never run, does not compile, and a computed one goes through
 // `PositiveInt.try_from`.
-func TaskSpawnAll[T, U any](fr *Frame, src Seq[T], f func(*Frame, T) U, maxRunning int64) *List[Task[U]] {
+func TaskSpawnAll[T, U any](fr *Frame, site Site, src Seq[T], f func(*Frame, T) U, maxRunning int64) *List[Task[U]] {
 	s := fr.scope
 	if s == nil {
 		// Rule 1 rejects this statically — the analyzer requires a `concurrent`
@@ -604,14 +626,14 @@ func TaskSpawnAll[T, U any](fr *Frame, src Seq[T], f func(*Frame, T) U, maxRunni
 		items = append(items, item)
 		return true
 	})
-	sem := make(chan struct{}, int(maxRunning))
+	sem := newSemaphore(maxRunning)
 	out := make([]Task[U], 0, len(items))
 	for _, item := range items {
 		// `item` is captured by value into this closure, which is what makes
 		// each body see its own element. Go 1.22+ scopes a range variable per
 		// iteration, but the parameter here is explicit rather than relying on
 		// that: this closure outlives the loop by construction.
-		out = append(out, spawnScopeTask(fr, s, sem, func(taskFr *Frame) U {
+		out = append(out, spawnScopeTask(fr, site, s, sem, func(taskFr *Frame) U {
 			return f(taskFr, item)
 		}))
 	}
@@ -634,8 +656,8 @@ func TaskSpawnAll[T, U any](fr *Frame, src Seq[T], f func(*Frame, T) U, maxRunni
 // A `List` in, a `List` out, in spawn order. Nomi's List is a persistent cons
 // cell built head-first, so the results are collected into a slice and folded
 // back in reverse; `listFromSlice` is the one place that reversal lives.
-func TaskAwaitAll[T any](fr *Frame, tasks *List[Task[T]]) *List[T] {
-	handles := listToSlice(tasks)
+func TaskAwaitAll[T any](fr *Frame, site Site, batch *List[Task[T]]) *List[T] {
+	handles := listToSlice(batch)
 	out := make([]T, 0, len(handles))
 	for _, h := range handles {
 		t := h.t
@@ -660,20 +682,23 @@ func TaskAwaitAll[T any](fr *Frame, tasks *List[Task[T]]) *List[T] {
 		// about supervisors rather than a degradation: a supervisor's failure
 		// policy is its own (report, restart, or give up), so a sibling's death
 		// never reaches the awaiter.
+		//
+		// The task's end is listed first, so a task that has settled is read
+		// even when a failure is recorded too.
+		w := wait{kind: waitTask, site: site, ctx: fr.ctx}
+		var won int
 		if s := fr.scope; s != nil {
-			select {
-			case <-t.done:
-			case <-s.failed:
-				TrapAwaited(s.firstFailure.Msg)
-			case <-fr.ctx.Done():
-				raiseCanceled(fr)
-			}
+			won = waitLatches(fr, w, &t.end, &s.failed)
 		} else {
-			select {
-			case <-t.done:
-			case <-fr.ctx.Done():
-				raiseCanceled(fr)
-			}
+			won = waitLatches(fr, w, &t.end)
+		}
+		switch won {
+		case 1:
+			TrapAwaited(fr.scope.firstFailure.Msg)
+		case wonCancelled:
+			raiseCanceled(fr)
+		case wonDeadlock:
+			Trap(fr.task.deadlock)
 		}
 		switch t.tag {
 		case TagCompleted:

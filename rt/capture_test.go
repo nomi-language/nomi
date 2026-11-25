@@ -66,12 +66,12 @@ func TestCapture_TaskFramesInheritIt(t *testing.T) {
 	root := NewFrame(context.Background())
 	inner, c := EnterCapture(root, "")
 	scope := EnterScope(inner)
-	h := TaskSpawn(scope, func(fr *Frame) Unit {
+	h := TaskSpawn(scope, Site{}, func(fr *Frame) Unit {
 		CaptureWrite(fr, "task")
 		return Unit{}
 	})
-	TaskAwait(scope, h)
-	ScopeExit(scope)
+	TaskAwait(scope, Site{}, h)
+	ScopeExit(scope, Site{})
 	if got := c.Close().Output; got != "task" {
 		t.Fatalf("captured %q, want \"task\"", got)
 	}

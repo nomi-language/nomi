@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/nomi-language/nomi/internal/doctest"
-	"github.com/nomi-language/nomi/internal/tourmodules"
+	"github.com/nomi-language/nomi/internal/tourpackages"
 	"github.com/nomi-language/nomi/internal/virtualproject"
 	"github.com/nomi-language/nomi/vmhost"
 	"io/fs"
@@ -35,7 +35,7 @@ import (
 //
 // A test case the VM cannot run fails the block. A block that imports a
 // tour module (`import sqlite`) runs with the module's files attached, as
-// the page runs it (tourmodules.Source).
+// the page runs it (tourpackages.Source).
 func TestTourDoctests(t *testing.T) {
 	root := filepath.Clean("../tour/src/content/docs")
 	var chapters []string
@@ -241,8 +241,8 @@ func tourBlockShown(t *testing.T, b doctest.Block, code, printed string) (shown,
 	// serves the program and its tests. Standard error interleaves with
 	// the output, as the tour's runner shows it (cmd/nomi-wasm's nomiRun).
 	// The modules the tour links that it imports, attached as the
-	// playground attaches them (tourmodules.Source).
-	src := tourmodules.Source(code)
+	// playground attaches them (tourpackages.Source).
+	src := tourpackages.Source(code)
 	p, hasTests, err := vmhost.LoadMarked(src, t.TempDir(), vmhost.WithErrorOutput(out), vmhost.WithFileSystem(files))
 	if err != nil {
 		t.Fatalf("LoadMarked failed for tour block:\n%s\n\nerror: %v", b.Code, err)
@@ -283,12 +283,12 @@ func tourBlockShown(t *testing.T, b doctest.Block, code, printed string) (shown,
 	return doctest.Shown(out.String()+report, failure), failure
 }
 
-// checkTourToolBlock holds a ```nomi-run tool:<module>/<name> block to its
-// expect block. A tool of a module the block holds (the block's own, or one
+// checkTourToolBlock holds a ```nomi-run tool:<package>/<name> block to its
+// expect block. A tool of a package the block holds (the block's own, or one
 // under a directory of its own, which its nomi.toml names) is checked by
 // checkOwnToolBlock, which compares the block's run itself; ok is false
-// then. Otherwise its tools are tour modules' (the block imports each one):
-// each tool runs on the source the one before left, with the modules
+// then. Otherwise its tools are tour packages' (the block imports each one):
+// each tool runs on the source the one before left, with the packages
 // attached, as the page runs them (cmd/nomi-wasm's nomiTool), then the
 // block on the files they wrote, and shown is what the page shows, what the
 // tools printed first. The files the tools write must
@@ -299,13 +299,13 @@ func checkTourToolBlock(t *testing.T, b doctest.Block, tools []doctest.Tool) (sh
 		t.Fatalf("a tool runs before the block's run, so a block with a tool: word is run; drop `no-run` or `compile-only`:\n%s", b.Code)
 	}
 	tourModule := func(name string) bool {
-		return slices.ContainsFunc(tourmodules.Modules, func(m tourmodules.Module) bool { return m.Name == name })
+		return slices.ContainsFunc(tourpackages.Packages, func(m tourpackages.Package) bool { return m.Name == name })
 	}
 	if !slices.ContainsFunc(tools, func(tool doctest.Tool) bool { return tourModule(tool.Module) }) {
 		checkOwnToolBlock(t, b, tools)
 		return "", false
 	}
-	imported := tourmodules.Imported(b.Code)
+	imported := tourpackages.Imported(b.Code)
 	for _, tool := range tools {
 		if !slices.Contains(imported, tool.Module) {
 			t.Fatalf("the block runs a tool of %s, which is not a tour module it imports (it imports %v):\n%s", tool.Module, imported, b.Code)
@@ -320,7 +320,7 @@ func checkTourToolBlock(t *testing.T, b doctest.Block, tools []doctest.Tool) (sh
 	code := b.Code
 	var printed bytes.Buffer
 	for _, tool := range tools {
-		attached := tourmodules.Source(code)
+		attached := tourpackages.Source(code)
 		written, err := vmhost.ToolMarked(attached, t.TempDir(), tool.Module, tool.Name, &printed, vmhost.WithErrorOutput(&printed))
 		if err != nil {
 			t.Fatalf("tool %s/%s fails on the block:\n%s\n\noutput:\n%s\nerror: %s", tool.Module, tool.Name, b.Code, printed.String(), vmhost.FormatFailure(err))
@@ -334,7 +334,7 @@ func checkTourToolBlock(t *testing.T, b doctest.Block, tools []doctest.Tool) (sh
 	return shown, true
 }
 
-// checkOwnToolBlock holds a block whose tools are its own modules' to its
+// checkOwnToolBlock holds a block whose tools are its own packages' to its
 // expect block, run as the page runs it: each tool on the source the one
 // before left (vmhost.ToolMarked), what it prints first, then the block,
 // whose tests must pass. A tool that fails stops there, and the block must
@@ -413,7 +413,7 @@ func tourRunFailure(t *testing.T, b doctest.Block) string {
 	var embedded []string
 	defer func() { checkTourReads(t, b, files, data, embedded) }()
 	var out bytes.Buffer
-	src := tourmodules.Source(code)
+	src := tourpackages.Source(code)
 	p, _, err := vmhost.LoadMarked(src, t.TempDir(), vmhost.WithErrorOutput(&out), vmhost.WithFileSystem(files))
 	if err != nil {
 		t.Fatalf("LoadMarked failed for tour block:\n%s\n\nerror: %v", code, err)
@@ -548,7 +548,7 @@ func readOnlyGlobErrors(b doctest.Block) string {
 // nomiRun) shows for a block that does not compile, or "" when it compiles.
 func tourCompileError(t *testing.T, code string) string {
 	t.Helper()
-	src := tourmodules.Source(code)
+	src := tourpackages.Source(code)
 	if _, _, err := vmhost.LoadMarked(src, t.TempDir()); err != nil {
 		return err.Error()
 	}

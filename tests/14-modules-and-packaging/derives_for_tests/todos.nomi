@@ -1,0 +1,34 @@
+//# Todos sent as JSON. The wire type derives, beside its declaration,
+//# what todos_test.nomi needs to decode and compare it.
+
+import
+    std::json.{FromJson, Json, ToJson}
+    std::uuid.Uuid
+end
+
+struct Tag
+    name: String
+end
+
+derive ToJson for Tag
+derive FromJson for Tag
+
+struct TodoJson
+    id:    Uuid
+    title: String
+    tags:  List<Tag>
+    note:  Option<String>
+end
+
+derive ToJson for TodoJson
+derive FromJson for TodoJson
+derive Equatable for TodoJson
+
+pub fn encoded(title: String) -> String
+    Json.encode_as(TodoJson{
+        id: Uuid.nil(),
+        title:,
+        tags: [Tag{name: "home"}],
+        note: None,
+    })
+end

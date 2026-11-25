@@ -6,17 +6,17 @@ import (
 )
 
 // TestCoTenant_APrivateIfaceFieldOfAPublicStructIsAFrontEndError asserts that
-// a co-tenant's private interface cannot reach another file through a field
+// a co-tenant's non-public interface cannot leave its module through a field
 // of a public struct.
 //
-// `pub struct App { name: String  logger: Logger }` with `Logger` non-`pub` is
-// a front-end error, "public struct field exposes private type Logger"
+// `pub struct App { name: String  logger: Logger }` with `Logger` internal is
+// a front-end error, "public struct field exposes internal type Logger"
 // (`checkPublicTypeExpr`), reported at the sibling's own position. The other
 // routes are closed too:
 //
-//   - Make `App` private as well and wire.nomi's `core.{self, App}` import is
-//     rejected ("'App' is private and cannot be imported"), as is any
-//     file-qualified spelling of it ("file 'core' has no member 'App'").
+//   - Make `App` private and wire.nomi's `core.{self, App}` import is
+//     rejected ("`App` is private to `core.nomi`"), as is any
+//     file-qualified spelling of it.
 //   - Every other cross-file position for the interface is checked by
 //     `checkPublicTypeExpr`: a `pub fn` parameter or return, a `pub` alias, a
 //     `pub once`, an enum payload, a generic argument inside any of them.
@@ -52,7 +52,7 @@ func TestCoTenant_APrivateIfaceFieldOfAPublicStructIsAFrontEndError(t *testing.T
 	if !strings.Contains(err.Error(), "core.nomi:") {
 		t.Errorf("rejected, but not at the sibling's own position: %v", err)
 	}
-	if !strings.Contains(err.Error(), "exposes private type Logger") {
+	if !strings.Contains(err.Error(), "exposes internal type Logger") {
 		t.Errorf("rejected for some other reason, so this does not pin the visibility "+
 			"rule: %v", err)
 	}

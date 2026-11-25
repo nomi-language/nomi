@@ -18,84 +18,95 @@ import (
 //
 // The split is entirely static: the direction is enforced by which of
 // `Sender`/`Receiver` a function will accept, and there is nothing at runtime
-// to keep apart. So one `*Chan[T]` holds everything, and
-// `Sender[T]`/`Receiver[T]` are two one-field defined types over it whose only
+// to keep apart. So one `*channel` holds everything, and
+// `Sender[T]`/`Receiver[T]` are two one-field types over it whose only
 // job is to be mutually unassignable.
 //
 // Two Go types rather than one alias, because Nomi keeps them apart and a Go
-// alias would let a wrong-direction call compile. `SenderClose(r.c)` must be
-// a Go type error and it is.
+// alias would let a wrong-direction call compile. `SenderClose(r)` must be a
+// Go type error and it is.
 //
-// # Why the pair is not `chan T` twice
+// # A wait object, not a Go channel
 //
-// A Nomi `send` on a closed channel returns `Err(ChannelClosed)`; a bare Go send
-// on a closed channel panics. So the closed flag has to be consulted under a
-// mutex that `close` also takes, and the flag plus the mutex plus the channel
-// are one object with one lifetime — which is what `Chan[T]` is. The sequencing
-// below decides which of send-vs-close wins a race.
+// The channel is rt's own: a buffer, a closed flag and two waiter lists
+// (wait.go) under one lock. A Go channel would hand a value to some parked
+// goroutine without saying which, and the task registry has to know which
+// task a send woke at the moment it woke it (package doc, "Deadlock"). So a
+// send that finds a receiver waiting takes it off the list, hands it the
+// value and marks its task running, under the lock; a receive does the same
+// for a waiting sender; a close wakes every waiter with nothing.
+//
+// The element is held as `any`: one select waits on channels of several
+// element types, and the VM's channels are `Channel<any>` already.
 //
 // # Blocking is reachable, and it is cancellable
 //
-// `Sender.send` on a full buffer blocks, and `Receiver.receive` on an empty open
-// channel blocks. Both are how programs use a channel: an unbuffered send is
-// a rendezvous that only completes because the other half is in a sibling task.
+// `Sender.send` on a full buffer blocks, and `Receiver.receive` on an empty
+// open channel blocks. Both are how programs use a channel: an unbuffered
+// send is a rendezvous that only completes because the other half is in a
+// sibling task.
 //
-// So both take a `*rt.Frame` and select on its context, which is built from
-// the enclosing `concurrent` block; when it fires, the operation raises the
-// unwind concurrent.go defines.
+// So both take a `*rt.Frame` and wait on its context too, which is built
+// from the enclosing `concurrent` block; when it ends, the operation raises
+// the unwind concurrent.go defines. An operation that can complete without
+// waiting completes, whatever the context: cancellation is observed where a
+// task waits, and does not poison work already possible.
 //
-// A program with no `concurrent` block has a root context that is never
-// cancelled, so the ctx arm never fires and a blocked send in a
-// single-goroutine program hangs. Nothing reports it: Go's own check ("all
-// goroutines are asleep") does not fire in a program that holds a timer, a
-// signal handler or a network poller, which every Nomi program does, and rt
-// keeps no account of which tasks could still run
-// (docs/feature-status.md, "Known quirks and open defects").
+// A wait no task can ever end is a deadlock, which the registry reports to
+// the main line once every task waits.
 //
 // This surface raises no fault: `Channel.select` takes a NonEmptyList of
 // arms, and a second `Sender.close` does nothing.
 
-// Chan is one channel: the Go channel, its capacity, and the closed flag that
-// keeps a Nomi `send` from panicking.
-//
-// Not exported as a Nomi type. `Sender[T]` and `Receiver[T]` are what a Nomi
-// signature names; this is the object both of them point at.
-type Chan[T any] struct {
-	ch  chan T
-	cap int
-	// closed is read on the send fast path without the mutex held only after
-	// the mutex has been taken — see ChanSend. It is atomic because `close`
-	// sets it under CloseMu while a parked sender may be observing it.
-	closed  atomic.Bool
-	closeMu sync.Mutex
-	// done closes when the channel closes, before ch does, so a parked
-	// sender wakes and answers Err(ChannelClosed) instead of reaching Go's
-	// panicking send on a closed channel.
-	done chan struct{}
-	// parked counts senders blocked on ch (SenderSend's step 3 and Select's
-	// send cases), under closeMu. While any is parked, a close closes done
-	// and leaves ch open; the last parked sender to leave closes ch.
-	parked int
-	// unhookDrain unregisters SenderCloseOnDrain's hook; the owner's close
-	// calls it, so a closed channel is not closed again at shutdown.
+// channel is one channel: its buffer, its closed flag and its waiters.
+type channel struct {
+	// id orders channels for a select that locks several (Select).
+	id uint64
+	mu sync.Mutex
+	// buf is a ring of the channel's capacity, holding n values from head;
+	// nil for an unbuffered channel.
+	buf     []any
+	head, n int
+	closed  bool
+	recvq   waitq
+	sendq   waitq
+	// fed counts what outside the tasks may send on the channel or close
+	// it: a signal's feed, a close_on_drain hook. Guarded by the task
+	// registry's lock (taskRegistry.feed), since it is read when the
+	// registry decides whether a wait could end.
+	fed int
+	// drainHook says a close_on_drain hook is registered and counted in
+	// fed; unhookDrain unregisters it, and the owner's close calls it, so
+	// a closed channel is not closed again at shutdown.
+	drainHook   bool
 	unhookDrain func()
+}
+
+var channelIDs atomic.Uint64
+
+func newChannel(capacity int64) *channel {
+	c := &channel{id: channelIDs.Add(1)}
+	if capacity > 0 {
+		c.buf = make([]any, capacity)
+	}
+	return c
 }
 
 // Sender is Nomi's `std/channels.Sender<T>`: the writing half, and the half that
 // may close.
 //
-// A one-field struct rather than a defined type over `*Chan[T]`, so the field
-// stays unexported and no other package can reach the channel directly. One
-// is built only through ChannelBuffered / ChannelUnbuffered.
+// A one-field struct, so the field stays unexported and no other package
+// can reach the channel directly. One is built only through
+// ChannelBuffered / ChannelUnbuffered.
 type Sender[T any] struct {
-	c *Chan[T]
+	c *channel
 }
 
 // Receiver is Nomi's `std/channels.Receiver<T>`: the reading half. Receiving is
 // all it does — it cannot write and it cannot close, which is the type system
 // carrying std's rule rather than a comment asking for it.
 type Receiver[T any] struct {
-	c *Chan[T]
+	c *channel
 }
 
 // ChannelTypeName is the run-time type name of a `Channel<T>` record, the
@@ -132,151 +143,166 @@ type ChannelClosed struct{}
 // `PositiveInt.try_from`, so it cannot slide silently from hand-off to
 // rendezvous.
 func ChannelBuffered[T any](capacity int64) Channel[T] {
-	return channelOf(&Chan[T]{ch: make(chan T, capacity), cap: int(capacity), done: make(chan struct{})})
+	return channelOf[T](newChannel(capacity))
 }
 
 // ChannelUnbuffered is `Channel.unbuffered()`: every send is a rendezvous.
 func ChannelUnbuffered[T any]() Channel[T] {
-	return channelOf(&Chan[T]{ch: make(chan T), done: make(chan struct{})})
+	return channelOf[T](newChannel(0))
 }
 
-// channelOf wraps one channel as the pair its halves are read out of. Both
-// halves hold the same *Chan.
-func channelOf[T any](c *Chan[T]) Channel[T] {
+// channelOf wraps one channel as the pair its halves are read out of.
+func channelOf[T any](c *channel) Channel[T] {
 	return Channel[T]{Sender: Sender[T]{c: c}, Receiver: Receiver[T]{c: c}}
 }
 
-// shut closes c, with closeMu held and closed just set: done at once, and
-// ch at once when no sender is parked on it, else when the last one leaves
-// (unpark).
-func (c *Chan[T]) shut() {
-	close(c.done)
-	if c.parked == 0 {
-		close(c.ch)
+// valueOf is a received value as T: `any` holds every element, and a nil
+// interface is T's zero.
+func valueOf[T any](v any) T {
+	if v == nil {
+		var zero T
+		return zero
 	}
+	return v.(T)
 }
 
-// park registers a sender about to block on ch. It returns false when the
-// channel is closed, which the caller answers as Err(ChannelClosed). Called
-// with closeMu held.
-func (c *Chan[T]) park() bool {
-	if c.closed.Load() {
-		return false
+// --- the operations under the lock -------------------------------------------
+
+// trySendLocked finishes a send of v that need not wait: to a waiting
+// receiver, which it answers for the caller to release once the lock is
+// let go, or into the buffer. ready is false when the send must wait.
+// Called with c.mu held and c open.
+func (c *channel) trySendLocked(v any) (woke *waitEntry, ready bool) {
+	if e := c.recvq.claim(); e != nil {
+		e.v, e.ok = v, true
+		return e, true
 	}
-	c.parked++
-	return true
+	if c.n < len(c.buf) {
+		c.buf[(c.head+c.n)%len(c.buf)] = v
+		c.n++
+		return nil, true
+	}
+	return nil, false
 }
 
-// unpark undoes park once the blocked send has finished, closing ch for a
-// close that came while this sender was parked.
-func (c *Chan[T]) unpark() {
-	c.closeMu.Lock()
-	defer c.closeMu.Unlock()
-	c.parked--
-	if c.parked == 0 && c.closed.Load() {
-		close(c.ch)
+// tryReceiveLocked finishes a receive that need not wait: from the buffer,
+// refilled from a waiting sender, or straight from a waiting sender, or as
+// closed (ok false). woke is a sender to release once the lock is let go.
+func (c *channel) tryReceiveLocked() (v any, ok bool, woke *waitEntry, ready bool) {
+	if c.n > 0 {
+		v = c.buf[c.head]
+		c.buf[c.head] = nil
+		c.head = (c.head + 1) % len(c.buf)
+		c.n--
+		if e := c.sendq.claim(); e != nil {
+			c.buf[(c.head+c.n)%len(c.buf)] = e.v
+			c.n++
+			e.ok = true
+			woke = e
+		}
+		return v, true, woke, true
 	}
+	if e := c.sendq.claim(); e != nil {
+		e.ok = true
+		return e.v, true, e, true
+	}
+	if c.closed {
+		return nil, false, nil, true
+	}
+	return nil, false, nil, false
 }
 
 // --- the three operations ---------------------------------------------------
 
-// SenderSend is `Sender.send(sender, value)`.
+// SenderSend is `Sender.send(sender, value)`, waiting at site when it must.
 //
-// The order of its three steps is the part that matters rather than the code:
-//
-//  1. Take CloseMu and test `closed`. A send after close is
-//     `Err(ChannelClosed)` and never a panic, and the mutex is what makes the
-//     test atomic with respect to a concurrent close.
-//  2. Try a non-blocking send while still holding the mutex. This is the whole
-//     buffered case under capacity, and it completes before any close can run.
-//  3. Otherwise register as parked (Chan.park), release the mutex and park on
-//     a blocking send, the channel's done or the frame's cancellation, so a
-//     concurrent close is not deadlocked behind a sender waiting for a
-//     receiver and an abandoned sender does not outlive its block.
-//
-// A close while a sender is parked closes done and leaves ch open until the
-// last parked sender leaves, so the parked send answers Err(ChannelClosed)
-// and never reaches Go's panicking send on a closed channel. When a receiver
-// takes the value at the moment of the close, Go may pick either ready arm:
-// the send and the close raced, and either answer is one of them winning.
-//
-// The cancel arm is only in step 3, not in steps 1 and 2. A send that can
-// complete without blocking completes: Nomi's rule is that cancellation is
-// observed where a task waits,
-// not that it poisons work already possible. Putting a ctx test in front of
-// step 1 would make a cancelled task's buffered send fail nondeterministically
-// depending on whether Go's select happened to pick the Done arm.
-func SenderSend[T any](fr *Frame, s Sender[T], v T) Result[Unit, ChannelClosed] {
+// A send after close is `Err(ChannelClosed)` and never a panic. A send that
+// finds a receiver waiting hands it the value; one with room in the buffer
+// buffers it; otherwise it waits until a receiver takes it, the channel
+// closes (Err) or the frame's context ends (the unwind). When a close lands
+// while it waits, the send answers Err.
+func SenderSend[T any](fr *Frame, site Site, s Sender[T], v T) Result[Unit, ChannelClosed] {
 	c := s.c
-	c.closeMu.Lock()
-	if c.closed.Load() {
-		c.closeMu.Unlock()
+	c.mu.Lock()
+	if c.closed {
+		c.mu.Unlock()
 		return Err[Unit, ChannelClosed](ChannelClosed{})
 	}
-	select {
-	case c.ch <- v:
-		c.closeMu.Unlock()
+	if woke, ready := c.trySendLocked(v); ready {
+		c.mu.Unlock()
+		if woke != nil {
+			woke.p.release()
+		}
 		return Ok[Unit, ChannelClosed](Unit{})
-	default:
 	}
-	c.park()
-	c.closeMu.Unlock()
-	defer c.unpark()
-	// Parked for the duration of the blocking send: a task waiting on a full
-	// channel has no scheduled wake, so a draining permanent supervisor must be
-	// able to see that there is nothing left to wait for. No-op outside a
-	// supervised task. See rt/supervisor.go's drainOnce.
-	SupervisedPark(fr)
-	defer SupervisedUnpark(fr)
-	select {
-	case c.ch <- v:
-		return Ok[Unit, ChannelClosed](Unit{})
-	case <-c.done:
+	p := parkerOf(fr)
+	defer p.close()
+	e := &p.ents[0]
+	e.reset(p, 0)
+	e.v = v
+	c.sendq.push(e)
+	w := wait{kind: waitSend, site: site, ctx: fr.Context(), ch: c}
+	p.block(w)
+	c.mu.Unlock()
+	won := p.sleep(w)
+	if won == 0 {
+		if e.ok {
+			return Ok[Unit, ChannelClosed](Unit{})
+		}
 		return Err[Unit, ChannelClosed](ChannelClosed{})
-	case <-fr.Context().Done():
-		raiseCanceled(fr)
 	}
-	// Unreachable: both arms above return or panic. See TaskAwait for why this
-	// is a panic rather than a zero value.
+	c.mu.Lock()
+	c.sendq.remove(e)
+	c.mu.Unlock()
+	if won == wonDeadlock {
+		p.deadlocked()
+	}
+	raiseCanceled(fr)
 	panic("unreachable")
 }
 
-// ReceiverReceive is `Receiver.receive(receiver)`.
+// ReceiverReceive is `Receiver.receive(receiver)`, waiting at site when it
+// must.
 //
-// `None` is the closed-and-drained answer, which is Go's own two-value receive
-// read directly: a closed channel yields its buffered values first and reports
-// !ok only once empty, which is exactly what std documents ("after close, any
-// remaining buffered values are delivered to subsequent `receive` calls").
-//
-// The cancel arm is a peer of the receive arm rather than a test in front of it,
-// for SenderSend's reason: a receive that can complete completes. Go picks
-// randomly when both are ready, and that nondeterminism is accepted.
-func ReceiverReceive[T any](fr *Frame, r Receiver[T]) Option[T] {
-	// The fast path first, so a receive that can complete now never touches the
-	// tracker: a park/unpark pair around a wait that does not happen would make
-	// `settled()` flicker for a supervisor that is busy.
-	select {
-	case v, ok := <-r.c.ch:
+// `None` is the closed-and-drained answer: a closed channel yields its
+// buffered values first and answers None only once empty, which is what std
+// documents ("after close, any remaining buffered values are delivered to
+// subsequent `receive` calls").
+func ReceiverReceive[T any](fr *Frame, site Site, r Receiver[T]) Option[T] {
+	c := r.c
+	c.mu.Lock()
+	if v, ok, woke, ready := c.tryReceiveLocked(); ready {
+		c.mu.Unlock()
+		if woke != nil {
+			woke.p.release()
+		}
 		if !ok {
 			return None[T]()
 		}
-		return Some(v)
-	default:
+		return Some(valueOf[T](v))
 	}
-	// Parked: a task blocked on an empty open channel has no scheduled wake.
-	// This is the arm the message-loop worker sits in for its whole life, and
-	// the one the drain's settle check exists for.
-	SupervisedPark(fr)
-	defer SupervisedUnpark(fr)
-	select {
-	case v, ok := <-r.c.ch:
-		if !ok {
+	p := parkerOf(fr)
+	defer p.close()
+	e := &p.ents[0]
+	e.reset(p, 0)
+	c.recvq.push(e)
+	w := wait{kind: waitReceive, site: site, ctx: fr.Context(), ch: c}
+	p.block(w)
+	c.mu.Unlock()
+	won := p.sleep(w)
+	if won == 0 {
+		if !e.ok {
 			return None[T]()
 		}
-		return Some(v)
-	case <-fr.Context().Done():
-		raiseCanceled(fr)
+		return Some(valueOf[T](e.v))
 	}
+	c.mu.Lock()
+	c.recvq.remove(e)
+	c.mu.Unlock()
+	if won == wonDeadlock {
+		p.deadlocked()
+	}
+	raiseCanceled(fr)
 	panic("unreachable")
 }
 
@@ -284,20 +310,44 @@ func ReceiverReceive[T any](fr *Frame, r Receiver[T]) Option[T] {
 //
 // A second close does nothing: a send after the first already answers
 // Err(ChannelClosed), so nothing is lost, and a shutdown path that may close
-// twice need not track whether it has. The flag flips under CloseMu so a
-// sender in SenderSend's mutex-guarded fast path observes it consistently.
+// twice need not track whether it has.
 func SenderClose[T any](s Sender[T]) Unit {
-	c := s.c
-	c.closeMu.Lock()
-	defer c.closeMu.Unlock()
+	s.c.close()
+	return Unit{}
+}
+
+// close closes c: every waiting receiver answers None and every waiting
+// sender Err, and a close_on_drain hook no longer feeds it.
+func (c *channel) close() {
+	c.mu.Lock()
 	if c.unhookDrain != nil {
 		c.unhookDrain()
 		c.unhookDrain = nil
 	}
-	if c.closed.CompareAndSwap(false, true) {
-		c.shut()
+	c.shutLocked()
+	c.mu.Unlock()
+}
+
+// shutLocked closes c, with c.mu held, waking its waiters. A wake is
+// recorded before the hook's feed is let go, so the registry never finds a
+// woken waiter unaccounted for.
+func (c *channel) shutLocked() {
+	if c.closed {
+		return
 	}
-	return Unit{}
+	c.closed = true
+	for e := c.recvq.claim(); e != nil; e = c.recvq.claim() {
+		e.v, e.ok = nil, false
+		e.p.release()
+	}
+	for e := c.sendq.claim(); e != nil; e = c.sendq.claim() {
+		e.ok = false
+		e.p.release()
+	}
+	if c.drainHook {
+		c.drainHook = false
+		tasks.feed(c, -1)
+	}
 }
 
 // SenderCloseOnDrain is `Sender.close_on_drain(sender)`: the channel closes
@@ -305,28 +355,32 @@ func SenderClose[T any](s Sender[T]) Unit {
 // reads it until it closes finishes what is queued and ends, and the drain
 // does not wait out its grace period for a reader parked on an empty
 // channel. A close by the owner first unregisters it; one after it does
-// nothing, as any second close does.
+// nothing, as any second close does. While the hook is registered the
+// channel is fed: a shutdown signal may close it, so a wait on it is not a
+// deadlock.
 func SenderCloseOnDrain[T any](s Sender[T]) Unit {
 	c := s.c
-	c.closeMu.Lock()
-	if c.closed.Load() || c.unhookDrain != nil {
-		c.closeMu.Unlock()
+	c.mu.Lock()
+	if c.closed || c.drainHook {
+		c.mu.Unlock()
 		return Unit{}
 	}
+	// Counted before the lock is let go, so a reader that waits from now
+	// on is never one the registry thinks nothing can wake.
+	c.drainHook = true
+	c.unhookDrain = func() {}
+	tasks.feed(c, 1)
+	c.mu.Unlock()
 	// Registered outside the lock: when the drain has already started,
 	// OnDrain runs the hook at once, and the hook takes the lock.
-	c.unhookDrain = func() {}
-	c.closeMu.Unlock()
 	unhook := OnDrain(func() {
-		c.closeMu.Lock()
-		defer c.closeMu.Unlock()
-		if c.closed.CompareAndSwap(false, true) {
-			c.shut()
-		}
+		c.mu.Lock()
+		defer c.mu.Unlock()
+		c.shutLocked()
 	})
-	c.closeMu.Lock()
-	defer c.closeMu.Unlock()
-	if c.closed.Load() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.closed {
 		// The owner closed it, or the hook already ran: nothing is left
 		// for the hook to do.
 		unhook()

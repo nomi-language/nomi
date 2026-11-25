@@ -44,7 +44,7 @@ impl UserId
 end
 
 `,
-		"nomi.toml": `[module]
+		"nomi.toml": `[package]
 
 name = "ids_demo"
 

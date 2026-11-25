@@ -17,7 +17,7 @@ import (
 func TestEmbed_NoDirectoryIsRefused(t *testing.T) {
 	_, errs := checkSourceWithStdlib("embed site `static`\n")
 	got := errorsAt(errs, 1, 1)
-	want := "`embed site` has no directory to read files from: this file is not on disk or in a module"
+	want := "`embed site` has no directory to read files from: this file is not on disk or in a package"
 	if len(got) != 1 || !strings.HasPrefix(got[0], want) {
 		t.Fatalf("errors at 1:1 = %q, want [%q]; all: %v", got, want, errs)
 	}
@@ -47,7 +47,7 @@ func TestEmbed_ExpandsIntoAOnceHoldingItsFiles(t *testing.T) {
 			once = o
 		}
 	}
-	if once == nil || once.Name != "site" || !once.Public || once.Doc != "The site." {
+	if once == nil || once.Name != "site" || once.Visibility != ast.Public || once.Doc != "The site." {
 		t.Fatalf("no `once site` in %#v", out)
 	}
 	info := analysis.EmbedOf(once)

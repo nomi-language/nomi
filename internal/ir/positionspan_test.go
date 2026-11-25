@@ -23,6 +23,28 @@ import (
 	"testing"
 )
 
+// A position in a file with lines its author did not write above the text
+// they did is a line of that text: both ends move up, a line above the
+// text is its first, and a synthesized position, whose line is a band no
+// file has, stays.
+func TestPos_BelowIsALineOfTheAuthorsText(t *testing.T) {
+	for _, c := range []struct {
+		p                    Pos
+		above, line, endLine int
+	}{
+		{At("f.nomi", 7, 3), 4, 3, 3},
+		{Spanning("f.nomi", 5, 1, 8, 4), 4, 1, 4},
+		{At("f.nomi", 2, 1), 4, 1, 1},
+		{At("f.nomi", 7, 3), 0, 7, 7},
+		{AtSynthesized("f.nomi", 1<<30, 1), 4, 1 << 30, 1 << 30},
+	} {
+		got := c.p.Below(c.above)
+		if got.Line() != c.line || got.EndLine() != c.endLine || got.Col() != c.p.Col() || got.File() != c.p.File() {
+			t.Errorf("%v below %d is %v, want lines %d-%d", c.p, c.above, got, c.line, c.endLine)
+		}
+	}
+}
+
 // TestPos_APointsEndIsItsStart is the property that keeps RulePositionSpan's
 // population TOTAL rather than the handful of positions that span.
 //

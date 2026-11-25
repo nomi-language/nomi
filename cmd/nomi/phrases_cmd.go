@@ -23,7 +23,7 @@ accept marks a locale's translation of a phrase current: it records the
 phrase's text as it is now as the source the translation was made from.
 Run it once the translation says what the current text says. <phrase> is
 the name of a ` + "`phrase`" + ` declaration, or path/to/file:name when two
-files of the module declare one of that name.`
+files of the package declare one of that name.`
 
 // runPhrases runs `nomi phrases`.
 func runPhrases(args []string) error {
@@ -46,9 +46,9 @@ func runPhrases(args []string) error {
 // the source of locale's translation of it, in the module holding dir. It
 // answers what it did.
 func acceptTranslation(dir, locale, name string) (string, error) {
-	root := moduleRootOf(dir)
+	root := packageRootOf(dir)
 	if root == "" {
-		return "", fmt.Errorf("%s is in no module: there is no nomi.toml above it", dir)
+		return "", fmt.Errorf("%s is in no package: there is no nomi.toml above it", dir)
 	}
 	m, err := analysis.LoadManifest(root)
 	if err != nil {
@@ -96,7 +96,7 @@ func acceptTranslation(dir, locale, name string) (string, error) {
 	})
 	switch len(hits) {
 	case 0:
-		return "", fmt.Errorf("no file of the module declares `phrase %s`", msgName)
+		return "", fmt.Errorf("no file of the package declares `phrase %s`", msgName)
 	case 1:
 	default:
 		var keys []string
@@ -126,8 +126,8 @@ func acceptTranslation(dir, locale, name string) (string, error) {
 	return fmt.Sprintf("%s: the %s translation of `%s` is current", filepath.ToSlash(rel), locale, msgName), nil
 }
 
-// moduleRootOf is the nearest directory at or above dir holding nomi.toml.
-func moduleRootOf(dir string) string {
+// packageRootOf is the nearest directory at or above dir holding nomi.toml.
+func packageRootOf(dir string) string {
 	for d := dir; ; d = filepath.Dir(d) {
 		if _, err := os.Stat(filepath.Join(d, "nomi.toml")); err == nil {
 			return d

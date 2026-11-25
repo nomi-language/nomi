@@ -9,14 +9,14 @@ import (
 )
 
 // The generator fixture, from the repository root, where TestMain runs the
-// tests: module csvdata ships tools, and module rates requires it; module
+// tests: package csvdata ships tools, and package rates requires it; package
 // cafe runs a tool of its own.
 var toolFixture = filepath.Join("testdata", "tools")
 
-// `nomi tool <module> <name>` runs the module's tools/<name>.nomi in the
+// `nomi tool <package> <name>` runs the package's tools/<name>.nomi in the
 // current directory, with the access to files, the network and output that
 // `nomi run` gives a program.
-func TestToolCommand_RunsAModulesTool(t *testing.T) {
+func TestToolCommand_RunsAPackagesTool(t *testing.T) {
 	rates, err := filepath.Abs(filepath.Join(toolFixture, "rates"))
 	if err != nil {
 		t.Fatal(err)
@@ -29,11 +29,11 @@ func TestToolCommand_RunsAModulesTool(t *testing.T) {
 		t.Errorf("nomi tool printed:\n%s\nwant:\n%s", out, want)
 	}
 	out, err = runNomiInDir(t, t.TempDir(), rates, "", "tool", "csvdata", "nope")
-	if err == nil || !strings.Contains(out, "module csvdata has no tool nope: there is no tools/nope.nomi in") {
+	if err == nil || !strings.Contains(out, "package csvdata has no tool nope: there is no tools/nope.nomi in") {
 		t.Errorf("an unknown tool: %v\n%s", err, out)
 	}
 	out, err = runNomiInDir(t, t.TempDir(), rates, "", "tool", "nomodule", "rows")
-	if err == nil || !strings.Contains(out, "no module nomodule: it is neither this module nor a dependency its nomi.toml names") {
+	if err == nil || !strings.Contains(out, "no package nomodule: it is neither this package nor a dependency its nomi.toml names") {
 		t.Errorf("an unknown module: %v\n%s", err, out)
 	}
 }
@@ -97,7 +97,7 @@ func TestToolCommand_AToolReadsAndWritesTheNameTheProjectGivesIt(t *testing.T) {
 	entry := func(key, dir string) string {
 		return key + ` = { dir = ` + strconv.Quote(filepath.ToSlash(filepath.Join(lib, dir))) + " }\n"
 	}
-	manifest := "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[dependencies]\n" +
+	manifest := "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[dependencies]\n" +
 		entry("db", "sqlkit") +
 		entry("migrate", "migrate") +
 		entry("postgres", "postgres") +
@@ -164,7 +164,7 @@ end
 	}
 }
 
-// A module's tools are entry points without being listed in nomi.toml. The
+// A package's tools are entry points without being listed in nomi.toml. The
 // cafe lists only main: its tool runs, `nomi check .` passes and checks the
 // tool with main, and main runs. Listing the tool as well changes nothing.
 func TestToolCommand_AToolIsAnEntryWithoutBeingListed(t *testing.T) {
@@ -173,7 +173,7 @@ func TestToolCommand_AToolIsAnEntryWithoutBeingListed(t *testing.T) {
 		if err := os.CopyFS(cafe, os.DirFS(filepath.Join(toolFixture, "cafe"))); err != nil {
 			t.Fatal(err)
 		}
-		manifest := "[module]\nname = \"cafe\"\nentry_points = " + entries + "\n"
+		manifest := "[package]\nname = \"cafe\"\nentry_points = " + entries + "\n"
 		if err := os.WriteFile(filepath.Join(cafe, "nomi.toml"), []byte(manifest), 0o644); err != nil {
 			t.Fatal(err)
 		}

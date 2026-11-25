@@ -1,6 +1,7 @@
 package analysis
 
 import (
+	"github.com/nomi-language/nomi/internal/ast"
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/lexer"
@@ -26,10 +27,10 @@ end`
 	// Inject a cross-module type method: Foo.bar, provided by "std/widget".
 	// (Mirrors how the real project index carries stdlib type methods.)
 	barSym := &Symbol{
-		Name:   "bar",
-		Kind:   SymbolFunction,
-		Public: true,
-		Type:   &FuncType{Params: []Type{TypeInt}, Return: TypeInt},
+		Name:       "bar",
+		Kind:       SymbolFunction,
+		Visibility: ast.Public,
+		Type:       &FuncType{Params: []Type{TypeInt}, Return: TypeInt},
 	}
 	with := *fa.Program()
 	with.ImplIndex = &ProjectImplIndex{

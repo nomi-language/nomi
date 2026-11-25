@@ -1,6 +1,6 @@
-//# Formats items for printing. This file sits in the `internal/` directory at
-//# the module root, so every file in `todo` may import it and no other module
-//# may.
+//# Formats items for printing. Its function carries no modifier, so every
+//# file in `todo` may call it and no other module may; the `internal/`
+//# directory only says so to a reader.
 
 import
     item.Item
@@ -8,7 +8,7 @@ import
 end
 
 /// One line of the list: the id, right-aligned, then the item.
-pub fn row(item: Item) -> String
+fn row(item: Item) -> String
     id =
         item
         |> Item.id()

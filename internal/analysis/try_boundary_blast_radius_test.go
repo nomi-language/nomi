@@ -54,10 +54,10 @@ func TestTryBoundary_TreeIsClean(t *testing.T) {
 	}
 
 	lib := loadStd()
-	newManager := func(workspace string) *analysis.DocumentManager {
+	newManager := func(folder string) *analysis.DocumentManager {
 		dm := analysis.NewDocumentManager()
 		dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
-		dm.SetWorkspaceRoot(workspace)
+		dm.SetEditorFolder(folder)
 		return dm
 	}
 
@@ -93,7 +93,7 @@ func TestTryBoundary_TreeIsClean(t *testing.T) {
 				return readErr
 			}
 			// Each file is opened as its own focused document, with the
-			// workspace rooted at the file's own project so sibling imports
+			// editor folder rooted at the file's own project so sibling imports
 			// resolve the way they do in production.
 			dm := newManager(projectRootFor(root, path))
 			doc := dm.Open(fileuri.FromPath(path), string(content))
@@ -190,7 +190,7 @@ func TestTryBoundary_TreeIsClean(t *testing.T) {
 
 // projectRootFor returns the directory the given file's project is rooted at:
 // the nearest ancestor carrying a nomi.toml, falling back to the file's own
-// directory. Opening a file with the repo root as the workspace makes the
+// directory. Opening a file with the repo root as the editor folder makes the
 // DocumentManager treat unrelated siblings as part of one project, which
 // manufactures diagnostics that have nothing to do with the file.
 func projectRootFor(repoRoot, path string) string {

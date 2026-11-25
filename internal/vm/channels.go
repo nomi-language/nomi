@@ -55,7 +55,7 @@ func ClosedChannel() any {
 
 // channelHost adapts the std/channels operations.
 func channelHost(name string) hostFn {
-	return func(m *Machine, _ ir.Pos, args []any) (any, error) {
+	return func(m *Machine, pos ir.Pos, args []any) (any, error) {
 		var out any
 		var bad error
 		err := rtFault(func() {
@@ -83,7 +83,7 @@ func channelHost(name string) hostFn {
 					bad = fmt.Errorf("vm: %s: expected a Sender and a value", name)
 					return
 				}
-				if rt.SenderSend(m.hostFrame, s.s, args[1]).Tag == rt.TagOk {
+				if rt.SenderSend(m.hostFrame, siteOf(nil, pos), s.s, args[1]).Tag == rt.TagOk {
 					out = okValue(rt.Unit{})
 				} else {
 					out = errValue(markerValue("channels.ChannelClosed"))
@@ -110,7 +110,7 @@ func channelHost(name string) hostFn {
 					bad = fmt.Errorf("vm: %s: expected one Receiver", name)
 					return
 				}
-				if got := rt.ReceiverReceive(m.hostFrame, r.r); got.Tag == rt.TagSome {
+				if got := rt.ReceiverReceive(m.hostFrame, siteOf(nil, pos), r.r); got.Tag == rt.TagSome {
 					out = some(got.Some)
 				} else {
 					out = noneValue
@@ -126,7 +126,7 @@ func channelHost(name string) hostFn {
 					bad = fmt.Errorf("vm: %s: expected a Receiver and a Duration", name)
 					return
 				}
-				got := rt.ReceiverReceiveWithin(m.hostFrame, r.r, wait)
+				got := rt.ReceiverReceiveWithin(m.hostFrame, siteOf(nil, pos), r.r, wait)
 				switch {
 				case got.Tag != rt.TagOk:
 					out = errValue(markerValue("channels.TimedOut"))
@@ -211,7 +211,7 @@ func durationOperand(v any) (rt.Duration, bool) {
 // channelSelectHost is `Channel.select(arms)`: rt waits for the first arm
 // that can finish, and the winner's handler runs on the caller's frame with
 // its outcome.
-func channelSelectHost(m *Machine, _ ir.Pos, args []any) (any, error) {
+func channelSelectHost(m *Machine, pos ir.Pos, args []any) (any, error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf("vm: Channel.select: expected one list of arms, got %d operands", len(args))
 	}
@@ -230,7 +230,7 @@ func channelSelectHost(m *Machine, _ ir.Pos, args []any) (any, error) {
 		arms[i], cases[i] = a, a.c
 	}
 	var got rt.Selected
-	if err := rtFault(func() { got = rt.Select(m.hostFrame, cases) }); err != nil {
+	if err := rtFault(func() { got = rt.Select(m.hostFrame, siteOf(nil, pos), cases) }); err != nil {
 		return nil, err
 	}
 	won := arms[got.Index]

@@ -87,7 +87,7 @@ func stdModuleIfaceDefault(v *stdModuleView, iface, method string) *stdFunc {
 	}
 	for _, n := range v.nodes {
 		decl, ok := n.(*ast.InterfaceDef)
-		if !ok || decl.Name != iface || !decl.Public || len(decl.TypeParams) > 0 {
+		if !ok || decl.Name != iface || decl.Visibility != ast.Public || len(decl.TypeParams) > 0 {
 			continue
 		}
 		for i := range decl.Methods {
@@ -120,7 +120,7 @@ func newStdIfaceDefault(module string, decl *ast.InterfaceDef, im *ast.Interface
 		Body:           body,
 		Line:           im.Line,
 		Col:            im.Col,
-		Public:         true,
+		Visibility:     ast.Public,
 	}
 	f := &stdFunc{
 		ifaceDefault: im,

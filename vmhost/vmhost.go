@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nomi-language/nomi/hostadapt"
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/cldrdata"
@@ -116,11 +115,11 @@ type Program struct {
 	// (EffectCallsNotAllowed).
 	effects *analysis.Effects
 	// modules is each dependency whose files the program holds, by its
-	// root directory, worked out once (moduleAt).
+	// root directory, worked out once (packageAt).
 	modulesMu sync.Mutex
-	modules   map[string]*requiredModule
+	modules   map[string]*requiredPackage
 	// project is the project's module path, worked out once
-	// (projectModule).
+	// (projectPackage).
 	projectOnce sync.Once
 	project     string
 	// currencyModules is what each directory's module allows custom
@@ -697,18 +696,16 @@ func (p *Program) reasons(found []vm.Unretained) []string {
 		case vm.NotRetained:
 			out = append(out, p.notRetained(u.Name, u.Impl))
 		case vm.OnceNotRetained:
-			out = append(out, fmt.Sprintf("[%s] once initializer not retained: %s", u.Name, p.decline(blockerName(u), ir.ImplFunc{})))
-		case vm.NoBinding:
-			out = append(out, fmt.Sprintf("[%s] is a host function, and the VM has no implementation for it", hostadapt.DisplayName(u.Name)))
-		case vm.NoImplementation:
-			out = append(out, fmt.Sprintf("[%s] dispatched, and no implementation was retained", u.Name))
+			out = append(out, u.Reason()+": "+p.decline(blockerName(u), ir.ImplFunc{}))
+		default:
+			out = append(out, u.Reason())
 		}
 	}
 	return out
 }
 
 func (p *Program) notRetained(name string, impl ir.ImplFunc) string {
-	return fmt.Sprintf("[%s] not retained: %s", name, p.decline(name, impl))
+	return vm.Unretained{Kind: vm.NotRetained, Name: name}.Reason() + ": " + p.decline(name, impl)
 }
 
 func (p *Program) testNotRetained(name string) string {

@@ -5,7 +5,7 @@
 //# such as a cryptocurrency or a shop's loyalty points, is a custom
 //# currency, named by its code and minor digits: `Currency"BTC:8"`, or
 //# `Currency.custom("BTC", 8)` while the program runs. Both literal forms
-//# are checked when the program is checked, and in a module a literal's
+//# are checked when the program is checked, and in a package a literal's
 //# custom currency must be one its `nomi.toml` lists:
 //#
 //# ```toml
@@ -21,12 +21,12 @@
 //# ## Listed custom currencies
 //#
 //# A custom currency needs no setup, so a typo makes another one. In a file
-//# of a module (one with a `nomi.toml` above it), a `Currency"…"` or
-//# `Money"…"` literal naming a custom currency must name one its module's
+//# of a package (one with a `nomi.toml` above it), a `Currency"…"` or
+//# `Money"…"` literal naming a custom currency must name one its package's
 //# [`[money].custom_currencies`](/tooling/projects/#money) lists, code and
 //# digits; otherwise it is a compile error at the literal that suggests a
 //# listed entry with the same code or one edit away:
-//# ``typed literal Currency"PST:0": `PST:0` is a custom currency this module
+//# ``typed literal Currency"PST:0": `PST:0` is a custom currency this package
 //# does not list: add it to [money].custom_currencies in nomi.toml``, with
 //# ``help: did you mean `PTS:0`? nomi.toml lists it``.
 //#
@@ -36,7 +36,7 @@
 //# error, naming the literal (``write Currency"PTS:0", which the compiler
 //# checks``); `nomi check` prints none. A currency made from values while
 //# the program runs (`Currency.custom(code, digits)`, `Currency.parse`,
-//# `Money.parse_in`) is not checked, and a file in no module (a script, the
+//# `Money.parse_in`) is not checked, and a file in no package (a script, the
 //# REPL) and the standard library's own files may name any.
 
 import
@@ -210,7 +210,7 @@ impl Literal for Currency
     /// a code CLDR does not list is a compile error at the literal:
     /// ``typed literal Currency"BTC" is invalid: `BTC` is not an ISO 4217 currency: a custom currency names its minor digits, as Currency"BTC:2" ``.
     /// The literal checks a custom currency by `Currency.custom`'s rules, and
-    /// in a module, against the custom currencies its `nomi.toml` lists.
+    /// in a package, against the custom currencies its `nomi.toml` lists.
     fn from_fragments(fragments: List<Fragment<String>>) -> Result<Currency, Error>
         body = Iter.reduce(fragments, "", fn acc, frag ->
             case frag

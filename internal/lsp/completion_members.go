@@ -15,7 +15,7 @@ func (r *completionRequest) memberCandidates() []candidate {
 	if sym := r.symbolOf(obj); sym != nil {
 		switch {
 		case sym.Kind == analysis.SymbolModule:
-			return scopeMemberCandidates(sym.ModuleScope, valueSymbol)
+			return r.scopeMemberCandidates(sym.ModuleScope, valueSymbol)
 		case sym.Kind == analysis.SymbolInterface:
 			// An interface's own functions, and the owner functions an
 			// `impl Iter<T> { ... }` block declares on it (`Iter.map`).
@@ -34,7 +34,7 @@ func (r *completionRequest) memberCandidates() []candidate {
 		// `import std::io`): its members, so the name being typed can be
 		// found before the import is added.
 		if scope := r.s.std.Modules[id.Name]; scope != nil {
-			return scopeMemberCandidates(scope, valueSymbol)
+			return r.scopeMemberCandidates(scope, valueSymbol)
 		}
 	}
 	if fp, ok := obj.(*ast.FilePath); ok {
@@ -61,17 +61,17 @@ func (r *completionRequest) declOf(t analysis.Type) *analysis.Symbol {
 	return nil
 }
 
-// scopeMemberCandidates offers the public members of a file object's scope
-// that keep accepts. A function declared in one of the file's impl blocks is
+// scopeMemberCandidates offers the members of a file object's scope the
+// requesting document sees (analysis.FileAnalysis.Sees) that keep accepts. A function declared in one of the file's impl blocks is
 // not a member: it is reached through its owner, and `duration.seconds` is
 // an error.
-func scopeMemberCandidates(scope *analysis.Scope, keep func(*analysis.Symbol) bool) []candidate {
+func (r *completionRequest) scopeMemberCandidates(scope *analysis.Scope, keep func(*analysis.Symbol) bool) []candidate {
 	if scope == nil {
 		return nil
 	}
 	var out []candidate
 	for name, sym := range scope.Symbols {
-		if !sym.Public || !keep(sym) {
+		if !r.fa.Sees(sym) || !keep(sym) {
 			continue
 		}
 		out = append(out, candidate{
@@ -133,7 +133,7 @@ func (r *completionRequest) ownerFunctions(owner string) map[string]*analysis.Sy
 	out := r.fa.TypeDefaultFunctions(owner)
 	if r.fa.Program().ImplIndex != nil {
 		for name, sym := range r.fa.Program().ImplIndex.TypeMethods[owner] {
-			if sym != nil && (sym.Public || sym.ImplInterface != "") {
+			if sym != nil && (r.fa.Sees(sym) || sym.ImplInterface != "") {
 				out[name] = sym
 			}
 		}

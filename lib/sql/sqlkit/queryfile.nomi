@@ -30,7 +30,7 @@ derive Equatable for Param
 
 /// One query of a file.
 pub struct Query
-    /// The file, from the module root.
+    /// The file, from the package root.
     file: String
 
     /// The line of its `-- query:` annotation.

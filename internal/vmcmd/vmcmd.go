@@ -100,7 +100,7 @@ func (t *Tester) File(file string, opts vmhost.TestOptions) int {
 		}
 		return t.test(p, file, opts, label)
 	}
-	// A relative path a test's std/fs call takes is under its module root
+	// A relative path a test's std/fs call takes is under its package root
 	// (vmhost.TestDir), wherever `nomi test` runs.
 	loadOpts := append(t.loadOptions(), vmhost.WithFileSystem(vmhost.DiskFilesAt(vmhost.TestDir(file))))
 	// A file kept in the artifact cache is tested without its files being

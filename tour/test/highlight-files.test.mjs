@@ -22,7 +22,7 @@ const block = [
   "[effects.self]",
   'std = ["std::io"]',
   "",
-  "[effects.deps.modules]",
+  "[effects.deps.packages]",
   '"lib.example/prices" = []  # computes',
   "",
   "// FILE: app/go.mod",

@@ -906,7 +906,7 @@ func (bl *irScalarBuilder) siblingCompareSym(elem kind) *ir.Symbol {
 // localCompareItem is a nominal element's local `Comparable.compare`, with
 // a body the builder can retain (comparesAt), or nil.
 func (bl *irScalarBuilder) localCompareItem(elem kind) *implItem {
-	impl := bl.g.implsByIface[stdIfaceImplKey(stdComparable)][elem]
+	impl := bl.g.implAt(stdIfaceImplKey(stdComparable), elem)
 	if impl == nil {
 		return nil
 	}

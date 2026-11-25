@@ -1,17 +1,15 @@
 package analysis
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
 // checkQualifiedTypeVisibility reports every type written as `file.Name`
-// whose `Name` is not `pub` in that file. A top-level declaration is private
-// to its file (spec §14 *Visibility*), so naming another file's private type is the same
-// error as calling its private function: "file 'other' has no member
-// 'Hidden'".
+// whose `Name` this file does not see (FileAnalysis.Sees, spec §14
+// *Visibility*), with the error calling such a function gets:
+// "`Hidden` is private to `other.nomi`".
 //
 // A file-qualified type is spelled as an *ast.QualifiedType wherever it
 // appears: an annotation, a struct literal's head (`other.Hidden{v: 1}`), a
@@ -38,7 +36,7 @@ func (c *checker) checkQualifiedTypeVisibility(nodes []ast.Node) {
 }
 
 // checkQualifiedTypeMember reports qt when its leading segment is a file API
-// object and the next segment names a declaration that file keeps private.
+// object and the next segment names a declaration this file does not see.
 // The private name sits inside qt.Module when the module path is dotted
 // (`other.Color.Red` holds Module "other.Color"), and is the member
 // otherwise (`other.Hidden`).
@@ -79,19 +77,9 @@ func (c *checker) checkQualifiedTypeMember(qt *ast.QualifiedType, seen map[Pos]b
 	if member.Resolved != nil {
 		member = member.Resolved
 	}
-	if member.Public || seen[pos] || c.fa.readsPrivateOf(member) {
-		return
-	}
-	if std, ok := stdModuleOfSymbol(fileSym, c.fa.Origin); ok {
-		if !isHiddenImportAlias(segs[0]) && !IsStdlibKey(c.fa.Origin) {
-			seen[pos] = true
-			c.addError(pos.Line, pos.Col, internalToStd(segs[0]+"."+name, std))
-		}
-		return
-	}
-	if member.SourceFile == c.fa.FilePath {
+	if seen[pos] || c.fa.Sees(member) || isHiddenImportAlias(segs[0]) {
 		return
 	}
 	seen[pos] = true
-	c.addError(pos.Line, pos.Col, fmt.Sprintf("file '%s' has no member '%s'", segs[0], name))
+	c.report(c.fa.unseen(c.fa.Program().Packages, member, name, pos.Line, pos.Col))
 }

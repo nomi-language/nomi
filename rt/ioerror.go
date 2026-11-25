@@ -15,11 +15,12 @@ package rt
 // share Operation.
 //
 // The operations are not here. Real filesystem effect stays out of rt, so
-// internal/stdio holds std/fs's crossings and the classification of Go's
-// errors, and rt links no filesystem code. What rt owns is the value, which is
-// data and carries no effect at all.
+// internal/stdio holds std/fs's crossings, and rt links no filesystem code.
+// What rt owns is the value, which is data and carries no effect at all,
+// and the one table that sorts a Go error into it (IOErrorOf), which every
+// stream reaches.
 type IOError struct {
-	// Tag is 1..18 in std/io.nomi's declaration order (the TagIO constants).
+	// Tag is 1..19 in std/io.nomi's declaration order (the TagIO constants).
 	// 0 means never constructed.
 	Tag uint8
 	// Path is the path the program passed, for every variant that names one.
@@ -60,6 +61,7 @@ const (
 	TagIOTooManyOpen
 	TagIOClosed
 	TagIOBrokenPipe
+	TagIOReset
 	TagIOTimedOut
 	TagIOUnsupported
 	TagIOOther

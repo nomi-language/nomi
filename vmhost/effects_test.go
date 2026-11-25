@@ -20,7 +20,7 @@ import (
 func outsideLines(p *vmhost.Program, r vmhost.Roots) []string {
 	var out []string
 	for _, c := range p.EffectCalls(r) {
-		module := c.Module
+		module := c.Package
 		if module == "" {
 			module = "program"
 		}
@@ -215,7 +215,7 @@ end
 // own read to the dependency, a callback the program passes the dependency
 // to the program, and the instance of a dependency's generic function the
 // program asks for to the dependency.
-func TestEffectCalls_ChargedToTheModuleWhoseFileHoldsTheCall(t *testing.T) {
+func TestEffectCalls_ChargedToThePackageWhoseFileHoldsTheCall(t *testing.T) {
 	p := loadProject(t, "app/main.nomi", map[string]string{
 		"app/main.nomi": `import
     std::fs
@@ -232,7 +232,7 @@ fn main()
     _ = rules.twice(1, fn n -> n + 1)
 end
 `,
-		"app/nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[dependencies]\npricing = { dir = \"../pricing\" }\n",
+		"app/nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[dependencies]\npricing = { dir = \"../pricing\" }\n",
 		"pricing/rules.nomi": `import
     std::fs
     std::io
@@ -251,7 +251,7 @@ pub fn twice<T>(x: T, f: (T) -> T) -> T
     f(f(x))
 end
 `,
-		"pricing/nomi.toml": "[module]\nname = \"pricing\"\n",
+		"pricing/nomi.toml": "[package]\nname = \"pricing\"\n",
 	})
 	checkEffects(t, p, vmhost.Roots{},
 		"std::fs | program | main.nomi:7:17 | call fs.read_text | main(root) > read(value)",

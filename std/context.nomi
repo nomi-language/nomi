@@ -5,11 +5,19 @@
 //# type-qualified (`Context.deadline(c)`); there are no file-level
 //# functions.
 //#
-//# `with_deadline` takes an absolute `Instant`; `with_timeout` sets a
-//# deadline at `now() + dur`. Both return a new `Context`.
-//# Deadlines flow from parent to child and only tighten: the earliest
-//# deadline anywhere along the chain is the one in force, so a child can
-//# bound its own work and can never loosen the bound it inherited.
+//# `with_timeout` sets a deadline a `Duration` of elapsed time from now,
+//# counted on the monotonic clock, so setting the system clock does not
+//# move it. `with_deadline` sets one at an `Instant` on the wall clock,
+//# measured against the wall clock each time it is read, so setting the
+//# system clock moves it as it moves that moment. Both return a new
+//# `Context`. Deadlines flow from parent to child and only tighten: the
+//# deadline with the least time left anywhere along the chain is the one in
+//# force, so a child can bound its own work and can never loosen the bound
+//# it inherited.
+//#
+//# A `with` line that puts a context in force turns its deadline into time
+//# left, and every wait in that line's extent counts that time down on the
+//# monotonic clock.
 //#
 //# There is no cancellation predicate on the surface. A task stopping is
 //# not a state its body reads, because the runtime consults the task's
@@ -45,7 +53,8 @@ impl Context
     //
     pub host fn root() -> Context
 
-    /// Absolute deadline of this context, if any.
+    /// The `Instant` the deadline in force ends at, if there is one. For a
+    /// timeout it is the wall clock's reading now plus the time left.
     //! assert Context.deadline(Context.root()) == Option.None
     //
     pub host fn deadline(c: Context) -> Option<Instant>
@@ -56,21 +65,22 @@ impl Context
     //
     pub host fn deadline_remaining(c: Context) -> Option<Duration>
 
-    /// Child context with deadline at `at`. If the parent has a tighter
-    /// deadline already, the parent's deadline stays in force. The clock
-    /// counts a deadline in 64 bits of nanoseconds, so one past the year
-    /// 2262 is clamped to the latest it counts, which no program reaches,
-    /// and one before 1677 to the earliest, which has passed.
+    /// Child context with a deadline when the wall clock reads `at`. If the
+    /// parent has a tighter deadline already, the parent's deadline stays in
+    /// force. The clock counts a deadline in 64 bits of nanoseconds, so one
+    /// past the year 2262 is clamped to the latest it counts, which no
+    /// program reaches, and one before 1677 to the earliest, which has
+    /// passed.
     //! child = Context.with_deadline(Context.root(), Instant.from_seconds(0))
     //! assert Context.deadline_remaining(child) == Option.Some(Duration.seconds(0))
     //
     pub host fn with_deadline(c: Context, at: Instant) -> Context
 
-    /// Child context with deadline at `now() + dur`. If the parent has
-    /// a tighter deadline already, the parent's deadline wins. A zero or
-    /// negative `dur` makes a context whose deadline has already passed. A
-    /// deadline past the year 2262, the latest the clock counts, is that
-    /// latest moment, which no program reaches.
+    /// Child context with a deadline `dur` of elapsed time from now, on the
+    /// monotonic clock. If the parent has a tighter deadline already, the
+    /// parent's deadline wins. A zero or negative `dur` makes a context whose
+    /// deadline has already passed. A deadline past the year 2262, the latest
+    /// the clock counts, is that latest moment, which no program reaches.
     //! child = Context.with_timeout(Context.root(), Duration.seconds(-1))
     //! assert Context.deadline_remaining(child) == Option.Some(Duration.seconds(0))
     //!

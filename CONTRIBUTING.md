@@ -95,26 +95,9 @@ syntax definitions, and the tour's grammar wasm.
 
 ## Releases
 
-Pushing a `v*` tag runs `.github/workflows/release.yml`, which runs
-`scripts/release.sh <tag>` and attaches its output to a GitHub release. The
-script can be run by hand too:
-
-```sh
-./scripts/release.sh v0.1.0
-```
-
-It writes `dist/nomi_<version>_<os>_<arch>.{tar.gz,zip}`, which holds
-`nomi` alone, carrying the platform's runners; beside each a `_runners`
-archive of those runners, for `nomi build --target` on another platform,
-and a `_compiler` archive of std::compiler's runners; and
-`dist/nomi_<version>_checksums.txt` (`NOMI_RELEASE_DIST=<dir>` writes them
-elsewhere, and `NOMI_RELEASE_TARGETS="darwin/arm64"` builds only the
-targets it lists, for a dry run). The version must be the release's tag: it is
-stamped into `nomi` (`-X github.com/nomi-language/nomi/internal/runners.ReleaseVersion=<version>`), and
-`nomi build` downloads a runner it does not have from that tag. The script
-reads each binary's platform, build tags and commit back from its build
-information and fails if they disagree with what it built or with each
-other.
+Releases are cut by the maintainer, by the checklist in
+[`docs/releasing.md`](docs/releasing.md), which also says how to try the
+release build without publishing anything.
 
 ## License
 

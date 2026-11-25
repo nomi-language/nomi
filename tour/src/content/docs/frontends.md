@@ -139,7 +139,7 @@ JSON types and their handlers. `nomi types` writes `web/src/api.ts`, and
 
 An API handler builds its response with `Response.json`, which takes any
 value whose type implements `ToJson`. A type the frontend reads derives
-`ToJson`, and is `pub` so that `nomi types` declares it:
+`ToJson`, so that `nomi types` declares it:
 
 ```nomi-run
 import
@@ -148,7 +148,7 @@ import
     std::json.ToJson
 end
 
-pub struct Todo
+struct Todo
     id:    Int
     title: String
     done:  Bool
@@ -156,7 +156,7 @@ end
 
 derive ToJson for Todo
 
-pub fn list_todos(Request) -> Response
+fn list_todos(Request) -> Response
     todos = [
         Todo{id: 1, title: "Write the API", done: True},
         Todo{id: 2, title: "Write the page", done: False},
@@ -176,8 +176,8 @@ dbg line 25: Response.text(list_todos(testing.request(.Get, "/api/todos"))) = Ok
 ### Shared types
 
 `nomi types` reads the Nomi files you name and writes a TypeScript
-declaration for each `pub` type in them that derives `ToJson` or
-`FromJson`, and for every type those reach.
+declaration for each type in them that derives `ToJson` or `FromJson`
+and is not `private`, and for every type those reach.
 `nomi types api.nomi -o web/src/api.ts` writes:
 
 ```ts
@@ -239,7 +239,7 @@ empty frontend; the next run after a build embeds it.
 `app.nomi` routes `/api/todos` to its handler and every other path to the
 embedded build. The `App` struct and `boot` give the server a supervisor
 for its connections, as in [HTTP](/http/). Paths in an embedded tree start
-at the module root, so `Files.sub` makes `web/dist` the root the server
+at the package root, so `Files.sub` makes `web/dist` the root the server
 serves from:
 
 ```nomi-run compile-only
@@ -280,7 +280,7 @@ import
     std::json.ToJson
 end
 
-pub struct Todo
+struct Todo
     id:    Int
     title: String
     done:  Bool
@@ -288,7 +288,7 @@ end
 
 derive ToJson for Todo
 
-pub fn list_todos(Request) -> Response
+fn list_todos(Request) -> Response
     todos = [
         Todo{id: 1, title: "Write the API", done: True},
         Todo{id: 2, title: "Write the page", done: False},

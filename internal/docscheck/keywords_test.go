@@ -66,10 +66,11 @@ var keywordLists = []keywordList{
 		contextual: true,
 		extra:      notKeywords,
 		lacks: map[string]string{
-			"host":   "the scanner's token `$.host_keyword`, a keyword only before `fn` or `type`",
-			"embed":  "a `keyword_declaration:` starts with any identifier",
-			"noun":   "a `keyword_declaration:` starts with any identifier",
-			"phrase": "a `keyword_declaration:` starts with any identifier",
+			"host":    "the scanner's token `$.host_keyword`, a keyword only before `fn` or `type`",
+			"private": "the scanner's token `$.private_keyword`, a keyword only before a declaration",
+			"embed":   "a `keyword_declaration:` starts with any identifier",
+			"noun":    "a `keyword_declaration:` starts with any identifier",
+			"phrase":  "a `keyword_declaration:` starts with any identifier",
 		},
 	},
 	{
@@ -90,6 +91,7 @@ var keywordLists = []keywordList{
 			"continue": "colored by `(continue_statement) @keyword`",
 			"self":     "colored by `(self_type) @keyword`",
 			"host":     "colored by `(host_keyword) @keyword`",
+			"private":  "colored by `(private_keyword) @keyword`",
 			"on":       "colored by `(on_error) @keyword`",
 			"error":    "colored by `(on_error) @keyword`",
 			"noun":     "colored by `(keyword_declaration`, whatever word starts it",

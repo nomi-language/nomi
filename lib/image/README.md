@@ -4,7 +4,7 @@ Decoding, resizing and encoding images for Nomi. `image.decode(bytes)`
 reads a JPEG, PNG or WebP file into an `Image`, `Image.fit` scales one
 down into a box, and `Image.encode_jpeg` and `Image.encode_png` write it
 back out. The codecs are C libraries compiled to WebAssembly, which ship
-inside the module and run through std::wasm ([How it runs](#how-it-runs)),
+inside the package and run through std::wasm ([How it runs](#how-it-runs)),
 so a program that uses it needs no C compiler, and every function here
 is pure.
 
@@ -83,7 +83,7 @@ golang.org/x/image Catmull-Rom, no channel more than 4 levels apart.
 
 `engine/image.wasm` is compiled from these sources with `engine/shim.c`,
 which gives the module its exports, by `engine/build.sh`, and embedded in
-the module:
+the package:
 
 | Source | Version | From | License | SHA-256 |
 |---|---|---|---|---|
@@ -100,11 +100,11 @@ as small as Go's encoder does, where stb_image_write's own deflate writes
 them about half as large again.
 
 The module imports nothing, not even WASI. Each call runs in a fresh
-instance through `wasm.run`, which acts on nothing, so the module's
+instance through `wasm.run`, which acts on nothing, so the package's
 functions are pure, and an app's effects list gives it no effects:
 
 ```toml
-[effects.deps.modules]
+[effects.deps.packages]
 "image" = []
 ```
 
@@ -134,7 +134,7 @@ the pixel limit keeps short, then ends.
   other architectures interpret it, 20 to 50 times slower. A `js/wasm`
   build runs it on the browser's or Node's own engine. `wasip1/wasm` has
   no std::wasm, so `nomi build --target wasip1/wasm` refuses a program
-  that uses the module.
+  that uses the package.
 
 To rebuild the engine, with zig 0.15.2 on `PATH`:
 

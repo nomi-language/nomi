@@ -2,6 +2,7 @@ package std
 
 import (
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/fileuri"
 	"io/fs"
 	"os"
@@ -54,7 +55,7 @@ func TestLoadModules(t *testing.T) {
 	}
 	if dateSym := lib.Modules["calendar"].Lookup("Date"); dateSym == nil {
 		t.Error("expected calendar.Date in calendar module")
-	} else if !dateSym.Public {
+	} else if dateSym.Visibility != ast.Public {
 		t.Error("expected calendar.Date to be public")
 	}
 	if regexSym := lib.Modules["regex"].Lookup("Regex"); regexSym == nil {

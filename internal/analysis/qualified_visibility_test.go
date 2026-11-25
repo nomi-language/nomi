@@ -10,28 +10,28 @@ import (
 // privacySibling declares one private declaration of every kind a type
 // position can name, beside a public function and a public generic struct.
 const privacySibling = `
-struct Hidden
+private struct Hidden
   v: Int
 end
 
 impl Hidden
-  pub fn make() -> Hidden
+  private fn make() -> Hidden
     Hidden{v: 3}
   end
 end
 
-enum Color
+private enum Color
   Red
   Boxed(Int)
 end
 
-interface Shape
+private interface Shape
   fn area(s: self) -> Int
 end
 
-typealias Meters Int
+private typealias Meters Int
 
-fn helper() -> Int
+private fn helper() -> Int
   1
 end
 
@@ -50,11 +50,11 @@ pub enum Slot<T>
 end
 `
 
-// A top-level declaration without `pub` is private to its file (spec §14 *Visibility*).
-// Each spelling below names another file's private type or interface and
-// must be rejected with the same message a private function gets. Before
-// this check every type spelling here passed `nomi check`, and the IR builder
-// declined the program as BLOCKED instead.
+// A `private` top-level declaration is seen from its own file only (spec
+// §14 *Visibility*). Each spelling below names another file's private type
+// or interface and must be rejected with the same message a private
+// function gets, and with no modifier, internal, each one is accepted from
+// the other file of the same module.
 func TestQualifiedPrivateTypeIsRejected(t *testing.T) {
 	cases := []struct {
 		name string
@@ -64,67 +64,67 @@ func TestQualifiedPrivateTypeIsRejected(t *testing.T) {
 		{
 			name: "type annotation",
 			body: "fn f(x: other.Hidden) -> Int\n  x.v\nend\n",
-			want: "file 'other' has no member 'Hidden'",
+			want: "`Hidden` is private to `other.nomi`",
 		},
 		{
 			name: "struct literal",
 			body: "fn f() -> Int\n  h = other.Hidden{v: 1}\n  h.v\nend\n",
-			want: "file 'other' has no member 'Hidden'",
+			want: "`Hidden` is private to `other.nomi`",
 		},
 		{
 			name: "binding annotation",
 			body: "fn f() -> Int\n  h: other.Hidden = other.Hidden.make()\n  h.v\nend\n",
-			want: "file 'other' has no member 'Hidden'",
+			want: "`Hidden` is private to `other.nomi`",
 		},
 		{
 			name: "type argument",
 			body: "fn f(xs: List<other.Hidden>) -> Int\n  Iter.count(xs)\nend\n",
-			want: "file 'other' has no member 'Hidden'",
+			want: "`Hidden` is private to `other.nomi`",
 		},
 		{
 			name: "explicit type argument of a call",
 			body: "fn f() -> Int\n  other.ident<other.Meters>(3)\nend\n",
-			want: "file 'other' has no member 'Meters'",
+			want: "`Meters` is private to `other.nomi`",
 		},
 		{
 			name: "inherent function of a private type",
 			body: "fn f() -> Int\n  h = other.Hidden.make()\n  h.v\nend\n",
-			want: "file 'other' has no member 'Hidden'",
+			want: "`Hidden` is private to `other.nomi`",
 		},
 		{
 			name: "enum variant value",
 			body: "fn f() -> Int\n  c = other.Color.Red\n  case c\n    _ -> 1\n  end\nend\n",
-			want: "file 'other' has no member 'Color'",
+			want: "`Color` is private to `other.nomi`",
 		},
 		{
 			name: "enum constructor",
 			body: "fn f() -> Int\n  c = other.Color.Boxed(2)\n  case c\n    _ -> 1\n  end\nend\n",
-			want: "file 'other' has no member 'Color'",
+			want: "`Color` is private to `other.nomi`",
 		},
 		{
 			name: "enum variant pattern",
 			body: "fn f(c: Int) -> Int\n  case c\n    _ -> 1\n  end\nend\n\nfn g(c: other.Color) -> Int\n  case c\n    other.Color.Red -> 1\n    other.Color.Boxed(n) -> n\n  end\nend\n",
-			want: "file 'other' has no member 'Color'",
+			want: "`Color` is private to `other.nomi`",
 		},
 		{
 			name: "interface bound",
 			body: "fn f<T>(x: T) -> Int where T: other.Shape\n  T.area(x)\nend\n",
-			want: "file 'other' has no member 'Shape'",
+			want: "`Shape` is private to `other.nomi`",
 		},
 		{
 			name: "impl header",
 			body: "struct Sq\n  n: Int\nend\n\nimpl other.Shape for Sq\n  fn area(s: Sq) -> Int\n    s.n\n  end\nend\n",
-			want: "file 'other' has no member 'Shape'",
+			want: "`Shape` is private to `other.nomi`",
 		},
 		{
 			name: "type alias",
 			body: "fn f(m: other.Meters) -> Int\n  m\nend\n",
-			want: "file 'other' has no member 'Meters'",
+			want: "`Meters` is private to `other.nomi`",
 		},
 		{
 			name: "private function",
 			body: "fn f() -> Int\n  other.helper()\nend\n",
-			want: "file 'other' has no member 'helper'",
+			want: "`helper` is private to `other.nomi`",
 		},
 	}
 	for _, tc := range cases {
@@ -135,7 +135,34 @@ func TestQualifiedPrivateTypeIsRejected(t *testing.T) {
 				t.Fatalf("the front end now ADMITS another file's private declaration:\n%s", entry)
 			}
 			requireMessage(t, errs, tc.want)
+			requireCode(t, errs, tc.want, analysis.PrivateDeclarationCode)
+			internal := strings.ReplaceAll(privacySibling, "private ", "")
+			requireNoErrors(t, buildProjectExpectingErrors(t, entry, map[string]string{"other": internal}))
 		})
+	}
+}
+
+// requireCode fails unless the error whose message is want carries code.
+func requireCode(t *testing.T, errs []analysis.TypeError, want, code string) {
+	t.Helper()
+	for _, e := range errs {
+		if e.Message == want && e.Code != code {
+			t.Fatalf("%q has code %q, want %q", want, e.Code, code)
+		}
+	}
+}
+
+// requireNoErrors fails on any error but an unused binding.
+func requireNoErrors(t *testing.T, errs []analysis.TypeError) {
+	t.Helper()
+	var got []string
+	for _, e := range errs {
+		if e.Code != analysis.UnusedBindingCode {
+			got = append(got, e.Error())
+		}
+	}
+	if len(got) > 0 {
+		t.Fatalf("want no errors, got:\n  %s", strings.Join(got, "\n  "))
 	}
 }
 
@@ -147,12 +174,12 @@ func TestSelectiveImportOfPrivateDeclarationIsRejected(t *testing.T) {
 		imp  string
 		want string
 	}{
-		{"import other.helper", "'helper' is private and cannot be imported"},
-		{"import other.{helper}", "'helper' is private and cannot be imported"},
-		{"import other.Hidden", "'Hidden' is private and cannot be imported"},
-		{"import other.{Hidden}", "'Hidden' is private and cannot be imported"},
-		{"import other.{Color}", "'Color' is private and cannot be imported"},
-		{"import other.{Shape}", "'Shape' is private and cannot be imported"},
+		{"import other.helper", "`helper` is private to `other.nomi`"},
+		{"import other.{helper}", "`helper` is private to `other.nomi`"},
+		{"import other.Hidden", "`Hidden` is private to `other.nomi`"},
+		{"import other.{Hidden}", "`Hidden` is private to `other.nomi`"},
+		{"import other.{Color}", "`Color` is private to `other.nomi`"},
+		{"import other.{Shape}", "`Shape` is private to `other.nomi`"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.imp, func(t *testing.T) {
@@ -172,10 +199,11 @@ func TestSelectiveImportOfPrivateDeclarationIsRejected(t *testing.T) {
 // Public declarations stay reachable across files in every spelling.
 func TestPrivateTypeOwnFileAndPublicTypesAcrossFilesAreAccepted(t *testing.T) {
 	sibling := strings.NewReplacer(
-		"\nstruct Hidden", "\npub struct Hidden",
-		"\nenum Color", "\npub enum Color",
-		"\ninterface Shape", "\npub interface Shape",
-		"\ntypealias Meters", "\npub typealias Meters",
+		"\nprivate struct Hidden", "\npub struct Hidden",
+		"\n  private fn make", "\n  pub fn make",
+		"\nprivate enum Color", "\npub enum Color",
+		"\nprivate interface Shape", "\npub interface Shape",
+		"\nprivate typealias Meters", "\npub typealias Meters",
 	).Replace(privacySibling)
 	entry := `import other
 import other.{Hidden, Shape}

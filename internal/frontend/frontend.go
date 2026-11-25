@@ -172,7 +172,7 @@ func (c *Checker) manifest() *analysis.Manifest {
 // site is the expansion site of the project file with module path
 // modulePath: its catalogs are read from disk under the root when the root
 // has a manifest, and from the virtual files for an in-memory program with
-// a staged one, whose module root is the virtual files' `.`.
+// a staged one, whose package root is the virtual files' `.`.
 func (c *Checker) site(modulePath string) *analysis.ExpansionSite {
 	m := c.manifest()
 	s := &analysis.ExpansionSite{ModulePath: modulePath, Manifest: m}
@@ -204,7 +204,7 @@ func (c *Checker) embedFS() analysis.EmbedFS {
 }
 
 // virtualInput reads an input of an in-memory program from its virtual
-// files, by its path from the virtual module root.
+// files, by its path from the virtual package root.
 func (c *Checker) virtualInput(path string) (string, bool) {
 	if filepath.IsAbs(path) || !strings.HasSuffix(path, ".toml") {
 		return "", false
@@ -332,7 +332,7 @@ func (c *Checker) Prepare(src string, mode Mode) ([]ast.Node, error) {
 		return nil, located(c.diagPath, src, err)
 	}
 	nodes = analysis.ExpandDeclarations(nodes, c.site(c.entryModRel))
-	nodes, err = lowerDerives(c.diagPath, src, nodes, c.entryModRel, c.projectNodes)
+	nodes, err = lowerDerives(c.diagPath, src, nodes)
 	if err != nil {
 		return nil, err
 	}
@@ -342,27 +342,13 @@ func (c *Checker) Prepare(src string, mode Mode) ([]ast.Node, error) {
 	return analysis.SynthesizeUniversalDebug(nodes), nil
 }
 
-// lowerDerives lowers the derives of the file at path, whose module key
-// is key: a partner test's for its partner's types first, with the
-// partner's nodes from fileNodes (analysis.LowerPartnerDerives).
-func lowerDerives(path, src string, nodes []ast.Node, key string, fileNodes func(key string) ([]ast.Node, bool)) ([]ast.Node, error) {
-	nodes, errs := analysis.LowerPartnerDerives(nodes, key, fileNodes)
-	nodes, lowerErrs := analysis.LowerDerives(nodes)
-	errs = append(errs, lowerErrs...)
+// lowerDerives lowers the derives of the file at path.
+func lowerDerives(path, src string, nodes []ast.Node) ([]ast.Node, error) {
+	nodes, errs := analysis.LowerDerives(nodes)
 	if len(errs) == 0 {
 		return nodes, nil
 	}
 	return nil, typeDiagnostics(path, src, errs)
-}
-
-// projectNodes answers the nodes of the project file with module key as
-// the program's build loads them, and false for none.
-func (c *Checker) projectNodes(key string) ([]ast.Node, bool) {
-	if c.lib == nil || key == "" {
-		return nil, false
-	}
-	nodes, err := c.Loader()(c.root, strings.Split(key, "/"))
-	return nodes, err == nil
 }
 
 // Analyze runs the analysis pipeline over a prepared entry: the whole import
@@ -805,7 +791,7 @@ type ProjectFile struct {
 
 // PrepareFile points the Checker at a file entry, rooted at
 // analysis.ProjectRoot, the rule the LSP uses too. It answers the
-// entry's module-relative name, the form nomi.toml's entry_points uses.
+// entry's package-relative name, the form nomi.toml's entry_points uses.
 // An extensionless `#!` script is rooted at its own directory
 // (analysis.ProjectRoot).
 func (c *Checker) PrepareFile(path, absPath string) string {
@@ -973,7 +959,7 @@ func (c *Checker) CheckStdlibTest(moduleKey, src string, line int) (test *ast.Te
 	if perr != nil {
 		return nil, nil, nil, true, located(c.diagPath, src, perr)
 	}
-	if nodes, err = lowerDerives(c.diagPath, src, nodes, "", nil); err != nil {
+	if nodes, err = lowerDerives(c.diagPath, src, nodes); err != nil {
 		return nil, nil, nil, true, err
 	}
 	nodes = analysis.SynthesizeUniversalDebug(nodes)
@@ -1041,7 +1027,7 @@ func (c *Checker) prepareStdlib(src string, mode Mode) ([]ast.Node, error) {
 	if err != nil {
 		return nil, located(c.diagPath, src, err)
 	}
-	nodes, err = lowerDerives(c.diagPath, src, nodes, "", nil)
+	nodes, err = lowerDerives(c.diagPath, src, nodes)
 	if err != nil {
 		return nil, err
 	}

@@ -13,14 +13,14 @@ import (
 	"github.com/nomi-language/nomi/internal/catalog"
 )
 
-// CheckCatalogTree reports the catalogs of the module at root, whose
+// CheckCatalogTree reports the catalogs of the package at root, whose
 // manifest is m, that nothing reads: a directory for a locale `[i18n]` does
 // not list, or for the source locale, whose text is in the declarations; a
 // catalog file whose Nomi file does not exist; and, for a file of the
 // program that declares no phrase (files, by module key), every entry of
 // its catalogs. A file that declares phrases reports its own catalogs'
 // stray entries (checkFileCatalogs). Each error is in the catalog file it
-// is about. A module whose manifest lists no locales has no catalogs.
+// is about. A package whose manifest lists no locales has no catalogs.
 func CheckCatalogTree(root string, m *Manifest, files map[string][]ast.Node) []TypeError {
 	if root == "" || m == nil || m.Locales == nil {
 		return nil

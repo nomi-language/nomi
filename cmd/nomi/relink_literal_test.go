@@ -65,7 +65,7 @@ end
 `
 	}
 	p := cacheProject{name: "literals", entry: "main.nomi", files: map[string]string{
-		"nomi.toml": "[module]\nname = \"literals\"\nentry_points = [\"main\"]\n",
+		"nomi.toml": "[package]\nname = \"literals\"\nentry_points = [\"main\"]\n",
 		"code.nomi": code(ok),
 		"main.nomi": main("2026-05-04", "hello"),
 	}}

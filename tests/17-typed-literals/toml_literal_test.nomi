@@ -29,7 +29,7 @@ end
 
 test "Toml literal preserves source text"
     manifest = Toml"""
-        [module]
+        [package]
         name = "demo"
         """
 

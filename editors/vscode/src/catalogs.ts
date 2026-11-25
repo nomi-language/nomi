@@ -61,9 +61,14 @@ export function catalogFilters(manifests: Manifest[]): { scheme: string; pattern
 
 /**
  * The document filters of the TOML files the client sends the server: every
- * nomi.toml, whose errors and [effects] lists the server checks, and
- * the catalogs of the modules whose manifests are given (catalogFilters).
+ * nomi.toml, whose errors and [effects] lists the server checks, every
+ * nomi-workspace.toml, whose members it checks, and the catalogs of the
+ * modules whose manifests are given (catalogFilters).
  */
 export function tomlFilters(manifests: Manifest[]): { scheme: string; pattern: string }[] {
-  return [{ scheme: "file", pattern: "**/nomi.toml" }, ...catalogFilters(manifests)];
+  return [
+    { scheme: "file", pattern: "**/nomi.toml" },
+    { scheme: "file", pattern: "**/nomi-workspace.toml" },
+    ...catalogFilters(manifests),
+  ];
 }

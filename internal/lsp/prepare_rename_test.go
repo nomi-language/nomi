@@ -53,11 +53,11 @@ func prepareRenameServer(t *testing.T) (*Server, string) {
 			t.Fatal(err)
 		}
 	}
-	write("nomi.toml", "[module]\nname = \"app\"\nentry_points = [\"main\"]\n")
+	write("nomi.toml", "[package]\nname = \"app\"\nentry_points = [\"main\"]\n")
 	write("models/users.nomi", "pub fn make() -> Int\n    1\nend\n\npub struct User\n    name: String\nend\n")
 	write("main.nomi", prepareRenameMain)
 	s := NewServer()
-	s.docs.SetWorkspaceRoot(dir)
+	s.docs.SetEditorFolder(dir)
 	uri := pathToURI(filepath.Join(dir, "main.nomi"))
 	snap := s.docs.Open(uri, prepareRenameMain)
 	if snap.Analysis == nil || len(snap.Analysis.TypeErrors) > 0 {

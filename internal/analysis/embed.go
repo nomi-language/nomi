@@ -37,15 +37,15 @@ import (
 // source a run checks against the sum.
 //
 // The patterns follow Go's `//go:embed`, except for their base: each is
-// a path.Match pattern naming files from the module root, as an import
+// a path.Match pattern naming files from the package root, as an import
 // path names a file, whatever directory the declaring file is in. It is
 // slash-separated, with no
 // `.` or `..` name, no empty name and no leading or trailing `/`, so it
-// never reaches outside the module. A match that is a directory embeds
+// never reaches outside the package. A match that is a directory embeds
 // every file under it, except names that start with `.` or `_`, unless
 // the pattern starts with `all:`; a file a pattern names itself is
 // embedded whatever its name. A directory holding its own nomi.toml is
-// another module: a walk skips it, and naming it is an error. A symbolic
+// another package: a walk skips it, and naming it is an error. A symbolic
 // link or other irregular file is an error. A pattern that matches
 // nothing, or only directories with nothing to embed, is an error at the
 // pattern, except one whose base (EmbedInfo.Bases: the names before its
@@ -63,7 +63,7 @@ const keywordEmbed = "embed"
 // std/embed by (embedImport).
 const embedModuleAlias = "embed$"
 
-// EmbedFS is what an `embed` reads: the files under a module root, by
+// EmbedFS is what an `embed` reads: the files under a package root, by
 // slash-separated paths from it (`.` is the root). Open is called only
 // when the site hashes contents, and Source names where the program reads
 // a file's contents when it runs (ast.EmbeddedFile).
@@ -90,7 +90,7 @@ func (d DiskEmbedFS) Source(name string) string {
 	return filepath.Join(d.Root, filepath.FromSlash(name))
 }
 
-// MapEmbedFS is an in-memory module's files, by their slash-separated
+// MapEmbedFS is an in-memory package's files, by their slash-separated
 // paths from its root, as a tour block's data files are held. Their
 // directories are made from the paths.
 type MapEmbedFS map[string]string
@@ -166,8 +166,8 @@ func (e memEntry) Sys() any           { return nil }
 // declaration, each embedded file, and each pattern's matches.
 type EmbedInfo struct {
 	Decl *ast.EmbedDecl
-	// Root is the module root the patterns are read from: an absolute
-	// path on disk, or "" for an in-memory module.
+	// Root is the package root the patterns are read from: an absolute
+	// path on disk, or "" for an in-memory package.
 	Root  string
 	Files []EmbedFileInfo
 	// Matches holds, for each pattern in order, the paths it matched from
@@ -179,7 +179,7 @@ type EmbedInfo struct {
 	Missing []int
 }
 
-// EmbedFileInfo is one embedded file: its path from the module root, and
+// EmbedFileInfo is one embedded file: its path from the package root, and
 // its size.
 type EmbedFileInfo struct {
 	Path string
@@ -372,7 +372,7 @@ func expandEmbed(d *ast.EmbedDecl, site *ExpansionSite, slot int) *ast.OnceBindi
 	uniquifyPositions(carrier, slot)
 	once := &ast.OnceBinding{
 		Name:           d.Name,
-		Public:         d.Public,
+		Visibility:     d.Visibility,
 		TypeAnnotation: typ,
 		Value:          call,
 		Doc:            d.Doc,
@@ -388,10 +388,10 @@ func expandEmbed(d *ast.EmbedDecl, site *ExpansionSite, slot int) *ast.OnceBindi
 	return once
 }
 
-// EmbeddedPaths is the paths, from the module root root on disk, of the
+// EmbeddedPaths is the paths, from the package root root on disk, of the
 // files d's patterns embed, in path order, as the front end resolves
 // them, or the first error it reports there. The tour's generator carries
-// these files with a module it links (internal/tourmodules/tourmodulesgen).
+// these files with a package it links (internal/tourpackages/tourpackagesgen).
 func EmbeddedPaths(root string, d *ast.EmbedDecl) ([]string, error) {
 	r := embedResolver{decl: d, site: &ExpansionSite{Root: root, Embed: DiskEmbedFS{Root: root}, SkipEmbedContents: true}}
 	files := r.resolve()
@@ -406,7 +406,7 @@ func EmbeddedPaths(root string, d *ast.EmbedDecl) ([]string, error) {
 }
 
 // embedResolver finds the files of one `embed`, by their paths from the
-// site's module root.
+// site's package root.
 type embedResolver struct {
 	decl    *ast.EmbedDecl
 	site    *ExpansionSite
@@ -415,7 +415,7 @@ type embedResolver struct {
 	missing []int
 }
 
-// displayRoot is the module root on disk, or "" for an in-memory module.
+// displayRoot is the package root on disk, or "" for an in-memory package.
 func (r *embedResolver) displayRoot() string {
 	if r.site == nil {
 		return ""
@@ -442,7 +442,7 @@ func (r *embedResolver) resolve() []ast.EmbeddedFile {
 	if r.site == nil || r.site.Embed == nil {
 		d := r.decl
 		r.errs = append(r.errs, TypeError{Line: d.Line, Col: d.Col, EndLine: d.Line, EndCol: d.KeywordEndCol(),
-			Message: fmt.Sprintf("`embed %s` has no directory to read files from: this file is not on disk or in a module", d.Name)})
+			Message: fmt.Sprintf("`embed %s` has no directory to read files from: this file is not on disk or in a package", d.Name)})
 		return nil
 	}
 	found := map[string]ast.EmbeddedFile{}
@@ -487,7 +487,7 @@ func (r *embedResolver) pattern(i int, p ast.EmbedPattern) []ast.EmbeddedFile {
 	}
 	names := strings.Split(text, "/")
 	current := []string{"."}
-	var anotherModule string
+	var anotherPackage string
 	for depth, name := range names {
 		var next []string
 		for _, at := range current {
@@ -504,8 +504,8 @@ func (r *embedResolver) pattern(i int, p ast.EmbedPattern) []ast.EmbeddedFile {
 					if !e.IsDir() {
 						continue
 					}
-					if r.otherModule(rel) {
-						anotherModule = rel
+					if r.otherPackage(rel) {
+						anotherPackage = rel
 						continue
 					}
 				}
@@ -518,8 +518,8 @@ func (r *embedResolver) pattern(i int, p ast.EmbedPattern) []ast.EmbeddedFile {
 		current = next
 	}
 	if len(current) == 0 {
-		if anotherModule != "" {
-			r.fail(p, fmt.Sprintf("cannot embed files under `%s`: it is another module, with its own nomi.toml", anotherModule))
+		if anotherPackage != "" {
+			r.fail(p, fmt.Sprintf("cannot embed files under `%s`: it is another package, with its own nomi.toml", anotherPackage))
 			return nil
 		}
 		// A base that does not exist is one the program has not made yet
@@ -529,7 +529,7 @@ func (r *embedResolver) pattern(i int, p ast.EmbedPattern) []ast.EmbeddedFile {
 			r.missing = append(r.missing, i)
 			return nil
 		}
-		r.fail(p, fmt.Sprintf("the `embed` pattern `%s` matches no file", p.Text), "a pattern names files from the module root, as an import path does")
+		r.fail(p, fmt.Sprintf("the `embed` pattern `%s` matches no file", p.Text), "a pattern names files from the package root, as an import path does")
 		return nil
 	}
 	sort.Strings(r.matches[i])
@@ -557,8 +557,8 @@ func (r *embedResolver) match(p ast.EmbedPattern, rel string, all bool) ([]ast.E
 		r.fail(p, fmt.Sprintf("cannot embed `%s`: it is a symbolic link", rel), "an `embed` holds regular files only; name the file the link points to")
 		return nil, false
 	case entry.IsDir():
-		if r.otherModule(rel) {
-			r.fail(p, fmt.Sprintf("cannot embed `%s`: it is another module, with its own nomi.toml", rel))
+		if r.otherPackage(rel) {
+			r.fail(p, fmt.Sprintf("cannot embed `%s`: it is another package, with its own nomi.toml", rel))
 			return nil, false
 		}
 		var out []ast.EmbeddedFile
@@ -584,7 +584,7 @@ func (r *embedResolver) match(p ast.EmbedPattern, rel string, all bool) ([]ast.E
 }
 
 // walk adds the files under dir to out, leaving out hidden names unless
-// all, and the directories of other modules.
+// all, and the directories of other packages.
 func (r *embedResolver) walk(p ast.EmbedPattern, dir string, all bool, out *[]ast.EmbeddedFile, skipped *bool) bool {
 	entries, err := r.site.Embed.ReadDir(dir)
 	if err != nil {
@@ -602,7 +602,7 @@ func (r *embedResolver) walk(p ast.EmbedPattern, dir string, all bool, out *[]as
 			r.fail(p, fmt.Sprintf("cannot embed `%s`: it is a symbolic link", rel), "an `embed` holds regular files only; name the file the link points to")
 			return false
 		case e.IsDir():
-			if r.otherModule(rel) {
+			if r.otherPackage(rel) {
 				continue
 			}
 			if !r.walk(p, rel, all, out, skipped) {
@@ -629,7 +629,7 @@ func (r *embedResolver) exists(rel string) bool {
 }
 
 // existsBesideFile reports whether rel names a path from the declaring
-// file's directory, when that is not the module root.
+// file's directory, when that is not the package root.
 func (r *embedResolver) existsBesideFile(rel string) bool {
 	dir := path.Dir(r.site.ModulePath)
 	if r.site.ModulePath == "" || dir == "." {
@@ -652,9 +652,9 @@ func (r *embedResolver) entry(rel string) (fs.DirEntry, bool) {
 	return nil, false
 }
 
-// otherModule reports whether the directory rel holds a nomi.toml of its
-// own, which makes it another module's.
-func (r *embedResolver) otherModule(rel string) bool {
+// otherPackage reports whether the directory rel holds a nomi.toml of its
+// own, which makes it another package's.
+func (r *embedResolver) otherPackage(rel string) bool {
 	entries, err := r.site.Embed.ReadDir(rel)
 	if err != nil {
 		return false
@@ -698,7 +698,7 @@ func embedPatternProblem(text string) (msg, hint string) {
 	case text == "":
 		return "an `embed` pattern after `all:` is empty", ""
 	case strings.HasPrefix(text, "/"):
-		return fmt.Sprintf("the `embed` pattern `%s` starts with `/`", text), "a pattern names files from the module root; remove the `/`"
+		return fmt.Sprintf("the `embed` pattern `%s` starts with `/`", text), "a pattern names files from the package root; remove the `/`"
 	case strings.HasSuffix(text, "/"):
 		return fmt.Sprintf("the `embed` pattern `%s` ends with `/`", text), "a directory's name embeds every file under it; remove the `/`"
 	case strings.Contains(text, `\`):
@@ -709,9 +709,9 @@ func embedPatternProblem(text string) (msg, hint string) {
 		case name == "":
 			return fmt.Sprintf("the `embed` pattern `%s` has an empty name between two `/`", text), ""
 		case name == ".":
-			return fmt.Sprintf("the `embed` pattern `%s` names `.`", text), "a pattern names files from the module root; leave out `./`"
+			return fmt.Sprintf("the `embed` pattern `%s` names `.`", text), "a pattern names files from the package root; leave out `./`"
 		case name == "..":
-			return fmt.Sprintf("the `embed` pattern `%s` names `..`", text), "an `embed` reads only files in its own module, named from the module root"
+			return fmt.Sprintf("the `embed` pattern `%s` names `..`", text), "an `embed` reads only files in its own package, named from the package root"
 		case strings.Contains(name, "**"):
 			return fmt.Sprintf("the `embed` pattern `%s` holds `**`", text), "a directory's name embeds every file under it: write the directory"
 		}

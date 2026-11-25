@@ -18,9 +18,9 @@ import (
 // installs (SetStdExports): read from the std artifact it builds the
 // stdlib from, which records each module's when it extracts the module's
 // interface, or else from std's sources, each parsed once per process. It
-// is read only when a diagnostic asks, and nothing is checked. Internal
-// modules (internalStdModules) are never suggested, and neither is a
-// module with no public declarations.
+// is read only when a diagnostic asks, and nothing is checked. A module
+// with no public declarations is never suggested, which keeps out std's
+// plumbing (`fs::host`).
 
 var (
 	stdExportsMu   sync.Mutex
@@ -45,10 +45,11 @@ type StdModuleExport struct {
 }
 
 // StdModuleExportOf is what module, whose declarations are nodes, exports
-// to the import help. An internal module and the prelude export nothing.
+// to the import help. The prelude, whose names every file has, exports
+// nothing.
 func StdModuleExportOf(module string, nodes []ast.Node) StdModuleExport {
 	var out StdModuleExport
-	if _, internal := internalStdModules[module]; internal || module == "prelude" {
+	if module == "prelude" {
 		return out
 	}
 	for _, n := range nodes {
@@ -126,17 +127,17 @@ func buildStdExportIndex(exports map[string]StdModuleExport) *stdExportIndex {
 func stdExportedType(n ast.Node) (string, bool) {
 	switch d := n.(type) {
 	case *ast.StructDef:
-		return d.Name, d.Public
+		return d.Name, d.Visibility == ast.Public
 	case *ast.EnumDef:
-		return d.Name, d.Public
+		return d.Name, d.Visibility == ast.Public
 	case *ast.TypeDef:
-		return d.Name, d.Public
+		return d.Name, d.Visibility == ast.Public
 	case *ast.TypeAlias:
-		return d.Name, d.Public
+		return d.Name, d.Visibility == ast.Public
 	case *ast.InterfaceDef:
-		return d.Name, d.Public
+		return d.Name, d.Visibility == ast.Public
 	case *ast.ExternType:
-		return d.Name, d.Public
+		return d.Name, d.Visibility == ast.Public
 	}
 	return "", false
 }
@@ -146,11 +147,11 @@ func stdExportedType(n ast.Node) (string, bool) {
 func stdNodePublic(n ast.Node) bool {
 	switch d := n.(type) {
 	case *ast.FuncDef:
-		return d.Public
+		return d.Visibility == ast.Public
 	case *ast.ExternFunc:
-		return d.Public
+		return d.Visibility == ast.Public
 	case *ast.OnceBinding:
-		return d.Public
+		return d.Visibility == ast.Public
 	}
 	return false
 }
@@ -164,8 +165,16 @@ func stdTypeModules(name string) []string {
 	return nil
 }
 
-// stdModuleExists reports whether name is a public std module.
-func stdModuleExists(name string) bool {
+// IsPublicStdModule reports whether name is a public std module: one that
+// declares something public, which a program can import and the reference
+// documents. A module of std's plumbing (`fs::host`) declares nothing
+// public, and neither does the prelude. It is the one answer to whether
+// std offers a module to code outside std: the import help, the
+// did-you-mean of a module path, the listing of `std`, the language
+// server's completion and auto-import, hover and the reference's pages
+// all ask it, and a type or function they offer is one declared `pub`.
+// False when std's exports are not installed (SetStdExports).
+func IsPublicStdModule(name string) bool {
 	idx := stdExports()
 	return idx != nil && idx.modules[name]
 }
@@ -197,7 +206,7 @@ func stdTypeImportHint(name string) string {
 // not bind that names a public std module: `io.print` without `import
 // std::io`. "" for any other name.
 func stdModuleImportHint(name string) string {
-	if !stdModuleExists(name) {
+	if !IsPublicStdModule(name) {
 		return ""
 	}
 	return fmt.Sprintf("import `std::%s`", name)

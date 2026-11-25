@@ -7,8 +7,8 @@
 ---@type vim.lsp.Config
 return {
   cmd = { 'nomi', 'lsp' },
-  -- A TOML buffer only when it is a module's nomi.toml or one of its
-  -- phrase catalogs.
+  -- A TOML buffer only when it is a module's nomi.toml, a workspace's
+  -- nomi-workspace.toml or one of a module's phrase catalogs.
   filetypes = { 'nomi', 'toml' },
   root_dir = function(bufnr, on_dir)
     if vim.bo[bufnr].filetype == 'toml' then

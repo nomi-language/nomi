@@ -55,5 +55,5 @@ func TestTupleOrdinal_PastTheLastItem(t *testing.T) {
 func TestTupleOrdinal_OpaqueNamedTuple(t *testing.T) {
 	modules := map[string]string{"pairs": "pub opaque type Pair (Int, String)\n\npub fn make() -> Pair\n  Pair(1, \"x\")\nend\n"}
 	_, errs := checkSourceWithModules(t, "import pairs\n\nfn main()\n  _ = pairs.make().first\nend\n", modules)
-	expectError(t, errs, "cannot read item 'first' of opaque type 'Pair' outside its defining module")
+	expectError(t, errs, "cannot read item 'first' of opaque type 'Pair' outside `pairs.nomi`")
 }

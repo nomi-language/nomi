@@ -12,15 +12,15 @@ import (
 )
 
 // findNomiFiles walks a project directory and returns its .nomi file
-// paths, leaving out the directories below root the workspace scan leaves
-// out (analysis.SkipWorkspaceDir).
+// paths, leaving out the directories below root the editor folder's scan leaves
+// out (analysis.SkipEditorFolderDir).
 func findNomiFiles(root string) []string {
 	var files []string
 	filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
-		if d.IsDir() && path != root && analysis.SkipWorkspaceDir(d.Name()) {
+		if d.IsDir() && path != root && analysis.SkipEditorFolderDir(d.Name()) {
 			return filepath.SkipDir
 		}
 		if !d.IsDir() && strings.HasSuffix(d.Name(), ".nomi") {

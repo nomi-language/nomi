@@ -17,8 +17,8 @@ func notAllowedLines(p *vmhost.Program, r vmhost.Roots, lists *vmhost.Effects) [
 	var out []string
 	for _, n := range p.EffectCallsNotAllowed(r, lists) {
 		over := map[vmhost.EffectList]string{vmhost.OverSelf: "self", vmhost.OverSelfEntry: "self entry", vmhost.OverDeps: "deps", vmhost.OverEntry: "entry", vmhost.OverDeclared: "own"}[n.List]
-		if n.Module != "" {
-			over += " " + n.Module
+		if n.Package != "" {
+			over += " " + n.Package
 		}
 		if n.Entry != "" {
 			over += " " + n.Entry
@@ -54,7 +54,7 @@ func selfAllows(names ...string) *vmhost.SelfEffects {
 // depsCeiling is an [effects.deps] whose std is names, none for nil,
 // with entries.
 func depsCeiling(names []string, entries map[string][]string) *vmhost.DepsEffects {
-	d := &vmhost.DepsEffects{Modules: entries}
+	d := &vmhost.DepsEffects{Packages: entries}
 	if names != nil {
 		d.Std = append([]string{}, names...)
 	}
@@ -77,7 +77,7 @@ func pricingProjectDeclaring(t *testing.T, table string) *vmhost.Program {
 // app's main.nomi.
 func pricingFiles(table, more string) map[string]string {
 	return map[string]string{
-		"app/nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[dependencies]\npricing = { dir = \"../pricing\" }\n",
+		"app/nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[dependencies]\npricing = { dir = \"../pricing\" }\n",
 		"app/main.nomi": `import
     std::fs
     std::io
@@ -93,7 +93,7 @@ fn main()
     io.print(rules.twice("x", read))
 end
 ` + more,
-		"pricing/nomi.toml": "[module]\nname = \"pricing\"\n" + table,
+		"pricing/nomi.toml": "[package]\nname = \"pricing\"\n" + table,
 		"pricing/rules.nomi": `import
     std::fs
     std::io
@@ -114,7 +114,7 @@ end
 // [effects.self] holds the calls in the project's own files and
 // [effects.deps] the calls in a dependency's: each alone holds only
 // what it names. Deps' std is a ceiling over every dependency, an entry
-// under [effects.deps.modules] holds that module's calls, and a call
+// under [effects.deps.packages] holds that module's calls, and a call
 // over both is reported once, over the entry. With no ceiling and no
 // entry a dependency's calls are not held. A callback the program hands a
 // module is the program's.
@@ -143,7 +143,7 @@ func TestEffectCallsNotAllowed_TheSelfAndDepsTables(t *testing.T) {
 		{"an entry with no ceiling", vmhost.Effects{Deps: depsCeiling(nil, map[string][]string{"pricing": io})}, []string{
 			"std::fs | entry pricing | rules.nomi:7:17 | [std::io]",
 		}},
-		{"an entry allowed nothing, the callback it is handed the program's", vmhost.Effects{Deps: &vmhost.DepsEffects{Modules: map[string][]string{"pricing": {}}}}, []string{
+		{"an entry allowed nothing, the callback it is handed the program's", vmhost.Effects{Deps: &vmhost.DepsEffects{Packages: map[string][]string{"pricing": {}}}}, []string{
 			"std::fs | entry pricing | rules.nomi:7:17 | []",
 			"std::io | entry pricing | rules.nomi:11:13 | []",
 		}},
@@ -260,7 +260,7 @@ end
 // reads a file and prints. A test loads too.
 func storeProject(t *testing.T) *vmhost.Program {
 	return loadProject(t, "main.nomi", map[string]string{
-		"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+		"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n",
 		"main.nomi": `import
     std::fs
     std::io
@@ -393,7 +393,7 @@ func TestEffectCallsNotAllowed_DepsInTests(t *testing.T) {
 		"std::fs | deps pricing | rules.nomi:7:17 | [std::io]",
 	)
 	entry := &vmhost.Effects{Deps: &vmhost.DepsEffects{Std: []string{"std::io"}, StdInTests: []string{"std::fs"},
-		Modules: map[string][]string{"pricing": {"std::io"}}}}
+		Packages: map[string][]string{"pricing": {"std::io"}}}}
 	checkNotAllowed(t, p, tests, entry,
 		"std::fs | entry pricing | rules.nomi:7:17 | [std::io]",
 	)

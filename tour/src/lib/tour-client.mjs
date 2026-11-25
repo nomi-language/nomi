@@ -328,7 +328,7 @@ function usesTree(files) {
 // A file in a live example is editable only when an edit can change what
 // the example prints. readOnlyReason answers why a file is not, the
 // tooltip its lock carries, or "" for an editable file: a nomi.toml whose
-// only table is [module], and a data file the block's
+// only table is [package], and a data file the block's
 // fence marks with a `read-only:<glob>` word (globs, from
 // data-nomi-read-only), whose contents the program never reads. vmhost's TestTourDoctests holds a
 // marked file to that: a run that reads one fails, and so does a run that
@@ -352,11 +352,11 @@ function base64Placeholder(text) {
 }
 
 // onlyModuleTable reports whether a nomi.toml's only table header is
-// [module]: comments, blank lines and the module's keys may surround it.
+// [package]: comments, blank lines and the module's keys may surround it.
 function onlyModuleTable(text) {
   return text.split("\n").every((line) => {
     const t = line.replace(/#.*$/, "").trim();
-    return !t.startsWith("[") || t === "[module]";
+    return !t.startsWith("[") || t === "[package]";
   });
 }
 

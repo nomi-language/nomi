@@ -11,7 +11,7 @@ func TestQualifiedAlias_LiteralThroughAnAliasOfAnImportedStruct(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	typeCycleRun(t, map[string]string{
-		"nomi.toml": "[module]\nname = \"aliased\"\nentry_points = [\"main\"]\n",
+		"nomi.toml": "[package]\nname = \"aliased\"\nentry_points = [\"main\"]\n",
 		"main.nomi": `import shapes
 import std::io
 
@@ -42,7 +42,7 @@ func TestQualifiedAlias_TargetOfTheSameName(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	typeCycleRun(t, map[string]string{
-		"nomi.toml": "[module]\nname = \"samename\"\nentry_points = [\"main\"]\n",
+		"nomi.toml": "[package]\nname = \"samename\"\nentry_points = [\"main\"]\n",
 		"main.nomi": `import items
 import std::io
 

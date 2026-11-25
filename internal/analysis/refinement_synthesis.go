@@ -26,7 +26,7 @@ import (
 //	    end
 //	end
 //
-// `try_from` is as public as the type. `unchecked` is private to the
+// `try_from` has the type's visibility. `unchecked` is private to the
 // declaring file. Its parameter is the refinement's base
 // (ast.RefinementBaseType), which the declaring file need not import. A
 // `type`'s `try_from` is instead its `impl TryFrom<base> for T` (tryFromImpl),
@@ -94,7 +94,7 @@ func synthesizeRefinements(nodes []ast.Node, index []int) []ast.Node {
 				// is checked as a refinement's parent is.
 				parents = conj.Members
 			}
-			block = refinementImpl(refinementHead{name: d.Name, typeParams: d.TypeParams, where: d.WhereClauses}, d.Public, d.Rule, parents, synthSiteOf(index[i], n))
+			block = refinementImpl(refinementHead{name: d.Name, typeParams: d.TypeParams, where: d.WhereClauses}, d.Visibility, d.Rule, parents, synthSiteOf(index[i], n))
 			if block != nil && !d.Refinement {
 				// The type implements `TryFrom` of its base because of the
 				// rule in its chain: `try_from` is that impl's, and
@@ -110,7 +110,7 @@ func synthesizeRefinements(nodes []ast.Node, index []int) []ast.Node {
 			if d.Rule == nil || len(d.TypeParams) > 0 {
 				continue
 			}
-			block = refinementImpl(refinementHead{name: d.Name}, d.Public, d.Rule, nil, synthSiteOf(index[i], n))
+			block = refinementImpl(refinementHead{name: d.Name}, d.Visibility, d.Rule, nil, synthSiteOf(index[i], n))
 		default:
 			continue
 		}
@@ -179,7 +179,7 @@ func tryFromImpl(block *ast.ImplBlock, d *ast.TypeDef) *ast.ImplBlock {
 	// The header on a line of its own, past the two uniquifyPositions
 	// gives the functions, so its names' references collide with none.
 	line := tryFrom.Line + 2
-	tryFrom.Public = false
+	tryFrom.Visibility = ast.Internal
 	tryFrom.Doc = fmt.Sprintf("`TryFrom.try_from` for %s, which its rule supplies: `Some` of the value when it satisfies %s's rules, `None` when it does not.", d.Name, d.Name)
 	if p := &tryFrom.Params[0]; p.Name != tryFromParam {
 		// The rule names `value`, which a parameter of that name would
@@ -347,17 +347,18 @@ func (h refinementHead) generic(fd *ast.FuncDef, line, col int) {
 
 // refinementImpl builds the block for the refinement head names with rule
 // and, for a distinct refinement, the parents it refines, its first first.
-func refinementImpl(head refinementHead, public bool, rule ast.Node, parents []ast.TypeExpr, site synthSite) *ast.ImplBlock {
+func refinementImpl(head refinementHead, vis ast.Visibility, rule ast.Node, parents []ast.TypeExpr, site synthSite) *ast.ImplBlock {
 	name := head.name
 	line := site.base(synthKindAutoDebug) + refinementSynthOffset
 	col := 1
 	names := freshRefinementNames(rule)
-	tryFrom := refinementTryFrom(head, public, rule != nil, parents, names, line, col)
+	tryFrom := refinementTryFrom(head, vis, rule != nil, parents, names, line, col)
 	if tryFrom == nil {
 		return nil
 	}
 	unchecked := &ast.FuncDef{
 		Name:           "unchecked",
+		Visibility:     ast.Private,
 		Params:         []ast.Param{{Name: names.value, TypeAnnotation: head.base(line, col), Line: line, Col: col}},
 		ReturnTypeExpr: head.self(line, col),
 		Body: &ast.Block{
@@ -419,7 +420,7 @@ func freshRefinementNames(rule ast.Node) refinementNames {
 // struct refinement (no parents) checks the value it builds from the record
 // of its fields; a distinct refinement checks each parent's rules first, in
 // the order they are written, and its rule takes its first parent.
-func refinementTryFrom(head refinementHead, public, hasRule bool, parents []ast.TypeExpr, names refinementNames, line, col int) *ast.FuncDef {
+func refinementTryFrom(head refinementHead, vis ast.Visibility, hasRule bool, parents []ast.TypeExpr, names refinementNames, line, col int) *ast.FuncDef {
 	name := head.name
 	self := func() ast.TypeExpr { return head.self(line, col) }
 	optionSelf := &ast.GenericType{Name: "Option", Params: []ast.TypeExpr{self()}, Line: line, Col: col}
@@ -522,7 +523,7 @@ func refinementTryFrom(head refinementHead, public, hasRule bool, parents []ast.
 	return &ast.FuncDef{
 		Name:           "try_from",
 		Doc:            fmt.Sprintf("`Some` of the value when it satisfies %s's rules, `None` when it does not.", name),
-		Public:         public,
+		Visibility:     vis,
 		Params:         []ast.Param{{Name: names.value, TypeAnnotation: head.base(line, col), Line: line, Col: col}},
 		ReturnTypeExpr: optionSelf,
 		Body:           &ast.Block{Stmts: stmts, Line: line, Col: col},

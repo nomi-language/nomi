@@ -1,4 +1,4 @@
-//# Checked SQL. `nomi tool sqlkit generate` reads a module's migrations
+//# Checked SQL. `nomi tool sqlkit generate` reads a package's migrations
 //# and its query files, asks SQLite to describe each query, and writes
 //# ordinary Nomi files: the schema (a row struct per table, named in the
 //# singular, an enum per `CHECK (column IN (...))` column, and the
@@ -102,13 +102,13 @@ end
 
 derive Equatable for Changed
 
-/// One migration: its path from the module root and its SQL, the migrate
-/// module's own type. The generated schema file holds `migrations`, a list
-/// of them in name order, which `migrate` hands to the migrate module.
+/// One migration: its path from the package root and its SQL, the migrate
+/// package's own type. The generated schema file holds `migrations`, a list
+/// of them in name order, which `migrate` hands to the migrate package.
 pub typealias Migration runner.Migration
 
 /// Bring `conn`'s database up to date with `migrations`, as the migrate
-/// module's `apply` does: under a lock, run each one it has not run yet, in
+/// package's `apply` does: under a lock, run each one it has not run yet, in
 /// order, in a savepoint with its record in `nomi_migrations`. A migration
 /// whose text changed after it ran is refused, before anything runs, with
 /// `Error.Database{code: "migrate"}` naming its file; a migration that fails

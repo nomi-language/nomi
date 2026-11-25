@@ -17,14 +17,14 @@ func TestTaskAwait_ACancelledTaskOnTheMainLineReportsTheCancel(t *testing.T) {
 		name  string
 		await func(fr *Frame, h Task[Unit])
 	}{
-		{"await", func(fr *Frame, h Task[Unit]) { TaskAwait(fr, h) }},
-		{"await_all", func(fr *Frame, h Task[Unit]) { TaskAwaitAll(fr, listFromSlice([]Task[Unit]{h})) }},
+		{"await", func(fr *Frame, h Task[Unit]) { TaskAwait(fr, Site{}, h) }},
+		{"await_all", func(fr *Frame, h Task[Unit]) { TaskAwaitAll(fr, Site{}, listFromSlice([]Task[Unit]{h})) }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			block := EnterScope(NewFrame(context.Background()))
 			err := recoverFault(func() {
-				defer ScopeExit(block)
-				h := TaskSpawn[Unit](block, sleeper)
+				defer ScopeExit(block, Site{})
+				h := TaskSpawn[Unit](block, Site{}, sleeper)
 				TaskCancel(h)
 				tc.await(block, h)
 			})
@@ -39,16 +39,16 @@ func TestTaskAwait_ACancelledTaskOnTheMainLineReportsTheCancel(t *testing.T) {
 			outer := EnterScope(NewFrame(context.Background()))
 			var got Outcome[Unit]
 			func() {
-				defer ScopeExit(outer)
-				awaiter := TaskSpawn[Unit](outer, func(tf *Frame) Unit {
+				defer ScopeExit(outer, Site{})
+				awaiter := TaskSpawn[Unit](outer, Site{}, func(tf *Frame) Unit {
 					inner := EnterScope(tf)
-					defer ScopeExit(inner)
-					h := TaskSpawn[Unit](inner, sleeper)
+					defer ScopeExit(inner, Site{})
+					h := TaskSpawn[Unit](inner, Site{}, sleeper)
 					TaskCancel(h)
 					tc.await(inner, h)
 					return Unit{}
 				})
-				got = TaskOutcomeOf(outer, awaiter)
+				got = TaskOutcomeOf(outer, Site{}, awaiter)
 			}()
 			if got.Tag != TagCancelled {
 				t.Errorf("a task awaiting a cancelled task settled %v, want Cancelled", got.Tag)

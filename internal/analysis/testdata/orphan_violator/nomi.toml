@@ -1,4 +1,4 @@
-[module]
+[package]
 name = "orphan_violator"
 entry_points = ["main"]
 

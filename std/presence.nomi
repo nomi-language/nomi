@@ -155,8 +155,9 @@ derive Equatable for Presence<T>
 derive Hashable for Presence<T>
 
 impl ToJson for Presence<T> where T: ToJson
-    /// `Present(v)` writes `v`, and `Absent` writes `null`. As a struct
-    /// field, `Absent` writes nothing: `to_json_field` leaves its key out.
+    /// `Present(v)` writes `v`, and `Absent` writes `null`, which `from_json`
+    /// reads back as Absent unless `T` reads `null` itself. As a struct field, `Absent` writes nothing:
+    /// `to_json_field` leaves its key out.
     //! assert ToJson.to_json(Presence.Present(3)) == Json.Int(3)
     //! assert ToJson.to_json_field(Presence.Present(3)) == Option.Some(Json.Int(3))
     //!
@@ -179,19 +180,34 @@ impl ToJson for Presence<T> where T: ToJson
 end
 
 impl FromJson for Presence<T> where T: FromJson
-    /// Reads `T` as Present, so a JSON `null` read as a `Presence<Option<T>>`
-    /// is `Present(None)`. A missing key of a struct field reads as Absent.
+    /// Reads what `T` reads as Present. A JSON `null` that `T` refuses
+    /// reads as Absent, which is what `to_json` writes for it, so a list
+    /// element or an enum payload reads back as it was written. A `null`
+    /// that `T` reads stays Present: a `Presence<Option<T>>` reads it as
+    /// `Present(None)`. A missing key of a struct field reads as Absent.
     //! assert FromJson.from_json<Presence<Int>>(Json.Int(3)) == Result.Ok(Presence.Present(3))
+    //! assert FromJson.from_json<Presence<Int>>(Json.Null) == Result.Ok(Presence.Absent)
     //!
     //! assert FromJson.from_json<Presence<Option<Int>>>(Json.Null)
     //!     == Result.Ok(Presence.Present(Option.None))
     //!
     //! assert FromJson.from_missing<Presence<Int>>() == Option.Some(Presence.Absent)
+    //!
+    //! // A list of them reads back as it was written.
+    //! ages: List<Presence<Int>> = [Presence.Present(1), Presence.Absent]
+    //! assert Json.encode_as(ages) == "[1,null]"
+    //! assert Json.decode_as<List<Presence<Int>>>("[1,null]") == Result.Ok(ages)
     //
     fn from_json(json: Json) -> Result<Presence<T>, Json.ShapeError>
         case T.from_json(json)
-            .Ok(v)  -> Result.Ok(Presence.Present(v))
-            .Err(e) -> Result.Err(e)
+            .Ok(v) ->
+                Result.Ok(Presence.Present(v))
+
+            .Err(e) ->
+                case json
+                    Json.Null -> Result.Ok(Presence.Absent)
+                    _         -> Result.Err(e)
+                end
         end
     end
 

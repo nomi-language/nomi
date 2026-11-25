@@ -23,15 +23,18 @@ type importSource struct {
 	name  string // the file object's name: the path's last segment
 	scope *analysis.Scope
 	decls []analysis.IndexedDecl
+	// file is the path of an indexed file, whose decls are from a parse.
+	file string
 }
 
-// importSources lists the standard library's files and the project's
-// open and indexed files other than the document itself, by module path.
+// importSources lists the standard library's public files
+// (analysis.IsPublicStdModule) and the project's open and indexed files
+// other than the document itself, by module path.
 func (r *completionRequest) importSources() []importSource {
 	var out []importSource
 	if r.s.std != nil {
 		for name, scope := range r.s.std.Modules {
-			if name != "prelude" {
+			if analysis.IsPublicStdModule(name) {
 				out = append(out, importSource{path: "std/" + name, name: name, scope: scope})
 			}
 		}
@@ -60,7 +63,7 @@ func (r *completionRequest) importSources() []importSource {
 			continue
 		}
 		if path, ok := modulePath(entry.URI); ok {
-			out = append(out, importSource{path: path, name: filepath.Base(path), decls: entry.Decls})
+			out = append(out, importSource{path: path, name: filepath.Base(path), decls: entry.Decls, file: uriToPath(entry.URI)})
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].path < out[j].path })
@@ -102,7 +105,7 @@ func (r *completionRequest) autoImportCandidates(types, values bool) []candidate
 			continue
 		}
 		for name, sym := range src.scope.Symbols {
-			if !r.reads(sym.Public, sym.SourceFile) || sym.Resolved != nil {
+			if !r.fa.Sees(sym) || sym.Resolved != nil {
 				continue
 			}
 			switch {
@@ -146,7 +149,7 @@ func (r *completionRequest) autoImportCandidates(types, values bool) []candidate
 func (r *completionRequest) indexedImportCandidates(src importSource, types, values bool, bound *analysis.Symbol, imported bool) []candidate {
 	var out []candidate
 	for _, d := range src.decls {
-		if !d.Public {
+		if !r.seesProjectDecl(d.Visibility, src.file) {
 			continue
 		}
 		switch {
@@ -228,10 +231,14 @@ func (r *completionRequest) importEdit(m analysis.MissingImport) (protocol.TextE
 	return addImportEdit(r.doc.Content, r.lines.starts, r.textNodes(), m)
 }
 
-// reads reports whether the requesting document may name a declaration of
-// the file at sourceFile: it is public, or the document is that file's
-// partner test, which reads its private declarations (spec §14
-// *Visibility*).
-func (r *completionRequest) reads(public bool, sourceFile string) bool {
-	return public || (r.fa != nil && analysis.IsPartnerTestPath(r.fa.FilePath, sourceFile))
+// seesProjectDecl reports whether the requesting document may name a
+// declaration of level vis in the project file at file, which the server
+// knows from a parse: a file under the document's project root is in the
+// document's module (analysis.FileAnalysis.SeesDeclaration).
+func (r *completionRequest) seesProjectDecl(vis ast.Visibility, file string) bool {
+	module := ""
+	if r.fa != nil {
+		module = r.fa.Package
+	}
+	return r.fa.SeesDeclaration(vis, module, file)
 }

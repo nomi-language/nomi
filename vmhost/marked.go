@@ -17,13 +17,13 @@ import (
 // Its data files seed an in-memory file system its std/fs calls reach
 // (WithFileSystem), so every run starts from the files the source shows. A
 // source with no markers is a single-file program named "main", and one
-// whose sections are one module is loaded from memory (SplitMultiFile).
+// whose sections are one package is loaded from memory (SplitMultiFile).
 //
-// A source that names modules (a root nomi.toml whose [dependencies] names
-// a module of its own under it with a dir, such as a generator's, or a
+// A source that names packages (a root nomi.toml whose [dependencies] names
+// a package of its own under it with a dir, such as a generator's, or a
 // nomi.toml section in a directory under the root) is a project of several
-// modules, which resolve through the files the front end reads from disk:
-// each module's nomi.toml and the catalogs it reads. So it is written as
+// packages, which resolve through the files the front end reads from disk:
+// each package's nomi.toml and the catalogs it reads. So it is written as
 // those files under dir, which is emptied first, and loaded from there as
 // the same files written by hand would be. A diagnostic names a file by its
 // path from dir, as the source marks it, and so does a run-time failure (a
@@ -34,7 +34,7 @@ import (
 // A source may instead hold several projects side by side, each a
 // top-level directory with a nomi.toml of its own (virtualproject's
 // projectsDir): the first section's directory is the project, entered at
-// its entry, and the others are modules its nomi.toml names by dir
+// its entry, and the others are packages its nomi.toml names by dir
 // (`../csvdata`). Its run's relative paths start at the project's
 // directory, as `nomi run` there has them. A diagnostic still names a file
 // by its path from dir (`rates/tables.nomi`, `csvdata/csvdata.nomi`), as
@@ -81,7 +81,7 @@ func LoadMarked(src, dir string, opts ...Option) (p *Program, hasTests bool, err
 }
 
 // loadMarkedProject loads a block's project at its entry, held to its
-// lists when hold is set (held). A project that names modules is written
+// lists when hold is set (held). A project that names packages is written
 // under dir, unless root is where an earlier load of the same block wrote
 // it, and answers the root it is loaded from.
 func loadMarkedProject(project virtualproject.Project, dir, root string, opts []Option, hold bool) (*Program, string, error) {

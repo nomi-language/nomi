@@ -35,7 +35,7 @@ func TestPreludeLifecycleProject(t *testing.T) {
 	lib := loadStd()
 	dm := analysis.NewDocumentManager()
 	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
-	dm.SetWorkspaceRoot(root)
+	dm.SetEditorFolder(root)
 	doc := dm.Open(fileuri.FromPath(path), src)
 	if doc.Analysis == nil {
 		t.Fatal("no project analysis")

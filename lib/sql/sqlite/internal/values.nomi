@@ -25,7 +25,7 @@ end
 once exact_digits = 15
 
 /// A failure SQLite's code for a value of the wrong type names.
-pub fn mismatch(message: String) -> sql.Error
+fn mismatch(message: String) -> sql.Error
     sql.Error.Database{code: "SQLITE_MISMATCH", message:}
 end
 
@@ -35,7 +35,7 @@ end
 /// which would read back as another value; so is a `Decimal` of more
 /// digits than SQLite keeps, and an `Array`, since SQLite has no array
 /// type.
-pub fn param(position: Int, value: Value) -> Result<Cell, sql.Error>
+fn param(position: Int, value: Value) -> Result<Cell, sql.Error>
     case value
         .Array(_) ->
             Err(
@@ -105,7 +105,7 @@ pub fn param(position: Int, value: Value) -> Result<Cell, sql.Error>
 end
 
 /// The cells each parameter of `statement` is written as.
-pub fn params(statement: sql.Statement) -> Result<List<Cell>, sql.Error>
+fn params(statement: sql.Statement) -> Result<List<Cell>, sql.Error>
     statement.params
     |> Iter.with_index()
     |> Iter.map(fn (position, value) -> param(position + 1, value))
@@ -124,7 +124,7 @@ fn utc_text(i: Instant) -> String
 end
 
 /// The row `cells` are, of the columns `columns`, for the query `query`.
-pub fn row(query: String, columns: Columns, cells: List<Cell>) -> Result<Row, sql.Error>
+fn row(query: String, columns: Columns, cells: List<Cell>) -> Result<Row, sql.Error>
     values =
         Iter.zip(Iter.zip(columns.names, columns.types), cells)
         |> Iter.map(fn ((name, declared), c) -> value(name, String.uppercase(declared), c))

@@ -42,7 +42,7 @@ impl Display for Tag<T> where T: Display
 end
 `
 	p := cacheProject{name: "generic-across", entry: "main.nomi", files: map[string]string{
-		"nomi.toml":  "[module]\nname = \"genericacross\"\nentry_points = [\"main\"]\n",
+		"nomi.toml":  "[package]\nname = \"genericacross\"\nentry_points = [\"main\"]\n",
 		"named.nomi": named,
 		"box.nomi": `pub struct Coin
     cents: Int
@@ -145,7 +145,7 @@ impl Display for Box<T> where T: Display
 end
 `
 	p := cacheProject{name: "templates-only", entry: "main.nomi", files: map[string]string{
-		"nomi.toml": "[module]\nname = \"templatesonly\"\nentry_points = [\"main\"]\n",
+		"nomi.toml": "[package]\nname = \"templatesonly\"\nentry_points = [\"main\"]\n",
 		"pick.nomi": pick,
 		"box.nomi":  box,
 		"main.nomi": `import
@@ -205,7 +205,7 @@ pub fn plain(n: Int) -> Int
 end
 `
 	p := cacheProject{name: "boxed-instance", entry: "main.nomi", files: map[string]string{
-		"nomi.toml": "[module]\nname = \"boxedinstance\"\nentry_points = [\"main\"]\n",
+		"nomi.toml": "[package]\nname = \"boxedinstance\"\nentry_points = [\"main\"]\n",
 		"box.nomi":  box,
 		"main.nomi": `import
     std::io

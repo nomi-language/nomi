@@ -9,7 +9,7 @@ import (
 // CheckEntryPlacement enforces the manifest-vs-source invariant for
 // executable entry callbacks:
 //
-//   - every entry point of the module (Manifest.IsEntry: a file listed in
+//   - every entry point of the package (Manifest.IsEntry: a file listed in
 //     entry_points, or a tool under tools/) must contain an entry
 //     callback;
 //   - every other file must contain zero entry callbacks.
@@ -19,10 +19,10 @@ import (
 // ad-hoc test fixtures keep their existing behavior.
 //
 // `entryNodes` is the entry file's top-level node slice;
-// `entryModRel` is the entry file's module-relative path (e.g.
+// `entryModRel` is the entry file's package-relative path (e.g.
 // "main" for <root>/main.nomi, "cmd/foo/main" for
 // <root>/cmd/foo/main.nomi). Pass "" when the caller doesn't
-// know the entry's module-relative path; the entry-side check is then
+// know the entry's package-relative path; the entry-side check is then
 // skipped (sibling files in `files` are still enforced).
 //
 // `files` is the discovered sibling map (keyed by "/"-joined module
@@ -81,7 +81,7 @@ func CheckEntryPlacement(
 		}
 	}
 
-	// Entry file: skip when caller didn't supply a module-relative
+	// Entry file: skip when caller didn't supply a package-relative
 	// path. Most existing test callers and single-file `nomi run` mode
 	// fall through to sibling-only enforcement.
 	if entryModRel != "" {

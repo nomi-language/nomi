@@ -14,7 +14,7 @@ import (
 // overListFiles is a project whose nomi.toml allows std::io alone, and
 // whose main, exported function and test each read a file (std::fs).
 var overListFiles = map[string]string{
-	"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = [\"std::io\"]\n",
+	"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = [\"std::io\"]\n",
 	"main.nomi": `import
     std::fs
     std::io
@@ -62,7 +62,7 @@ func TestEffectLists_EveryEntryPointRefuses(t *testing.T) {
 		return p
 	}
 	marked := "// FILE: main.nomi\n" + overListFiles["main.nomi"] + "\n// FILE: nomi.toml\n" + overListFiles["nomi.toml"]
-	// A [dependencies] table makes the block a project of modules, which
+	// A [dependencies] table makes the block a project of packages, which
 	// LoadMarked writes out.
 	markedModules := marked + "\n[dependencies]\n"
 	var out bytes.Buffer

@@ -654,6 +654,7 @@ var stdEnumSpecs = []stdEnumSpec{{
 		bareVariant("TooManyOpen"),
 		bareVariant("Closed"),
 		bareVariant("BrokenPipe"),
+		structScalarVariant("Reset", "path", "Path", kindString),
 		bareVariant("TimedOut"),
 		structFieldsVariant("Unsupported",
 			scalarField("operation", "Operation", kindString, nil),
@@ -1243,7 +1244,7 @@ func stdEnumDeclIn(fa *analysis.FileAnalysis, s *stdEnumSpec) *ast.EnumDef {
 // String into a field that no longer holds one — and the same holds one level up
 // for a container: `Json.Arr List<Int>` would not anchor `Json` at all.
 func (s *stdEnumSpec) matches(decl *ast.EnumDef) bool {
-	if decl.Name != s.nomi || !decl.Public || decl.Opaque {
+	if decl.Name != s.nomi || decl.Visibility != ast.Public || decl.Opaque {
 		return false
 	}
 	if len(decl.TypeParams) > 0 || len(decl.WhereClauses) > 0 {
@@ -1504,7 +1505,7 @@ func (g *gen) compareResolves(at ast.Node, k, ord kind) bool {
 		// serve it; lists.go resolves it from the element kind instead.
 		return g.listOrders(k, at)
 	}
-	if impl := g.implsByIface[stdIfaceImplKey(stdComparable)][k]; impl != nil {
+	if impl := g.implAt(stdIfaceImplKey(stdComparable), k); impl != nil {
 		if !impl.lowerable {
 			return false
 		}

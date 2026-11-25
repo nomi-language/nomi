@@ -9,7 +9,7 @@ import (
 // them, each once; a missing table or an empty list lists none, and an
 // entry that is not a custom currency is an error naming it.
 func TestParseManifestData_MoneyCustomCurrencies(t *testing.T) {
-	const head = "[module]\nname = \"app\"\n\n[money]\n"
+	const head = "[package]\nname = \"app\"\n\n[money]\n"
 	m, err := ParseManifestData([]byte(head+"custom_currencies = [\"PTS:0\", \"BTC:8\"]\n"), "nomi.toml")
 	if err != nil {
 		t.Fatal(err)

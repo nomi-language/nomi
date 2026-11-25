@@ -36,7 +36,7 @@ end
 // [i18n], or none when locales is empty.
 func loadWithLocales(t *testing.T, src string, locales ...string) *Program {
 	t.Helper()
-	toml := "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[money]\ncustom_currencies = [\"PTS:0\"]\n"
+	toml := "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[money]\ncustom_currencies = [\"PTS:0\"]\n"
 	if len(locales) > 0 {
 		toml += "\n[i18n]\nlocales = [\"" + strings.Join(locales, "\", \"") + "\"]\n"
 	}

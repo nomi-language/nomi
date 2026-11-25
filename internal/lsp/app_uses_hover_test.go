@@ -15,7 +15,7 @@ import (
 // calls total, two calls above the read; report reads `App.label` itself,
 // calls summary and reaches std::fs; plain uses and reaches nothing.
 var appUsesFiles = map[string]string{
-	"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+	"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n",
 	"app.nomi":  "pub struct App\n    tax_rate: Int\n    label: String\nend\n",
 	"pricing.nomi": "import app.App\n\n" +
 		"pub fn taxed(n: Int) -> Int\n    n + n * App.tax_rate / 100\nend\n\n" +

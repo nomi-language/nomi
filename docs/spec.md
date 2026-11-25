@@ -200,7 +200,7 @@ These words have a meaning only where their construct stands, and are
 ordinary names elsewhere: `host` (§19), `open` and `derive` (§12),
 `embeds` (§4), `on` and `error` (§9), `phrase`, `noun` and `embed` (§18),
 `concurrent` (§16), and `group`, `clock`, `boot`, `setup` and `subtests`
-(§17), and `todo` (§11).
+(§17), `todo` (§11), and `private` (§14).
 
 `todo` names anything a name can: a parameter, a binding, a field, a
 function, a pattern's binding, an import. Read as a value, a bare `todo` is
@@ -1584,8 +1584,9 @@ interface value. It cannot be implemented: `impl Struct for P` is
 `` `Struct` is a built-in structural marker and cannot be implemented; every struct satisfies it automatically — remove this `impl Struct for P` ``.
 
 An opaque struct satisfies `Struct` too. What opacity closes is a patch that
-names one of its fields outside its defining file:
-`cannot update field 'value' of opaque type 'Counter' outside its defining module`,
+names one of its fields outside its defining file, for a `Counter`
+declared in `counter.nomi`
+``cannot update field 'value' of opaque type 'Counter' outside `counter.nomi` — use an exported constructor function``,
 through any depth of nesting. Replacing an opaque field whole names none of
 its fields and is legal.
 
@@ -2050,8 +2051,8 @@ Taught in [Modules & Imports](/modules-and-imports/#opaque-types).
 
 `opaque` before `struct`, `enum` or `type` keeps a type's representation
 private to its defining file. It is written with `pub`, which makes the
-name visible to other files; `opaque type T Int` without `pub` is accepted,
-and changes nothing, since the type is private to its file anyway. Outside
+name visible to other packages; `opaque type T Int` without `pub` is
+internal, its name seen by the other files of its package and its inside by none. Outside
 the defining file the type may be named in signatures, fields and type
 arguments, passed around, compared with `==` and given to interface
 functions. These are rejected:
@@ -2069,7 +2070,7 @@ unreachable outside it for construction, matching and payload access alike.
 The `try_from` and `unchecked` the compiler provides for a type with a rule
 in its chain (*Validated types*) build a value of it, so for an opaque type
 they are construction too: outside its file a call of either, or either
-named as a value, is ``` `Percent.try_from` constructs the opaque type 'Percent', whose construction is private to its defining module — use an exported constructor function ```.
+named as a value, is ``` `Percent.try_from` constructs the opaque type 'Percent', whose construction is private to `percent.nomi` — use an exported constructor function ``` for a `Percent` declared in `percent.nomi`.
 A `try_from` the file writes in an `impl TryFrom<E>` of its own is a
 public function like any other.
 
@@ -2096,7 +2097,7 @@ impl whose `where` needs it, a conversion to a `TryFrom<Int>` value and
 `TryFrom.try_from(n)` where the type is expected are each an error that
 the type lacks the impl, at a bound
 ``Percent does not implement TryFrom<Int> (required by `where T: TryFrom<Int>`)``,
-with the help ``'Percent' is opaque, and its construction is private to its defining module: the `try_from` its rule provides builds a value, so its `TryFrom` impl counts only there; use an exported constructor function``.
+with the help ``'Percent' is opaque, and its construction is private to `percent.nomi`: the `try_from` its rule provides builds a value, so its `TryFrom` impl counts only there; use an exported constructor function``.
 A `TryFrom` impl the file writes itself counts everywhere.
 Its automatic `Debug` renders `<opaque T>`, inside and outside its file. An
 interface default that takes `self` apart or builds one does not apply to an
@@ -3954,7 +3955,7 @@ keyword declarations (`phrase`, `noun`, `embed`). A binding, an expression or an
 level is an error; code runs inside a function. `x = 3` at top level is
 `` a binding cannot be written at file level: a file binds a value only with `once` ``.
 
-A top-level declaration is private to its file unless it is `pub` (§14).
+A top-level declaration is internal to its package unless it is `pub` or `private` (§14 *Visibility*).
 
 ### Bindings
 
@@ -4032,7 +4033,7 @@ struct Money
 end
 
 impl Money
-    pub once zero = Money{cents: 0}
+    once zero = Money{cents: 0}
 end
 
 fn main()
@@ -6487,10 +6488,13 @@ callback (§13 *Named Functions as Callbacks*).
 - They may be a `case` arm's body or an `if` branch's.
 - Outside an iteration callback they are an error. In a lambda that is not one
   the error is `'break' can only be used inside an iter-callback (e.g. a lambda
-  passed to Iter.map/Iter.filter/Iter.loop/etc.)`. In a named function never
-  passed as a callback it is `'main' uses break/continue but has no
-  iter-callback call site — break/continue can only be used where an
-  iter-callback (Iter.map/Iter.filter/Iter.loop/etc.) can catch them`.
+  passed to Iter.map/Iter.filter/Iter.loop/etc.)`. In a function the run
+  calls itself, `main`, `boot` or an `export fn`, at any visibility, and in
+  a `private` function its file never passes as a callback, it is `'main'
+  uses break/continue but has no iter-callback call site — break/continue
+  can only be used where an iter-callback (Iter.map/Iter.filter/Iter.loop/etc.)
+  can catch them`. An internal or `pub` function no use in its own file
+  passes is no error there, since another file may pass it.
 
 ```nomi
 fn main()
@@ -7334,7 +7338,7 @@ end
 
 - **The impl is on the target.** `From<E>` is implemented for F, not for E:
   `impl From<sql.Error> for ApiError`. E is an input of `From` (§12 *Foreign
-  Types*), so a module may also write `impl From<MyError> for String`.
+  Types*), so a package may also write `impl From<MyError> for String`.
 - **One conversion.** The `?` looks up F's impl at E only. It does not
   follow `impl From<IoError> for DbError` and then `impl From<DbError> for
   ApiError`; a `?` on an `IoError` there is the mismatch.
@@ -8347,7 +8351,7 @@ Taught in [Interfaces and Dispatch](/interfaces-and-dispatch/#one-impl-per-type-
 
 An impl may implement an imported interface for a local type, a local
 interface for an imported type, or both local, as the orphan rule permits. A
-std generic container is an imported type like any other: a module's own
+std generic container is an imported type like any other: a package's own
 interface may be implemented for it generically (`impl Show for List<T> where
 T: Show`), at a partly concrete instance (`impl Show for Map<String, V> where V:
 Show`) or at a concrete one (`impl Sized for List<Int>`). A concrete instance
@@ -8364,16 +8368,16 @@ one impl per interface, type and type arguments program-wide, so a call never
 depends on which file it is in.
 
 **Orphan rule.** An `impl Iface for T` block must have `Iface` or `T` declared
-in the current module (§14). A program outside any module is one module, rooted
+in the current package (§14). A program outside any package is one package, rooted
 at its project root ([tooling reference](/tooling/projects/#project-root-discovery)),
 so `impl Debug for Bool` in a lone script is an orphan impl: `orphan impl:
-`Debug` (declared in module "std") for `Bool` (declared in module "std") cannot
-be implemented in module "..." (function `inspect`): the interface, the
+`Debug` (declared in package "std") for `Bool` (declared in package "std") cannot
+be implemented in package "..." (function `inspect`): the interface, the
 implementing type, or a type heading a type argument the interface's functions
-take must be declared in the implementing module`.
+take must be declared in the implementing package`.
 
 **A local type argument.** An impl of a foreign interface for a foreign
-receiver is also allowed when a type the module declares heads one of the
+receiver is also allowed when a type the package declares heads one of the
 interface's type arguments, and that argument is an input: the interface names
 its type parameter in a parameter type of one of its functions (`Rhs` in
 `Multiply<Rhs, Out>`, `T` in `Contains<T>`). One named only in results (`Out`)
@@ -8403,7 +8407,7 @@ inputs). The orphan error names the one it breaks:
 - **The local type heads the argument.** `Rate` and `Rate<Int>` count;
   `List<Rate>` does not, since std keeps the freedom to implement an interface
   generically over its own container there: `` `Rate` is declared in this
-  module but does not head the type argument `List<Rate>` ``.
+  package but does not head the type argument `List<Rate>` ``.
 - **No bare type parameter comes first.** Neither the receiver nor a type
   argument before the local one is a bare type parameter: `impl<T> Multiply<Rate,
   T> for T` is ``its receiver is the bare type parameter `T` ``.
@@ -8413,7 +8417,7 @@ inputs). The orphan error names the one it breaks:
 A local type in a result-only position is an orphan impl, since it would compete
 for calls that exist: `` `Rate` stands in `Multiply`'s type parameter `Out`,
 which only results name ``. std's `Literal` admits no impl this way (``a typed
-literal's handler is chosen by its type alone``, §18). Only the module that
+literal's handler is chosen by its type alone``, §18). Only the package that
 declares `Rate` can write an impl naming it, which keeps coherence.
 
 Two libraries may each add an instantiation to one std interface and receiver
@@ -8637,8 +8641,8 @@ A `type` with no rule anywhere, `type Plain Int`, has no `TryFrom`:
 `load` at a `Plain` is
 ``Plain does not implement TryFrom<Int> (required by `where T: TryFrom<Int>`)``.
 For an opaque type the impl the compiler supplies is construction, so it
-counts only in the type's file and its partner test (§4 *Opaque distinct
-types*); outside them, `load` at a `Codepoint` is
+counts only in the type's file (§4 *Opaque distinct types*); outside it,
+`load` at a `Codepoint` is
 ``Codepoint does not implement TryFrom<Int> (required by `where T: TryFrom<Int>`)``.
 
 ### Display and Debug
@@ -8766,23 +8770,11 @@ end
 ```
 
 - **Targets.** A `struct`, `enum`, distinct `type` or `host type`.
-- **Same file.** A derive sits in the file and scope of the type's declaration,
-  or in that file's partner test file (§14 *Visibility*). A derive in any
-  other file is the error `` `derive ... for T` must be written in the file
-  that declares `T`, or in that file's partner test file ``.
-- **Derives in a partner test.** `api_test.nomi` may write `derive FromJson
-  for TodoJson` for the `TodoJson` that `api.nomi` declares, `pub` or private,
-  when it imports the name from `api`. The impl is the test file's own, as a
-  hand-written `impl` there is: it is in a program only when the test file
-  is, which `nomi test` makes the entry and an ordinary program reaches only
-  by importing it. So production code that decodes a `TodoJson` fails `nomi
-  check` and `nomi run`, which do not compile the test file, even though its
-  tests pass. The derived body is the one a derive in `api.nomi` would have:
-  a field's type means what `api.nomi` makes it mean, and the test file need
-  not import it. The interface name resolves in the test file. A derive of an
-  interface `api.nomi` already implements for the type, `Debug` included,
-  is the error `` duplicate impl: `FromJson` for `TodoJson` is derived here
-  and implemented in `api` ``.
+- **Same file.** A derive sits in the file and scope of the type's
+  declaration. A derive in any other file, a test file beside it included,
+  is the error `` `derive ... for T` must be written in the file that
+  declares `T` ``. A type that tests compare or decode derives what they
+  need in its own file.
 - **Scope.** The interface name resolves through ordinary scope, as an
   `impl` header's does: bare (`derive ToJson for User`) or through its
   module (`derive json.ToJson for User`). It counts as a use, and a name not
@@ -9296,19 +9288,21 @@ A fold or loop takes its starting value before the callback:
 - A `break` or `continue` in a lambda or capture that is not itself an
   iteration callback, in a nested `fn`, or directly in a `concurrent` block is
   an error (§9 *`break` and `continue`*).
-- An iter-sensitive function may be `pub`. Which of `break` and `continue` it
-  uses is part of how other files may use it, and their uses are checked as the
-  declaring file's are.
+- An iter-sensitive function may be internal or `pub`. Which of `break` and
+  `continue` it uses is part of how other files may use it, and their uses are
+  checked as the declaring file's are. `main`, `boot` and an `export fn` may
+  not be iter-sensitive: the run calls them, and no iteration catches their
+  signal (§9 *`break` and `continue`*).
 
 ## 14. Files, modules and imports
 
-### Files and modules
+### Modules and packages
 
-Taught in [Modules & Imports](/modules-and-imports/#files-and-modules).
+Taught in [Modules & Imports](/modules-and-imports/#modules-and-packages).
 
-A **file** is one `.nomi` source file. It is the unit of import, scope and visibility. A **Nomi module** is the directory tree rooted at a `nomi.toml`, whose `[dependencies]` table names the modules it uses. It is what ships together, and it is the unit the orphan rule (§12) checks. Projects, `nomi.toml` and dependencies are in the [tooling reference](/tooling/modules-and-dependencies/).
+A **module** is one `.nomi` source file, named by its import path (`users::helpers`, `std::fs`). It is what an `import` names, and the unit of scope and of private visibility. A **package** is the directory tree rooted at a `nomi.toml`, whose `[dependencies]` table names the packages it uses. It is what ships together under one version, the unit of internal visibility, and the unit the orphan rule (§12) checks. The standard library is one package of many modules. A **workspace** is several packages developed together, named by a `nomi-workspace.toml` above them, whose builds take one version of each dependency; each member is still its own package for names and visibility ([Workspaces](/tooling/packages-and-dependencies/#workspaces)). Projects, `nomi.toml` and dependencies are in the [tooling reference](/tooling/packages-and-dependencies/).
 
-A file's import path is its path from the module root, without `.nomi`, with `::` between directories. Nothing in the file declares it, so renaming the file renames the path.
+A file's import path is its path from the package root, without `.nomi`, with `::` between directories. Nothing in the file declares it, so renaming the file renames the path.
 
 | File | Import path |
 |---|---|
@@ -9320,7 +9314,7 @@ File names are snake_case. A file cannot be reopened or split across files. Impo
 
 A **file API object** is the qualifier a path-only import binds: `import http::request` binds `request`, and `request.get(...)` calls its `pub fn get`. Inside a file, the last segment of its own path is also that file's qualifier when no top-level declaration of the file has that name: `users.nomi` may call its own `pub fn new` as `users.new(...)`. In `main.nomi`, `fn main` owns the name, so there is no `main` qualifier.
 
-**Import paths across modules.** Within a module, a path names a file of that module. A file may also start the path with its own module's short name, the `name` in its `nomi.toml` (`import my_app::models::user` inside `my_app`). A path into another module starts with the name the importing module gives it: the key of its entry in the importing module's `[dependencies]`. With `sqlite = { repo = "github.com/nomi-language/nomi", subdir = "lib/sql/sqlite", version = "v0.4.0" }`, `import sqlite::driver` names `driver.nomi` at the root of that module. The name is the importer's, so each module's files import through its own `[dependencies]`: a dependency's own files never see the names its consumer chose, and two dependencies with the same `[module].name` can both be used under different keys. An import that is a short name alone is an ordinary path inside its own module: inside `sqlite`, `import sqlite` names `sqlite.nomi` at the root, and with no such file and no directory `sqlite/`, the module's root directory (*Directory imports* below). From another module, a dependency's name alone names the file of that name at the dependency's root, so `import sqlite` is `import sqlite::sqlite` when the module holds `sqlite.nomi`, and binds `sqlite` either way. A dependency's name wins over a file of the same name in the importing module. A module with no such file is its root directory under its name alone: `import sqlite`, then `sqlite::driver.open(path)`. A file inside an `internal/` directory can be imported only by files under that directory's parent: `import a::internal::x` from `main.nomi` at the root is the error `cannot import "a::internal::x" from "main": outside the parent subtree of a/internal/`.
+**Import paths across packages.** Within a package, a path names a file of that package. A file may also start the path with its own package's short name, the `name` in its `nomi.toml` (`import my_app::models::user` inside `my_app`). A path into another package starts with the name the importing package gives it: the key of its entry in the importing package's `[dependencies]`. With `sqlite = { repo = "github.com/nomi-language/nomi", subdir = "lib/sql/sqlite", version = "v0.0.1" }`, `import sqlite::driver` names `driver.nomi` at the root of that package. The name is the importer's, so each package's files import through its own `[dependencies]`: a dependency's own files never see the names its consumer chose, and two dependencies with the same `[package].name` can both be used under different keys. An import that is a short name alone is an ordinary path inside its own package: inside `sqlite`, `import sqlite` names `sqlite.nomi` at the root, and with no such file and no directory `sqlite/`, the package's root directory (*Directory imports* below). From another package, a dependency's name alone names the file of that name at the dependency's root, so `import sqlite` is `import sqlite::sqlite` when the package holds `sqlite.nomi`, and binds `sqlite` either way. A dependency's name wins over a file of the same name in the importing package. A package with no such file is its root directory under its name alone: `import sqlite`, then `sqlite::driver.open(path)`.
 
 ### Import forms
 
@@ -9359,7 +9353,7 @@ The rules:
 - A selector list cannot hold another: `import shapes.{self, Shape.{Circle, Square}}` is the error `a selector list cannot hold another list`. Write `shapes` and `shapes.Shape.{Circle, Square}` as two entries of a block.
 - A variant is imported through its enum. `import shape.Circle` is the error `` cannot import variant 'Circle' directly — use 'import shape.Shape.{Circle}' to lift specific variants, or 'import shape.{Shape}' and qualify as 'Shape.Circle' ``.
 - There is no glob import (`import path.*`).
-- Standard library files start with `std::`: `import std::io`. A module that helps test another is nested in that module's directory as `testing`: `import std::fs::testing` binds `testing`, beside `import std::fs`, which binds `fs`. `std` alone names the standard library's root directory: `import std` binds it, and `std::io.print(x)` reaches `io.nomi` (*Directory imports*). A directory has no members to select, so `import std.io` is the error `` `std` is a module, not a file; an import names a file in it ``, with the hint ``did you mean `import std::io`?``.
+- Standard library modules start with `std::`: `import std::io`. A module that helps test another is nested in that module's directory as `testing`: `import std::fs::testing` binds `testing`, beside `import std::fs`, which binds `fs`. `std` alone names the standard library's root directory: `import std` binds it, and `std::io.print(x)` reaches `io.nomi` (*Directory imports*). A directory has no members to select, so `import std.io` is the error `` `std` is a package, not a file; an import names a file in it ``, with the hint ``did you mean `import std::io`?``.
 
 Two imports that bind one name to two declarations are an error at the second: `import a.{Thing}` then `import b.{Thing}` is `'Thing' is already imported on line 1 from another file; two imports cannot bind one name`, with the hint to import one under another name (`Thing as OtherThing`). Importing the same declaration twice is an unused import.
 
@@ -9372,7 +9366,7 @@ Taught in [Modules & Imports](/modules-and-imports/#short-names-and-directory-im
 A path-only import binds one name, its **short name**: the last segment of its path or its `as` alias. `import db::posts` binds `posts`, and `posts.post_by_id(1)` calls the file's `pub fn post_by_id`. The import's path is not a name at a use: after `import db::posts`, `db::posts.post_by_id(1)` is the error `` `db::posts` is not a name in this file: `import db::posts` binds the file as `posts` ``, with the hint `` write `posts.post_by_id`, or import its directory (`import db`) and keep `db::posts.post_by_id` ``. The editor's quick fix, and its `source.fixAll`, write the short name. A path at a use starts with the name a directory import binds (*Directory imports* below); any other path is the error `` `views::admin::reports` is not imported ``, whose hint names the file import and the directory import that would reach the file.
 
 - **Two imports may not bind one name.** `import db::notifications` beside `import jobs::notifications` is the error at the second, `'notifications' is already imported on line 1 from db::notifications; two imports cannot bind one name`, with the hint `` import the directories (`import db` and `import jobs`) and write `db::notifications` and `jobs::notifications`, or import one under another name with `as` ``. A file and a directory of one name are the same error. The same file imported twice is an unused import. Two std modules nested under their parents (`std::fs::testing` and `std::process::testing`) have no directory to import, since `std::fs` is a file, so the hint renames one after its parent: `` import one under another name, as in `import std::process::testing as process_testing` ``.
-- **A declaration keeps its name.** A top-level declaration of the file named like an import's short name is what the name means, and the import is the error ``'users' is already defined in this scope as a function on line 3, so `import views::admin::users` cannot bind it``, with the hint `` import its directory (`import views::admin`) and write `admin::users`, or import it under another name with `as` ``. A file at the module root is reached through the module's root: `import my_app`, then `my_app::users`.
+- **A declaration keeps its name.** A top-level declaration of the file named like an import's short name is what the name means, and the import is the error ``'users' is already defined in this scope as a function on line 3, so `import views::admin::users` cannot bind it``, with the hint `` import its directory (`import views::admin`) and write `admin::users`, or import it under another name with `as` ``. A file at the package root is reached through the package's root: `import my_app`, then `my_app::users`.
 - **A local keeps its name.** A local, a parameter or a pattern binding named like an import's short name wins in its scope, and `name.member` there reads the local. When a member access on it fails and the file imports a file of that short name, the error's hint says how to reach the file: `schema.post(1)` where `schema` is a local and `db::schema` is imported is `` Int has no field 'post' ``, with the hint `` `schema` here is the binding on line 4, not the file db::schema; import its directory (`import db`) and write `db::schema.post`, or import the file under another name with `as` ``.
 - An import that binds nothing, since another import or a declaration holds its name, is that error alone and not also an unused import.
 - An alias is a short name. `import jobs::mail as notifications` binds the file as `notifications` only.
@@ -9398,8 +9392,8 @@ end
 - **A path that names no file** is an error at the use that says what is there: `admin::user.render(u)` is `` `admin::user` names no file: views::admin has no user.nomi ``, with the hint `` did you mean `admin::users`? ``, or a list of the directory's files and directories when no name is close. A path that names a directory, `admin::reports.total()`, is `` `admin::reports` is a directory, not a file ``, whose hint names a file in it.
 - **Only the files a path reaches are part of the program.** Importing a directory loads no file under it. Each path the import's scope writes below the name loads the file it names, as an import of that file would, and the file's impls come with it. A directory import through which no path reaches a file is unused: `imported directory 'admin' is unused — remove the import`.
 - **A file wins over a directory of its name.** Where `views/admin.nomi` sits beside `views/admin/`, `import views::admin` names the file, since a parent file beside the directory of its children is the usual layout (*Cyclic imports* below). The directory is reached from its parent: `import views`, then `views::admin::users.index(rows)`.
-- **Module roots.** A module's own name alone names its root directory when the root holds no file and no directory of that name: inside module `my_app`, `import my_app` binds the root, and `my_app::users.count()` reaches `users.nomi` there. A dependency's name alone is its root in the same way when the dependency has no file of its name (*Files and modules* above), and `import std` binds the standard library's root: `std::io.print(x)`. A path through `std` reaches an internal std module no more than an import does: `` `std::phrase::format` is internal to std::phrase ``.
-- **Another module's directory.** A directory that holds its own `nomi.toml` is another module's root, which no path of this module reaches. `import plugins::billing` is the error `` `plugins::billing` is another module's directory: it holds a nomi.toml ``, whose hint says to add the module with `nomi add` and import it by its name, and a path through it at a use is `` `plugins::billing::pay` is in another module's directory: plugins/billing/ holds a nomi.toml ``. A path into an `internal/` directory from outside its parent's subtree is the error an import of that file is (*Files and modules* above).
+- **Package roots.** A package's own name alone names its root directory when the root holds no file and no directory of that name: inside package `my_app`, `import my_app` binds the root, and `my_app::users.count()` reaches `users.nomi` there. A dependency's name alone is its root in the same way when the dependency has no file of its name (*Modules and packages* above), and `import std` binds the standard library's root: `std::io.print(x)`. A path through `std` reaches an internal std module no more than an import does: `` `std::phrase::format` is internal to std::phrase ``.
+- **Another package's directory.** A directory that holds its own `nomi.toml` is another package's root, which no path of this package reaches. `import plugins::billing` is the error `` `plugins::billing` is another package's directory: it holds a nomi.toml ``, whose hint says to add the package with `nomi add` and import it by its name, and a path through it at a use is `` `plugins::billing::pay` is in another package's directory: plugins/billing/ holds a nomi.toml ``.
 - **Scope.** The directory's name is a short name like a file's (*Short names* above): an alias renames it (`import views::admin as pages`, then `pages::users.index(rows)`), an import at the top of a block binds it in that block only, and a local, a parameter or a pattern binding of the name wins in its scope, where a path through the name is the error `` `admin` here is the parameter on line 3, not the directory views::admin ``.
 
 **Placement.** Imports come first: at the top of a file, before any declaration, and at the top of a block, before any other statement. An import after a declaration is the error `imports must appear at the top of the file — 'std::io' came after another statement`, and one after a statement in a block is `imports must appear at the top of this block — 'std::io' came after another statement`.
@@ -9469,9 +9463,9 @@ An import path that names no file is an error at the path, in every import form,
 | No such std module | ``no module `std::nosuch`: the standard library has no nosuch.nomi`` |
 | No file, no directory, and no dependency of that name | ``no module `csvdata`: no file csvdata.nomi in this file's directory, and nomi.toml has no dependency named `csvdata` `` |
 | A dependency whose directory has no `nomi.toml` | ``no module `csvdata`: [dependencies] csvdata is the directory ./generators/csvdata, which has no nomi.toml`` |
-| A published dependency with no `nomi.toml` | ``no module `csvdata`: module `example.com/csvdata` has no nomi.toml, so it is not a Nomi module`` |
+| A published dependency with no `nomi.toml` | ``no module `csvdata`: package `example.com/csvdata` has no nomi.toml, so it is not a Nomi package`` |
 
-A hint names a sibling file the path misspells (``did you mean 'helpers'?``), or, for an import that selects names from a path that is a directory, a file inside it (`` `sub` is a directory; import a file in it, such as `sub::inner` ``). When the project needs a module the module cache does not hold, the hint says to run `nomi fetch` (`` the project needs module example.com/greet v0.1.0, which is not in the module cache; run `nomi fetch` to download it ``). When the first name is neither a file nor a directory and `nomi.toml` has no dependency of that name, the hint says to run `nomi add`, with the directory when exactly one directory under the project root (at most three levels down) or beside it holds a Nomi module of that name (`` run `nomi add ../csvdata` to add the module in that directory ``), and otherwise `` run `nomi add <repository>` to add a published module, such as `nomi add github.com/owner/name`, or `nomi add <directory>` for one on disk ``.
+A hint names a sibling file the path misspells (``did you mean 'helpers'?``), or, for an import that selects names from a path that is a directory, a file inside it (`` `sub` is a directory; import a file in it, such as `sub::inner` ``). When the project needs a package the package cache does not hold, the hint says to run `nomi fetch` (`` the project needs package example.com/greet v0.1.0, which is not in the package cache; run `nomi fetch` to download it ``). When the first name is neither a file nor a directory and `nomi.toml` has no dependency of that name, the hint says to run `nomi add`, with the directory when exactly one directory under the project root (at most three levels down) or beside it holds a package of that name (`` run `nomi add ../csvdata` to add the package in that directory ``), and otherwise `` run `nomi add <repository>` to add a published package, such as `nomi add github.com/owner/name`, or `nomi add <directory>` for one on disk ``.
 
 
 A selected name the file does not export is an error at the name: `file 'std::io' has no exported name 'nosuchname'`.
@@ -9508,7 +9502,15 @@ These are not re-imports:
 
 Taught in [Modules & Imports](/modules-and-imports/#visibility).
 
-A top-level declaration is private to its file unless it carries `pub`. Other files reach a `pub` declaration through the file's qualifier (`io.print(...)`, `io.Error.NotFound{...}`) or by importing it by name. Inside the declaring file, its declarations are bare.
+A top-level declaration has one of three levels of visibility, which say which files may name it:
+
+| Written | Level | Named from |
+|---|---|---|
+| `pub fn f()` | public | every file of every package |
+| `fn f()` | internal | every file of its own package |
+| `private fn f()` | private | its own file |
+
+A package is the directory tree under a `nomi.toml` (*Modules and packages* above), and all of the standard library is one package. A file run with no `nomi.toml` is in the package its project root holds, the directory project-root discovery finds: the first directory up from the file that holds a `main.nomi`, else the file's own directory ([tooling reference](/tooling/projects/#project-root-discovery)). Other files reach a declaration through its file's qualifier (`io.print(...)`, `io.Error.NotFound{...}`) or by importing it by name. Inside the declaring file, its declarations are bare.
 
 ```nomi
 pub struct Config
@@ -9522,55 +9524,45 @@ end
 
 fn validate(c: Config) -> Bool
     ...
+end // internal: every file of this package may call it
+
+private fn trim_all(s: String) -> String
+    ...
 end // private to this file
 ```
 
-- **Placement.** `pub` is the first modifier: `pub [opaque] <keyword> <name> ...`.
-- **What takes `pub`.** `fn`, `struct`, `enum`, `type`, `interface`, `typealias`, `once`, `host fn`, `host type`, and `import` (a re-export, *Re-exporting imported names* below).
-- **What does not.** Interface impl functions, struct fields and enum variants take their owner's visibility. A declaration inside a body (a function's, a lambda's, a test's, a `once` initializer's) is local to that body, and `pub` there is the error `` `pub` applies to top-level declarations only ``. An `export fn` (§7 *Exported Functions*) is callable from outside the program, which is a different thing; `pub export fn` is the error `` an exported function takes no `pub`: write `export fn` ``.
+- **Placement.** A visibility modifier is the first one: `pub [opaque] <keyword> <name> ...` or `private [opaque] <keyword> <name> ...`. `private` is a contextual keyword: it is a modifier only where a declaration's keyword follows it, and a name everywhere else. A declaration takes one: `pub private fn` and `private pub fn` are each the error `` a declaration has one visibility: write `pub` or `private`, not both ``.
+- **What takes a modifier.** `fn`, `struct`, `enum`, `type`, `interface`, `typealias`, `once`, `host fn`, `host type`, a function or `once` of an inherent `impl Type` block, and a keyword declaration (`phrase`, `noun`, `embed`). `pub` also stands on `import`, which then re-exports (*Re-exporting imported names* below); `private import` is the error `` an import takes no `private`: it binds its names in this file only; write `import` ``, since an import binds names in its file and nowhere else.
+- **What does not.** Interface impl functions take their interface's visibility, and struct fields and enum variants their owner's. A declaration inside a body (a function's, a lambda's, a test's, a `once` initializer's) is local to that body, and a modifier there is the error `` `pub` applies to top-level declarations only ``, or the same for `private`. An `export fn` (§7 *Exported Functions*) is callable from outside the program, which is a different thing; `pub export fn` is the error `` an exported function takes no `pub`: write `export fn` ``, and `private export fn` the same with `private`.
 - **A file qualifier is not a value.** `io` alone, as a statement, a binding's value or an argument, is the error `` `io` is a file, not a value ``.
-- **File API is top-level functions.** A file's `pub fn` and `pub host fn` are reached through its qualifier (`users.find(...)`). A function or `once` declared in an `impl` block is reached through its owner (`Duration.seconds(1)`, `Display.to_string(n)`). A file-qualified spelling of one, `duration.seconds(1)`, is the error `file 'duration' has no member 'seconds'`, whose hint names the owner.
-- **Private names are invisible to other files.** No other file can name a private declaration in any position: a call, a type annotation or type argument, a struct literal or pattern, a variant, an interface bound or `impl` header. A qualified spelling is the error `file 'other' has no member 'Hidden'`, and an import is `'Hidden' is private and cannot be imported`.
-- **A file's partner test reads its private declarations.** A file named as another file in the same directory with `_test` before `.nomi` (`shapes_test.nomi` for `shapes.nomi`) is that file's partner test, whether or not it declares tests. It may import and name every top-level declaration of its partner as if it were `pub`, and is inside the partner's `opaque` types, so it can construct, destructure and read them. It still imports what it uses, and it publishes none of it: a file importing from `shapes_test` reaches only `shapes_test`'s own `pub` declarations. Any other file, a `_test` file named after no sibling included, gets the errors above. A test of a private function goes in the partner test file, and the function stays private. A partner test may also `derive` an interface, or write an `impl`, for its partner's types (§12 *Derive*); the impl is the test file's own.
+- **File API is top-level functions.** A file's functions and host functions are reached through its qualifier (`users.find(...)`). A function or `once` declared in an `impl` block is reached through its owner (`Duration.seconds(1)`, `Display.to_string(n)`). A file-qualified spelling of one, `duration.seconds(1)`, is the error `file 'duration' has no member 'seconds'`, whose hint names the owner.
+- **A declaration is invisible where its level does not reach.** No file outside its reach can name it in any position: a call, a type annotation or type argument, a struct literal or pattern, a variant, an interface bound or `impl` header, an owner function (`Gear.spin`), or an import. Naming a private declaration from another file is the error `` `helper` is private to `engine.nomi` ``, whose hint says to drop `private` or write `pub`. Naming an internal declaration from another package is `` `checksum` is internal to package `sqlite` ``, whose hint says to write `pub`. The hint is shown only when the declaring package is one the reader can edit: the program's own, or a dependency named by `dir`. A dependency fetched into the package cache gets the message with no hint, since its files are not the reader's to change.
+- **A test of a private declaration is in its file.** A test of a private declaration, or of an opaque type's inside, is a `test` block in the declaring file (§17 *Tests*), since `shapes_test.nomi` sees `shapes.nomi` as every other file of the package does.
 
-```nomi
-// shapes.nomi
-struct Shape
-    size: Int
-end
-
-fn area(shape: Shape) -> Int
-    shape.size * shape.size
-end
-
-// shapes_test.nomi
-import shapes.{Shape, area}
-
-test "area"
-    assert area(Shape{size: 3}) == 9
-end
-```
-
-- **A private type may still be a type argument.** A file may pass its own private type to another file's public generic (`other.ident(Point{x: 1})`). Only the declaring file names the type.
-- **Impl functions follow the interface.** If the interface is `pub`, other files can call an impl's functions; if it is private, they cannot. There is no per-function `pub` in an `impl Iface for Type` block.
+- **A type may be a type argument where it cannot be named.** A file may pass its own private type to another file's public generic (`other.ident(Point{x: 1})`). Only the files that see the type name it.
+- **Impl functions follow the interface.** An impl's functions are called from every file that sees the interface. There is no per-function modifier in an `impl Iface for Type` block.
 - **No renames at the declaration.** A declaration is published under its own name. An imported item is re-exported under its local name.
-- **`opaque`.** `pub opaque struct`, `pub opaque enum` and `pub opaque type Name Inner` publish the type's name and keep its construction, destructuring and field access private (§4 *Opaque distinct types*). `opaque` on anything else is an error: `'pub opaque' must be followed by 'struct', 'enum', or 'type'`, and on a zero-sized type `` cannot declare 'Marker' as opaque — zero-sized distinct types have no representation to hide ``.
-- **Std's internals.** A std file's private declarations, and the internal modules `std::phrase::format` and `std::money::format`, belong to std. Naming one is the error `` `phrase.compiled` is internal to std::phrase ``, or `` `std::money::format` is internal to std::money `` for an import.
+- **`opaque`.** `pub opaque struct`, `pub opaque enum` and `pub opaque type Name Inner` publish the type's name and keep its construction, destructuring and field access to its file (§4 *Opaque distinct types*), and `opaque` with no modifier does the same within the package. `opaque` on anything else is an error: `'pub opaque' must be followed by 'struct', 'enum', or 'type'`, and on a zero-sized type `` cannot declare 'Marker' as opaque — zero-sized distinct types have no representation to hide ``.
+- **Std's internals.** All of the standard library is one package, so a std declaration without `pub` is internal to it, as any package's is. Naming one from a program is the error `` `compiled` is internal to package `std` ``, with the help `` `compiled` is not part of std's public surface ``, since no program can change std; when one public std module declares a type of the name, the help gives that module's reference page. The modules that hold std's plumbing (`std::fs::host`, `std::money::format`) declare nothing public.
 
 ### Visibility consistency
 
-A `pub` declaration may not expose a private type. Each of these is an error:
+A declaration may not expose a type fewer files see than see the declaration: a public declaration may name no internal or private type, and an internal one no private type, whether the type is its own file's or one it imports or reaches through a qualifier. A function or `once` of an inherent `impl` block is held to its own level as a top-level one is. It also may not be seen by more files than see its type, whatever its signature names: a `pub` member of an internal or private type, or an internal member of a private type, is one error at the member's name, in place of an error at each place its signature names its type. A private declaration exposes nothing. Each of these is an error, with the type's level in it:
 
 | Exposure | Error |
 |---|---|
-| A `pub fn`'s parameter | `function parameter exposes private type Secret` |
-| A `pub fn`'s result | `function return exposes private type Secret` |
-| A `pub struct`'s field | `public struct field exposes private type Secret` |
-| A `pub enum`'s `embeds` | `public enum embed exposes private type Secret` |
-| A `pub interface`'s function signature | `public interface function parameter exposes private type Secret` |
-| A `pub typealias` | `public type alias exposes private type Secret` |
-| A `pub once`'s type, written or inferred | `public once binding exposes private type Secret` |
+| A `pub fn`'s parameter | `function parameter exposes internal type Secret` |
+| A `pub fn`'s result | `function return exposes internal type Secret` |
+| A `pub struct`'s field | `public struct field exposes internal type Secret` |
+| A `pub enum`'s `embeds` | `public enum embed exposes internal type Secret` |
+| A `pub interface`'s function signature | `public interface function parameter exposes internal type Secret` |
+| A `pub typealias` | `public type alias exposes internal type Secret` |
+| A `pub once`'s type, written or inferred | `public once binding exposes internal type Secret` |
+| An internal `fn`'s result | `function return exposes private type Secret` |
+| An internal `struct`'s field | `internal struct field exposes private type Secret` |
 | A `pub once` whose type is declared in a body | `public once binding exposes private type Box, which is declared inside a body` |
+| A `pub fn` or `pub once` of an internal type's inherent `impl` | `` `double` is `pub`, but its type `Money` is internal: drop `pub`, or write `pub struct Money` `` |
+| An internal `fn` or `once` of a private type's inherent `impl` | `` `double` is internal, but its type `Money` is private: write `private fn double`, or drop `private` from `struct Money` `` |
 
 ```nomi
 struct Secret
@@ -9579,10 +9571,10 @@ end
 
 pub fn leak() -> Secret
     Secret{value: "x"}
-end // error: function return exposes private type Secret
+end // error: function return exposes internal type Secret
 ```
 
-A `pub opaque` type is the exception: its representation (the inner type, its fields or its variants' payloads) may be private, since no other file can reach the representation (§4 *Opaque distinct types*).
+An `opaque` type is the exception: its representation (the inner type, its fields or its variants' payloads) may name any type, since no other file can reach the representation (§4 *Opaque distinct types*).
 
 ### Re-exporting imported names
 
@@ -9600,7 +9592,7 @@ end
 
 - **Items only, never a file.** `pub import leaf`, `pub import leaf as lf` and a brace list whose `self` is the file (`pub import std::io.{self, Error}`) are each the error `` `leaf` is a file, and a file cannot be re-exported ``, with a hint to list the items or have importers import the file. A `self` after an owner type (`Bool.{self, False, True}`) is the type, and is re-exported like any item.
 - A file that a facade imports is not one of the facade's items: `import facade.{leaf}` is the error `` `leaf` is a file that `facade` imports, not an item it exports; import `leaf` directly ``.
-- The upstream item must be public: `pub import other.{private_thing}` is `'private_thing' is private and cannot be imported`.
+- The upstream item must be public. A re-export cannot widen a declaration: `pub import other.{helper}`, where `helper` is internal, is `` `helper` is internal, and `pub import` re-exports public items only ``, though a plain `import other.{helper}` in the same package is allowed. An item the file cannot import at all is the error that import is (`` `helper` is private to `other.nomi` ``).
 - `pub import` applies only to imported names. To publish a local declaration under another name, rename it or write a wrapper.
 
 ### Member access is fail-loud
@@ -9839,6 +9831,8 @@ end
 
 The context is a field rather than an ambient value so that each `with` line is the one place a deadline is fixed: the runtime derives one wait context there for every blocking operation in its extent, not one per read. An embedder's cancellation and an inherited deadline stay in force when a program replaces its context field.
 
+A deadline is a timeout or a moment. `Context.with_timeout(c, d)` ends `d` of elapsed time after it is made, counted on the monotonic clock, so setting the system clock (by NTP, a resumed laptop or a user) neither ends it early nor holds it late. `Context.with_deadline(c, at)` ends when the wall clock reads `at`, and it is measured against the wall clock each time it is read, so setting the system clock moves it as it moves that moment. The deadline with the least time left anywhere along the chain is in force. `Context.deadline_remaining` is that time, and `Context.deadline` the `Instant` it ends at: the one named, or for a timeout the wall clock's reading plus the time left. The `with` line turns the deadline into time left, and the waits in its extent count that time down on the monotonic clock.
+
 #### Context values
 
 A context value is metadata that follows the current unit of work: a trace ID, an auth subject, a request ID. It is not how a program passes dependencies (use application fields such as `App.store`) or a locale (pass a `Locale`, [std::locale](/reference/locale/#how-code-gets-a-locale)).
@@ -9915,16 +9909,18 @@ A task body is a lambda, and an assertion in a lambda is an error (§17 *Asserti
 The compiler enforces three rules, which together rule out leaked tasks.
 
 1. **`Task.spawn` runs only inside the dynamic extent of a `concurrent` block.** A function that calls `Task.spawn` may itself be called from inside a block. A spawn that can run outside every block is the error `spawn outside concurrent block`. A task's body runs in its block's extent, so a spawn inside it, directly or through a helper at any depth (`Task.spawn(fn -> helper())` where `helper` spawns), joins that block: the block waits for the task, its failure and cancellation are those of a task spawned in the block's own body, and cancelling the task that spawned it does not cancel it. A `concurrent` block inside a task body is a block of its own.
-2. **Every task is awaited or cancelled.** A handle bound from `Task.spawn`, or a list of handles bound from `Task.spawn_all`, in a `concurrent` block is settled in that block. A reference settles it in these positions, anywhere in the block:
+2. **Every task is awaited or cancelled.** A handle bound from `Task.spawn`, or a list of handles bound from `Task.spawn_all`, in a `concurrent` block is settled on every path from its binding to the end of the block that declares it. A reference settles it in these positions:
     - an argument of a call of `Task.await`, `Task.await_all`, `Task.try_await_all`, `Task.outcome` or `Task.cancel`;
-    - an argument of a call where another argument names one of those functions, or is a lambda or capture that calls one on its parameter: `Iter.each(handles, Task.cancel)`, `Iter.each(handles, fn t -> _ = Task.outcome(t))`;
-    - the left of a `|>` whose stage is such a call or names such a function: `handles |> Task.await_all()`, `handles |> Iter.map(Task.outcome)`.
+    - an argument of a call where another argument names one of those functions, or is a lambda or capture that calls one on its parameter on every path through its body: `Iter.each(handles, Task.cancel)`, `Iter.each(handles, fn t -> _ = Task.outcome(t))`;
+    - the left of a `|>` whose stage is such a call, names such a function, or is such a lambda: `handles |> Task.await_all()`, `handles |> Iter.map(Task.outcome)`.
 
-    No other use settles it: reading it (`Task.inspect(t)`, `Iter.count(handles)`), copying it to another name (`u = [t]`, `_ = t`), or passing it to a function the program declares. A handle that is not settled is the error `Task bound to 't' is never awaited or cancelled`, which names the use the block makes of it. A task a supervisor owns (*Supervision* below) is not held to this rule.
+    An `if` settles a handle when both branches do, and an `if` with no `else` settles nothing; a `case` settles it when every arm does. A branch that always leaves the block (`return`, `break`, `continue`, `unreachable`, a loop that never ends) needs no settle, and neither does the path a `?` takes out: every exit from the block other than its end cancels the tasks still running in it (*Errors and cancellation* below). What runs only sometimes or later settles nothing outside it: the right of `and` or `or`, and the body of a lambda or capture, which may run many times or never, whether it is passed to a loop, bound to a name or returned. A settle in a nested `concurrent` block counts, since that block runs once in place.
+
+    No other use settles it: reading it (`Task.inspect(t)`, `Iter.count(handles)`), copying it to another name (`u = [t]`, `_ = t`), or passing it to a function the program declares. A handle that is not settled is the error `Task bound to 't' is never awaited or cancelled`, which names the use the block makes of it, or `Task bound to 't' is not awaited or cancelled on every path`, which names a branch that leaves it unsettled. A task a supervisor owns (*Supervision* below) is not held to this rule.
 
 3. **A `Task<T>` does not leave its block.** It cannot be returned from the block, sent on a channel, or stored where it outlives the block: `Task<T> cannot escape its enclosing concurrent block`.
 
-Under rule 2, the first block below settles each handle, and the second is an error:
+Under rule 2, the first two blocks below settle each handle, and the other three are errors:
 
 ```nomi
 concurrent
@@ -9936,7 +9932,24 @@ end
 
 concurrent
     t = Task.spawn(fn -> fetch(1))
+    n = fetch(0)? // an Err leaves the block and cancels t
+    Ok(n + Task.await(t)?)
+end
+
+concurrent
+    t = Task.spawn(fn -> fetch(1))
     Task.inspect(t) // error: Task bound to 't' is never awaited or cancelled
+end
+
+concurrent
+    t = Task.spawn(fn -> fetch(1)) // error: not awaited or cancelled on every path
+    // when `cached` is False, nothing awaits or cancels t
+    if cached then use(Task.await(t))
+end
+
+concurrent
+    t = Task.spawn(fn -> fetch(1)) // error: never awaited or cancelled
+    _check = fn -> Task.outcome(t) // a lambda that is never called
 end
 ```
 
@@ -10074,6 +10087,23 @@ end
 
 Fan-in from producers that share one message type needs no `select`: they send on one channel of a tagged enum, as [std::channels](/reference/channels/#multiplexing) shows. `select` is for timeouts, sends that must not block, and channels of different types or owners.
 
+### Deadlock
+
+When every task of a program waits for another of its tasks, none can run again. The program then stops with a fault at the wait of its main line: `every task is waiting, so none can run again:`, then a line for each task, naming what it waits for and where. The main line is `main`, a test case, or the function an embedder called. A test case that deadlocks fails at once with this report, not at its time limit.
+
+```console
+line 9: every task is waiting, so none can run again:
+  main waits for a task to end at shop.nomi:9
+  the task spawned at shop.nomi:7 waits to receive on a channel at shop.nomi:4
+```
+
+The waits it counts are a send, a receive, a `select`, `Task.await`, `Task.outcome` and `Task.await_all`, the end of a `concurrent` block, a `max_running` slot, and a `once` another task is computing. It reports only when nothing else could still end one of them. These could, so a program waiting on one is not reported, and runs until it ends or is stopped:
+
+- a timer: `Arm.after`, `Receiver.receive_within`, a deadline in force (§15 *Context*);
+- a task in a call outside the program: a socket, a process, standard input, a file, `timer.sleep`, a supervisor's restart delay;
+- a channel a signal feed sends on (`std::signals`), or one that `Sender.close_on_drain` closes when the program shuts down;
+- `Supervisor.flush`, and anything while the program shuts down.
+
 ### Supervision
 
 Taught in [Background Work](/background-work/#declaring-your-supervisors).
@@ -10082,7 +10112,7 @@ Long-lived background work is owned by a `Supervisor`, from `std::supervisors`. 
 
 A supervisor is created only while `boot` builds the application value, in boot or in something boot calls, and is usually kept in an application field. Anywhere else, `Supervisor.new` is the error `` a supervisor here would be a new one every time this runs, and each is kept for the life of the program with a `max_running` of its own — so the bound would be per call rather than per downstream. Create it while `boot` builds the app value: in boot, or in something boot calls ``.
 
-The checker follows this across the whole program, std included. A function is *boot-only* when it calls `Supervisor.new` or another boot-only function, directly or through any chain of calls in any module: std::jobs's `Worker.new` is one, and so is an app's function that calls it. Code starts running outside boot in `fn main`, in a test body, in a lambda or capture (wherever it is written, since it runs whenever it is called), and in a private function nothing calls. Each call such code makes to a boot-only function is an error at that call, naming the chain down to `Supervisor.new`: `` `make_worker` creates a supervisor (through `Worker.new` at workers.nomi:4, then `Supervisor.new` at jobs.nomi:483), so it can only be called while `boot` builds the app value ``. A call inside a boot-only function is not itself an error; the call into that function is. A `pub` function nothing calls is not checked from inside: it is another module's to call. `boot`, and a function a test group's `boot` calls, runs inside boot, and so does an entry boot a test calls. A boot-only function named as a value (`f = Worker.new`) is an error where it is named, in boot too, since a function value may be called anywhere. The runtime traps with the same message as a backstop.
+The checker follows this across the whole program, std included. A function is *boot-only* when it calls `Supervisor.new` or another boot-only function, directly or through any chain of calls in any module: std::jobs's `Worker.new` is one, and so is an app's function that calls it. Code starts running outside boot in `fn main`, in a test body, in a lambda or capture (wherever it is written, since it runs whenever it is called), and in a private function nothing calls. Each call such code makes to a boot-only function is an error at that call, naming the chain down to `Supervisor.new`: `` `make_worker` creates a supervisor (through `Worker.new` at workers.nomi:4, then `Supervisor.new` at jobs.nomi:483), so it can only be called while `boot` builds the app value ``. A call inside a boot-only function is not itself an error; the call into that function is. A `pub` function nothing calls is not checked from inside: it is another package's to call. `boot`, and a function a test group's `boot` calls, runs inside boot, and so does an entry boot a test calls. A boot-only function named as a value (`f = Worker.new`) is an error where it is named, in boot too, since a function value may be called anywhere. The runtime traps with the same message as a backstop.
 
 ```nomi
 import
@@ -10309,7 +10339,7 @@ When a `?` exits a test early, the report shows the `?`'s source and the value i
 
 ### Failure reports
 
-A failed assertion's report shows the assertion and, under `values:`, each operand it compared with its value. A value reads structurally: a `String` is quoted, a struct's fields are sorted by name, and a type's `impl Display` is not used. A type with a hand-written `impl Debug` reads as that impl renders it, at any depth, as `dbg` prints it; a derived or universal `Debug` changes nothing. A literal operand has no row, nor does a function named by its own name. A name bound to a function keeps its row (`g = <func: double>`). A test that a `?` ends early, or whose group's `boot` returns `Err`, reports that line and, under `returned:`, the `Err` or `None` it returned, rendered as a row is.
+A failed assertion's report shows the assertion and, under `values:`, each operand it compared with its value. A value reads structurally: a `String` is quoted, a struct's fields are sorted by name, a host value with no `impl Debug` reads as its type's name, as `dbg` prints it, and a type's `impl Display` is not used. A type with a hand-written `impl Debug` reads as that impl renders it, at any depth, as `dbg` prints it; a derived or universal `Debug` changes nothing. A literal operand has no row, nor does a function named by its own name. A name bound to a function keeps its row (`g = <func: double>`). A test that a `?` ends early, or whose group's `boot` returns `Err`, reports that line and, under `returned:`, the `Err` or `None` it returned, rendered as a row is.
 
 **Line diffs.** When `assert a == b` fails and both operands are Strings, at least one with a line break, the report shows a line diff in place of their two rows, the left operand as the actual value and the right as the expected. The [tooling reference](/tooling/running-tests/#line-diffs) shows its layout.
 
@@ -10654,7 +10684,7 @@ end
 
 #### Coherence
 
-A handler is an ordinary interface impl, so the impl rules apply (§12). There is at most one `Literal` or `CheckedLiteral` impl for a type in a program, and the orphan rule requires the interface or the prefix type to be declared in the implementing module. Unlike other impls (§12 *Foreign Types*), a `Literal` impl is not admitted by a type argument the module declares: `impl Literal for List<Mine>` is an orphan impl even when `Mine` is the module's, since the handler is chosen by the prefix alone.
+A handler is an ordinary interface impl, so the impl rules apply (§12). There is at most one `Literal` or `CheckedLiteral` impl for a type in a program, and the orphan rule requires the interface or the prefix type to be declared in the implementing package. Unlike other impls (§12 *Foreign Types*), a `Literal` impl is not admitted by a type argument the package declares: `impl Literal for List<Mine>` is an orphan impl even when `Mine` is the package's, since the handler is chosen by the prefix alone.
 
 #### HTML templates
 
@@ -10924,7 +10954,7 @@ fn home() -> String
 end
 ```
 
-The body is one or more patterns, separated by white space; a pattern that holds a space is written in double quotes (`"my notes.txt"`), which take no escapes. A pattern is a list of names separated by `/`, and names files from the module root, as an import path names a file (§14 *Files and modules*), whatever directory the declaring file is in, so moving the file never changes what its patterns name. It never reaches outside the module. Each name of the pattern matches a name in the tree at the same depth, so no wildcard crosses a `/`:
+The body is one or more patterns, separated by white space; a pattern that holds a space is written in double quotes (`"my notes.txt"`), which take no escapes. A pattern is a list of names separated by `/`, and names files from the package root, as an import path names a file (§14 *Modules and packages*), whatever directory the declaring file is in, so moving the file never changes what its patterns name. It never reaches outside the package. Each name of the pattern matches a name in the tree at the same depth, so no wildcard crosses a `/`:
 
 - `*` matches any run of code points, the empty run included, and `?` matches one code point.
 - `[...]`, a class, matches one code point it lists, and `[^...]` one it does not. A class lists single code points (`[abc]`) and ranges (`[a-z]`), each range holding both its ends and every code point between them. A class lists at least one entry. It cannot list `-` or `]`, since nothing escapes them; `*`, `?` and `[` inside one are ordinary code points, so `[*]` matches a `*`.
@@ -10934,9 +10964,9 @@ The body is one or more patterns, separated by white space; a pattern that holds
 What a pattern embeds:
 
 - A pattern that matches a file embeds it, whatever its name. One that matches a directory embeds every file under it, except names that start with `.` or `_`; a pattern that starts with `all:` embeds those too (`all:static`).
-- A directory holding a `nomi.toml` of its own is another module: a directory walk leaves it out, and a pattern that names it, or a file under it, is an error.
-- A path in the tree is the file's path from the module root (`static/index.html`), whatever pattern matched it, and two patterns that match one file embed it once.
-- A pattern whose base does not exist, from the module root or from the declaring file's directory, is a warning rather than an error, except in a build. The base is the path its names spell before the first one holding a wildcard, the whole pattern when none does: `web/dist` for `web/dist` and for `web/dist/*.js`. The tree holds the base as an empty directory, so `Files.sub(site, "web/dist")` is an empty tree, and a read under it returns `NotFound`. This is the state of a frontend's build folder before its first build: `nomi run`, `nomi check`, `nomi test`, the REPL and the language server report ``the `embed` pattern `web/dist` matches no file: `web/dist` does not exist, so `site` is empty until it does`` at the pattern and go on, and `nomi build` refuses it, for every target, so a built program holds the files its patterns name. A pattern that matches nothing in a base that exists (`static/*.png` in a `static` with no `.png`) is an error everywhere.
+- A directory holding a `nomi.toml` of its own is another package: a directory walk leaves it out, and a pattern that names it, or a file under it, is an error.
+- A path in the tree is the file's path from the package root (`static/index.html`), whatever pattern matched it, and two patterns that match one file embed it once.
+- A pattern whose base does not exist, from the package root or from the declaring file's directory, is a warning rather than an error, except in a build. The base is the path its names spell before the first one holding a wildcard, the whole pattern when none does: `web/dist` for `web/dist` and for `web/dist/*.js`. The tree holds the base as an empty directory, so `Files.sub(site, "web/dist")` is an empty tree, and a read under it returns `NotFound`. This is the state of a frontend's build folder before its first build: `nomi run`, `nomi check`, `nomi test`, the REPL and the language server report ``the `embed` pattern `web/dist` matches no file: `web/dist` does not exist, so `site` is empty until it does`` at the pattern and go on, and `nomi build` refuses it, for every target, so a built program holds the files its patterns name. A pattern that matches nothing in a base that exists (`static/*.png` in a `static` with no `.png`) is an error everywhere.
 
 | Violation | Error, at the pattern |
 |---|---|
@@ -10948,7 +10978,7 @@ What a pattern embeds:
 | A malformed class | ``the `embed` pattern `static/[a` is not a valid pattern: a `[` has no `]` to close its class``; for `static/[]`, ``the class `[]` is empty``; for `static/[a-]`, ``a `-` in a class does not join two characters into a range`` |
 | A directory with nothing to embed | ``cannot embed `empty`: it holds no file to embed`` |
 | A symbolic link or other irregular file | ``cannot embed `link.html`: it is a symbolic link`` |
-| Another module's directory | ``cannot embed `tools`: it is another module, with its own nomi.toml`` |
+| Another package's directory | ``cannot embed `tools`: it is another package, with its own nomi.toml`` |
 | No body, parameters or a result type | ``an `embed` names the files it holds`` |
 
 **Literal paths are checked.** A call to `Files.read`, `read_text`, `metadata`, `list`, `walk` or `sub` whose path is a string literal, and whose tree is an `embed` declaration (`site`, `web.site`) or a `Files.sub` of one with a literal directory, unwrapped with `!` or `?` (`Files.sub(site, "static")!`, nested or piped), is checked against the files the declaration holds. `read` and `read_text` name a file, `list`, `walk` and `sub` a directory, and `metadata` either. The path is cleaned as the run time cleans it, so `./static//a.css` is `static/a.css`. A path built at run time (an interpolation, a variable, a parameter) is not checked and stays a run-time `Result`, and neither `exists` nor `paths` is checked. A literal at or under the base of a pattern whose base does not exist is not checked either, since its files are not there to check it against; the build refuses the pattern itself.
@@ -10988,7 +11018,7 @@ host fn abs(n: Int) -> Int
 A Go program that embeds Nomi implements the `host fn`s its Nomi program declares from a host table it passes in ([the `vmhost` package doc](../vmhost/doc.go) covers the Go API). A program built as a WASI reactor has its `host fn`s answered by the program that loads the reactor, in any language, through the reactor's one import, `nomi.host_call` (the tooling reference's *Calling exported functions*). There each argument crosses as JSON by its type's `ToJson` and the answer by the result's `FromJson`, as an `export fn`'s do the other way, so a `host fn` whose parameter is a function value, an opaque `host type` or another type with no JSON form has no JSON host and is answered only from Go.
 
 - A plain `host type` in such a program is an opaque handle. The table's functions create and read its values; Nomi code passes them around and stores them. The type needs no registration.
-- A table implements each function by its declaration's key: its name in the entry file, and in another file the file's path within its module, `/`-separated and without `.nomi`, then `.` and the name. `helpers/util.nomi`'s `host fn greet` is `helpers/util.greet`, a file at the module's root gives `util.greet`, and a dependency's file is under the dependency's name in the program: `lib/sub/thing.nomi` of the dependency `lib` gives `lib/sub/thing.ping`. Two files with one base name never share a key.
+- A table implements each function by its declaration's key: its name in the entry file, and in another file the file's path within its package, `/`-separated and without `.nomi`, then `.` and the name. `helpers/util.nomi`'s `host fn greet` is `helpers/util.greet`, a file at the package's root gives `util.greet`, and a dependency's file is under the dependency's name in the program: `lib/sub/thing.nomi` of the dependency `lib` gives `lib/sub/thing.ping`. Two files with one base name never share a key.
 - A program's own host functions never implement a std call, nor the reverse, even when a file of the program has a std module's name: a project's `regex.nomi` may declare a `host fn` named `compile` beside `std::regex`'s.
 - A `host fn`'s default is Nomi code like a `fn`'s, evaluated before the call leaves Nomi.
 

@@ -1,5 +1,7 @@
 package analysis
 
+import "github.com/nomi-language/nomi/internal/ast"
+
 // Nominal identity for the TYPE-METHOD table — `Type.method(...)` resolution.
 //
 // # The defect, measured rather than assumed
@@ -127,7 +129,7 @@ func populateTypeMethodIdentities(idx *ProjectImplIndex, filesByKey map[string]*
 				continue
 			}
 			for methodName, sym := range byMethod {
-				if sym == nil || (!sym.Public && !sym.IsImplMethod) {
+				if sym == nil || (sym.Visibility == ast.Private && !sym.IsImplMethod) {
 					continue
 				}
 				key := TypeMethodKey{Origin: origin, Type: typeName, Method: methodName}

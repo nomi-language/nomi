@@ -2,11 +2,8 @@ package stdio
 
 import (
 	"errors"
-	"io"
 	"io/fs"
 	"os"
-	"runtime"
-	"syscall"
 
 	"github.com/nomi-language/nomi/rt"
 )
@@ -18,155 +15,22 @@ const pathEscapes = "path escapes from parent"
 
 // Classify is the io.Error a program sees for err, a failure of operation
 // op on path, from any Go file system: the operating system's, or one an
-// embedder implements (vmhost.FileSystem). An rt.IOFailure is the io.Error
-// it carries.
+// embedder implements (vmhost.FileSystem). A name that leaves the root it
+// is confined to is InvalidPath; rt.IOErrorOf sorts the rest.
 func Classify(op, path string, err error) rt.IOError {
-	var f rt.IOFailure
-	if errors.As(err, &f) {
-		return f.E
-	}
-	return *classify(op, path, err)
-}
-
-// classify is the io.Error for err, a failure of operation op on path. The
-// errno decides first, since Go's fs.ErrExist also matches ENOTEMPTY.
-func classify(op, path string, err error) *rt.IOError {
-	tag := func(t uint8) *rt.IOError { return errOf(t, path) }
-	errno := Errno(err)
-	switch errno {
-	case syscall.EISDIR:
-		return tag(rt.TagIOIsADirectory)
-	case syscall.ENOTDIR:
-		return tag(rt.TagIONotADirectory)
-	case syscall.ENOTEMPTY:
-		return tag(rt.TagIODirectoryNotEmpty)
-	case syscall.ENOSPC:
-		return tag(rt.TagIONoSpace)
-	case syscall.EROFS:
-		return tag(rt.TagIOReadOnly)
-	case syscall.EMFILE, syscall.ENFILE:
-		return &rt.IOError{Tag: rt.TagIOTooManyOpen}
-	case syscall.EPIPE:
-		return &rt.IOError{Tag: rt.TagIOBrokenPipe}
-	case syscall.ETIMEDOUT:
-		return &rt.IOError{Tag: rt.TagIOTimedOut}
-	}
 	var pe *fs.PathError
 	if errors.As(err, &pe) && pe.Err != nil && pe.Err.Error() == pathEscapes {
-		return escapes(path)
+		return *escapes(path)
 	}
 	var le *os.LinkError
 	if errors.As(err, &le) && le.Err != nil && le.Err.Error() == pathEscapes {
-		return escapes(path)
+		return *escapes(path)
 	}
-	var timeout interface{ Timeout() bool }
-	switch {
-	case errors.Is(err, fs.ErrNotExist):
-		return tag(rt.TagIONotFound)
-	case errors.Is(err, fs.ErrExist):
-		return tag(rt.TagIOAlreadyExists)
-	case errors.Is(err, fs.ErrPermission):
-		return tag(rt.TagIOPermissionDenied)
-	case errors.Is(err, fs.ErrClosed), errors.Is(err, io.ErrClosedPipe):
-		return &rt.IOError{Tag: rt.TagIOClosed}
-	case errors.Is(err, io.ErrUnexpectedEOF):
-		// A stream that ended inside what its framing promised, as a
-		// request body shorter than its Content-Length.
-		return tag(rt.TagIOTruncated)
-	case errors.Is(err, os.ErrDeadlineExceeded), errno == 0 && errors.As(err, &timeout) && timeout.Timeout():
-		// A read or write past a deadline: one the stream set (a
-		// connection's `set_read_deadline`, a pipe's), a server's read
-		// or write timeout, or a context's. An errno that Go calls a
-		// timeout (EAGAIN) is the errno's, below.
-		return &rt.IOError{Tag: rt.TagIOTimedOut}
-	}
-	if pe != nil && pe.Op != "" {
-		op = pe.Op
-	}
-	if le != nil && le.Op != "" {
-		op = le.Op
-	}
-	code := rt.ErrnoName(err)
-	if errno != 0 {
-		code = rt.ErrnoName(errno)
-	}
-	return &rt.IOError{Tag: rt.TagIOOther, Operation: op, Path: path, Code: code}
+	return rt.IOErrorOf(op, path, err)
 }
 
-// Errno is the errno err carries, as a Unix system numbers the failure, on
-// every system: a Windows code is read through windowsErrnos. It is 0 when
-// err carries none. A file's io.Error and a connection's net.Error are both
-// sorted by it, so a failure is the same variant on every system.
-func Errno(err error) syscall.Errno {
-	var errno syscall.Errno
-	if !errors.As(err, &errno) {
-		return 0
-	}
-	if windowsCodes {
-		return fromWindows(errno)
-	}
-	return errno
-}
-
-// windowsCodes is whether a syscall.Errno is a Windows error code, which
-// fromWindows reads as the errno a Unix system answers for the same
-// failure. A test sets it to read Windows codes on another system.
-var windowsCodes = runtime.GOOS == "windows"
-
-// ReadWindowsCodesForTest makes Errno read each code as Windows numbers it,
-// on any system, until the returned function restores the setting. A test
-// of a package that sorts errors by Errno feeds it Windows codes with it.
-func ReadWindowsCodesForTest() (restore func()) {
-	was := windowsCodes
-	windowsCodes = true
-	return func() { windowsCodes = was }
-}
-
-// windowsErrnos are the Windows error codes whose failure Unix names with
-// an errno, by number, so the table means the same on every system. Go's
-// syscall package on Windows names a few of them itself (ENOENT is
-// ERROR_FILE_NOT_FOUND, ENOTDIR is ERROR_PATH_NOT_FOUND). It defines the
-// other Unix names as numbers of its own that no Windows call returns, so
-// syscall.ECONNREFUSED never equals the WSAECONNREFUSED a refused dial
-// carries; errors.Is reads ERROR_DIR_NOT_EMPTY as fs.ErrExist. The
-// Winsock codes are what Go's net package wraps in a *net.OpError for a
-// socket's failure.
-var windowsErrnos = map[syscall.Errno]syscall.Errno{
-	2:     syscall.ENOENT,       // ERROR_FILE_NOT_FOUND
-	3:     syscall.ENOTDIR,      // ERROR_PATH_NOT_FOUND: a missing directory above, or a file there
-	109:   syscall.EPIPE,        // ERROR_BROKEN_PIPE
-	123:   syscall.EINVAL,       // ERROR_INVALID_NAME
-	145:   syscall.ENOTEMPTY,    // ERROR_DIR_NOT_EMPTY
-	232:   syscall.EPIPE,        // ERROR_NO_DATA: a write to a pipe its reader closed
-	267:   syscall.ENOTDIR,      // ERROR_DIRECTORY: a file opened as a directory
-	1921:  syscall.ELOOP,        // ERROR_CANT_RESOLVE_FILENAME: a symlink loop
-	4390:  syscall.EINVAL,       // ERROR_NOT_A_REPARSE_POINT: readlink of what is not a link
-	10040: syscall.EMSGSIZE,     // WSAEMSGSIZE: a datagram longer than the receive's buffer
-	10048: syscall.EADDRINUSE,   // WSAEADDRINUSE
-	10051: syscall.ENETUNREACH,  // WSAENETUNREACH
-	10053: syscall.ECONNABORTED, // WSAECONNABORTED: this host ended an established connection
-	10054: syscall.ECONNRESET,   // WSAECONNRESET
-	10058: syscall.EPIPE,        // WSAESHUTDOWN: a send after the socket's sending side shut down
-	10060: syscall.ETIMEDOUT,    // WSAETIMEDOUT
-	10061: syscall.ECONNREFUSED, // WSAECONNREFUSED
-	10065: syscall.EHOSTUNREACH, // WSAEHOSTUNREACH
-}
-
-// notExist reports whether err says nothing is at a path: Go's
-// fs.ErrNotExist, which on Windows matches both of the codes for absence.
-func notExist(err error) bool {
-	if errors.Is(err, fs.ErrNotExist) {
-		return true
-	}
-	var errno syscall.Errno
-	return windowsCodes && errors.As(err, &errno) && (errno == 2 || errno == 3)
-}
-
-// fromWindows is the errno a Unix system answers for the failure Windows
-// reports as code.
-func fromWindows(code syscall.Errno) syscall.Errno {
-	if errno, ok := windowsErrnos[code]; ok {
-		return errno
-	}
-	return code
+// classify is Classify as the pointer the backends answer.
+func classify(op, path string, err error) *rt.IOError {
+	e := Classify(op, path, err)
+	return &e
 }

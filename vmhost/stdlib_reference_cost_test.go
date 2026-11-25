@@ -94,3 +94,18 @@ func TestStdlibReference_AnEditBeyondTheTestChecksTheModule(t *testing.T) {
 		t.Error("the edit was not checked with the module's source")
 	}
 }
+
+// An edit that closes the test and declares a function the test calls is
+// lowered with the whole module, as `nomi test` lowers an edited stdlib
+// file, so the function it declares runs.
+func TestStdlibReference_AnEditBeyondTheTestLowersTheModule(t *testing.T) {
+	body := "assert tripled(Duration.seconds(2)) == Duration.seconds(6)\nend\n\n" +
+		"fn tripled(d: Duration) -> Duration\nDuration.seconds(Duration.as_seconds(d) * 3)"
+	cases, err := vmhost.StdlibReference("duration", body, "", io.Discard)
+	if err != nil {
+		t.Fatalf("the front end rejects the edit: %v", err)
+	}
+	if len(cases) != 1 || cases[0].Err != nil || cases[0].Blocked != nil || !strings.Contains(cases[0].Name, "reference") {
+		t.Fatalf("want the reference case passing, got %+v", cases)
+	}
+}

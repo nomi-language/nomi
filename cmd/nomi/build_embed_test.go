@@ -32,7 +32,7 @@ const embedProgramOutput = "[logo.bin, static/css/site.css, static/index.html]\n
 func writeEmbedProject(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[module]\nname = \"site\"\nentry_points = [\"main\"]\n")
+	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[package]\nname = \"site\"\nentry_points = [\"main\"]\n")
 	mustWrite(t, filepath.Join(dir, "main.nomi"), embedProgram)
 	mustWrite(t, filepath.Join(dir, "static", "index.html"), "<h1>hi</h1>\n")
 	mustWrite(t, filepath.Join(dir, "static", "css", "site.css"), "body {}\n")
@@ -121,17 +121,17 @@ func TestBuildCommand_EmbeddedFilesTravelInWasmModules(t *testing.T) {
 	}
 }
 
-// A file in a subdirectory embeds a folder at the module root: its
+// A file in a subdirectory embeds a folder at the package root: its
 // patterns name files from the root, as import paths do, so web/pages.nomi's
 // `assets` is the root's assets, never web/assets. The kept program tracks
 // what the patterns can match: an edit to an embedded file is read on the
 // next run, and an edit outside the patterns' folders keeps the program.
-func TestRunCommand_ANestedEmbedReadsFromTheModuleRoot(t *testing.T) {
+func TestRunCommand_ANestedEmbedReadsFromThePackageRoot(t *testing.T) {
 	if testing.Short() {
 		t.Skip("runs nomi; -short")
 	}
 	dir := t.TempDir()
-	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[module]\nname = \"site\"\nentry_points = [\"main\"]\n")
+	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[package]\nname = \"site\"\nentry_points = [\"main\"]\n")
 	mustWrite(t, filepath.Join(dir, "main.nomi"), `import
   std::embed.Files
   std::io

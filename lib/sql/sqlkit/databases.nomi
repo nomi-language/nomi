@@ -1,7 +1,7 @@
-//# The `[sqlkit]` table of a module's `nomi.toml`: its databases, each a
+//# The `[sqlkit]` table of a package's `nomi.toml`: its databases, each a
 //# `[sqlkit.database.<name>]` table. The table is named by the key the
-//# module's `[dependencies]` gives sqlkit, `[db]` for `db = { module =
-//# ".../sqlkit", ... }`; `[sqlkit]` below is the key `sqlkit`.
+//# package's `[dependencies]` gives sqlkit, `[db]` for `db = { repo = ...,
+//# subdir = "lib/sql/sqlkit", ... }`; `[sqlkit]` below is the key `sqlkit`.
 //#
 //#     [sqlkit.database.main]
 //#     dialect = "sqlite"             # or "postgres"
@@ -15,7 +15,7 @@
 //#     people = "Person"              # a table's row struct, when the rule misses
 //#
 //# Every key may be left out: those are the defaults, and each table's
-//# row struct is its name made singular (`users` is `User`). A module with
+//# row struct is its name made singular (`users` is `User`). A package with
 //# no `[sqlkit.database]` table has one database, `main`, with the
 //# defaults.
 
@@ -44,10 +44,10 @@ impl Display for Dialect
     end
 end
 
-/// One database of the module.
+/// One database of the package.
 pub struct Database
-    /// The name the module gives sqlkit: its key under `[dependencies]`,
-    /// which names the table the database is configured in and the module
+    /// The name the package gives sqlkit: its key under `[dependencies]`,
+    /// which names the table the database is configured in and the package
     /// the generated code imports.
     kit: String = "sqlkit"
 
@@ -71,7 +71,7 @@ derive Equatable for Database
 
 /// The databases a `[sqlkit]` table, as `Json`, declares, by name; with
 /// none, `main` with the defaults. `kit` is the table's name, the one the
-/// module gives sqlkit.
+/// package gives sqlkit.
 //! c =
 //!     Json.decode(
 //!         "{\"database\":{\"main\":{\"queries\":\"sql\",\"tables\":{\"people\":\"Person\"}}}}"
@@ -189,7 +189,7 @@ pub fn defaults(name: String) -> Database
     }
 end
 
-/// The path from the module root of the generated file `name` (without
+/// The path from the package root of the generated file `name` (without
 /// `.nomi`) of db.
 //! assert databases.out_file(databases.defaults("main"), "schema") == "schema.nomi"
 //! assert databases.out_file({..databases.defaults("main"), out: "src/db/"}, "q") == "src/db/q.nomi"
@@ -198,7 +198,7 @@ pub fn out_file(db: Database, name: String) -> String
     "${String.replace(module_of(db, name), "::", "/")}.nomi"
 end
 
-/// The import path, from the module root, of the generated file `name`:
+/// The import path, from the package root, of the generated file `name`:
 /// its directories and its name joined by `::`.
 //! assert databases.module_of({..databases.defaults("main"), out: "src/db/"}, "q") == "src::db::q"
 //

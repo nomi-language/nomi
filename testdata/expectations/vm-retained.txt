@@ -370,6 +370,7 @@
 07-structs-and-enums/variant_field_defaults/policy.nomi:Backoff.Exponential.max_restarts default	ran
 07-structs-and-enums/variant_field_defaults/policy/nested.nomi:Timeout.After.seconds default	ran
 07-structs-and-enums/variant_field_defaults/variant_field_defaults_test.nomi:describe	ran
+07-structs-and-enums/variant_field_defaults/variant_field_defaults_test.nomi:describe default 1	ran
 07-structs-and-enums/vector_trees_test.nomi:depth	ran
 07-structs-and-enums/vector_trees_test.nomi:eval	ran
 07-structs-and-enums/vector_trees_test.nomi:sample	ran
@@ -549,9 +550,13 @@
 09-functions-and-control-flow/parameter_types_from_defaults/parameter_types_from_defaults_test.nomi:Shout.shout for Page	ran
 09-functions-and-control-flow/parameter_types_from_defaults/parameter_types_from_defaults_test.nomi:Shout.word for Page	ran
 09-functions-and-control-flow/parameter_types_from_defaults/parameter_types_from_defaults_test.nomi:greet	ran
+09-functions-and-control-flow/parameter_types_from_defaults/parameter_types_from_defaults_test.nomi:greet default 1	ran
+09-functions-and-control-flow/parameter_types_from_defaults/parameter_types_from_defaults_test.nomi:greet default 2	ran
 09-functions-and-control-flow/parameter_types_from_defaults/parameter_types_from_defaults_test.nomi:has_diagnostic	ran
 09-functions-and-control-flow/parameter_types_from_defaults/parameter_types_from_defaults_test.nomi:pair	ran
 09-functions-and-control-flow/parameter_types_from_defaults/parameter_types_from_defaults_test.nomi:pair	ran
+09-functions-and-control-flow/parameter_types_from_defaults/parameter_types_from_defaults_test.nomi:pair default 2	ran
+09-functions-and-control-flow/parameter_types_from_defaults/parameter_types_from_defaults_test.nomi:pair default 2	ran
 09-functions-and-control-flow/parameter_types_from_defaults/parameter_types_from_defaults_test.nomi:shout default 2	ran
 09-functions-and-control-flow/parameter_types_from_defaults/search.nomi:Page.window	ran
 09-functions-and-control-flow/parameter_types_from_defaults/search.nomi:Page.window default 2	ran
@@ -563,7 +568,11 @@
 09-functions-and-control-flow/parameter_types_from_defaults/search.nomi:write default 2	ran
 09-functions-and-control-flow/partial_defaults/partial_defaults_test.nomi:base	ran
 09-functions-and-control-flow/partial_defaults/partial_defaults_test.nomi:chain	ran
+09-functions-and-control-flow/partial_defaults/partial_defaults_test.nomi:chain default 2	ran
+09-functions-and-control-flow/partial_defaults/partial_defaults_test.nomi:chain default 3	ran
 09-functions-and-control-flow/partial_defaults/partial_defaults_test.nomi:span	ran
+09-functions-and-control-flow/partial_defaults/partial_defaults_test.nomi:span default 2	ran
+09-functions-and-control-flow/partial_defaults/partial_defaults_test.nomi:span default 3	ran
 09-functions-and-control-flow/partial_defaults/spans.nomi:base	ran
 09-functions-and-control-flow/partial_defaults/spans.nomi:span	ran
 09-functions-and-control-flow/partial_defaults/spans.nomi:span default 2	ran
@@ -907,8 +916,6 @@
 11-interfaces-and-impls/cross_file_impls/impls.nomi:Add.add for Num	ran
 11-interfaces-and-impls/cross_file_impls/impls.nomi:Gets.got for Wrap	ran
 11-interfaces-and-impls/cross_file_impls/impls.nomi:Gets.got for Wrap	ran
-11-interfaces-and-impls/cross_file_impls/impls.nomi:Gets.got for Wrap	ran
-11-interfaces-and-impls/cross_file_impls/impls.nomi:Gets.twice for Wrap	ran
 11-interfaces-and-impls/cross_file_impls/impls.nomi:Gets.twice for Wrap	ran
 11-interfaces-and-impls/cross_file_impls/impls.nomi:Gets.twice for Wrap	ran
 11-interfaces-and-impls/cross_file_impls/impls.nomi:Holds.held for Bag	ran
@@ -921,7 +928,6 @@
 11-interfaces-and-impls/cross_file_impls/impls.nomi:Holds.shout for Wrap	ran
 11-interfaces-and-impls/cross_file_impls/protocols.nomi:Gets.twice for Bag	ran
 11-interfaces-and-impls/cross_file_impls/protocols.nomi:Gets.twice for Tally	ran
-11-interfaces-and-impls/cross_file_impls/protocols.nomi:Gets.twice for Wrap	ran
 11-interfaces-and-impls/cross_file_impls/protocols.nomi:Gets.twice for Wrap	ran
 11-interfaces-and-impls/cross_file_impls/protocols.nomi:Gets.twice for Wrap	ran
 11-interfaces-and-impls/cross_file_impls/protocols.nomi:Holds.held for Crate	ran
@@ -1322,6 +1328,7 @@
 13-iterators-and-pipes/pipe_head_expected/pipe_head_expected_test.nomi:apply	ran
 13-iterators-and-pipes/pipe_head_expected/pipe_head_expected_test.nomi:divide	ran
 13-iterators-and-pipes/pipe_head_expected/pipe_head_expected_test.nomi:length_by	ran
+13-iterators-and-pipes/pipe_head_expected/pipe_head_expected_test.nomi:length_by default 2	ran
 13-iterators-and-pipes/pipe_head_expected/pipe_head_expected_test.nomi:length_of	ran
 13-iterators-and-pipes/pipe_head_expected/pipe_head_expected_test.nomi:low	ran
 13-iterators-and-pipes/pipe_head_expected/pipe_head_expected_test.nomi:number	ran
@@ -1329,6 +1336,7 @@
 13-iterators-and-pipes/pipe_head_expected/pipe_head_expected_test.nomi:run	ran
 13-iterators-and-pipes/pipe_head_expected/pipe_head_expected_test.nomi:run_all	ran
 13-iterators-and-pipes/pipe_head_expected/pipe_head_expected_test.nomi:scaled	ran
+13-iterators-and-pipes/pipe_head_expected/pipe_head_expected_test.nomi:scaled default 2	ran
 13-iterators-and-pipes/pipe_head_expected/pipe_head_expected_test.nomi:total	ran
 13-iterators-and-pipes/pipe_head_expected/pipe_head_expected_test.nomi:word	ran
 13-iterators-and-pipes/pipe_head_expected/shows.nomi:show	ran
@@ -1356,6 +1364,14 @@
 14-modules-and-packaging/cross_file_modules/math.nomi:add	ran
 14-modules-and-packaging/cross_file_modules/math.nomi:double	ran
 14-modules-and-packaging/cross_file_modules/math.nomi:internal_helper	ran
+14-modules-and-packaging/derives_for_tests/todos.nomi:FromJson.from_json for Tag	ran
+14-modules-and-packaging/derives_for_tests/todos.nomi:FromJson.from_json for TodoJson	ran
+14-modules-and-packaging/derives_for_tests/todos.nomi:ToJson.to_json for Tag	ran
+14-modules-and-packaging/derives_for_tests/todos.nomi:ToJson.to_json for TodoJson	ran
+14-modules-and-packaging/derives_for_tests/todos.nomi:encoded	ran
+14-modules-and-packaging/derives_for_tests/todos.nomi:todos.Tag.to_json_field	ran
+14-modules-and-packaging/derives_for_tests/todos.nomi:todos.TodoJson.to_json_field	ran
+14-modules-and-packaging/derives_for_tests/todos_test.nomi:`!` failure Json.Error	ran
 14-modules-and-packaging/directory_imports/db/notifications.nomi:pending	ran
 14-modules-and-packaging/directory_imports/db/schema.nomi:Post.blank	ran
 14-modules-and-packaging/directory_imports/db/schema.nomi:post	ran
@@ -1391,17 +1407,9 @@
 14-modules-and-packaging/module_qualified_literals/module_qualified_literals_test.nomi:describe	ran
 14-modules-and-packaging/module_qualified_literals/shapes.nomi:holder_int	ran
 14-modules-and-packaging/module_qualified_literals/shapes.nomi:ring_radius	ran
-14-modules-and-packaging/partner_test_derive/todos.nomi:FromJson.from_json for Tag	ran
-14-modules-and-packaging/partner_test_derive/todos.nomi:ToJson.to_json for Tag	ran
-14-modules-and-packaging/partner_test_derive/todos.nomi:ToJson.to_json for TodoJson	ran
-14-modules-and-packaging/partner_test_derive/todos.nomi:encoded	ran
-14-modules-and-packaging/partner_test_derive/todos.nomi:todos.Tag.to_json_field	ran
-14-modules-and-packaging/partner_test_derive/todos.nomi:todos.TodoJson.to_json_field	ran
-14-modules-and-packaging/partner_test_derive/todos_test.nomi:FromJson.from_json for TodoJson	ran
-14-modules-and-packaging/partner_test_derive/todos_test.nomi:`!` failure Json.Error	ran
-14-modules-and-packaging/partner_test_file/shapes.nomi:Debug.inspect for Area	ran
-14-modules-and-packaging/partner_test_file/shapes.nomi:area	ran
-14-modules-and-packaging/partner_test_file/shapes.nomi:describe	ran
+14-modules-and-packaging/private_tested_in_its_file/shapes.nomi:Debug.inspect for Area	ran
+14-modules-and-packaging/private_tested_in_its_file/shapes.nomi:area	ran
+14-modules-and-packaging/private_tested_in_its_file/shapes.nomi:describe	ran
 14-modules-and-packaging/re_export_facade/leaf.nomi:add	ran
 14-modules-and-packaging/re_export_facade/leaf.nomi:double	ran
 14-modules-and-packaging/re_export_facade/leaf.nomi:make_box	ran
@@ -1560,6 +1568,7 @@
 16-concurrency/jobs/app.nomi:next_report	ran
 16-concurrency/jobs/app.nomi:slow	ran
 16-concurrency/jobs/jobs_test.nomi:eventually	ran
+16-concurrency/jobs/jobs_test.nomi:eventually default 1	ran
 16-concurrency/jobs/jobs_test.nomi:handlers	ran
 16-concurrency/jobs/jobs_test.nomi:states	ran
 16-concurrency/jobs/schedules_test.nomi:`!` failure Error	ran
@@ -1573,6 +1582,7 @@
 16-concurrency/jobs/schedules_test.nomi:check Cron literal at 192:38 failure	ran
 16-concurrency/jobs/schedules_test.nomi:check Cron literal at 200:34 failure	ran
 16-concurrency/jobs/schedules_test.nomi:hourly	ran
+16-concurrency/jobs/schedules_test.nomi:hourly default 1	ran
 16-concurrency/jobs/schedules_test.nomi:kinds	ran
 16-concurrency/jobs/schedules_test.nomi:literal DateTime"2026-02-27T00:00:00Z[UTC]" at 194:29 failure	ran
 16-concurrency/jobs/schedules_test.nomi:literal DateTime"2026-03-01T00:00:00Z[UTC]" at 195:12 failure	ran
@@ -1653,6 +1663,18 @@
 16-concurrency/task_stream_test.nomi:tell	ran
 16-concurrency/task_stream_test.nomi:tell	ran
 16-concurrency/task_stream_test.nomi:trap_after	ran
+16-concurrency/task_stream_unordered_test.nomi:after	ran
+16-concurrency/task_stream_unordered_test.nomi:after	ran
+16-concurrency/task_stream_unordered_test.nomi:drained	ran
+16-concurrency/task_stream_unordered_test.nomi:drained	ran
+16-concurrency/task_stream_unordered_test.nomi:elapsed_seconds	ran
+16-concurrency/task_stream_unordered_test.nomi:job	ran
+16-concurrency/task_stream_unordered_test.nomi:logged	ran
+16-concurrency/task_stream_unordered_test.nomi:starts_at_each_take	ran
+16-concurrency/task_stream_unordered_test.nomi:take_slowly	ran
+16-concurrency/task_stream_unordered_test.nomi:tell	ran
+16-concurrency/task_stream_unordered_test.nomi:tell	ran
+16-concurrency/task_stream_unordered_test.nomi:trap_after	ran
 17-typed-literals/fragments_test.nomi:Literal.from_fragments for Count	ran
 17-typed-literals/fragments_test.nomi:Literal.from_fragments for Shape	ran
 17-typed-literals/html_templates_test.nomi:Display.to_string for Badge	ran
@@ -3878,6 +3900,7 @@ std/http.nomi:Client.new default 1	NETWORK: declared in std/http, std/net or std
 std/http.nomi:Client.post	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Client.post_form	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Client.stream	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Client.with_max_body	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Client.with_tls	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:ClientOptions.cookies default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:ClientOptions.max_body default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -3910,11 +3933,16 @@ std/http.nomi:CrossOrigin.bypass_patterns default	NETWORK: declared in std/http,
 std/http.nomi:CrossOrigin.check	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:CrossOrigin.deny default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:CrossOrigin.trusted_origins default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Debug.inspect for Client	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Debug.inspect for CookieJar	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Debug.inspect for Entry	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Debug.inspect for Listener	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Debug.inspect for Origin	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Debug.inspect for Route<Unit>	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Debug.inspect for Route<{id: Uuid}>	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Debug.inspect for Route<{key: String}>	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Debug.inspect for Router	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Debug.inspect for Tracer	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Display.to_string for ConnState	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Display.to_string for Cookie	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Display.to_string for Entry	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -4378,7 +4406,10 @@ std/jobs/testing.nomi:all_queues	ran
 std/jobs/testing.nomi:change_where	ran
 std/jobs/testing.nomi:checks	ran
 std/jobs/testing.nomi:claim	ran
+std/jobs/testing.nomi:claim default 3	ran
+std/jobs/testing.nomi:claim default 4	ran
 std/jobs/testing.nomi:claim_one	ran
+std/jobs/testing.nomi:claim_one default 3	ran
 std/jobs/testing.nomi:claim_order	ran
 std/jobs/testing.nomi:claims_none	ran
 std/jobs/testing.nomi:conformance	ran
@@ -4396,7 +4427,10 @@ std/jobs/testing.nomi:past	ran
 std/jobs/testing.nomi:peek	ran
 std/jobs/testing.nomi:put	ran
 std/jobs/testing.nomi:put_job	ran
+std/jobs/testing.nomi:put_job default 3	ran
+std/jobs/testing.nomi:put_job default 4	ran
 std/jobs/testing.nomi:put_unique	ran
+std/jobs/testing.nomi:put_unique default 4	ran
 std/jobs/testing.nomi:record	ran
 std/jobs/testing.nomi:rolled_back_rule	ran
 std/jobs/testing.nomi:rolled_back_rules	ran
@@ -4549,6 +4583,8 @@ std/net.nomi:Connection.set_write_buffer	NETWORK: declared in std/http, std/net 
 std/net.nomi:Connection.set_write_deadline	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:Connection.write_buffer	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:Connection.writer	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:Debug.inspect for Connection	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:Debug.inspect for Listener	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:DialOptions.fallback_delay default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:DialOptions.keep_alive default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:DialOptions.local_address default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -5050,6 +5086,7 @@ std/tls.nomi:ClientHello.supports	NETWORK: declared in std/http, std/net or std/
 std/tls.nomi:ConnectionState.of_parts	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/tls.nomi:Curve.name	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/tls.nomi:Curve.of_name	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:Debug.inspect for Certificate	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/tls.nomi:Display.to_string for ClientAuth	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/tls.nomi:Display.to_string for Curve	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/tls.nomi:Display.to_string for Error	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments

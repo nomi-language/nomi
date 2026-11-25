@@ -1,3 +1,3 @@
-[module]
+[package]
 name = "proj"
 entry_points = ["trap"]

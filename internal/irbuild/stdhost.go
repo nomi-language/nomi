@@ -138,8 +138,8 @@ type stdHostSpec struct {
 	// The handle's TypeName is the type's symbol name (`regex.Regex`,
 	// irTypeSymName), which is what the registry names it, so a table of
 	// impls keyed by type name finds a handle's: a hand-written `impl Debug`
-	// renders it in a `values:` row as `dbg` does (irRecordStdWritten), and
-	// one with none reads `<Regex>`.
+	// renders it in a `values:` row as `dbg` does (irRecordStdWritten), a
+	// Regex as the typed literal that builds it.
 	handle bool
 	// phantom names the declaration's type parameters when every one is
 	// PHANTOM: no value of the type stores anything of it, so the
@@ -168,7 +168,7 @@ type stdHostSpec struct {
 // affect the representation and it refuses at its own position — see
 // stdStructSpec.mismatch.
 func (s *stdHostSpec) declaredHostType(decl *ast.ExternType) bool {
-	if decl.Name != s.nomi || !decl.Public || len(decl.TypeParams) != len(s.phantom) || len(decl.WhereClauses) > 0 {
+	if decl.Name != s.nomi || decl.Visibility != ast.Public || len(decl.TypeParams) != len(s.phantom) || len(decl.WhereClauses) > 0 {
 		return false
 	}
 	for i, tp := range decl.TypeParams {

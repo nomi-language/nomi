@@ -14,7 +14,7 @@ const pointDecls = `struct Point
 end
 
 impl Point
-    pub fn origin() -> Point
+    fn origin() -> Point
         Point{x: 0, y: 0}
     end
 end
@@ -145,7 +145,7 @@ func TestCompletion_ValueMembersAreFieldsOnly(t *testing.T) {
 
 func TestCompletion_UserFileMembersAndImports(t *testing.T) {
 	dir := writeProject(t, map[string]string{
-		"server.nomi":   "pub struct Config\n    port: Int\nend\n\npub fn start(c: Config) -> Int\n    c.port\nend\n\nfn hidden() -> Int\n    1\nend\n",
+		"server.nomi":   "pub struct Config\n    port: Int\nend\n\npub fn start(c: Config) -> Int\n    c.port\nend\n\nprivate fn hidden() -> Int\n    1\nend\n",
 		"lib/text.nomi": "pub fn shout(s: String) -> String\n    s\nend\n",
 		"main.nomi":     "fn main() end\n",
 	})
@@ -185,7 +185,7 @@ const appDecls = `struct App
 end
 
 impl App
-    pub fn describe() -> String
+    fn describe() -> String
         "app"
     end
 end

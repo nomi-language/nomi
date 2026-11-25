@@ -11,7 +11,7 @@ import (
 // allows std, holding src.
 func genericLibrary(std, src string) map[string]string {
 	return map[string]string{
-		"nomi.toml":   "[module]\nname = \"genlib\"\n\n[effects.self]\nstd = " + std + "\n",
+		"nomi.toml":   "[package]\nname = \"genlib\"\n\n[effects.self]\nstd = " + std + "\n",
 		"genlib.nomi": src,
 	}
 }
@@ -37,7 +37,7 @@ end
 // reached from the function, and allowed once std names std::fs.
 func TestEffectRoots_AGenericFunctionIsWalkedThroughItsAbstractBody(t *testing.T) {
 	got, ds := effectDiagnostics(t, "genlib.nomi", genericLibrary("[]", readShown))
-	want := "genlib.nomi:8:12: this module's own code has the effect std::fs, and [effects.self] allows it no effects\n" +
+	want := "genlib.nomi:8:12: this package's own code has the effect std::fs, and [effects.self] allows it no effects\n" +
 		"genlib.nomi:8:12: help: reached from `read_shown`\n" +
 		"genlib.nomi:8:12: help: add \"std::fs\" to std under [effects.self] in nomi.toml, or remove the call"
 	if got != want {
@@ -102,7 +102,7 @@ test "a missing file is an error"
 end
 `
 	got, _ := effectDiagnostics(t, "genlib.nomi", genericLibrary("[]", src))
-	want := "genlib.nomi:7:12: this module's own code has the effect std::fs, and [effects.self] allows it no effects\n" +
+	want := "genlib.nomi:7:12: this package's own code has the effect std::fs, and [effects.self] allows it no effects\n" +
 		"genlib.nomi:7:12: help: reached from `read_tagged`\n" +
 		"genlib.nomi:7:12: help: add \"std::fs\" to std under [effects.self] in nomi.toml, or remove the call"
 	if got != want {
@@ -148,7 +148,7 @@ fn main()
 end
 `
 	dir := writeProject(t, map[string]string{
-		"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = [\"std::io\"]\n",
+		"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = [\"std::io\"]\n",
 		"main.nomi": src,
 	})
 	entry := filepath.Join(dir, "main.nomi")

@@ -648,6 +648,8 @@ func childrenOfDynamic(v any, fn func(Node)) {
 		if v != nil {
 			childrenOfTypeParam(v, fn)
 		}
+	case Visibility:
+	case *Visibility:
 	case WhereConstraint:
 		childrenOfWhereConstraintValue(v, fn)
 	case *WhereConstraint:
@@ -1833,5 +1835,6 @@ var generatedTypes = []any{
 	*new(TriviaCarrier), (*TriviaCarrier)(nil),
 	*new(TriviaKind), (*TriviaKind)(nil),
 	*new(TypeParam), (*TypeParam)(nil),
+	*new(Visibility), (*Visibility)(nil),
 	*new(WhereConstraint), (*WhereConstraint)(nil),
 }

@@ -89,7 +89,7 @@ func TestScaleOpen(t *testing.T) {
 		runtime.GC()
 		runtime.ReadMemStats(&base)
 		s := NewServer()
-		s.docs.SetWorkspaceRoot(dir)
+		s.docs.SetEditorFolder(dir)
 		run(s, "open the entry, first diagnostics", func() string {
 			s.docs.Open(entry, gen.Files[gen.Entry])
 			s.docs.AnalyzeLatest(context.Background(), entry)

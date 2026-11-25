@@ -184,7 +184,7 @@ func TestCheckTarget_WebAssemblyRefusesAServerAndKeepsTheClient(t *testing.T) {
 
 fn main() -> Result<Unit, http.Error>
     listener = http.listen()?
-    dbg listener.server.address
+    dbg http.Listener.address(listener)
     Ok(Unit)
 end
 `)

@@ -115,14 +115,14 @@ func TestRun_AProjectDirectoryRunsItsOneEntryPoint(t *testing.T) {
 	env := buildEnv(t.TempDir())
 	work := t.TempDir()
 	one := filepath.Join(work, "one")
-	mustWrite(t, filepath.Join(one, "nomi.toml"), "[module]\nname = \"one\"\nentry_points = [\"app\"]\n")
+	mustWrite(t, filepath.Join(one, "nomi.toml"), "[package]\nname = \"one\"\nentry_points = [\"app\"]\n")
 	mustWrite(t, filepath.Join(one, "app.nomi"), "import std::io\n\nfn main()\n    io.print(\"one\")\nend\n")
 	two := filepath.Join(work, "two")
-	mustWrite(t, filepath.Join(two, "nomi.toml"), "[module]\nname = \"two\"\nentry_points = [\"main\", \"cmd/seed\"]\n")
+	mustWrite(t, filepath.Join(two, "nomi.toml"), "[package]\nname = \"two\"\nentry_points = [\"main\", \"cmd/seed\"]\n")
 	mustWrite(t, filepath.Join(two, "main.nomi"), "fn main() end\n")
 	mustWrite(t, filepath.Join(two, "cmd", "seed.nomi"), "fn main() end\n")
 	none := filepath.Join(work, "none")
-	mustWrite(t, filepath.Join(none, "nomi.toml"), "[module]\nname = \"none\"\nentry_points = []\n")
+	mustWrite(t, filepath.Join(none, "nomi.toml"), "[package]\nname = \"none\"\nentry_points = []\n")
 	mustWrite(t, filepath.Join(work, "plain", "main.nomi"), "fn main() end\n")
 
 	if o := runProcess(t, env, work, "", nomiBin, "run", "one"); o.exit != 0 || o.stdout != "one\n" {
@@ -165,7 +165,7 @@ func TestBuild_AProjectDirectoryBuildsItsOneEntryPoint(t *testing.T) {
 	}
 	env := buildEnv(t.TempDir())
 	one := filepath.Join(t.TempDir(), "one")
-	mustWrite(t, filepath.Join(one, "nomi.toml"), "[module]\nname = \"one\"\nentry_points = [\"app\"]\n")
+	mustWrite(t, filepath.Join(one, "nomi.toml"), "[package]\nname = \"one\"\nentry_points = [\"app\"]\n")
 	mustWrite(t, filepath.Join(one, "app.nomi"), "import std::io\n\nfn main()\n    io.print(\"one\")\nend\n")
 	if o := runProcess(t, env, one, "", nomiBin, "build", ".", "--no-vm"); o.exit != 0 {
 		t.Fatalf("nomi build . --no-vm: exit %d\n%s", o.exit, o.transcript())

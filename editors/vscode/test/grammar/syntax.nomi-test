@@ -184,6 +184,10 @@ fn show(d: views::admin::users.UserDetail) -> std::http.Response<Int> end
 host fn now() -> Int
 // <---- keyword.declaration.nomi
 // <~~~~~~~~--- entity.name.function.nomi
+private fn hidden() -> Int
+// <------- keyword.declaration.nomi
+private = 2
+// <------- - keyword.declaration.nomi
 group "group"
 // <----- keyword.declaration.nomi
 // <~~~~~~------- string.quoted.double.nomi

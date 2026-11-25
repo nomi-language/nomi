@@ -6,7 +6,7 @@
 //# first of several bodies to finish, and `Task.within` with a body's
 //# value if it finishes within a wait. `Task.stream` is a lazy pipeline
 //# stage that runs a function over a source's elements as tasks, a bounded
-//# number at once, in order. `Task.outcome` returns how a
+//# number at once, in order or as they finish. `Task.outcome` returns how a
 //# task ended as a value (`Outcome`: completed, cancelled or failed), and
 //# `Task.cancel` stops one. Where a task may be spawned, what may not
 //# escape its block, and how errors and cancellation travel are language
@@ -240,19 +240,22 @@ impl Task<T>
         race([fn -> Ok(body()), fn -> time_out(wait)])
     end
 
-    /// Lazy: yields `f(x)` for each element `x` of `source`, in the
-    /// source's order, with each call of `f` running as a task and at most
-    /// `max_running` of them at once. It reads the source only as its
-    /// results are read: while the consumer handles one result, at most
-    /// `max_running - 1` calls past it have started. So a slow consumer
-    /// slows the source down, and an infinite source works.
-    /// `Task.spawn_all` instead starts every task before it returns.
+    /// Lazy: yields `f(x)` for each element `x` of `source`, with each call
+    /// of `f` running as a task and at most `max_running` of them at once.
+    /// The results come in the source's order, or with `ordered: False` in
+    /// the order the calls finish, so a quick result never waits behind a
+    /// slow one. It reads the source only as its results are read: while
+    /// the consumer handles one result, at most `max_running - 1` other
+    /// calls have started. So a slow consumer slows the source down, and an
+    /// infinite source works. `Task.spawn_all` instead starts every task
+    /// before it returns.
     ///
     /// Each walk of the result runs its tasks in a `concurrent` block of
     /// its own, which ends with the walk. A consumer that stops early, as
     /// `Iter.take` does, cancels the tasks still running and waits for them,
     /// and so does cancelling the walk. A task that traps ends the walk with
-    /// its fault when its result is the next to be read.
+    /// its fault when its result is the next to be read: in order, once the
+    /// results before it are read, and with `ordered: False`, once it traps.
     //! doubled =
     //!     [1, 2, 3]
     //!     |> Task.stream(&(&1 * 2), max_running: 2)
@@ -267,9 +270,22 @@ impl Task<T>
     //!     |> Iter.to_list()
     //!
     //! assert firsts == [10, 20]
+    //!
+    //! // As each call finishes, so the order may differ from run to run.
+    //! squares =
+    //!     [1, 2, 3]
+    //!     |> Task.stream(&(&1 * &1), ordered: False, max_running: 3)
+    //!     |> Iter.to_set()
+    //!
+    //! assert squares == Set[1, 4, 9]
     //
-    pub fn stream<T, U>(source: Iter<T>, f: (T) -> U, max_running: PositiveInt) -> Iter<U>
-        Streamed{source:, f:, max_running:}
+    pub fn stream<T, U>(
+        source:      Iter<T>,
+        f:           (T) -> U,
+        ordered:     Bool = True,
+        max_running: PositiveInt,
+    ) -> Iter<U>
+        Streamed{source:, f:, ordered:, max_running:}
     end
 
     /// Waits for `task`, as `Task.await` does, and returns how it ended as
@@ -334,50 +350,65 @@ impl Debug for Task<T>
 end
 
 // `Task.stream`'s result: each walk spawns `f` over the source's elements,
-// keeping at most `max_running` tasks, oldest first, in a window.
+// keeping at most `max_running` tasks in a window, oldest first, each with
+// its element's number in the source.
 opaque struct Streamed<T, U>
     source:      Iter<T>
     f:           (T) -> U
+    ordered:     Bool
     max_running: PositiveInt
 end
 
 impl Iter for Streamed<T, U>
     fn each_while(stream: Streamed<T, U>, yield: (U) -> Bool) -> Bool
+        // With `ordered: False`, each task reports its number here as it
+        // ends. Only a task in the window has a report not yet read, so no
+        // report waits for room.
+        finished = Channel.buffered<NonNegativeInt>(stream.max_running)
+
         concurrent
-            start: (List<Task<U>>, Bool) = ([], True)
+            start: (List<(Int, Task<U>)>, Bool) = ([], True)
+            numbered = Iter.with_index(stream.source)
 
             // Before a new element's task starts, a full window yields its
-            // oldest result; the consumer refusing it stops the source.
-            (window, reading) = Iter.reduce(stream.source, start, fn state, item ->
+            // next result; the consumer refusing it stops the source.
+            (window, reading) = Iter.reduce(numbered, start, fn state, (number, item) ->
                 (window, _) = state
 
                 (window, reading) =
-                    case window
-                        [oldest, ..rest] when List.length(window) >= stream.max_running ->
-                            (rest, yield(Task.await(oldest)))
-
-                        _ ->
-                            (window, True)
+                    if List.length(window) >= stream.max_running then
+                        read_next(window, stream.ordered, finished.receiver, yield)
+                    else
+                        (window, True)
                     end
 
                 if reading then
-                    (List.concat(window, [Task.spawn(fn -> stream.f(item))]), reading)
+                    run =
+                        fn ->
+                            if stream.ordered then
+                                stream.f(item)
+                            else
+                                report(finished.sender, number, fn -> stream.f(item))
+                            end
+                        end
+
+                    (List.concat(window, [(number, Task.spawn(run))]), reading)
                 else
                     break (window, reading)
                 end
             end)
 
             // The source has ended, or the consumer stopped reading. The
-            // window's results are read in order until the consumer stops,
-            // and the tasks it did not read are stopped.
+            // window's results are read until the consumer stops, and the
+            // tasks it did not read are stopped.
             read_all =
                 if reading then
-                    Iter.all_match(window, fn task -> yield(Task.await(task)))
+                    read_rest(window, stream.ordered, finished.receiver, yield)
                 else
                     False
                 end
 
-            stop_all(window)
+            window |> Iter.map(.second) |> stop_all()
             read_all
         end
     end
@@ -388,6 +419,45 @@ impl Iter for Streamed<T, U>
 
     fn is_infinite(stream: Streamed<T, U>) -> Bool
         Iter.is_infinite(stream.source)
+    end
+end
+
+// Hands the window's next result to `yield`: the oldest task's, or when
+// not `ordered` the first to finish, whose number `finished` reports.
+// Answers the window without that task, and whether the consumer reads on.
+// The window is not empty.
+fn read_next<U>(
+    window:   List<(Int, Task<U>)>,
+    ordered:  Bool,
+    finished: Receiver<NonNegativeInt>,
+    yield:    (U) -> Bool,
+) -> (List<(Int, Task<U>)>, Bool)
+    number =
+        if ordered then
+            (oldest, _) = List.first(window)!
+            oldest
+        else
+            Receiver.receive(finished)!
+        end
+
+    (_, task) = Iter.find(window, fn (n, _) -> n == number)!
+    rest = window |> Iter.reject(fn (n, _) -> n == number) |> Iter.to_list()
+    (rest, yield(Task.await(task)))
+end
+
+// Hands each of the window's results to `yield` in read_next's order until
+// the consumer stops, and answers whether it read them all.
+fn read_rest<U>(
+    window:   List<(Int, Task<U>)>,
+    ordered:  Bool,
+    finished: Receiver<NonNegativeInt>,
+    yield:    (U) -> Bool,
+) -> Bool
+    if Iter.is_empty(window) then
+        True
+    else
+        (rest, reading) = read_next(window, ordered, finished, yield)
+        reading and read_rest(rest, ordered, finished, yield)
     end
 end
 
@@ -413,7 +483,7 @@ fn try_await_each<U, E>(tasks: List<Task<Result<U, E>>>, size: PositiveInt) -> R
 
             Err(e) ->
                 stop_all(tasks)
-                stop_all(watchers)
+                Iter.each(watchers, Task.cancel)
                 Err(e)
         end
     end

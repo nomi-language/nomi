@@ -7,6 +7,7 @@ import (
 	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
+	"github.com/nomi-language/nomi/internal/pkgcache"
 	"os"
 	"path/filepath"
 	"slices"
@@ -115,11 +116,11 @@ type EntryProgramFile struct {
 }
 
 // DocumentManager tracks the open documents, analyzed, and the other
-// workspace files, indexed (workspace.go).
+// files of the editor folder, indexed (editor_folder.go).
 //
 // Locking discipline:
 //   - dm.mu (RWMutex) protects the maps (docs, index, imports, reverseDeps,
-//     modules, primitives, workspaceRoot), the closed-file
+//     modules, primitives, editorFolder), the closed-file
 //     cache, and every field of every *Document. It is held only for short
 //     critical sections: a map access, a content change, or installing a
 //     finished analysis.
@@ -149,14 +150,14 @@ type EntryProgramFile struct {
 // is never mutated, and a program checked afresh replaces the kept one, so
 // what was installed from the old one is not mutated again either.
 type DocumentManager struct {
-	mu            sync.RWMutex
-	analyzeMu     sync.Mutex
-	docs          map[string]*Document
-	primitives    *Scope
-	modules       map[string]*Scope
-	stdlibFAs     map[string]*FileAnalysis // mirrors std.StdLib.Files; see SetStdlib doc.
-	workspaceRoot string
-	// index holds the workspace files' index entries. An open document's
+	mu           sync.RWMutex
+	analyzeMu    sync.Mutex
+	docs         map[string]*Document
+	primitives   *Scope
+	modules      map[string]*Scope
+	stdlibFAs    map[string]*FileAnalysis // mirrors std.StdLib.Files; see SetStdlib doc.
+	editorFolder string
+	// index holds the editor folder's files' index entries. An open document's
 	// entry is the one from before it was opened, and is replaced when it
 	// closes.
 	index map[string]*IndexedFile
@@ -406,8 +407,8 @@ func (dm *DocumentManager) Installed() <-chan struct{} {
 	return dm.installed
 }
 
-// Close drops an open document and its analysis. A file the workspace scan
-// covers (Covers) that exists on disk becomes a closed workspace file
+// Close drops an open document and its analysis. A file the editor
+// folder's scan covers (Covers) that exists on disk becomes a closed file
 // again, indexed from its disk text; Close reports whether it did.
 func (dm *DocumentManager) Close(uri string) bool {
 	dm.mu.Lock()
@@ -421,7 +422,7 @@ func (dm *DocumentManager) Close(uri string) bool {
 	if dm.Covers(uri) && dm.IndexFile(uri) {
 		return true
 	}
-	dm.RemoveWorkspaceFile(uri)
+	dm.RemoveEditorFolderFile(uri)
 	return false
 }
 
@@ -470,13 +471,13 @@ func (dm *DocumentManager) projectRootFromURI(uri string) string {
 	return dm.FindProjectRoot(path)
 }
 
-// FindProjectRoot is ProjectRoot for filePath, bounded by the editor's
-// workspace root when the client supplied one.
+// FindProjectRoot is ProjectRoot for filePath, bounded by the editor
+// folder when the client supplied one.
 func (dm *DocumentManager) FindProjectRoot(filePath string) string {
 	dm.mu.RLock()
-	workspaceRoot := dm.workspaceRoot
+	editorFolder := dm.editorFolder
 	dm.mu.RUnlock()
-	return ProjectRoot(filePath, workspaceRoot)
+	return ProjectRoot(filePath, editorFolder)
 }
 
 // ProjectRoot is the directory a file's imports resolve from (spec,
@@ -487,7 +488,7 @@ func (dm *DocumentManager) FindProjectRoot(filePath string) string {
 //  3. Else the file's own directory: a single-file script.
 //
 // A non-empty bound stops each walk there; it never goes above it. The CLI
-// passes none and the LSP passes the editor's workspace root. Both use this
+// passes none and the LSP passes the editor folder. Both use this
 // one function, so a file opened in the editor resolves its imports against
 // the same directory `nomi run` would.
 //
@@ -633,18 +634,20 @@ func (dm *DocumentManager) isStdlibFile(uri string) bool {
 	return ok
 }
 
-// SetWorkspaceRoot sets the root directory for workspace scanning.
-func (dm *DocumentManager) SetWorkspaceRoot(root string) {
+// SetEditorFolder sets the editor folder: the directory the editor opened,
+// which the server scans (IndexEditorFolder) and which bounds the walk for
+// a project's root (FindProjectRoot).
+func (dm *DocumentManager) SetEditorFolder(root string) {
 	dm.mu.Lock()
-	dm.workspaceRoot = root
+	dm.editorFolder = root
 	dm.mu.Unlock()
 }
 
-// WorkspaceRoot returns the workspace root directory.
-func (dm *DocumentManager) WorkspaceRoot() string {
+// EditorFolder returns the editor folder (SetEditorFolder).
+func (dm *DocumentManager) EditorFolder() string {
 	dm.mu.RLock()
 	defer dm.mu.RUnlock()
-	return dm.workspaceRoot
+	return dm.editorFolder
 }
 
 // ReverseDeps returns the URIs of files that import the given URI.
@@ -827,19 +830,7 @@ func (dm *DocumentManager) build(uri, content string) builtAnalysis {
 	// re-report — this call is the only place these errors exist, so we
 	// capture them here and fold them into the focused doc's TypeErrors once
 	// the build has created fa (below, after every branch).
-	var partnerErrs []TypeError
-	if root != "" && !dm.isStdlibFile(uri) {
-		if rel, err := filepath.Rel(root, docPath); err == nil && !strings.HasPrefix(rel, "..") {
-			key := strings.TrimSuffix(filepath.ToSlash(rel), ".nomi")
-			load := dm.makeLoader()
-			nodes, partnerErrs = LowerPartnerDerives(nodes, key, func(k string) ([]ast.Node, bool) {
-				nodes, err := load(root, strings.Split(k, "/"))
-				return nodes, err == nil
-			})
-		}
-	}
 	nodes, lowerErrs := LowerDerives(nodes)
-	lowerErrs = append(partnerErrs, lowerErrs...)
 	testNameErrs := CheckDuplicateTestNames(nodes)
 	// A program is offered only for a text with no error before analysis;
 	// the build checks a program's other files only then.
@@ -976,12 +967,8 @@ func (dm *DocumentManager) buildAnalysis(uri string, nodes []ast.Node, root, doc
 	// its root take this path.
 	//
 	// Use BuildProjectFromEntry so the entry's FilePath is populated
-	// from docPath. Without this, internal/-access checks
-	// compute the importer mod-rel from an empty FilePath and
-	// falsely reject `import foo::internal::x` from any non-main entry —
-	// a secondary entry like tools/seed.nomi opened in the LSP would
-	// see "outside the parent subtree of foo/internal/" even when the
-	// access is valid.
+	// from docPath, which every check that reads a file's path (a
+	// private declaration, an opaque type's inside) compares.
 	//
 	// BuildProjectFromEntry runs Sweep C (BuildTypes) internally and
 	// populates fa.TypeErrors with its results. CheckTypes
@@ -1163,13 +1150,42 @@ func programOf(nodes []ast.Node, root string, rec *loadRecord, files map[string]
 	return p
 }
 
-// manifestText is root's nomi.toml, or "" when it has none.
-func manifestText(root string) string {
-	data, err := ReadManifest(root)
-	if err != nil {
-		return ""
+// manifestText is ManifestTexts(root).
+func manifestText(root string) string { return ManifestTexts(root) }
+
+// ManifestTexts is what decides the build of the package at root beside
+// its source files, as one text: its nomi.toml as ReadManifest reads it
+// ("" when it has none), then each of the files that select the versions
+// of its packages that is there, its own nomi.lock and the nearest
+// nomi-workspace.toml above it with the nomi.lock beside that
+// (pkgcache.WorkspaceOf), each after its name. A program the language
+// server keeps, and a lowering it keeps (analyzedlowering.Memo), is the
+// package's while this text is the same, so an edit of the workspace or of
+// a lock checks its members again.
+func ManifestTexts(root string) string {
+	data, _ := ReadManifest(root)
+	var b strings.Builder
+	b.Write(data)
+	add := func(path string) bool {
+		text, err := ReadManifestFile(path)
+		if err == nil {
+			fmt.Fprintf(&b, "\x00%s\x00%s", filepath.Base(path), text)
+		}
+		return err == nil
 	}
-	return string(data)
+	add(filepath.Join(root, pkgcache.LockName))
+	for dir := root; ; {
+		if add(filepath.Join(dir, pkgcache.WorkspaceName)) {
+			add(filepath.Join(dir, pkgcache.LockName))
+			break
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+	return b.String()
 }
 
 // importsProjectFile reports whether a project build reached a file other

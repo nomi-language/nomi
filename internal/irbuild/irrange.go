@@ -317,7 +317,7 @@ func (bl *irScalarBuilder) discreteRef(at ast.Node, elem kind, name string, para
 // localDiscreteItem is this file's `impl Discrete for elem` member name,
 // written or inherited, with a body the builder can retain.
 func (bl *irScalarBuilder) localDiscreteItem(elem kind, name string, params []kind) *implItem {
-	impl := bl.g.implsByIface[stdIfaceImplKey(stdDiscrete)][elem]
+	impl := bl.g.implAt(stdIfaceImplKey(stdDiscrete), elem)
 	if impl == nil || !impl.lowerable {
 		return nil
 	}

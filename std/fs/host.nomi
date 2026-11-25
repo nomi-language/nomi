@@ -22,67 +22,67 @@ end
 /// The file system the running call reaches: the operating system's, the
 /// browser's, or what `std::fs::testing.run` or `fs.within` replaced it
 /// with.
-pub host fn here() -> FileSystem
+host fn here() -> FileSystem
 
 /// The whole file at `path`.
-pub host fn read(files: FileSystem, path: String) -> Result<Bytes, Error>
+host fn read(files: FileSystem, path: String) -> Result<Bytes, Error>
 
 /// The whole file at `path` as text.
-pub host fn read_text(files: FileSystem, path: String) -> Result<String, Error>
+host fn read_text(files: FileSystem, path: String) -> Result<String, Error>
 
 /// `data` into `path`, in the write mode at position `mode` of
 /// `fs.WriteMode` (Replace 0, ReplaceAtomically 1, Append 2, New 3).
-pub host fn write(files: FileSystem, path: String, data: Bytes, mode: Int64) -> Result<Unit, Error>
+host fn write(files: FileSystem, path: String, data: Bytes, mode: Int64) -> Result<Unit, Error>
 
 /// A reader over the file at `path`.
-pub host fn open(files: FileSystem, path: String) -> Result<Reader, Error>
+host fn open(files: FileSystem, path: String) -> Result<Reader, Error>
 
 /// A writer over the file at `path`, in the write mode at position `mode`.
-pub host fn create(files: FileSystem, path: String, mode: Int64) -> Result<Writer, Error>
+host fn create(files: FileSystem, path: String, mode: Int64) -> Result<Writer, Error>
 
 /// The entries of `dir`, sorted by name, each its kind's letter (`f`, `d`,
 /// `l`, `o`) and its name, or `!` and the name with U+FFFD for each bad
 /// sequence when it is not UTF-8.
-pub host fn list(files: FileSystem, dir: String) -> Result<List<String>, Error>
+host fn list(files: FileSystem, dir: String) -> Result<List<String>, Error>
 
-pub host fn create_dir(files: FileSystem, path: String, parents: Bool) -> Result<Unit, Error>
+host fn create_dir(files: FileSystem, path: String, parents: Bool) -> Result<Unit, Error>
 
-pub host fn remove(files: FileSystem, path: String) -> Result<Unit, Error>
+host fn remove(files: FileSystem, path: String) -> Result<Unit, Error>
 
-pub host fn remove_all(files: FileSystem, path: String) -> Result<Unit, Error>
+host fn remove_all(files: FileSystem, path: String) -> Result<Unit, Error>
 
 /// The entries of the directory `dir`, made durable.
-pub host fn sync_dir(files: FileSystem, dir: String) -> Result<Unit, Error>
+host fn sync_dir(files: FileSystem, dir: String) -> Result<Unit, Error>
 
-pub host fn rename(files: FileSystem, from: String, to: String) -> Result<Unit, Error>
+host fn rename(files: FileSystem, from: String, to: String) -> Result<Unit, Error>
 
-pub host fn copy(files: FileSystem, from: String, to: String) -> Result<Unit, Error>
+host fn copy(files: FileSystem, from: String, to: String) -> Result<Unit, Error>
 
 /// The kind's position in `fs.Kind`, the size, the modification time, the
 /// mode, the access, status change and birth times, the link count, the
 /// device, the inode, and the owner's user and group numbers. A time is in
 /// nanoseconds since the Unix epoch. The first four are always there; any
 /// other is `None` when the file system keeps none.
-pub host fn metadata(files: FileSystem, path: String) -> Result<List<Option<Int>>, Error>
+host fn metadata(files: FileSystem, path: String) -> Result<List<Option<Int>>, Error>
 
 /// As `metadata`, describing a symlink at `path` as itself.
-pub host fn link_metadata(files: FileSystem, path: String) -> Result<List<Option<Int>>, Error>
+host fn link_metadata(files: FileSystem, path: String) -> Result<List<Option<Int>>, Error>
 
 /// A symlink at `path` whose target is `target`.
-pub host fn create_symlink(files: FileSystem, path: String, target: String) -> Result<Unit, Error>
+host fn create_symlink(files: FileSystem, path: String, target: String) -> Result<Unit, Error>
 
 /// `path` as a second name of the file at `target`.
-pub host fn create_link(files: FileSystem, path: String, target: String) -> Result<Unit, Error>
+host fn create_link(files: FileSystem, path: String, target: String) -> Result<Unit, Error>
 
 /// The target of the symlink at `path`.
-pub host fn read_link(files: FileSystem, path: String) -> Result<String, Error>
+host fn read_link(files: FileSystem, path: String) -> Result<String, Error>
 
 /// The permission bits of what `path` names become `mode`.
-pub host fn set_mode(files: FileSystem, path: String, mode: Int) -> Result<Unit, Error>
+host fn set_mode(files: FileSystem, path: String, mode: Int) -> Result<Unit, Error>
 
 /// The modification and access times of what `path` names, in
 /// nanoseconds since the Unix epoch; `None` leaves one as it is.
-pub host fn set_times(
+host fn set_times(
     files:    FileSystem,
     path:     String,
     modified: Option<Int>,
@@ -90,11 +90,11 @@ pub host fn set_times(
 ) -> Result<Unit, Error>
 
 /// The file at `path`, made empty when missing, with its times now.
-pub host fn touch(files: FileSystem, path: String) -> Result<Unit, Error>
+host fn touch(files: FileSystem, path: String) -> Result<Unit, Error>
 
 /// The numeric owner of what `path` names, following a symlink when
 /// `follow` is true.
-pub host fn set_owner(
+host fn set_owner(
     files:  FileSystem,
     path:   String,
     user:   Int,
@@ -103,21 +103,21 @@ pub host fn set_owner(
 ) -> Result<Unit, Error>
 
 /// The total, free and available bytes of the file system `path` is on.
-pub host fn disk_usage(files: FileSystem, path: String) -> Result<List<Int>, Error>
+host fn disk_usage(files: FileSystem, path: String) -> Result<List<Int>, Error>
 
 /// The name of the user, or the group when `group` is true, numbered `id`.
-pub host fn owner_name(files: FileSystem, id: Int, group: Bool) -> Option<String>
+host fn owner_name(files: FileSystem, id: Int, group: Bool) -> Option<String>
 
 /// A file on `path` for reads and writes at a position, opened as the
 /// access at position `access` of `fs.Access` (Read 0, ReadWrite 1,
 /// Create 2).
-pub host fn open_file(files: FileSystem, path: String, access: Int64) -> Result<File, Error>
+host fn open_file(files: FileSystem, path: String, access: Int64) -> Result<File, Error>
 
 /// The handle's lock on `length` bytes of `f` from `start` (0: every byte
 /// from `start` on) becomes the mode at position `mode` (0 unlocks, 1 is
 /// `fs.LockMode.Shared` and 2 `Exclusive`). False when another handle's lock
 /// conflicts and `wait` has passed; a `wait` of 0 asks once.
-pub host fn lock(
+host fn lock(
     f:      File,
     mode:   Int64,
     start:  NonNegativeInt,
@@ -126,31 +126,31 @@ pub host fn lock(
 ) -> Result<Bool, Error>
 
 /// `files` confined to the directory `dir`: what a `Dir` holds.
-pub host fn within(files: FileSystem, dir: String) -> Result<FileSystem, Error>
+host fn within(files: FileSystem, dir: String) -> Result<FileSystem, Error>
 
 /// Lets go of a file system `within` made; a call through it after is
 /// `Closed`.
-pub host fn release(files: FileSystem) -> Unit
+host fn release(files: FileSystem) -> Unit
 
-pub host fn temp_dir(files: FileSystem) -> String
+host fn temp_dir(files: FileSystem) -> String
 
 /// A fresh directory under the temporary directory.
-pub host fn make_temp_dir(files: FileSystem) -> Result<String, Error>
+host fn make_temp_dir(files: FileSystem) -> Result<String, Error>
 
 /// A directory, or an empty file when `directory` is false, made with a
 /// fresh name in the directory `files` reaches, and its name.
-pub host fn make_temp(files: FileSystem, directory: Bool) -> Result<String, Error>
+host fn make_temp(files: FileSystem, directory: Bool) -> Result<String, Error>
 
-pub host fn current_dir(files: FileSystem) -> Result<String, Error>
+host fn current_dir(files: FileSystem) -> Result<String, Error>
 
 /// A file system a call runs against: an in-memory one for
 /// `std::fs::testing.run`, a directory a `Dir` holds, or the one the
 /// running call reaches.
-pub host type FileSystem
+host type FileSystem
 
 /// A sandbox whose working directory is `cwd`, holding `files`, `dirs`
 /// and the symlinks `links` maps to their targets.
-pub host fn new_sandbox(
+host fn new_sandbox(
     cwd:   String,
     files: Map<String, Bytes>,
     dirs:  List<String>,
@@ -159,7 +159,7 @@ pub host fn new_sandbox(
 
 /// The `nth` operation at position `operation` of `std::fs::testing.Operation`,
 /// from 1, on `path` fails with `error`; every one when `nth` is 0.
-pub host fn sandbox_fail(
+host fn sandbox_fail(
     sandbox:   FileSystem,
     path:      String,
     operation: Int64,
@@ -168,17 +168,17 @@ pub host fn sandbox_fail(
 ) -> Unit
 
 /// Every file in the sandbox, by absolute path.
-pub host fn sandbox_files(sandbox: FileSystem) -> Map<String, Bytes>
+host fn sandbox_files(sandbox: FileSystem) -> Map<String, Bytes>
 
 /// Each operation on the sandbox, in order.
-pub host fn sandbox_log(sandbox: FileSystem) -> List<String>
+host fn sandbox_log(sandbox: FileSystem) -> List<String>
 
 /// The handles on the sandbox still open.
-pub host fn sandbox_open(sandbox: FileSystem) -> List<String>
+host fn sandbox_open(sandbox: FileSystem) -> List<String>
 
 /// Runs `body` with `files` as the file system every `std::fs` call in it
 /// reaches, its tasks' included, and returns what it returned.
-pub fn run_in<T>(files: FileSystem, body: () -> T) -> T
+fn run_in<T>(files: FileSystem, body: () -> T) -> T
     run_on(files, body, fn value -> value)
 end
 

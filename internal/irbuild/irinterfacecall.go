@@ -221,13 +221,13 @@ func (bl *irScalarBuilder) concreteInterfacePlan(t *ast.Call, args irQualArgs, d
 		return nil
 	}
 	key := bl.g.implsKey(d)
-	impl := bl.g.implsByIface[key][recv]
+	impl := bl.g.implAt(key, recv)
 	if impl == nil {
 		if p := bl.stdRecvIfacePlan(t, args, d, method, recv, recvType); p != nil {
 			// `Show.show([1, 2])`: an impl over a std container.
 			return p
 		}
-		if defs := bl.g.instImpls[key][recv]; len(defs) > 0 {
+		if defs := bl.g.instImplsAt(key, recv); len(defs) > 0 {
 			// `Holds.holds(b, 1)` where Box implements Holds at several
 			// type arguments: the call's own.
 			impl, _ = bl.pickInstImpl(t, defs, method)
@@ -303,7 +303,7 @@ func (bl *irScalarBuilder) callerImplPlan(t *ast.Call, args irQualArgs, key, met
 		if g == nil {
 			continue
 		}
-		if impl := g.implsByIface[key][recv]; impl != nil {
+		if impl := g.implAt(key, recv); impl != nil {
 			og, d = g, impl
 			break
 		}
@@ -380,7 +380,7 @@ func implForDecl(gens []*gen, key string, decl ast.Node) (*gen, *implDef) {
 		if g == nil {
 			continue
 		}
-		for recv, impl := range g.implsByIface[key] {
+		for recv, impl := range g.resolvedImpls(key) {
 			if recv.def == nil || recv.def.decl != decl || recv.def.instOrigin != nil || impl == found {
 				continue
 			}
@@ -410,7 +410,7 @@ func mirroredImpl(gens []*gen, key string, mirror *typeDef) (*gen, *implDef) {
 		}
 		var only *implDef
 		matches := 0
-		for recv, impl := range g.implsByIface[key] {
+		for recv, impl := range g.resolvedImpls(key) {
 			if recv.def == nil || recv.def.foreign != "" || recv.def.decl != mirror.decl {
 				continue
 			}

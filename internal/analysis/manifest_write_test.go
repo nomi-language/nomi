@@ -6,8 +6,8 @@ import (
 	"testing"
 )
 
-// writeTestModule is the [module] table the tables are written after.
-const writeTestModule = "[module]\nname = \"app\"\nentry_points = [\"main\"]\n"
+// writeTestModule is the [package] table the tables are written after.
+const writeTestModule = "[package]\nname = \"app\"\nentry_points = [\"main\"]\n"
 
 // WriteEffectTables keeps each comment that belongs to a key it
 // keeps, and drops one that belongs to a key it removes: a comment line
@@ -22,21 +22,21 @@ func TestWriteEffectTables_RulesForComments(t *testing.T) {
 	tight := func() *Effects {
 		return &Effects{
 			Self: &SelfEffects{Std: []string{"std::fs", "std::io"}, StdInTests: []string{"std::instant"}},
-			Deps: &DepsEffects{Std: []string{"std::fs"}, Modules: map[string][]string{"pricing": {"std::fs"}, "pure": {}}},
+			Deps: &DepsEffects{Std: []string{"std::fs"}, Packages: map[string][]string{"pricing": {"std::fs"}, "pure": {}}},
 		}
 	}
 	withoutPure := tight()
-	delete(withoutPure.Deps.Modules, "pure")
+	delete(withoutPure.Deps.Packages, "pure")
 	withKit := tight()
-	withKit.Deps.Modules = map[string][]string{"kit": {}, "pricing": {"std::fs"}}
+	withKit.Deps.Packages = map[string][]string{"kit": {}, "pricing": {"std::fs"}}
 	withAll := tight()
-	withAll.Deps.Modules["kit"] = []string{}
+	withAll.Deps.Packages["kit"] = []string{}
 	withProcess := tight()
 	withProcess.Self.Std = []string{"std::fs", "std::io", "std::process"}
 	// self, deps and mods are the three tables as tight writes them.
 	self := "[effects.self]\nstd = [\"std::fs\", \"std::io\"]\nstd_in_tests = [\"std::instant\"]\n"
 	deps := "\n[effects.deps]\nstd = [\"std::fs\"]\n"
-	mods := "\n[effects.deps.modules]\n\"pricing\" = [\"std::fs\"]\n\"pure\" = []\n"
+	mods := "\n[effects.deps.packages]\n\"pricing\" = [\"std::fs\"]\n\"pure\" = []\n"
 	cases := []struct {
 		name, before, after string
 		c                   *Effects
@@ -61,20 +61,20 @@ func TestWriteEffectTables_RulesForComments(t *testing.T) {
 		c:      tight(),
 	}, {
 		name: "a comment no key owns",
-		before: self + deps + "\n[effects.deps.modules]\n# Dependencies, by path.\n\n" +
+		before: self + deps + "\n[effects.deps.packages]\n# Dependencies, by path.\n\n" +
 			"# computes\n\"pricing\" = []\n# reaches nothing\n\"pure\" = []\n",
-		after: self + deps + "\n[effects.deps.modules]\n# Dependencies, by path.\n\n" +
+		after: self + deps + "\n[effects.deps.packages]\n# Dependencies, by path.\n\n" +
 			"# computes\n\"pricing\" = [\"std::fs\"]\n",
 		c: withoutPure,
 	}, {
 		name:   "blank lines a removed key leaves together",
-		before: self + deps + "\n[effects.deps.modules]\n\"kit\" = []\n\n\"pure\" = []\n\n\"pricing\" = [\"std::fs\"]\n",
-		after:  self + deps + "\n[effects.deps.modules]\n\"kit\" = []\n\n\"pricing\" = [\"std::fs\"]\n",
+		before: self + deps + "\n[effects.deps.packages]\n\"kit\" = []\n\n\"pure\" = []\n\n\"pricing\" = [\"std::fs\"]\n",
+		after:  self + deps + "\n[effects.deps.packages]\n\"kit\" = []\n\n\"pricing\" = [\"std::fs\"]\n",
 		c:      withKit,
 	}, {
 		name:   "a key added",
-		before: self + deps + "\n[effects.deps.modules]\n# a kit\n\"kit\" = []\n\n# computes\n\"pricing\" = [\"std::fs\"]\n",
-		after:  self + deps + "\n[effects.deps.modules]\n# a kit\n\"kit\" = []\n\n# computes\n\"pricing\" = [\"std::fs\"]\n\n\"pure\" = []\n",
+		before: self + deps + "\n[effects.deps.packages]\n# a kit\n\"kit\" = []\n\n# computes\n\"pricing\" = [\"std::fs\"]\n",
+		after:  self + deps + "\n[effects.deps.packages]\n# a kit\n\"kit\" = []\n\n# computes\n\"pricing\" = [\"std::fs\"]\n\n\"pure\" = []\n",
 		c:      withAll,
 	}, {
 		name:   "a list grown past the width",
@@ -94,10 +94,10 @@ func TestWriteEffectTables_RulesForComments(t *testing.T) {
 		c:      &Effects{Self: tight().Self},
 	}, {
 		name:   "CRLF line endings",
-		before: "# app\r\n[module]\r\nname = \"app\"\r\n\r\n[effects.self]\r\n# all\r\nstd = [\"std::io\"]\r\n\r\n[effects.deps.modules]\r\n\"pure\" = [] # none\r\n",
-		after: "# app\r\n[module]\r\nname = \"app\"\r\n\r\n[effects.self]\r\n# all\r\nstd = [\"std::io\", \"std::fs\"]\r\nstd_in_tests = [\"std::instant\"]\r\n\r\n" +
+		before: "# app\r\n[package]\r\nname = \"app\"\r\n\r\n[effects.self]\r\n# all\r\nstd = [\"std::io\"]\r\n\r\n[effects.deps.packages]\r\n\"pure\" = [] # none\r\n",
+		after: "# app\r\n[package]\r\nname = \"app\"\r\n\r\n[effects.self]\r\n# all\r\nstd = [\"std::io\", \"std::fs\"]\r\nstd_in_tests = [\"std::instant\"]\r\n\r\n" +
 			"[effects.deps]\r\nstd = [\"std::fs\"]\r\n\r\n" +
-			"[effects.deps.modules]\r\n\"pure\" = [] # none\r\n\"pricing\" = [\"std::fs\"]\r\n",
+			"[effects.deps.packages]\r\n\"pure\" = [] # none\r\n\"pricing\" = [\"std::fs\"]\r\n",
 		c: tight(),
 	}}
 	for _, c := range cases {
@@ -122,7 +122,7 @@ func TestWriteEffectTables_RulesForComments(t *testing.T) {
 }
 
 // [effects.self.modules] is written by the rules of
-// [effects.deps.modules]: after [effects.self] and before
+// [effects.deps.packages]: after [effects.self] and before
 // [effects.deps], keeping its comments and entries_required, an entry
 // that goes taking its comment, and a new one going last. It is written
 // when the tables have it, empty or not, and when the file has it, and
@@ -198,14 +198,14 @@ func TestWriteEffectTables_SelfModules(t *testing.T) {
 func TestEffectChanges_TablesAndCeilings(t *testing.T) {
 	to := &Effects{
 		Self: &SelfEffects{Std: []string{"std::io"}},
-		Deps: &DepsEffects{Std: []string{}, Modules: map[string][]string{"pure": {}}},
+		Deps: &DepsEffects{Std: []string{}, Packages: map[string][]string{"pure": {}}},
 	}
-	got := EffectChanges(&Effects{Deps: &DepsEffects{Modules: map[string][]string{}}}, to)
+	got := EffectChanges(&Effects{Deps: &DepsEffects{Packages: map[string][]string{}}}, to)
 	want := []EffectChange{
 		{Change: "add", List: ListSelf},
 		{Change: "add", List: ListSelfStd, Name: "std::io"},
 		{Change: "add", List: ListDepsStd},
-		{Change: "add", List: ListDepsModules, Module: "pure"},
+		{Change: "add", List: ListDepsPackages, Key: "pure"},
 	}
 	if !slices.Equal(got, want) {
 		t.Errorf("changes %+v\nwant %+v", got, want)
@@ -214,15 +214,15 @@ func TestEffectChanges_TablesAndCeilings(t *testing.T) {
 		t.Errorf("a table and its clone differ by %+v", got)
 	}
 	// An entry under [effects.self.modules] changes as one under
-	// [effects.deps.modules] does, after self's lists and before deps'.
+	// [effects.deps.packages] does, after self's lists and before deps'.
 	from := &Effects{Self: &SelfEffects{Modules: map[string][]string{"main": {"std::io", "std::net"}, "old": {}}}}
 	into := &Effects{Self: &SelfEffects{Modules: map[string][]string{"main": {"std::io"}, "pricing": {}}}, Deps: &DepsEffects{}}
 	got = EffectChanges(from, into)
 	want = []EffectChange{
-		{Change: "add", List: ListSelfModules, Module: "pricing"},
+		{Change: "add", List: ListSelfModules, Key: "pricing"},
 		{Change: "add", List: ListDeps},
-		{Change: "remove", List: ListSelfModules, Module: "main", Name: "std::net"},
-		{Change: "remove", List: ListSelfModules, Module: "old"},
+		{Change: "remove", List: ListSelfModules, Key: "main", Name: "std::net"},
+		{Change: "remove", List: ListSelfModules, Key: "old"},
 	}
 	if !slices.Equal(got, want) {
 		t.Errorf("changes %+v\nwant %+v", got, want)

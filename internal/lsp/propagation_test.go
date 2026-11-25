@@ -24,7 +24,7 @@ import (
 // Before the ExtractImportsFromNodes fix, dependents using block-form
 // imports never appeared in dm.reverseDeps, so PropagateChange returned
 // an empty affected list and no PublishDiagnostics ever fired. Errors
-// only surfaced after LSP restart (which re-ran ScanWorkspace against
+// only surfaced after LSP restart (which re-ran scanEditorFolder against
 // the on-disk content and reported the broken imports).
 //
 // The test stubs s.notify to capture publications and asserts
@@ -95,15 +95,15 @@ end
 `)
 
 	s := NewServer()
-	s.docs.SetWorkspaceRoot(tmp)
-	s.docs.IndexWorkspace(context.Background())
+	s.docs.SetEditorFolder(tmp)
+	s.docs.IndexEditorFolder(context.Background())
 
 	configURI := fileuri.FromPath(configPath)
 	devURI := fileuri.FromPath(devPath)
 	prodURI := fileuri.FromPath(prodPath)
 	testURI := fileuri.FromPath(testPath)
 
-	// Before the fix, ScanWorkspace would not record dev/prod/test as
+	// Before the fix, scanEditorFolder would not record dev/prod/test as
 	// dependents of configuration.nomi because their imports lived inside
 	// an ImportBlock that ExtractImportsFromNodes silently skipped. Pin
 	// that invariant here so the test fails loudly at the source of the
@@ -114,7 +114,7 @@ end
 		delete(wantDeps, d)
 	}
 	if len(wantDeps) > 0 {
-		t.Fatalf("ScanWorkspace failed to record block-form importers as reverse deps; missing: %v", wantDeps)
+		t.Fatalf("scanEditorFolder failed to record block-form importers as reverse deps; missing: %v", wantDeps)
 	}
 
 	// Capture all PublishDiagnostics notifications.
@@ -226,8 +226,8 @@ end
 `)
 
 	s := NewServer()
-	s.docs.SetWorkspaceRoot(tmp)
-	s.docs.IndexWorkspace(context.Background())
+	s.docs.SetEditorFolder(tmp)
+	s.docs.IndexEditorFolder(context.Background())
 
 	greetURI := fileuri.FromPath(greetPath)
 	mainURI := fileuri.FromPath(mainPath)

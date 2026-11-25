@@ -9,7 +9,7 @@ import (
 // sessionRun loads src as the file with key, runs it and commits it.
 func sessionRun(t *testing.T, s *Session, key, src string) {
 	t.Helper()
-	p, err := s.LoadFile(key, src)
+	p, err := s.LoadFile(key, src, 0)
 	if err != nil {
 		s.Discard(key)
 		t.Fatalf("%s: %v", key, err)
@@ -63,6 +63,9 @@ func TestSessionFiles_EarlierDeclarationsCarry(t *testing.T) {
 		{"enum", []string{
 			"pub\nenum Color\n  Red\n  Green\nend\nfn main()\n  Unit\nend\n",
 			"import std::io\nimport repl::in1.{Color}\nfn main()\n  c = Color.Red\n  io.inspect(c)\n  io.inspect(c == Color.Green)\nend\n"}, "Red\nFalse\n"},
+		{"a default left out", []string{
+			"fn e(a: Int, b: Int = 10) -> Int\n  a + b\nend\nprivate fn p(a: Int, b: Int = 20) -> Int\n  a + b\nend\nfn main()\n  Unit\nend\n",
+			"import std::io\nimport repl::in1.{e, p}\nfn main()\n  io.inspect(e(1))\n  io.inspect(p(1))\nend\n"}, "11\n21\n"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

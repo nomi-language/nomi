@@ -150,7 +150,7 @@ func expandNoun(kd *ast.KeywordDecl, site *ExpansionSite, cats *catalogSet, slot
 	uniquifyPositions(carrier, slot)
 	once := &ast.OnceBinding{
 		Name:           kd.Name,
-		Public:         kd.Public,
+		Visibility:     kd.Visibility,
 		TypeAnnotation: typ,
 		Value:          value,
 		Doc:            kd.Doc,

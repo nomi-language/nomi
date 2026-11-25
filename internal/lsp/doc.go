@@ -65,16 +65,32 @@
 // relatedInformation, the refusal's code and args, and its fix
 // (problemDiagnosticsAndFixes): one refusal, so its marks come and go
 // together. An error in another file with no such place stays at the top
-// of the document.
+// of the document. The check's own errors carry fixes in other files too,
+// read the same way: a package its workspace does not list has the edit
+// of nomi-workspace.toml that adds it to members
+// (analysis.AddWorkspaceMember).
 //
 // # nomi.toml as a document
 //
-// An editor that opens a module's nomi.toml sends it to the server, which
-// keeps its text as the module's manifest (analysis.SetEditedManifest):
-// every analysis and lowering reads it as `nomi check` reads the file once
-// it is saved. An edit rechecks and lowers every open document again
-// (manifestChanged) once the edits pause for manifestDelay; closing the
-// document returns the module to the disk's text.
+// An editor that opens a package's nomi.toml, or a workspace's
+// nomi-workspace.toml, sends it to the server (isManifestURI), which keeps
+// its text as the manifest (analysis.SetEditedManifest): every analysis
+// and lowering reads it as `nomi check` reads the file once it is saved,
+// the workspace lookup among them. An edit rechecks and lowers every open
+// document again (manifestChanged) once the edits pause for
+// manifestDelay, and so does a change on disk to either file or to a
+// nomi.lock; closing the document returns the module to the disk's text.
+// A program the server keeps is the package's while analysis.ManifestTexts
+// is the same, so a change to its workspace or lock rebuilds a member's.
+//
+// A nomi-workspace.toml's own diagnostic is what the workspace lookup
+// finds in its text (pkgcache.CheckWorkspace), at its line; completion
+// offers the keys and tables its schema declares (analysis.WorkspaceKeys)
+// that the text does not write; a hover on an entry of members or exclude
+// names the package directories it takes in (pkgcache.EntryDirs). In a
+// package's nomi.toml, a hover on [package] or its name says whether the
+// package is a member of the workspace above it, excluded from it, or
+// unlisted (pkgcache.NearestWorkspace) (manifest_workspace.go).
 //
 // The diagnostics in nomi.toml are the errors `nomi check` reports there,
 // published as an input's are (inputs.go) under two kinds of source: the
@@ -87,7 +103,7 @@
 // Completion in nomi.toml offers std module names inside a list of std
 // names (effects.StdNames), and as a key in a table of entries
 // (analysis.EntryLists: under [effects.self.modules] or
-// [effects.deps.modules]) each module of the project or dependency with
+// [effects.deps.packages]) each module of the project or dependency with
 // its whole entry, the effects its own
 // files have, in the text the fix of a missing entry writes
 // (analysis.ModuleEntryText over vmhost.Reach.Entries), from the effects
@@ -136,8 +152,8 @@
 // that does not check has none.
 //
 // A hover on a key under [effects.self.modules] or
-// [effects.deps.modules] shows the effects the module's own files
-// have as `nomi add` prints them (vmhost.Reach.EntryReaches, vmhost.WriteModuleReach),
+// [effects.deps.packages] shows the effects the module's own files
+// have as `nomi add` prints them (vmhost.Reach.EntryReaches, vmhost.WritePackageReach),
 // or that no program imports it yet. The error entries_required reports,
 // in either table, for a module with no entry carries its fix from where
 // vmhost builds it (entryFix): the

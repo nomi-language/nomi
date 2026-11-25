@@ -370,6 +370,7 @@ func Funcs() []Binding {
 		{Name: "system/host.user", Fn: stdsystem.User, World: Outside},
 		{Name: "system/host.memory", Fn: stdsystem.Memory, World: Outside},
 		{Name: "system/host.runtime", Fn: stdsystem.Runtime, World: Outside},
+		{Name: "system/host.nomi_release", Fn: stdsystem.NomiRelease, World: Outside},
 		// A whole-value decode costs what its limit lets the data expand to, a
 		// value: Unbounded. An encode costs what its data's size does. The
 		// streams act through the Reader or Writer they wrap: Held.
@@ -642,7 +643,7 @@ func RtFuncs() []Binding {
 		{Name: "decimal.Decimal.normalize", Fn: rt.DecimalNormalize, Pure: true},
 		{Name: "decimal.Decimal.scale", Fn: rt.DecimalScale, Pure: true},
 		{Name: "strings.String.repeat", Fn: rt.StringRepeat, Pure: true, Unbounded: true},
-		{Name: "context.Context.deadline", Fn: rt.ContextDeadline, Pure: true},
+		{Name: "context.Context.deadline", Fn: rt.ContextDeadline, World: Outside},
 		{Name: "context.Context.deadline_remaining", Fn: rt.ContextDeadlineRemaining, World: Outside},
 		{Name: "context.Context.with_deadline", Fn: rt.ContextWithDeadline, Pure: true},
 		{Name: "context.Context.inspect", Fn: rt.ContextInspect, Pure: true},

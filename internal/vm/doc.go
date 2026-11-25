@@ -612,6 +612,21 @@
 // shown as such: whether a crossing acts outside the machine, which
 // decides what a target can run and never what a list names.
 //
+// # Waits and deadlock
+//
+// Each intrinsic that can wait (a channel's send and receive,
+// `Channel.select`, the task waits, the end of a `concurrent` block, the
+// read of a `once` another task forces) hands rt its call's position as
+// the wait's rt.Site, and each spawn hands the spawn's, so rt's deadlock
+// report names where every task waits and where it was spawned (rt package
+// doc, "Deadlock"). Main and Call run as a main line of rt's task registry
+// (rt.MainLine), so a deadlock among a run's tasks is the fault of the main
+// line's wait, placed as any rt trap is; a test case is one through rt's
+// test runner. The view a test case under a virtual clock runs on also
+// notes each call into Go on the calling task's record (Machine.noteGo,
+// rt.EnterGo), which is where a case that cannot be stopped waits
+// (caselimit.go).
+//
 // # The fault edge
 //
 // The fault edge is part of the representation (`internal/ir/fault.go`):

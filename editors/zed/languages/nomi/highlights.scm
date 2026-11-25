@@ -173,6 +173,7 @@
 "once" @keyword
 "opaque" @keyword
 (export) @keyword
+(private_keyword) @keyword
 (pub) @keyword
 
 ; === Specific patterns (highest priority — listed last here) ===

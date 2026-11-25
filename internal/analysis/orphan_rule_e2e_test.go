@@ -15,9 +15,9 @@ import (
 
 // TestOrphanRule_RejectsForeignIfaceForForeignType_E2E runs the whole
 // BuildProjectWithCache pipeline over testdata/orphan_violator, an on-disk
-// project whose nomi.toml names a sibling orphan_dep module and whose entry
+// project whose nomi.toml names a sibling orphan_dep package and whose entry
 // implements `Display` (std) for `Pad` (orphan_dep). It is the on-disk
-// counterpart to TestOrphanImpl_CrossModuleRejected, so it also covers
+// counterpart to TestOrphanImpl_CrossPackageRejected, so it also covers
 // nomi.toml parsing and project-root discovery.
 func TestOrphanRule_RejectsForeignIfaceForForeignType_E2E(t *testing.T) {
 	_, thisFile, _, ok := runtime.Caller(0)
@@ -68,7 +68,7 @@ func TestOrphanRule_RejectsForeignIfaceForForeignType_E2E(t *testing.T) {
 			len(entryErrors(fa)), entryErrors(fa))
 	}
 
-	// The diagnostic names both foreign sides and the implementing module.
+	// The diagnostic names both foreign sides and the implementing package.
 	for _, want := range []string{"Display", "Pad", "orphan_violator"} {
 		if !strings.Contains(orphanErr.Message, want) {
 			t.Errorf("orphan diagnostic missing %q in message: %s", want, orphanErr.Message)
@@ -79,7 +79,7 @@ func TestOrphanRule_RejectsForeignIfaceForForeignType_E2E(t *testing.T) {
 // TestOrphanRule_RejectsForeignIfaceForNonPreludeStdlibType_E2E runs the
 // same pipeline over testdata/orphan_violator_nonprelude, whose entry
 // implements `Display` for `Date`. Both are declared in std, and `Date` is
-// outside the prelude, so the check must find its declaring module through
+// outside the prelude, so the check must find its declaring package through
 // the std files the build discovers rather than through the prelude.
 func TestOrphanRule_RejectsForeignIfaceForNonPreludeStdlibType_E2E(t *testing.T) {
 	_, thisFile, _, ok := runtime.Caller(0)
@@ -127,7 +127,7 @@ func TestOrphanRule_RejectsForeignIfaceForNonPreludeStdlibType_E2E(t *testing.T)
 			len(entryErrors(fa)), entryErrors(fa))
 	}
 
-	// The diagnostic names both foreign sides and the implementing module.
+	// The diagnostic names both foreign sides and the implementing package.
 	for _, want := range []string{"Display", "Date", "orphan_violator_nonprelude"} {
 		if !strings.Contains(orphanErr.Message, want) {
 			t.Errorf("orphan diagnostic missing %q in message: %s", want, orphanErr.Message)
@@ -140,11 +140,11 @@ func TestOrphanRule_RejectsForeignIfaceForNonPreludeStdlibType_E2E(t *testing.T)
 // short-circuit (added with the primitives-move, when the prelude began
 // pulling std/int into every build closure).
 //
-// Failure mode it pins: declaringModuleIndex collapses declarations by BASE
+// Failure mode it pins: declaringPackageIndex collapses declarations by BASE
 // name with project-wins precedence. A project type sharing a base name with
 // a NON-prelude stdlib type (here `PosCount`, also declared in
 // std/int.nomi — non-prelude names are legal to redeclare) steals the
-// stdlib name's mapping, so declModule["PosCount"] points at the project
+// stdlib name's mapping, so declPackage["PosCount"] points at the project
 // module. std/int.nomi's own `PosCount` type-body functions then compare
 // receiver-module ("the project") against implementing-module ("std") and —
 // without the declaredLocally short-circuit — are falsely

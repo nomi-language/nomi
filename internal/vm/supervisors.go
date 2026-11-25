@@ -36,7 +36,7 @@ func supervisorSpawnHost(m *Machine, pos ir.Pos, args []any) (any, error) {
 	}
 	var h rt.Task[rt.Unit]
 	if err := rtFault(func() {
-		h = rt.SupervisorSpawn(rt.WithKeptFields(m.hostFrame, f.kept), sup, func(fr *rt.Frame) rt.Unit {
+		h = rt.SupervisorSpawn(rt.WithKeptFields(m.hostFrame, f.kept), siteOf(nil, pos), sup, func(fr *rt.Frame) rt.Unit {
 			m.runTask(f.supervisedOn(fr), fr, pos)
 			return rt.Unit{}
 		})
@@ -62,18 +62,18 @@ func (f *functionValue) supervisedOn(fr *rt.Frame) *functionValue {
 }
 
 // unitTaskHost answers the one-handle task operations on a supervised task.
-func (m *Machine) unitTaskHost(name string, h *unitTaskValue) (any, error) {
+func (m *Machine) unitTaskHost(name string, pos ir.Pos, h *unitTaskValue) (any, error) {
 	var out any
 	err := rtFault(func() {
 		switch name {
 		case "Task.await":
-			rt.TaskAwait(m.hostFrame, h.t)
+			rt.TaskAwait(m.hostFrame, siteOf(nil, pos), h.t)
 			out = rt.Unit{}
 		case "Task.cancel":
 			rt.TaskCancel(h.t)
 			out = rt.Unit{}
 		case "Task.outcome":
-			o := rt.TaskOutcomeOf(m.hostFrame, h.t)
+			o := rt.TaskOutcomeOf(m.hostFrame, siteOf(nil, pos), h.t)
 			out = outcomeValue(rt.Outcome[any]{Tag: o.Tag, Completed: rt.Unit{}, Failed: o.Failed})
 		}
 	})
@@ -86,7 +86,7 @@ func (m *Machine) unitTaskHost(name string, h *unitTaskValue) (any, error) {
 // unitAwaitAll is `Task.await_all` over supervised handles, whose rt type is
 // Task[rt.Unit]; a list's handles share their static type, so every element
 // is one.
-func (m *Machine) unitAwaitAll(items []any) (any, error) {
+func (m *Machine) unitAwaitAll(pos ir.Pos, items []any) (any, error) {
 	var tasks *rt.List[rt.Task[rt.Unit]]
 	for i := len(items) - 1; i >= 0; i-- {
 		h, ok := items[i].(*unitTaskValue)
@@ -96,7 +96,7 @@ func (m *Machine) unitAwaitAll(items []any) (any, error) {
 		tasks = rt.Cons(h.t, tasks)
 	}
 	var results *rt.List[rt.Unit]
-	if err := rtFault(func() { results = rt.TaskAwaitAll(m.hostFrame, tasks) }); err != nil {
+	if err := rtFault(func() { results = rt.TaskAwaitAll(m.hostFrame, siteOf(nil, pos), tasks) }); err != nil {
 		return m.settled(nil, err)
 	}
 	var out []any
@@ -160,7 +160,7 @@ func supervisorSpawnAllHost(m *Machine, pos ir.Pos, args []any) (any, error) {
 	var handles *rt.List[rt.Task[rt.Unit]]
 	if err := rtFault(func() {
 		rt.SeqMustEnd(m.hostFrame, source, name)
-		handles = rt.SupervisorSpawnAll(rt.WithKeptFields(m.hostFrame, f.kept), sup, source, func(fr *rt.Frame, item any) rt.Unit {
+		handles = rt.SupervisorSpawnAll(rt.WithKeptFields(m.hostFrame, f.kept), siteOf(nil, pos), sup, source, func(fr *rt.Frame, item any) rt.Unit {
 			m.runTask(f.supervisedOn(fr), fr, pos, item)
 			return rt.Unit{}
 		})

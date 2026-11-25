@@ -145,14 +145,14 @@ func nullary(name string, args []any) (*functionValue, error) {
 
 // concurrentHost runs a block's body inside a new scope and exits the scope
 // on every path: it cancels what is still running and waits for it.
-func concurrentHost(m *Machine, _ ir.Pos, args []any) (any, error) {
+func concurrentHost(m *Machine, pos ir.Pos, args []any) (any, error) {
 	f, err := nullary("concurrent", args)
 	if err != nil {
 		return nil, err
 	}
 	scope := rt.EnterScope(m.hostFrame)
 	v, err := func() (any, error) {
-		defer rt.ScopeExit(scope)
+		defer rt.ScopeExit(scope, siteOf(nil, pos))
 		return m.apply(f, nil, scope)
 	}()
 	return m.settled(v, err)
@@ -165,7 +165,7 @@ func taskSpawnHost(m *Machine, pos ir.Pos, args []any) (any, error) {
 	}
 	var h rt.Task[any]
 	if err := rtFault(func() {
-		h = rt.TaskSpawn(m.hostFrame, func(fr *rt.Frame) any { return m.runTask(f, fr, pos) })
+		h = rt.TaskSpawn(m.hostFrame, siteOf(nil, pos), func(fr *rt.Frame) any { return m.runTask(f, fr, pos) })
 	}); err != nil {
 		return nil, err
 	}
@@ -174,12 +174,12 @@ func taskSpawnHost(m *Machine, pos ir.Pos, args []any) (any, error) {
 
 // taskHost adapts the task operations that take one handle.
 func taskHost(name string) hostFn {
-	return func(m *Machine, _ ir.Pos, args []any) (any, error) {
+	return func(m *Machine, pos ir.Pos, args []any) (any, error) {
 		if len(args) != 1 {
 			return nil, fmt.Errorf("vm: %s: expected one operand, got %d", name, len(args))
 		}
 		if unit, supervised := args[0].(*unitTaskValue); supervised {
-			return m.unitTaskHost(name, unit)
+			return m.unitTaskHost(name, pos, unit)
 		}
 		h, ok := args[0].(*taskValue)
 		if !ok {
@@ -189,12 +189,12 @@ func taskHost(name string) hostFn {
 		err := rtFault(func() {
 			switch name {
 			case "Task.await":
-				out = rt.TaskAwait(m.hostFrame, h.t)
+				out = rt.TaskAwait(m.hostFrame, siteOf(nil, pos), h.t)
 			case "Task.cancel":
 				rt.TaskCancel(h.t)
 				out = rt.Unit{}
 			case "Task.outcome":
-				out = outcomeValue(rt.TaskOutcomeOf(m.hostFrame, h.t))
+				out = outcomeValue(rt.TaskOutcomeOf(m.hostFrame, siteOf(nil, pos), h.t))
 			}
 		})
 		if err == nil && out == nil {
@@ -244,7 +244,7 @@ func taskSpawnAllHost(m *Machine, pos ir.Pos, args []any) (any, error) {
 	var handles *rt.List[rt.Task[any]]
 	if err := rtFault(func() {
 		rt.SeqMustEnd(m.hostFrame, src, "Task.spawn_all")
-		handles = rt.TaskSpawnAll(m.hostFrame, src, func(fr *rt.Frame, item any) any {
+		handles = rt.TaskSpawnAll(m.hostFrame, siteOf(nil, pos), src, func(fr *rt.Frame, item any) any {
 			return m.runTask(f, fr, pos, item)
 		}, limit)
 	}); err != nil {
@@ -258,7 +258,7 @@ func taskSpawnAllHost(m *Machine, pos ir.Pos, args []any) (any, error) {
 }
 
 // taskAwaitAllHost waits for a list of tasks through rt, in spawn order.
-func taskAwaitAllHost(m *Machine, _ ir.Pos, args []any) (any, error) {
+func taskAwaitAllHost(m *Machine, pos ir.Pos, args []any) (any, error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf("vm: Task.await_all: expected one operand, got %d", len(args))
 	}
@@ -269,7 +269,7 @@ func taskAwaitAllHost(m *Machine, _ ir.Pos, args []any) (any, error) {
 	items := listSlice(xs)
 	if len(items) > 0 {
 		if _, supervised := items[0].(*unitTaskValue); supervised {
-			return m.unitAwaitAll(items)
+			return m.unitAwaitAll(pos, items)
 		}
 	}
 	var tasks *rt.List[rt.Task[any]]
@@ -281,7 +281,7 @@ func taskAwaitAllHost(m *Machine, _ ir.Pos, args []any) (any, error) {
 		tasks = rt.Cons(h.t, tasks)
 	}
 	var results *rt.List[any]
-	if err := rtFault(func() { results = rt.TaskAwaitAll(m.hostFrame, tasks) }); err != nil {
+	if err := rtFault(func() { results = rt.TaskAwaitAll(m.hostFrame, siteOf(nil, pos), tasks) }); err != nil {
 		return m.settled(nil, err)
 	}
 	var out []any

@@ -42,12 +42,15 @@ import
 end
 
 /// An open stream connection: TCP or a Unix socket, or TLS over either.
-pub struct Connection
+pub opaque struct Connection
     handle: http_host.Conn
 end
 
 impl Connection
-    /// What the peer sends, as a stream. The same reader each call.
+    /// What the peer sends, as a stream. The same reader each call. A read
+    /// or write fails with `io.Error.Reset` when the peer resets the
+    /// connection or, over TLS, sends an alert, and with `Corrupt` when a
+    /// TLS record does not decode or authenticate.
     pub fn reader(conn: Connection) -> Reader
         http_host.conn_reader(conn.handle)
     end
@@ -157,12 +160,12 @@ impl Connection
     end
 
     /// For std::tls: the connection a handle holds.
-    pub fn of_handle(handle: http_host.Conn) -> Connection
+    fn of_handle(handle: http_host.Conn) -> Connection
         Connection{handle:}
     end
 
     /// For std::tls: the handle a connection holds.
-    pub fn handle_of(conn: Connection) -> http_host.Conn
+    fn handle_of(conn: Connection) -> http_host.Conn
         conn.handle
     end
 end
@@ -255,7 +258,7 @@ derive Equatable for Error
 impl Error
     /// The error for the parts a crossing returns: a net variant, or a
     /// tls.Error's.
-    pub fn from_parts(parts: List<String>) -> Error
+    fn from_parts(parts: List<String>) -> Error
         case parts
             ["Refused", address] ->
                 Error.Refused{address:}
@@ -377,7 +380,7 @@ end
 /// For std::tls: a timeout in nanoseconds, 0 for `None`, held to the
 /// longest wait the clock counts, about 292 years either way: a longer
 /// timeout waits that long, so it never fires.
-pub fn nanos(d: Option<Duration>) -> Int
+fn nanos(d: Option<Duration>) -> Int
     d
     |> Option.map(fn d ->
         Duration.as_nanos(d) |> Int.clamp(-9_223_372_036_854_775_808..=9_223_372_036_854_775_807)
@@ -528,7 +531,7 @@ end
 
 /// A listening socket. Close it with `Listener.close`; a program that is
 /// shutting down closes every listener when its supervisors start draining.
-pub struct Listener
+pub opaque struct Listener
     handle: http_host.TcpListener
 end
 
@@ -558,12 +561,12 @@ impl Listener
     end
 
     /// For std::tls: the listener a handle holds.
-    pub fn of_handle(handle: http_host.TcpListener) -> Listener
+    fn of_handle(handle: http_host.TcpListener) -> Listener
         Listener{handle:}
     end
 
     /// For std::tls: the handle a listener holds.
-    pub fn handle_of(listener: Listener) -> http_host.TcpListener
+    fn handle_of(listener: Listener) -> http_host.TcpListener
         listener.handle
     end
 end

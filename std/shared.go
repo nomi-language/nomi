@@ -3,7 +3,7 @@ package std
 // The process's stdlib, built from its modules' interfaces, a module at a
 // time.
 //
-// std/ is one Nomi module embedded into the binaries. Stdlib files import
+// std/ is one package embedded into the binaries. Stdlib files import
 // each other with bare paths (`import iter.Iter`); code outside writes
 // `std/iter`. `std/_fixtures/<name>.nomi` files are test-only modules
 // (`std/_fixtures/<name>`), in the stdlib only of a test binary run with
@@ -135,7 +135,7 @@ package std
 // through what it imports, and an impl lives in its interface's or its
 // type's module (one either imports) or a base module, so a program's impl
 // index holds every impl it could select
-// (TestShared_ImplsAreBuiltWithWhatTheyImplement); std is one Nomi module,
+// (TestShared_ImplsAreBuiltWithWhatTheyImplement); std is one package,
 // so the orphan rule alone would allow an impl anywhere. And a module built
 // later is the module built at once (TestShared_LazyModulesAreEagerModules),
 // except that an annotation's reference to another module's declaration

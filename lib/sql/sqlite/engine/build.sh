@@ -1,5 +1,5 @@
 #!/bin/sh
-# Rebuilds sqlite3.wasm, the SQLite the Nomi module sqlite embeds, from
+# Rebuilds sqlite3.wasm, the SQLite the package sqlite embeds, from
 # SQLite's amalgamation and shim.c, with the pinned zig, and writes and
 # prints its SHA-256, which sqlite3.wasm.sha256 records: a test in
 # internal/engine_test.nomi holds the committed module to it. The same

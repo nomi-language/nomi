@@ -4,12 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"os"
 	"slices"
 	"sort"
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/ast"
-	"github.com/nomi-language/nomi/internal/modcache"
+	"github.com/nomi-language/nomi/internal/pkgcache"
 )
 
 // BuildProject is the project-wide build entry point. Given an entry
@@ -95,8 +96,8 @@ func BuildStdDeclarations(entryNodes []ast.Node, loader FileLoader) (map[string]
 // BuildProjectFromEntry is BuildProjectWithCache plus the entry
 // file's absolute path. The entry's path lets the analyzer set
 // FileAnalysis.FilePath for the entry, which downstream checks
-// (internal/ access, entry-file enforcement) consume to derive the
-// entry's module-relative path. Callers that don't know the entry
+// (entry-file enforcement) consume to derive the
+// entry's package-relative path. Callers that don't know the entry
 // path (LSP per-document analysis, tests) keep using
 // BuildProjectWithCache and accept the empty FilePath for the entry.
 func BuildProjectFromEntry(entryAbsPath string, entryNodes []ast.Node, primitives *Scope, modules map[string]*Scope, stdlibFAs map[string]*FileAnalysis, projectRoot string, loader FileLoader) (*FileAnalysis, map[string]*FileAnalysis, map[string][]ast.Node) {
@@ -104,12 +105,12 @@ func BuildProjectFromEntry(entryAbsPath string, entryNodes []ast.Node, primitive
 }
 
 // BuildProjectFromEntryWithManifest is BuildProjectFromEntry plus a
-// pre-parsed Manifest and the entry's module-relative path. Used by
+// pre-parsed Manifest and the entry's package-relative path. Used by
 // callers staging a project in memory (tour playground, doctest
 // harness, embedders) so the manifest-driven checks — entry_points
-// placement, internal/ access, orphan-rule module identity — fire
+// placement, orphan-rule package identity — fire
 // even when there's no nomi.toml on disk. `entryModRel` is the entry
-// file's path *under the module root* without the `.nomi` extension
+// file's path *under the package root* without the `.nomi` extension
 // (e.g. "main", "tools/seed"); pass "" when the caller doesn't know
 // it. The key is the entry's identity in the import graph: a file
 // that imports the entry back reaches the entry's own analysis, not
@@ -164,18 +165,52 @@ type buildInputs struct {
 	// which read bodies, wait for that walk.
 	deferStdBodies bool
 	// session builds a REPL session's file (SourceProgram.Session): an
-	// inherent impl may extend a type another file declares, and the
-	// entry's own boot adds to appTypes' application types.
+	// inherent impl may extend a type another file declares, the entry's
+	// own boot adds to appTypes' application types, and each of the
+	// session's files is inside every other (FileDecls.Session).
 	session bool
 	// scopeNames are the entry's FileDecls.ScopeNames.
 	scopeNames []string
 }
 
-// NomiVersionCode is the error of a build that reaches a module whose
-// nomi.toml's [module].nomi names a later release than the running nomi
-// (modcache.NomiVersionError). Its Args are the module as the message
+// NomiVersionCode is the error of a build that reaches a package whose
+// nomi.toml's [package].nomi names a later release than the running nomi
+// (pkgcache.NomiVersionError). Its Args are the package as the message
 // names it, the release it needs and the running release.
 const NomiVersionCode = "nomi-version"
+
+// ManifestCode is the error of a build whose packages cannot be read: the
+// project's nomi.toml, or the package graph its dependencies' nomi.toml
+// files make, has a problem (discoverProjectStd). The message names the
+// file, and its line when one writes the problem.
+const ManifestCode = "manifest"
+
+// manifestTypeError is the one error a build stopped by err, the problem
+// discoverProjectStd found in the program's packages, answers on its entry.
+// Line and column 1 stand for no place in the entry: the message names the
+// nomi.toml. A package its workspace does not list gets the fix that adds
+// it to the workspace's members.
+func manifestTypeError(err error) TypeError {
+	if tooOld := (*pkgcache.NomiVersionError)(nil); errors.As(err, &tooOld) {
+		return TypeError{Line: 1, Col: 1, Message: tooOld.Error(), Code: NomiVersionCode,
+			Args: []string{tooOld.Package, tooOld.Needs, tooOld.Running}}
+	}
+	te := TypeError{Line: 1, Col: 1, Message: err.Error(), Code: ManifestCode}
+	if unlisted := (*pkgcache.UnlistedError)(nil); errors.As(err, &unlisted) {
+		if data, rerr := os.ReadFile(unlisted.Decl); rerr == nil {
+			te.Fix, _ = AddWorkspaceMember(unlisted.Decl, data, unlisted.Entry)
+		}
+	}
+	return te
+}
+
+// buildStopped reports whether fa is the entry of a build its packages
+// stopped (manifestTypeError): the build declared nothing of the file, so
+// nothing in it is checked, since every error there would follow from
+// that one.
+func buildStopped(fa *FileAnalysis) bool {
+	return len(fa.TypeErrors) == 1 && (fa.TypeErrors[0].Code == ManifestCode || fa.TypeErrors[0].Code == NomiVersionCode)
+}
 
 func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map[string]*Scope, stdlibFAs map[string]*FileAnalysis, projectRoot string, entryAbsPath string, entryModRel string, placeEntry bool, loader FileLoader, mfst *Manifest, in *buildInputs) (*FileAnalysis, map[string]*FileAnalysis, map[string][]ast.Node) {
 	var analyzed func(key string) bool
@@ -287,6 +322,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		fa := &FileAnalysis{
 			ModuleScope: moduleScope,
 			FilePath:    filePath,
+			Session:     in != nil && in.session && !IsStdlibKey(key),
 			Origin:      originForKey(key),
 			References:  make(map[Pos]*Symbol),
 			Definitions: make(map[Pos]*Symbol),
@@ -344,33 +380,34 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 			moduleSyms[name] = &Symbol{Name: name, Kind: SymbolModule, Pos: Pos{Line: 1, Col: 1}}
 			localModules[name] = scope
 		}
-		currentModuleName := ""
+		currentPackageName := ""
 		if proj != nil && proj.Manifest != nil {
-			currentModuleName = proj.Manifest.Name
+			currentPackageName = proj.Manifest.Name
 		}
-		var moduleIndex ModuleIndex
+		var packageIndex PackageIndex
 		if proj != nil {
-			moduleIndex = proj.ModuleIndex
+			packageIndex = proj.PackageIndex
 		}
-		// A dependency's file is built in its own module: at its root,
-		// resolving its imports through its module's names.
-		in, root := moduleIndex.moduleOfKey(key), projectRoot
+		// A dependency's file is built in its own package: at its root,
+		// resolving its imports through its package's names.
+		in, root := packageIndex.packageOfKey(key), projectRoot
+		fa.Package = filePackage(fa.Origin, in)
 		if in != "" && in != "std" {
-			root = moduleIndex.Roots[in]
+			root = packageIndex.Roots[in]
 		}
 		b := &builder{
-			file:              fa,
-			modules:           localModules,
-			moduleSyms:        moduleSyms,
-			loader:            loader,
-			projectRoot:       root,
-			moduleAlias:       moduleAliasForFile(key, filePath),
-			currentModuleName: currentModuleName,
-			moduleIndex:       moduleIndex,
-			inModule:          in,
-			cache:             cache,
-			loading:           loading,
-			stdlibFAs:         stdlibFAs,
+			file:               fa,
+			modules:            localModules,
+			moduleSyms:         moduleSyms,
+			loader:             loader,
+			projectRoot:        root,
+			moduleAlias:        moduleAliasForFile(key, filePath),
+			currentPackageName: currentPackageName,
+			packageIndex:       packageIndex,
+			inPackage:          in,
+			cache:              cache,
+			loading:            loading,
+			stdlibFAs:          stdlibFAs,
 		}
 		if key != "" {
 			cache[key] = fa
@@ -378,13 +415,13 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		return &fileBuilder{key: key, nodes: nodes, fa: fa, builder: b}
 	}
 
-	// A module that needs a later nomi stops the build before any file is
-	// read or checked (discoverProjectStd): the entry answers that one
-	// error, since the module's files are written for that nomi.
-	if tooOld := (*modcache.NomiVersionError)(nil); errors.As(discoverErr, &tooOld) {
+	// A program whose packages cannot be read stops the build before any
+	// file is checked: an import by a package's name and every dependency
+	// resolve through them, so each error a check gave past it would follow
+	// from it. The entry answers that one error.
+	if discoverErr != nil {
 		fa := makeBuilder(nil, "").fa
-		fa.TypeErrors = []TypeError{{Line: 1, Col: 1, Message: tooOld.Error(), Code: NomiVersionCode,
-			Args: []string{tooOld.Module, tooOld.Needs, tooOld.Running}}}
+		fa.TypeErrors = []TypeError{manifestTypeError(discoverErr)}
 		return fa, map[string]*FileAnalysis{}, map[string][]ast.Node{}
 	}
 
@@ -404,7 +441,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// prelude.nomi's drill-through structure (e.g. `std/option.Option.{self,
 	// None, Some}`) is what lets the variant names land in user scope
 	// without tripping the "cannot import variant 'X' directly" check.
-	preludeStmts, preludeErr := preludeImports(proj.ModuleIndex.Roots["std"], loader)
+	preludeStmts, preludeErr := preludeImports(proj.PackageIndex.Roots["std"], loader)
 	var preludePaths [][]string
 	for _, stmt := range preludeStmts {
 		preludePaths = append(preludePaths, importStmtPath(stmt))
@@ -435,15 +472,6 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// loweredLen is each file's node count once lowered, before synthesis
 	// appends to it (FileAnalysis.ownNodes).
 	loweredLen := make(map[string]int, len(proj.Files))
-	// projectNodes answers a project file's nodes by key, the entry's
-	// included, for a partner test's derives (LowerPartnerDerives).
-	projectNodes := func(k string) ([]ast.Node, bool) {
-		if k == entryModRel && entryModRel != "" {
-			return entryNodes, true
-		}
-		nodes, ok := proj.Files[k]
-		return nodes, ok
-	}
 	for key, nodes := range proj.Files {
 		// Derive lowering FIRST: derive declarations become top-level impl
 		// blocks, which the derive + universal-Debug passes
@@ -459,9 +487,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 				return other, ok
 			})
 		}
-		nodes, partnerErrs := LowerPartnerDerives(nodes, key, projectNodes)
 		lowered, lowerErrs := LowerDerivesWith(nodes, imported)
-		lowerErrs = append(partnerErrs, lowerErrs...)
 		loweredLen[key] = len(lowered)
 		extended, errs := lowered, lowerErrs
 		// Universal default Debug: after derive lowering, eagerly synthesize
@@ -477,9 +503,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 			deriveErrsByKey[key] = errs
 		}
 	}
-	partnerEntry, entryPartnerErrs := LowerPartnerDerives(entryNodes, entryModRel, projectNodes)
-	loweredEntry, entryLowerErrs := LowerDerives(partnerEntry)
-	entryLowerErrs = append(entryPartnerErrs, entryLowerErrs...)
+	loweredEntry, entryLowerErrs := LowerDerives(entryNodes)
 	extendedEntry, entryDeriveErrs := loweredEntry, entryLowerErrs
 	extendedEntry = SynthesizeUniversalDebug(extendedEntry)
 	entryNodes = extendedEntry
@@ -574,7 +598,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	}
 	entryFB := makeBuilder(entryNodes, "")
 	if entryModRel != "" {
-		// The entry is a file of the module like any other: its key names
+		// The entry is a file of the package like any other: its key names
 		// it in the import graph and is the Origin of what it declares, so
 		// its analysis is the one it gets when another file is the entry.
 		cache[entryModRel] = entryFB.fa
@@ -590,21 +614,6 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		if !IsStdlibKey(fb.key) {
 			fb.fa.ownNodes -= len(preludeStmts)
 		}
-	}
-	// Surface manifest-load failures (e.g. malformed nomi.toml) as a
-	// TypeError on the entry FA. Missing nomi.toml is not an error —
-	// DiscoverProject swallows ErrManifestMissing and leaves
-	// proj.Manifest nil so single-file mode still works.
-	//
-	// Line/Col 1,1 is a placeholder: the error originates in nomi.toml,
-	// not in any .nomi source, so there is no meaningful Nomi-source
-	// position to point at. The error message itself names the file
-	// (LoadManifest's errors include the manifest path).
-	if discoverErr != nil {
-		entryFB.fa.TypeErrors = append(entryFB.fa.TypeErrors, TypeError{
-			Line: 1, Col: 1,
-			Message: discoverErr.Error(),
-		})
 	}
 	if preludeErr != nil {
 		// Surface a parse failure in std/prelude.nomi as a single
@@ -746,9 +755,9 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		fb.builder.registerImplDefaults(fb.fa.ModuleScope)
 	}
 
-	currentModuleName := ""
+	currentPackageName := ""
 	if proj != nil && proj.Manifest != nil {
-		currentModuleName = proj.Manifest.Name
+		currentPackageName = proj.Manifest.Name
 	}
 
 	// Project-wide IfaceMethodImpls index. Walks every file's `impl Iface for
@@ -1231,51 +1240,51 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 			programErrs, detectInherentImplBlockCollisions(inherentBlocks, pathOf)...,
 		)
 
-		// Orphan rule check fires later in this function (declaringModuleIndex
+		// Orphan rule check fires later in this function (declaringPackageIndex
 		// + detectOrphanImpls below) — see the cross-module-segments setup
 		// and the detectOrphanImpls call site for the orphan-check body.
 		//
 		// Orphan rule: every impl must declare either its interface or its
-		// receiver type in the implementing module. Without that anchor two
+		// receiver type in the implementing package. Without that anchor two
 		// independent libraries could ship the same (Iface, Type) pair and
 		// detectImplCollisions would have nothing to compare them against
 		// at any single user's build. Post-stdlib-as-package cutover, stdlib
 		// files are in `filesByKey` just like any other module, so
-		// declaringModuleIndex picks up stdlib-declared names from the
+		// declaringPackageIndex picks up stdlib-declared names from the
 		// regular files walk — the helper's stdlibInterfaces/stdlibTypes
 		// parameters are passed nil (legacy signature, kept for
 		// backwards-compat with hand-rolled callers in tests).
-		crossModuleSegments := map[string]bool{}
+		crossPackageSegments := map[string]bool{}
 		if proj != nil {
-			for name := range proj.ModuleIndex.Roots {
-				crossModuleSegments[name] = true
+			for name := range proj.PackageIndex.Roots {
+				crossPackageSegments[name] = true
 			}
 		}
-		ownModule := orphanRuleModule(currentModuleName, proj)
-		var declModule map[string][]string
+		ownPackage := orphanRulePackage(currentPackageName, proj)
+		var declPackage map[string][]string
 		if share != nil {
-			declModule = share.declaringModules(orphanRuleNames(ifaceImpls, implBlockReceivers), ownModule, crossModuleSegments)
+			declPackage = share.declaringPackages(orphanRuleNames(ifaceImpls, implBlockReceivers), ownPackage, crossPackageSegments)
 		} else {
-			declModule = declaringModuleIndex(filesByKey, ownModule, crossModuleSegments)
+			declPackage = declaringPackageIndex(filesByKey, ownPackage, crossPackageSegments)
 		}
-		implModuleOf := func(fn *ast.FuncDef) string {
-			return moduleNameFromKey(ifaceImplFiles[fn], ownModule, crossModuleSegments)
+		implPackageOf := func(fn *ast.FuncDef) string {
+			return packageNameFromKey(ifaceImplFiles[fn], ownPackage, crossPackageSegments)
 		}
 		facts := &orphanFacts{
 			typeArgs: func(fn *ast.FuncDef, iface, recv string) (*ImplTypeArgs, *InterfaceType) {
 				return implTypeArgsIn(filesByKey[ifaceImplFiles[fn]], fn, iface, recv)
 			},
-			originModule: func(origin string) string {
+			originPackage: func(origin string) string {
 				key := origin
 				if origin == OriginEntry {
 					key = ""
 				}
-				return moduleNameFromKey(key, ownModule, crossModuleSegments)
+				return packageNameFromKey(key, ownPackage, crossPackageSegments)
 			},
 		}
 		programErrs = append(
 			programErrs,
-			detectOrphanImpls(ifaceImpls, declModule, implModuleOf, implBlockReceivers, facts, func(fn *ast.FuncDef) string {
+			detectOrphanImpls(ifaceImpls, declPackage, implPackageOf, implBlockReceivers, facts, func(fn *ast.FuncDef) string {
 				return pathOf(ifaceImplFiles[fn])
 			})...,
 		)
@@ -1363,6 +1372,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		AppTypes:            appTypes,
 		ContextType:         contextType,
 		StdlibModuleScopes:  stdlibScopes,
+		Packages:            proj.PackageIndex,
 		unindexedImpls:      unionImpls(unindexed),
 		unindexedOrigins:    originsOf(unindexed),
 		Errors:              programErrs,
@@ -1631,8 +1641,8 @@ func IsStdlibKey(modKey string) bool {
 // source file onto the `std/<name>` form every module key in the toolchain
 // uses. `importerKey` is the importing file's own module key.
 //
-// The stdlib is one Nomi module, so `std/lists.nomi` names its siblings bare
-// — `import iter.Iter` — exactly as a user module's files name each other.
+// The stdlib is one package, so `std/lists.nomi` names its siblings bare
+// — `import iter.Iter` — exactly as a user package's files name each other.
 // Every consumer of a module key, on the other hand, spells the stdlib
 // `std/<name>`: IsStdlibKey, originForKey, resolveStdlibImport, the
 // `filesByKey` the orphan rule and impl coherence read, the `Origin` on every

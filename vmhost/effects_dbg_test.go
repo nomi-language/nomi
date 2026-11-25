@@ -31,7 +31,7 @@ end
 // about the lists, which do not name it; std::io beside it reads as
 // before. A function whose one effect is a dbg says so alone.
 func TestFunctionReach_ADbg(t *testing.T) {
-	const module = "[module]\nname = \"app\"\nentry_points = [\"main\"]\n"
+	const module = "[package]\nname = \"app\"\nentry_points = [\"main\"]\n"
 	dir := writeProject(t, map[string]string{
 		"main.nomi": dbgReachMain,
 		"nomi.toml": module + "\n[effects.self]\nstd = [\"std::io\"]\n",

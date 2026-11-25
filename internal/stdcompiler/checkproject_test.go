@@ -27,14 +27,14 @@ func TestCheckProjectDiagnosticsArePinned(t *testing.T) {
 		files: map[string]string{
 			"main": "import api.{make, secret}\n\nfn main()\n  w = make(\"Ada\")\n  _ = secret(w)\nend\n",
 			"api": "pub struct Widget\n  name: String\nend\n\npub fn label(w: Widget) -> String\n  w.name\nend\n\n" +
-				"fn secret(w: Widget) -> String\n  \"secret \" + w.name\nend\n\n" +
+				"private fn secret(w: Widget) -> String\n  \"secret \" + w.name\nend\n\n" +
 				"pub fn make(name: String) -> Widget\n  Widget{name:}\nend\n",
 		},
-		want: []string{"1:19 'secret' is private and cannot be imported"},
+		want: []string{"1:19 `secret` is private to `api.nomi`\nhelp: drop `private` to name it from the other files of its package, or write `pub` to name it from any package"},
 	}, {
 		name:     "a manifest produces the entry-point diagnostics, both directions",
 		entry:    "main",
-		manifest: "[module]\nname = \"demo\"\nentry_points = [\"other\"]\n",
+		manifest: "[package]\nname = \"demo\"\nentry_points = [\"other\"]\n",
 		files: map[string]string{
 			"main":  "import other\n\nfn main()\n  other.helper()\n  Unit\nend\n",
 			"other": "pub fn helper() -> Unit\n  Unit\nend\n",
@@ -78,10 +78,10 @@ func TestCheckProjectDiagnosticsArePinned(t *testing.T) {
 		files: map[string]string{
 			"main.nomi": "import api.{make, secret}\n\nfn main()\n  w = make(\"Ada\")\n  _ = secret(w)\nend\n",
 			"api.nomi": "pub struct Widget\n  name: String\nend\n\n" +
-				"fn secret(w: Widget) -> String\n  \"secret \" + w.name\nend\n\n" +
+				"private fn secret(w: Widget) -> String\n  \"secret \" + w.name\nend\n\n" +
 				"pub fn make(name: String) -> Widget\n  Widget{name:}\nend\n",
 		},
-		want: []string{"1:19 'secret' is private and cannot be imported"},
+		want: []string{"1:19 `secret` is private to `api.nomi`\nhelp: drop `private` to name it from the other files of its package, or write `pub` to name it from any package"},
 	}, {
 		name:  "a single-file project checks against the standard library",
 		entry: "main",
@@ -112,12 +112,12 @@ func TestCheckProjectDiagnosticsArePinned(t *testing.T) {
 	// indistinguishable and silently give `Some("")` None's behaviour.
 	//
 	// An empty manifest is not a manifest with no sections, it is INVALID —
-	// `[module] name is required (non-empty, non-whitespace)` — so Some
+	// `[package] name is required (non-empty, non-whitespace)` — so Some
 	// answers that one diagnostic where None is clean.
 	t.Run("an EMPTY manifest is Some, not None", func(t *testing.T) {
 		files := map[string]string{"main": "fn main()\n  Unit\nend\n"}
 		got := stdcompiler.ProjectSpecDiagnostics(specOf("main", files, new("")), "")
-		want := "0:0 <compiler.Project manifest>: [module] name is required (non-empty, non-whitespace)"
+		want := "0:0 <compiler.Project manifest>: [package] name is required (non-empty, non-whitespace)"
 		if len(got) != 1 || diagText(got[0]) != want {
 			t.Errorf("Some(\"\") answered %v, want the one diagnostic %q", got, want)
 		}

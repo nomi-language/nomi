@@ -31,7 +31,9 @@ package vm
 //     publishes, so rt's per-case supervisor drain and boot cleanup see the
 //     case's own app.
 //   - THE BUBBLE, for a case under `clock Clock.Virtual`: `rt/vclock.RunCase`,
-//     handed to rt's runner in the `rt.Test.Bubble` field.
+//     handed to rt's runner in the `rt.Test.Bubble` field, with the case's
+//     time limit around it and the limit's stop in `rt.Test.Stop`
+//     (caselimit.go).
 //   - THE CONVERSION OF AN EXIT. A case has four outcomes and three of them
 //     are the case's own result: it passed, an assertion failed, or it took a
 //     Nomi fault. The fourth — this machine has no arm for an instruction, or
@@ -149,6 +151,7 @@ func (m *Machine) RunTests(path string) (exit int, reason string) {
 func (m *Machine) RunCases(cases []ir.TestCase) (failures []error, outputs []string, limits []string, rows []int) {
 	limits = make([]string, len(cases))
 	tests := make([]rt.Test, len(cases))
+	timeLimits := make([]*caseLimit, len(cases))
 	for i, c := range cases {
 		fn := c.Fn()
 		group := c.Group()
@@ -166,7 +169,8 @@ func (m *Machine) RunCases(cases []ir.TestCase) (failures []error, outputs []str
 			continue
 		}
 		i := i
-		limit := m.newCaseLimit()
+		limit := m.newCaseLimit(group.VirtualClock)
+		timeLimits[i] = limit
 		inner := m.limitedTestFn(fn, group, &caseLimits, limit)
 		test.Fn = func(fr *rt.Frame) rt.TestFailure {
 			failure := inner(fr)
@@ -179,12 +183,20 @@ func (m *Machine) RunCases(cases []ir.TestCase) (failures []error, outputs []str
 			test.Bubble = vclock.RunCase
 			if limit != nil {
 				// The clock runs outside the bubble, in real time.
-				test.Bubble = limit.bubble
+				test.Bubble, test.Stop = limit.bubble, limit.expired
 			}
 		}
 		tests[i] = test
 	}
 	failures, outputs, rows = rt.RunTestCases(m.background(), tests)
+	for i, err := range failures {
+		var still *rt.CaseStillRunning
+		if errors.As(err, &still) && timeLimits[i] != nil {
+			// The stop did not end its bubble: it waits outside the
+			// program (caselimit.go).
+			failures[i] = timeLimits[i].waiting(cases[i].Fn(), still.InGo)
+		}
+	}
 	return failures, outputs, limits, rows
 }
 
@@ -236,7 +248,7 @@ func (m *Machine) limitedTestFn(fn *ir.Func, group ir.TestGroup, unrunnable *[]s
 			view := *m
 			// The stop a task of this case reaches is this case's, so the
 			// case notes task limits on its own (tasks.go's taskLimit).
-			view.fuel, view.tasks = limit.fuel, &taskLimit{}
+			view.fuel, view.tasks, view.noteGo = limit.fuel, &taskLimit{}, limit.virtual
 			m = &view
 			if !group.VirtualClock {
 				var cancel func()

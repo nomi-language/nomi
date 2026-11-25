@@ -126,10 +126,10 @@ func TestMessage(t *testing.T) {
 		want              string
 	}{
 		{"this program has", "the host", "", nil, "this program has the effect std::fs, and the host allows no effects"},
-		{"this module's own code has", "[effects.self]", " it", nil,
-			"this module's own code has the effect std::fs, and [effects.self] allows it no effects"},
-		{"this module's tests have", "[effects.self]", " them", []string{"std::io", "std::time"},
-			"this module's tests have the effect std::fs, and [effects.self] allows them only std::io, std::time"},
+		{"this package's own code has", "[effects.self]", " it", nil,
+			"this package's own code has the effect std::fs, and [effects.self] allows it no effects"},
+		{"this package's tests have", "[effects.self]", " them", []string{"std::io", "std::time"},
+			"this package's tests have the effect std::fs, and [effects.self] allows them only std::io, std::time"},
 	} {
 		if got := Message(c.who, "std::fs", c.holder, c.them, c.allowed); got != c.want {
 			t.Errorf("Message(%q) = %q, want %q", c.who, got, c.want)

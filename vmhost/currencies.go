@@ -21,14 +21,14 @@ import (
 // A MODULE LISTS THE CUSTOM CURRENCIES ITS CODE WRITES.
 //
 // A custom currency needs no setup, so a typo makes a new one: `PST:0`
-// beside `PTS:0` is two currencies. A module's nomi.toml therefore lists the
+// beside `PTS:0` is two currencies. A package's nomi.toml therefore lists the
 // custom currencies its source may name (`[money].custom_currencies`), and
 // a “Currency`…` “ or “Money`…` “ literal, or a `Currency.custom` call
 // whose code and digits are both literals, that names an unlisted one is a
 // compile error at it. The literal's currency is the Ok its handler
 // answered (checkLiteral); the call's is its two arguments.
 //
-// The list is per module: a file's is the nomi.toml nearest above it, so a
+// The list is per package: a file's is the nomi.toml nearest above it, so a
 // dependency's literals answer to the dependency's list. A file with no
 // module (a script, a single-file tour block, the REPL) and the standard
 // library's own files may name any. A currency made from values while the
@@ -47,7 +47,7 @@ const UnlistedCurrencyCode = "unlisted-currency"
 const CustomCurrencyCallCode = "custom-currency-call"
 
 // currencyModule is what a file's module allows: whether the file is in a
-// module, the custom currencies its nomi.toml lists, and how a diagnostic
+// package, the custom currencies its nomi.toml lists, and how a diagnostic
 // names that nomi.toml.
 type currencyModule struct {
 	inModule bool
@@ -120,7 +120,7 @@ func (p *Program) unlisted(path, currency string) (msg string, hints []string, o
 	if !cm.inModule || slices.Contains(cm.listed, currency) {
 		return "", nil, false
 	}
-	msg = fmt.Sprintf("`%s` is a custom currency this module does not list: add it to [money].custom_currencies in %s", currency, cm.toml)
+	msg = fmt.Sprintf("`%s` is a custom currency this package does not list: add it to [money].custom_currencies in %s", currency, cm.toml)
 	if near := nearCurrency(currency, cm.listed); near != "" {
 		hints = append(hints, fmt.Sprintf("did you mean `%s`? %s lists it", near, cm.toml))
 	}

@@ -170,7 +170,7 @@ struct Own<A>
 end
 
 impl Own<A>
-    pub fn get<A>(o: Own<A>) -> A
+    fn get<A>(o: Own<A>) -> A
         o.v
     end
 end

@@ -61,7 +61,7 @@ impl Multiply<Int, Box> for Box
 end
 
 impl Box
-    pub fn multiply(lhs: Box, _factor: Float) -> Box
+    fn multiply(lhs: Box, _factor: Float) -> Box
         lhs
     end
 end
@@ -71,7 +71,7 @@ fn main()
 end
 `,
 	})
-	wantOneClash(t, fa, "", 12, 12, boxClashMessage)
+	wantOneClash(t, fa, "", 12, 8, boxClashMessage)
 }
 
 // The impl written after the inherent function: the same one error, at the
@@ -83,7 +83,7 @@ func TestInherentImplClash_ImplDeclaredAfterTheInherentFn(t *testing.T) {
 end
 
 impl Box
-    pub fn multiply(lhs: Box, _factor: Float) -> Box
+    fn multiply(lhs: Box, _factor: Float) -> Box
         lhs
     end
 end
@@ -99,7 +99,7 @@ fn main()
 end
 `,
 	})
-	wantOneClash(t, fa, "", 6, 12, boxClashMessage)
+	wantOneClash(t, fa, "", 6, 8, boxClashMessage)
 }
 
 // The impl in another file of the module than the type and its inherent
@@ -147,7 +147,7 @@ impl Display for Wrap<T>
 end
 
 impl Wrap<T>
-    pub fn to_string(_w: Wrap<T>, _width: Int) -> String
+    fn to_string(_w: Wrap<T>, _width: Int) -> String
         "wide wrap"
     end
 end
@@ -157,7 +157,7 @@ fn main()
 end
 `,
 	})
-	wantOneClash(t, fa, "", 12, 12,
+	wantOneClash(t, fa, "", 12, 8,
 		"`Wrap.to_string` is already `Display`'s `to_string` for `Wrap`, and Nomi does not overload, so a call `Wrap.to_string(...)` would name both; give this function another name")
 }
 
@@ -189,7 +189,7 @@ impl Multiply<Int, Box> for Box
 end
 
 impl Box
-    pub fn multiply_by(lhs: Box, _factor: Float) -> Box
+    fn multiply_by(lhs: Box, _factor: Float) -> Box
         lhs
     end
 end

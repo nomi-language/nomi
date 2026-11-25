@@ -132,7 +132,7 @@ func TestStdProgIface_AcrossFiles(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	typeCycleRun(t, map[string]string{
-		"nomi.toml": "[module]\nname = \"held\"\nentry_points = [\"main\"]\n",
+		"nomi.toml": "[package]\nname = \"held\"\nentry_points = [\"main\"]\n",
 		"main.nomi": `import shapes.{Square, Bag, total, holds}
 import std::io
 
@@ -344,7 +344,7 @@ func TestStdProgIface_BoxedStdValueAcrossFiles(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	typeCycleRun(t, map[string]string{
-		"nomi.toml": "[module]\nname = \"held\"\nentry_points = [\"main\"]\n",
+		"nomi.toml": "[package]\nname = \"held\"\nentry_points = [\"main\"]\n",
 		"main.nomi": `import shapes.{holds, first_match}
 import std::io
 import std::matcher.Matcher
@@ -548,7 +548,7 @@ func TestStdProgIface_SignatureNameShadowedAcrossFiles(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	typeCycleRun(t, map[string]string{
-		"nomi.toml": "[module]\nname = \"held\"\nentry_points = [\"main\"]\n",
+		"nomi.toml": "[package]\nname = \"held\"\nentry_points = [\"main\"]\n",
 		"main.nomi": `import boxes
 import std::io
 import std::json.ToJson

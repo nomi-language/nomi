@@ -28,7 +28,7 @@ import option.Option
 /// end
 /// ```
 ///
-/// The impl sits on the target type. `E` is an input, so a module may
+/// The impl sits on the target type. `E` is an input, so a package may
 /// write `impl From<MyError> for TheirError` as well as `impl
 /// From<TheirError> for MyError`. A `?` applies one impl, never a chain of
 /// them, and a type needs no impl to convert to itself.

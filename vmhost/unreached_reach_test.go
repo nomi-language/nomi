@@ -59,7 +59,7 @@ func TestFunctionReach_FunctionsNothingReaches(t *testing.T) {
 	plantDecline(t)
 	dir := writeProject(t, map[string]string{
 		"main.nomi": unreachedMain,
-		"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+		"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n",
 	})
 	path := filepath.Join(dir, "main.nomi")
 	found, err := CheckLowering(context.Background(), path, unreachedMain)
@@ -140,7 +140,7 @@ end
 func TestFunctionReach_AFunctionNothingReachesChangesNoReachedLine(t *testing.T) {
 	dir := writeProject(t, map[string]string{
 		"main.nomi": unreachedTestsMain,
-		"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = [\"std::io\"]\nstd_in_tests = [\"std::fs\"]\n",
+		"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = [\"std::io\"]\nstd_in_tests = [\"std::fs\"]\n",
 		"go.mod":    "module example.com/app\n\ngo 1.27.0\n",
 	})
 	p, err := Load(filepath.Join(dir, "main.nomi"))

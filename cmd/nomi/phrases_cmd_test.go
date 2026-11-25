@@ -23,7 +23,7 @@ func TestPhrasesAccept_MakesAStaleTranslationCurrent(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	write("nomi.toml", "[module]\nname = \"shop\"\n\n[i18n]\nlocales = [\"en\", \"pl\"]\n")
+	write("nomi.toml", "[package]\nname = \"shop\"\n\n[i18n]\nlocales = [\"en\", \"pl\"]\n")
 	write("cart.nomi", "pub phrase greeting(name: String) `Hello, {$name}!`\n")
 	write("locales/pl/cart.toml", "[greeting]\nsource = '''Hi, {$name}!'''\ntext = '''Cześć, {$name}!'''\n")
 	check := func() error {
@@ -47,7 +47,7 @@ func TestPhrasesAccept_MakesAStaleTranslationCurrent(t *testing.T) {
 	if err := check(); err != nil {
 		t.Fatalf("still refused: %v", err)
 	}
-	if _, err := acceptTranslation(dir, "pl", "farewell"); err == nil || err.Error() != "no file of the module declares `phrase farewell`" {
+	if _, err := acceptTranslation(dir, "pl", "farewell"); err == nil || err.Error() != "no file of the package declares `phrase farewell`" {
 		t.Errorf("an unknown phrase: %v", err)
 	}
 	if _, err := acceptTranslation(dir, "fr", "greeting"); err == nil || err.Error() != "[i18n] lists no locale fr" {

@@ -15,7 +15,7 @@ import (
 // there says "46 diagnostics" and not "the path rule is wrong". This table says
 // which.
 //
-// The stdlib is ONE Nomi module and every module's name is its path: a
+// The stdlib is ONE package and every module's name is its path: a
 // `std/<name>.nomi`, or a `std/<parent>/<name>.nomi` beside its parent's file.
 // A facade nested at `std/<name>/<name>.nomi` used to exist under the name
 // `<name>`, answered NO here, and cost 46 self-diagnostics on the open

@@ -38,8 +38,8 @@ fn nested_outer_body() -> Result<Int, String>
     concurrent
         inner_a = Task.spawn(fn -> timer.sleep(Duration.seconds(5)))
         inner_b = Task.spawn(fn -> timer.sleep(Duration.seconds(5)))
-        _ia = fn -> Task.outcome(inner_a) // never called: the task stays unawaited
-        _ib = fn -> Task.outcome(inner_b) // never called: the task stays unawaited
+        Task.await(inner_a)
+        Task.await(inner_b)
         Ok(42)
     end
 end
@@ -114,8 +114,8 @@ test "nested concurrent blocks observe parent cancellation"
         concurrent
             short = Task.spawn(fn -> short_fail())
             outer = Task.spawn(fn -> nested_outer_body())
-            _o = fn -> Task.outcome(outer) // never called: the task stays unawaited
-            Ok(Task.await(short)?)
+            first = Task.await(short)?
+            Ok(first + Task.await(outer)?)
         end
 
     assert Err(e) = outcome
@@ -194,9 +194,9 @@ group "sibling cancellation is observable under a virtual clock"
                 short = Task.spawn(fn -> short_fail())
                 long1 = Task.spawn(fn -> long_sleep())
                 long2 = Task.spawn(fn -> long_sleep())
-                _l1 = fn -> Task.outcome(long1) // never called: the task stays unawaited
-                _l2 = fn -> Task.outcome(long2) // never called: the task stays unawaited
-                Ok(Task.await(short)?)
+                first = Task.await(short)?
+                rest = Task.await(long1)? + Task.await(long2)?
+                Ok(first + rest)
             end
 
         elapsed = Instant.to_seconds(Instant.now()) - Instant.to_seconds(before)
@@ -214,8 +214,8 @@ group "sibling cancellation is observable under a virtual clock"
             concurrent
                 short = Task.spawn(fn -> short_fail())
                 outer = Task.spawn(fn -> nested_outer_body())
-                _o = fn -> Task.outcome(outer) // never called: the task stays unawaited
-                Ok(Task.await(short)?)
+                first = Task.await(short)?
+                Ok(first + Task.await(outer)?)
             end
 
         elapsed = Instant.to_seconds(Instant.now()) - Instant.to_seconds(before)

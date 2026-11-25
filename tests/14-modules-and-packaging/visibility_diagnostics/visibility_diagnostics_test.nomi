@@ -15,7 +15,7 @@ test "private functions cannot be imported"
                 end
                 """,
             "api" => """
-                fn ping() -> String
+                private fn ping() -> String
                   "pong"
                 end
                 """,
@@ -23,7 +23,7 @@ test "private functions cannot be imported"
     })
 
     assert Iter.count(diagnostics) == 1
-    assert test_helpers.has_diagnostic(diagnostics, "ping' is private and cannot be imported")
+    assert test_helpers.has_diagnostic(diagnostics, "`ping` is private to `api.nomi`")
 end
 
 test "private types cannot be imported through public modules"
@@ -38,7 +38,7 @@ test "private types cannot be imported through public modules"
                 end
                 """,
             "api" => """
-                struct Hidden
+                private struct Hidden
                   name: String
                 end
                 """,
@@ -46,7 +46,7 @@ test "private types cannot be imported through public modules"
     })
 
     assert Iter.count(diagnostics) == 1
-    assert test_helpers.has_diagnostic(diagnostics, "Hidden' is private and cannot be imported")
+    assert test_helpers.has_diagnostic(diagnostics, "`Hidden` is private to `api.nomi`")
 end
 
 test "private helpers are hidden from imported modules"
@@ -70,7 +70,7 @@ test "private helpers are hidden from imported modules"
                   w.name
                 end
 
-                fn secret(w: Widget) -> String
+                private fn secret(w: Widget) -> String
                   "secret " + w.name
                 end
 
@@ -82,5 +82,5 @@ test "private helpers are hidden from imported modules"
     })
 
     assert Iter.count(diagnostics) == 1
-    assert test_helpers.has_diagnostic(diagnostics, "file 'api' has no member 'secret'")
+    assert test_helpers.has_diagnostic(diagnostics, "`secret` is private to `api.nomi`")
 end

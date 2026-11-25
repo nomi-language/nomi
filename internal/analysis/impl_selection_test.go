@@ -373,7 +373,7 @@ end
 		// (orphan_type_args_test.go); a std one does not.
 		root := t.TempDir()
 		files := map[string]string{
-			"nomi.toml": "[module]\nname = \"tags\"\nentry_points = [\"main\"]\n",
+			"nomi.toml": "[package]\nname = \"tags\"\nentry_points = [\"main\"]\n",
 			"go.mod":    "module tags\n\ngo 1.27.0\n",
 			"main.nomi": `
 impl Contains<Int> for String

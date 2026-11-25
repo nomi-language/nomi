@@ -13,7 +13,7 @@ package irbuild
 //	System   ->  nothing is set
 //	absent   ->  nothing is set
 //
-// The VM runner supplies the bubble, `rt/vclock.RunCase`, with its four-layer
+// The VM runner supplies the bubble, `rt/vclock.RunCase`, with its three-layer
 // discipline. It is a SUB-PACKAGE rather than part of `rt` because it imports
 // `testing` and `testing/synctest` and `rt` is linked by every runner including
 // a hello world; see the vclock package header.

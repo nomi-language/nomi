@@ -109,8 +109,9 @@ func (e slotMismatch) Error() string { return string(e) }
 // their registers into the stack's slots, and the form's call. The answer
 // is in the slots for the caller to take (writeAnswer, hostOption), which
 // clears them. ran is false, and nothing called, when an operand is not of
-// its slot's kind: the boxed adapter refuses it in its own words.
-func (fr *frame) callSlots(h *hostCall) (carried, ran bool, err error) {
+// its slot's kind: the boxed adapter refuses it in its own words. note notes
+// the call as callAdapter does.
+func (fr *frame) callSlots(h *hostCall, note bool) (carried, ran bool, err error) {
 	sl := &fr.stk.slots
 	if h.direct {
 		// Every operand's register holds it as its slot does (directSlots).
@@ -130,7 +131,7 @@ func (fr *frame) callSlots(h *hostCall) (carried, ran bool, err error) {
 				sl.R[i] = stk.r[fr.rb+l.reg()]
 			}
 		}
-		carried, err = callRegs(h.regs.Fn, fr.runtime, sl)
+		carried, err = callRegs(note, fr, h.call.Pos(), h.regs.Fn, sl)
 		if err != nil {
 			fr.clearSlots(h)
 		}
@@ -148,7 +149,7 @@ func (fr *frame) callSlots(h *hostCall) (carried, ran bool, err error) {
 		}
 		sl.W[i], sl.Big[i], sl.S[i], sl.R[i] = w, big, s, r
 	}
-	carried, err = callRegs(h.regs.Fn, fr.runtime, sl)
+	carried, err = callRegs(note, fr, h.call.Pos(), h.regs.Fn, sl)
 	if err != nil {
 		fr.clearSlots(h)
 	}

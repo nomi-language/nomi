@@ -13,7 +13,7 @@ import (
 
 // shopManifest lists English (the source), Polish and Portuguese, and
 // German as a partial locale.
-const shopManifest = `[module]
+const shopManifest = `[package]
 name = "shop"
 entry_points = ["main"]
 

@@ -359,7 +359,7 @@ func passwordsCases() map[string][]argSet {
 func systemCases() map[string][]argSet {
 	c := map[string][]argSet{}
 	for _, name := range []string{"os", "arch", "cpu_count", "hostname", "executable", "home_dir", "cache_dir",
-		"config_dir", "data_dir", "user", "memory", "runtime"} {
+		"config_dir", "data_dir", "user", "memory", "runtime", "nomi_release"} {
 		c["system/host."+name] = []argSet{{args: a(), shapeOnly: true}}
 	}
 	return c

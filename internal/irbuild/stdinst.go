@@ -1496,7 +1496,7 @@ func callerKindIface(caller *gen, k kind, method string) (string, bool) {
 		if g == nil {
 			continue
 		}
-		for iface, impls := range g.implsByIface {
+		for iface, impls := range g.implTable(k) {
 			for recv, d := range impls {
 				if recv != k && (recv.def == nil || recv.def.decl != k.def.decl) {
 					continue

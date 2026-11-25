@@ -5,7 +5,7 @@ import
 end
 
 // Owner-level `once` bindings, read through their owner.
-struct Policy
+pub struct Policy
     retries: Int
 end
 
@@ -20,7 +20,7 @@ impl Policy
     end
 end
 
-enum Mode
+pub enum Mode
     Fast
     Slow
 end

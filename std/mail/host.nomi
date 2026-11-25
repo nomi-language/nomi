@@ -8,8 +8,8 @@ import
 end
 
 /// `text` as Go's `quotedprintable.Writer` writes text.
-pub host fn quoted_printable(text: String) -> String
+host fn quoted_printable(text: String) -> String
 
 /// The instant `nanos` nanoseconds after the Unix epoch in Go's `RFC1123Z`
 /// layout, in UTC.
-pub host fn date(nanos: Int) -> String
+host fn date(nanos: Int) -> String

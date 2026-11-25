@@ -31,7 +31,7 @@ func TestImplementation_MethodOwnerIsExactAcrossSamePositionedInterfaces(t *test
 		"  _ = Bar.go(\"x\")\n" +
 		"end\n"
 	s, uri := openProject(t, map[string]string{
-		"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+		"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n",
 		"a.nomi":    "pub interface Foo\n  fn go(value: self) -> Int\nend\n",
 		"b.nomi":    "pub interface Bar\n  fn go(value: self) -> Int\nend\n",
 		"main.nomi": main,
@@ -78,7 +78,7 @@ func TestImplementation_ListsOnlyTheImplsOfTheInterfaceOfItsIdentity(t *testing.
 		"end\n"
 	show := "pub interface Show\n  fn show(value: self) -> String\nend\n"
 	s, uri := openProject(t, map[string]string{
-		"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+		"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n",
 		"a.nomi":    show,
 		"b.nomi":    show,
 		"main.nomi": main,

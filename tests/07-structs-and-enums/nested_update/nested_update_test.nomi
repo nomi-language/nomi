@@ -409,7 +409,7 @@ test "an opaque struct's fields stay closed through a nested `..`"
         },
     })
 
-    closed = "cannot update field 'value' of opaque type 'Counter' outside its defining module — use an exported constructor function"
+    closed = "cannot update field 'value' of opaque type 'Counter' outside `counter.nomi` — use an exported constructor function"
 
     assert at(diagnostics, 10, 26, closed)
     assert at(diagnostics, 11, 38, closed)

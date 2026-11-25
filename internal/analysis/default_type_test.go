@@ -126,7 +126,7 @@ fn main() end
 // A public struct's field whose inferred type is private is the error a
 // written private type is.
 func TestDefaultType_PublicFieldExposingPrivateTypeIsRejected(t *testing.T) {
-	src := `struct Secret
+	src := `private struct Secret
     v: Int
 end
 
@@ -270,7 +270,7 @@ end
 			t.Errorf("want %q with %q, got:\n%s", w.msg, w.hint, strings.Join(messages(errs), "\n"))
 		}
 	}
-	if msgs := strings.Join(messages(errs), "\n"); !strings.Contains(msgs, "function parameter exposes private type Secret") {
+	if msgs := strings.Join(messages(errs), "\n"); !strings.Contains(msgs, "function parameter exposes internal type Secret") {
 		t.Errorf("want the private-type error, got:\n%s", msgs)
 	}
 }

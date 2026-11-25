@@ -55,19 +55,26 @@ type declKey struct{ path, name string }
 
 // decl is a type declaration a program's file holds.
 type decl struct {
-	key    declKey
-	prog   *Program
-	node   ast.Node
-	typ    analysis.Type // the declaration's type, its parameters unbound
-	public bool
-	alias  bool
+	key  declKey
+	prog *Program
+	node ast.Node
+	typ  analysis.Type // the declaration's type, its parameters unbound
+	// root reports a declaration AddFile may start from: one the
+	// checker records as public or internal to its module, not private
+	// to its file. A private type is written only when a root reaches it.
+	root  bool
+	alias bool
 	// jsonKey is the object key the derived impl writes for a field, or nil
 	// when the type derives neither ToJson nor FromJson.
 	jsonKey func(string) string
-	// handWritten reports an `impl ToJson` the file writes by hand.
+	// handWritten reports an `impl ToJson` written by hand, in any file of
+	// the program.
 	handWritten bool
-	used        bool
-	tsName      string
+	// read reports a type that derives FromJson and has no ToJson: one a
+	// frontend sends, so its declaration is the JSON its FromJson reads.
+	read   bool
+	used   bool
+	tsName string
 }
 
 // Writer collects the declarations a set of root types reaches and writes
@@ -81,11 +88,27 @@ type Writer struct {
 	sealed bool
 	// reserved are the names no declaration may take (Reserve).
 	reserved map[string]bool
+	// cur is the declaration whose body is being walked, whose type
+	// parameters a type argument may name.
+	cur *decl
+	// presence holds each type parameter some reached instantiation puts a
+	// Presence at, and flows each parameter passed on as another
+	// declaration's type argument (noteArgs). Seal closes presence over
+	// flows.
+	presence map[param]bool
+	flows    map[param][]param
+}
+
+// param is a type parameter of a declaration, by name.
+type param struct {
+	d    *decl
+	name string
 }
 
 // NewWriter is a Writer writing Ints as ints says.
 func NewWriter(ints Ints) *Writer {
-	return &Writer{ints: ints, decls: map[declKey]*decl{}, byFile: map[string][]*decl{}, reserved: map[string]bool{"Record": true}}
+	return &Writer{ints: ints, decls: map[declKey]*decl{}, byFile: map[string][]*decl{}, reserved: map[string]bool{"Record": true},
+		presence: map[param]bool{}, flows: map[param][]param{}}
 }
 
 // AddProgram indexes the type declarations of a program's modules. A file
@@ -115,21 +138,21 @@ func (w *Writer) AddProgram(mods []Module) *Program {
 
 func (w *Writer) declOf(p *Program, m Module, n ast.Node) *decl {
 	var name string
-	var public, alias bool
+	var alias bool
 	switch d := n.(type) {
 	case *ast.StructDef:
-		name, public = d.Name, d.Public
+		name = d.Name
 	case *ast.EnumDef:
-		name, public = d.Name, d.Public
+		name = d.Name
 	case *ast.TypeDef:
-		name, public = d.Name, d.Public
+		name = d.Name
 	case *ast.ExternType:
-		name, public = d.Name, d.Public
+		name = d.Name
 	case *ast.TypeAlias:
 		if d.TargetTypeExpr == nil {
 			return nil
 		}
-		name, public, alias = d.Name, d.Public, true
+		name, alias = d.Name, true
 	default:
 		return nil
 	}
@@ -137,26 +160,28 @@ func (w *Writer) declOf(p *Program, m Module, n ast.Node) *decl {
 	if sym == nil || sym.Type == nil {
 		return nil
 	}
-	d := &decl{key: declKey{m.Path, name}, prog: p, node: n, typ: sym.Type, public: public, alias: alias}
+	d := &decl{key: declKey{m.Path, name}, prog: p, node: n, typ: sym.Type, root: sym.Visibility != ast.Private, alias: alias}
 	if !alias {
+		// The program's impl record, so an `impl ToJson` in another file of
+		// the module counts as one in the declaring file does.
 		if key, ok := analysis.DerivedJSONKeys(n, "ToJson"); ok {
 			d.jsonKey = key
+		} else if analysis.ImplementsToJSON(m.FA, sym.Type) {
+			d.handWritten = true
 		} else if key, ok := analysis.DerivedJSONKeys(n, "FromJson"); ok {
-			d.jsonKey = key
-		} else {
-			d.handWritten = m.FA.Impls[name]["ToJson"]
+			d.jsonKey, d.read = key, true
 		}
 	}
 	return d
 }
 
-// AddFile adds the file's public types that cross as JSON, each with every
-// type it reaches, and answers how many it added. A type alias counts when
-// the type it names crosses as JSON.
+// AddFile adds the file's types that cross as JSON and are not private to
+// it, each with every type it reaches, and answers how many it added. A
+// type alias counts when the type it names crosses as JSON.
 func (w *Writer) AddFile(path string) int {
 	n := 0
 	for _, d := range w.byFile[path] {
-		if !d.public {
+		if !d.root {
 			continue
 		}
 		switch {
@@ -204,6 +229,20 @@ func (w *Writer) Reserve(names ...string) {
 // `User` of models.nomi and of api.nomi are `ModelsUser` and `ApiUser`.
 func (w *Writer) Seal() {
 	w.sealed = true
+	var work []param
+	for p := range w.presence {
+		work = append(work, p)
+	}
+	for len(work) > 0 {
+		p := work[len(work)-1]
+		work = work[:len(work)-1]
+		for _, to := range w.flows[p] {
+			if !w.presence[to] {
+				w.presence[to] = true
+				work = append(work, to)
+			}
+		}
+	}
 	groups := map[string][]*decl{}
 	var bases []string
 	for _, d := range w.order {
@@ -266,11 +305,17 @@ func (w *Writer) Declarations() string {
 	var b strings.Builder
 	for _, d := range w.order {
 		doc := docOf(d.node)
-		if !d.alias && d.jsonKey == nil {
-			note := d.key.name + " has no JSON encoding the declarations can read."
-			if d.handWritten {
-				note = d.key.name + "'s ToJson is written by hand, so its JSON is not known here."
-			}
+		var note string
+		switch {
+		case d.alias:
+		case d.handWritten:
+			note = d.key.name + "'s ToJson is written by hand, so its JSON is not known here."
+		case d.jsonKey == nil:
+			note = d.key.name + " has no JSON encoding the declarations can read."
+		case d.read:
+			note = d.key.name + " has FromJson and no ToJson, so this is the JSON it reads."
+		}
+		if note != "" {
 			doc = strings.TrimSpace(doc + "\n\n" + note)
 		}
 		b.WriteString(jsDoc(doc, ""))
@@ -285,6 +330,9 @@ func (w *Writer) Len() int { return len(w.order) }
 
 // body is d's declaration.
 func (w *Writer) body(d *decl) string {
+	outer := w.cur
+	w.cur = d
+	defer func() { w.cur = outer }()
 	name := d.tsName
 	if d.alias {
 		return fmt.Sprintf("export type %s = %s;", name, w.ts(d.prog, d.typ, 1))
@@ -324,14 +372,37 @@ func (w *Writer) body(d *decl) string {
 }
 
 // fields is an object type of fields under d's JSON keys: one field per
-// line when sep is "\n", else on one line.
+// line when sep is "\n", else on one line. A derived impl writes and reads
+// a struct's fields, and a struct variant's, with the field type's
+// `to_json_field` and `from_missing`, so a `Presence<T>` field is an
+// optional property of T: `Absent` leaves its key out, and a missing key
+// reads as `Absent`. In a type d.read marks, a field whose missing key
+// FromJson fills is optional too: an `Option` (None) or one with a default.
+// In any other type, a field whose type is a type parameter is optional
+// when some instantiation the roots reach puts a Presence there, since
+// ToJson then leaves out its key for Absent: the declaration is written
+// once, so it holds for every instantiation. In a type d.read marks it
+// stays required, which every instantiation's FromJson accepts.
 func (w *Writer) fields(d *decl, fields []analysis.FieldDef, sep string, depth int) string {
 	if len(fields) == 0 {
 		return "{}"
 	}
 	parts := make([]string, len(fields))
 	for i, f := range fields {
-		parts[i] = field(d.jsonKey(f.Name)) + ": " + w.ts(d.prog, f.Type, depth+1)
+		t, optional := f.Type, false
+		if inner, ok := stdArg(f.Type, "Presence"); ok {
+			t, optional = inner, true
+		} else if d.read {
+			_, isOption := stdArg(f.Type, "Option")
+			optional = isOption || f.HasDefault
+		} else if name, ok := typeParamName(f.Type); ok {
+			optional = w.presence[param{d, name}]
+		}
+		key := field(d.jsonKey(f.Name))
+		if optional {
+			key += "?"
+		}
+		parts[i] = key + ": " + w.ts(d.prog, t, depth+1)
 	}
 	if sep == "\n" {
 		return "{\n  " + strings.Join(parts, ";\n  ") + ";\n}"
@@ -432,6 +503,22 @@ func (w *Writer) ts(p *Program, t analysis.Type, depth int) string {
 
 func isStd(origin string) bool { return strings.HasPrefix(origin, "std/") || origin == "std" }
 
+// stdArg is the type argument of t when t is the std enum name of one type
+// parameter (Option, Presence).
+func stdArg(t analysis.Type, name string) (analysis.Type, bool) {
+	switch v := t.(type) {
+	case *analysis.TypeVar:
+		if v.Resolved != nil {
+			return stdArg(v.Resolved, name)
+		}
+	case *analysis.EnumType:
+		if v.Name == name && isStd(v.Origin) && len(v.TypeArgs) == 1 {
+			return v.TypeArgs[0], true
+		}
+	}
+	return nil, false
+}
+
 // std is a std type as the JSON its std impl writes, or unknown for a std
 // type with no ToJson; ok is false for a type std does not declare.
 func (w *Writer) std(p *Program, origin, name string, args []analysis.Type, depth int) (string, bool) {
@@ -449,6 +536,10 @@ func (w *Writer) std(p *Program, origin, name string, args []analysis.Type, dept
 		return "boolean", true
 	case "Option":
 		return arg() + " | null", true
+	case "Presence":
+		// Outside a struct field (fields), Present(v) writes v and Absent
+		// writes null.
+		return arg() + " | null", true
 	case "Set", "Vector":
 		return array(arg()), true
 	case "Instant", "Date", "Time", "NaiveDateTime", "Uuid":
@@ -463,6 +554,9 @@ func (w *Writer) declared(p *Program, origin, name string, args []analysis.Type,
 	d := w.decls[declKey{p.pathOf[origin], name}]
 	if d == nil {
 		return "unknown"
+	}
+	if !w.sealed {
+		w.noteArgs(d, args)
 	}
 	w.use(d)
 	ref := d.tsName
@@ -481,6 +575,39 @@ func (w *Writer) declared(p *Program, origin, name string, args []analysis.Type,
 		}
 	}
 	return ref + "<" + strings.Join(items, ", ") + ">"
+}
+
+// noteArgs records, for fields, which of d's type parameters args puts a
+// Presence at, and which it fills with a type parameter of the declaration
+// being walked, through which a Presence reaches d once Seal closes over
+// them.
+func (w *Writer) noteArgs(d *decl, args []analysis.Type) {
+	params := typeParams(d.typ)
+	for i, a := range args {
+		if i >= len(params) {
+			break
+		}
+		to := param{d, params[i]}
+		if _, ok := stdArg(a, "Presence"); ok {
+			w.presence[to] = true
+		} else if name, ok := typeParamName(a); ok && w.cur != nil {
+			from := param{w.cur, name}
+			w.flows[from] = append(w.flows[from], to)
+		}
+	}
+}
+
+// typeParamName is the name of the type parameter t is.
+func typeParamName(t analysis.Type) (string, bool) {
+	switch v := t.(type) {
+	case *analysis.TypeVar:
+		if v.Resolved != nil {
+			return typeParamName(v.Resolved)
+		}
+	case *analysis.TypeParam_:
+		return v.Name_, true
+	}
+	return "", false
 }
 
 // encodes reports whether t crosses as JSON through a std or derived impl,

@@ -32,7 +32,7 @@ type Options struct {
 	// Nomi is the path of the nomi binary that check and run_tests run.
 	// Empty means the running executable.
 	Nomi string
-	// Root is the workspace the language server is initialized with.
+	// Root is the editor folder the language server is initialized with.
 	// Empty means the working directory.
 	Root string
 	// Version is reported as the server's version in initialize.

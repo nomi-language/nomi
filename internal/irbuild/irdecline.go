@@ -208,24 +208,31 @@ func (dc *declineCensus) mute() (unmute func()) {
 }
 
 // declineAttempt is the open attempt's record, which a nested build sets
-// aside and puts back.
+// aside and puts back: its first decline, and the expressions it is
+// lowering with the count of declines they began at.
 type declineAttempt struct {
 	fn, path, why string
 	seen          bool
 	cur           *Decline
 	line, col     int
+	failures      int
+	frames        []int
 }
 
 // suspend sets the open attempt's record aside and mutes the hooks and the
 // watch for a build nested in it that is no part of it (an instance
 // closure, an isolated program-std body); the function it answers puts both
-// back.
+// back. The nested build starts outside every expression of the attempt, so
+// what it declines abandons none of them, and an expression of the attempt
+// it was started from abandons nothing of the nested build.
 func (dc *declineCensus) suspend() (resume func()) {
-	a := declineAttempt{dc.fn, dc.path, dc.why, dc.seen, dc.cur, dc.line, dc.col}
+	a := declineAttempt{dc.fn, dc.path, dc.why, dc.seen, dc.cur, dc.line, dc.col, dc.failures, dc.frames}
 	dc.muted++
+	dc.frames = nil
 	return func() {
 		dc.muted--
 		dc.fn, dc.path, dc.why, dc.seen, dc.cur, dc.line, dc.col = a.fn, a.path, a.why, a.seen, a.cur, a.line, a.col
+		dc.failures, dc.frames = a.failures, a.frames
 	}
 }
 
@@ -233,14 +240,7 @@ func (dc *declineCensus) suspend() (resume func()) {
 // of it, with the attempt's census set aside: what build notes reaches no
 // hook, and the attempt's own record is as it was afterwards.
 func (dc *declineCensus) aside(build func()) {
-	resume := dc.suspend()
-	// What build declines abandons none of the attempt's expressions.
-	failures, frames := dc.failures, dc.frames
-	dc.frames = nil
-	defer func() {
-		resume()
-		dc.failures, dc.frames = failures, frames
-	}()
+	defer dc.suspend()()
 	build()
 }
 

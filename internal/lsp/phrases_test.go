@@ -14,7 +14,7 @@ import (
 // from an older English text: the catalog has one diagnostic, on line 2.
 func phraseProject() map[string]string {
 	return map[string]string{
-		"nomi.toml":            "[module]\nname = \"shop\"\nentry_points = [\"main\"]\n\n[i18n]\nlocales = [\"en\", \"pl\"]\n",
+		"nomi.toml":            "[package]\nname = \"shop\"\nentry_points = [\"main\"]\n\n[i18n]\nlocales = [\"en\", \"pl\"]\n",
 		"main.nomi":            "import\n    std::io\n    cart\nend\n\nfn main()\n    io.print(Phrase.format(cart.greeting(\"Anna\"), Locale\"pl\"))\nend\n",
 		"cart.nomi":            "/// Greets a customer.\npub phrase greeting(name: String) `Hello, {$name}!`\n",
 		"locales/pl/cart.toml": "[greeting]\nsource = '''Hi, {$name}!'''\ntext = '''Cześć, {$name}!'''\n",
@@ -38,7 +38,7 @@ func TestPhrases_ACatalogsDiagnosticsArePublishedOnIt(t *testing.T) {
 	t.Run("open", func(t *testing.T) {
 		root := writeProject(t, phraseProject())
 		s, published := recordingServer()
-		s.docs.SetWorkspaceRoot(root)
+		s.docs.SetEditorFolder(root)
 		cartURI := pathToURI(filepath.Join(root, "cart.nomi"))
 		catalogPath := filepath.Join(root, "locales", "pl", "cart.toml")
 		catalogURI := pathToURI(catalogPath)
@@ -62,8 +62,8 @@ func TestPhrases_ACatalogsDiagnosticsArePublishedOnIt(t *testing.T) {
 	t.Run("unopened", func(t *testing.T) {
 		root := writeProject(t, phraseProject())
 		s, published := recordingServer()
-		s.docs.SetWorkspaceRoot(root)
-		s.scanWorkspace()
+		s.docs.SetEditorFolder(root)
+		s.scanEditorFolder()
 		waitClosedDiagnostics(t, s, time.Minute)
 		catalogDiagnostic(t, published()[pathToURI(filepath.Join(root, "locales", "pl", "cart.toml"))])
 	})

@@ -43,7 +43,7 @@ import (
 func scopeFixture(t *testing.T) (*Frame, func()) {
 	t.Helper()
 	fr := EnterScope(NewFrame(context.Background()))
-	return fr, func() { ScopeExit(fr) }
+	return fr, func() { ScopeExit(fr, Site{}) }
 }
 
 // TestConcurrent_SpawnAndAwaitCarryTheValue is the anti-vacuity control for
@@ -53,11 +53,11 @@ func TestConcurrent_SpawnAndAwaitCarryTheValue(t *testing.T) {
 	fr, exit := scopeFixture(t)
 	defer exit()
 
-	h := TaskSpawn(fr, func(*Frame) int64 { return 42 })
-	if got := TaskAwait(fr, h); got != 42 {
+	h := TaskSpawn(fr, Site{}, func(*Frame) int64 { return 42 })
+	if got := TaskAwait(fr, Site{}, h); got != 42 {
 		t.Fatalf("await returned %d, want 42", got)
 	}
-	if o := TaskOutcomeOf(fr, h); o.Tag != TagCompleted || o.Completed != 42 {
+	if o := TaskOutcomeOf(fr, Site{}, h); o.Tag != TagCompleted || o.Completed != 42 {
 		t.Fatalf("outcome is %+v, want Completed(42)", o)
 	}
 }
@@ -73,10 +73,10 @@ func TestConcurrent_APanickingTaskDoesNotKillTheProcess(t *testing.T) {
 	fr, exit := scopeFixture(t)
 	defer exit()
 
-	bad := TaskSpawn(fr, func(*Frame) int64 { panic("deliberate") })
-	good := TaskSpawn(fr, func(*Frame) int64 { return 7 })
+	bad := TaskSpawn(fr, Site{}, func(*Frame) int64 { panic("deliberate") })
+	good := TaskSpawn(fr, Site{}, func(*Frame) int64 { return 7 })
 
-	o := TaskOutcomeOf(fr, bad)
+	o := TaskOutcomeOf(fr, Site{}, bad)
 	if o.Tag != TagFailed {
 		t.Fatalf("a panicking task reported tag %d, want TagFailed (%d)", o.Tag, TagFailed)
 	}
@@ -91,7 +91,7 @@ func TestConcurrent_APanickingTaskDoesNotKillTheProcess(t *testing.T) {
 		t.Errorf("the failure message is %q and does not name the panic value", o.Failed.Msg)
 	}
 	// The positive: a sibling ran to completion and this line was reached.
-	if got := TaskAwait(fr, good); got != 7 {
+	if got := TaskAwait(fr, Site{}, good); got != 7 {
 		t.Errorf("the sibling of a panicking task returned %d, want 7", got)
 	}
 }
@@ -109,8 +109,8 @@ func TestConcurrent_ANomiFaultIsErroredAndAwaitInheritsIt(t *testing.T) {
 	t.Run("outcome reports it as a value", func(t *testing.T) {
 		fr, exit := scopeFixture(t)
 		defer exit()
-		h := TaskSpawn(fr, func(*Frame) int64 { Trap(text); return 0 })
-		o := TaskOutcomeOf(fr, h)
+		h := TaskSpawn(fr, Site{}, func(*Frame) int64 { Trap(text); return 0 })
+		o := TaskOutcomeOf(fr, Site{}, h)
 		if o.Tag != TagFailed || o.Failed.Tag != TagErrored {
 			t.Fatalf("outcome is %+v, want Failed(Errored(...))", o)
 		}
@@ -124,8 +124,8 @@ func TestConcurrent_ANomiFaultIsErroredAndAwaitInheritsIt(t *testing.T) {
 	t.Run("await inherits it out of band", func(t *testing.T) {
 		fr, exit := scopeFixture(t)
 		defer exit()
-		h := TaskSpawn(fr, func(*Frame) int64 { Trap(text); return 0 })
-		err := recoverFault(func() { TaskAwait(fr, h) })
+		h := TaskSpawn(fr, Site{}, func(*Frame) int64 { Trap(text); return 0 })
+		err := recoverFault(func() { TaskAwait(fr, Site{}, h) })
 		if err == nil {
 			t.Fatal("awaiting a failed task returned normally; the failure channel is out of band and must fail the awaiter")
 		}
@@ -149,7 +149,7 @@ func TestConcurrent_CancelledSleepUnwindsAndReportsCancelled(t *testing.T) {
 
 	var ran bool
 	var mu sync.Mutex
-	h := TaskSpawn(fr, func(inner *Frame) int64 {
+	h := TaskSpawn(fr, Site{}, func(inner *Frame) int64 {
 		TimerSleep(inner, Duration(time.Hour))
 		mu.Lock()
 		ran = true
@@ -158,7 +158,7 @@ func TestConcurrent_CancelledSleepUnwindsAndReportsCancelled(t *testing.T) {
 	})
 	TaskCancel(h)
 
-	o := TaskOutcomeOf(fr, h)
+	o := TaskOutcomeOf(fr, Site{}, h)
 	if o.Tag != TagCancelled {
 		t.Fatalf("outcome is %+v, want Cancelled — a cancelled sleep must unwind, not return Unit", o)
 	}
@@ -180,20 +180,21 @@ func TestConcurrent_CancelledSleepUnwindsAndReportsCancelled(t *testing.T) {
 //   - It took no real time. A wait with no cancel would sit out the hour.
 func TestConcurrent_ScopeExitCancelsAndWaitsForUnawaitedTasks(t *testing.T) {
 	fr := EnterScope(NewFrame(context.Background()))
-	h := TaskSpawn(fr, func(inner *Frame) int64 {
+	h := TaskSpawn(fr, Site{}, func(inner *Frame) int64 {
 		TimerSleep(inner, Duration(time.Hour))
 		return 1
 	})
 	start := time.Now()
-	ScopeExit(fr)
+	ScopeExit(fr, Site{})
 	elapsed := time.Since(start)
 
 	// Settled, read without waiting: the outcome is available immediately
 	// because ScopeExit already waited. A non-blocking read is what makes this
 	// an assertion about ScopeExit rather than about TaskOutcomeOf.
-	select {
-	case <-h.t.done:
-	default:
+	h.t.end.mu.Lock()
+	settled := h.t.end.count == 0
+	h.t.end.mu.Unlock()
+	if !settled {
 		t.Fatal("ScopeExit returned with a task still running, so it cancelled without waiting")
 	}
 	if h.t.tag != TagCancelled {
@@ -214,16 +215,16 @@ func TestConcurrent_ScopeExitCancelsAndWaitsForUnawaitedTasks(t *testing.T) {
 func TestConcurrent_AwaitAllShortCircuitsOnAFailureAndNotOnAnErr(t *testing.T) {
 	t.Run("a failure short-circuits", func(t *testing.T) {
 		fr := EnterScope(NewFrame(context.Background()))
-		defer ScopeExit(fr)
-		slow := TaskSpawn(fr, func(inner *Frame) int64 {
+		defer ScopeExit(fr, Site{})
+		slow := TaskSpawn(fr, Site{}, func(inner *Frame) int64 {
 			TimerSleep(inner, Duration(time.Hour))
 			return 1
 		})
-		quick := TaskSpawn(fr, func(*Frame) int64 { Trap("boom"); return 0 })
+		quick := TaskSpawn(fr, Site{}, func(*Frame) int64 { Trap("boom"); return 0 })
 		batch := listFromSlice([]Task[int64]{slow, quick})
 
 		start := time.Now()
-		err := recoverFault(func() { TaskAwaitAll(fr, batch) })
+		err := recoverFault(func() { TaskAwaitAll(fr, Site{}, batch) })
 		elapsed := time.Since(start)
 
 		if err == nil {
@@ -240,13 +241,13 @@ func TestConcurrent_AwaitAllShortCircuitsOnAFailureAndNotOnAnErr(t *testing.T) {
 	})
 	t.Run("an ordinary value does not", func(t *testing.T) {
 		fr := EnterScope(NewFrame(context.Background()))
-		defer ScopeExit(fr)
+		defer ScopeExit(fr, Site{})
 		var hs []Task[int64]
 		for i := int64(0); i < 3; i++ {
 			n := i
-			hs = append(hs, TaskSpawn(fr, func(*Frame) int64 { return n * 10 }))
+			hs = append(hs, TaskSpawn(fr, Site{}, func(*Frame) int64 { return n * 10 }))
 		}
-		got := listToSlice(TaskAwaitAll(fr, listFromSlice(hs)))
+		got := listToSlice(TaskAwaitAll(fr, Site{}, listFromSlice(hs)))
 		if len(got) != 3 {
 			t.Fatalf("await_all returned %d values, want 3", len(got))
 		}
@@ -293,14 +294,14 @@ func TestConcurrent_ATaskOutlivesNeitherItsScopeNorItsSiblings(t *testing.T) {
 	var mu sync.Mutex
 	done := 0
 	for range n {
-		TaskSpawn(fr, func(*Frame) Unit {
+		TaskSpawn(fr, Site{}, func(*Frame) Unit {
 			mu.Lock()
 			done++
 			mu.Unlock()
 			return Unit{}
 		})
 	}
-	ScopeExit(fr)
+	ScopeExit(fr, Site{})
 	mu.Lock()
 	defer mu.Unlock()
 	if done != n {
@@ -349,15 +350,15 @@ func TestConcurrent_ABlockedChannelOperationObservesCancellation(t *testing.T) {
 		ch := ChannelUnbuffered[int64]()
 		var reached bool
 		var mu sync.Mutex
-		h := TaskSpawn(fr, func(inner *Frame) int64 {
-			v := ReceiverReceive(inner, ch.Receiver)
+		h := TaskSpawn(fr, Site{}, func(inner *Frame) int64 {
+			v := ReceiverReceive(inner, Site{}, ch.Receiver)
 			mu.Lock()
 			reached = true
 			mu.Unlock()
 			return v.Some
 		})
 		// Nobody ever sends, so the task is parked. ScopeExit cancels and waits.
-		ScopeExit(fr)
+		ScopeExit(fr, Site{})
 
 		if h.t.tag != TagCancelled {
 			t.Errorf("a task parked on a receive settled as tag %d, want TagCancelled (%d)", h.t.tag, TagCancelled)
@@ -375,19 +376,19 @@ func TestConcurrent_ABlockedChannelOperationObservesCancellation(t *testing.T) {
 		// parks for a different reason and would not exercise step 3's release
 		// of the close mutex.
 		ch := ChannelBuffered[int64](1)
-		if r := SenderSend(fr, ch.Sender, 1); r.Tag != TagOk {
+		if r := SenderSend(fr, Site{}, ch.Sender, 1); r.Tag != TagOk {
 			t.Fatalf("filling the buffer failed: %+v", r)
 		}
 		var reached bool
 		var mu sync.Mutex
-		h := TaskSpawn(fr, func(inner *Frame) int64 {
-			SenderSend(inner, ch.Sender, 2)
+		h := TaskSpawn(fr, Site{}, func(inner *Frame) int64 {
+			SenderSend(inner, Site{}, ch.Sender, 2)
 			mu.Lock()
 			reached = true
 			mu.Unlock()
 			return 0
 		})
-		ScopeExit(fr)
+		ScopeExit(fr, Site{})
 
 		if h.t.tag != TagCancelled {
 			t.Errorf("a task parked on a full-buffer send settled as tag %d, want TagCancelled (%d)", h.t.tag, TagCancelled)
@@ -417,7 +418,7 @@ func TestConcurrent_ABlockedChannelOperationObservesCancellation(t *testing.T) {
 		fr := &Frame{ctx: ctx, inTask: true}
 		ch := ChannelBuffered[int64](64)
 		for i := range 64 {
-			if r := SenderSend(fr, ch.Sender, int64(i)); r.Tag != TagOk {
+			if r := SenderSend(fr, Site{}, ch.Sender, int64(i)); r.Tag != TagOk {
 				t.Fatalf("send %d returned %+v on a cancelled frame; a send with room must complete", i, r)
 			}
 		}

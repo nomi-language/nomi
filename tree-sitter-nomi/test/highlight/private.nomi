@@ -1,0 +1,6 @@
+// `private` before a declaration is a keyword, as `pub` is; anywhere else
+// it is a name. The caret lines below each line name the highlight of the
+// token they point at.
+private once limit: Int = 3
+// <- keyword
+//           ^ constant

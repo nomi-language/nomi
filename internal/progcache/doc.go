@@ -21,8 +21,10 @@
 // a build can read in it (`.nomi`, `.toml` and `nomi.lock`), or for every
 // file when it is an `embed` base; hidden names and node_modules are
 // skipped in both.
-// Above each source tree the markers that decide the program's root
-// (`nomi.toml`, `main.nomi`; analysis.ProjectRoot) are stat'ed too. Single files outside the trees are named on their own.
+// Above each source tree the markers that decide its program are stat'ed
+// too: `nomi.toml` and `main.nomi`, which decide the program's root
+// (analysis.ProjectRoot), and a workspace's `nomi-workspace.toml` and
+// `nomi.lock`, which select a member's dependencies. Single files outside the trees are named on their own.
 // Each file is held by its size, times, inode and SHA-256. A tree with
 // NamedSources holds its `.nomi` files by presence alone, and the record
 // names the sources the build read on their own, with their text: an edit

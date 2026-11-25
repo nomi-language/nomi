@@ -1,6 +1,7 @@
 package analysis
 
 import (
+	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
 	"strings"
@@ -581,7 +582,7 @@ end`
 	if sym == nil {
 		t.Fatal("expected User.format method symbol")
 	}
-	if !sym.Public {
+	if sym.Visibility != ast.Public {
 		t.Error("impl-block method of pub interface should be public, got private")
 	}
 }
@@ -651,7 +652,7 @@ end`
 	if origin == nil {
 		t.Fatal("expected origin in module scope")
 	}
-	if !origin.Public {
+	if origin.Visibility != ast.Public {
 		t.Error("origin declared `pub fn` should be public")
 	}
 	if origin.OwningType != "" {
@@ -661,7 +662,7 @@ end`
 	if helper == nil {
 		t.Fatal("expected helper in module scope")
 	}
-	if helper.Public {
+	if helper.Visibility == ast.Public {
 		t.Error("helper declared bare `fn` should be private")
 	}
 }

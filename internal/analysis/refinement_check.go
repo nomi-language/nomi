@@ -477,7 +477,7 @@ func checkedKindText(dt *DistinctType) string {
 // compiled, a value already of a `type`'s inner refinement passes when the
 // type adds no rule, and any other value is an error naming `try_from`.
 func (c *checker) checkedCtorArg(arg ast.Node, dt *DistinctType, label string) {
-	if c.opaqueOutside(dt) != "" {
+	if name, _ := c.opaqueOutside(dt); name != "" {
 		// The call form is refused as construction (checkOpaqueConstructor),
 		// and so is the `try_from` the errors below would name.
 		c.checkNode(arg)

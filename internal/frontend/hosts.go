@@ -71,7 +71,7 @@ func (c *Checker) ValidateHosts(modules map[string][]ast.Node) error {
 // in the entry (moduleKey ""), and otherwise the module key, a `.` and the
 // name. The module key is the file's path within its module, `/`-separated
 // and without `.nomi` (`helpers/util` for helpers/util.nomi, `util` for a
-// file at the module's root), under the dependency's name in the program
+// file at the package's root), under the dependency's name in the program
 // for a dependency's file (`lib/sub/thing`), so two files with one base
 // name never share a key. The IR builder keys a crossing by the same
 // function (irbuild's irHostBindingKey), from the checker's

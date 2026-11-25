@@ -24,7 +24,7 @@ end`
 	if sym.Kind != SymbolFunction {
 		t.Errorf("expected SymbolFunction, got %v", sym.Kind)
 	}
-	if !sym.Public {
+	if sym.Visibility != ast.Public {
 		t.Error("expected add to be public")
 	}
 }
@@ -1222,13 +1222,13 @@ func TestBuilderInlinePubOnce(t *testing.T) {
 	if sym.Kind != SymbolOnce {
 		t.Errorf("expected SymbolOnce, got %v", sym.Kind)
 	}
-	if !sym.Public {
+	if sym.Visibility != ast.Public {
 		t.Error("pub once should produce a public symbol")
 	}
 }
 
 // Inline `pub` on a fn must produce a public symbol. defineFunc
-// already reads n.Public; this is a regression guard alongside
+// already reads n.Visibility; this is a regression guard alongside
 // TestBuilderInlinePubOnce.
 func TestBuilderInlinePubFn(t *testing.T) {
 	input := `pub fn foo() -> Int
@@ -1245,7 +1245,7 @@ end`
 	if sym.Kind != SymbolFunction {
 		t.Errorf("expected SymbolFunction, got %v", sym.Kind)
 	}
-	if !sym.Public {
+	if sym.Visibility != ast.Public {
 		t.Error("pub fn should produce a public symbol")
 	}
 }
@@ -1293,7 +1293,7 @@ end`,
 	if sym == nil {
 		t.Fatal("expected `thing` in main's ModuleScope")
 	}
-	if !sym.Public {
+	if sym.Visibility != ast.Public {
 		t.Error("re-exported `thing` should be Public=true")
 	}
 	if sym.Resolved == nil || sym.Resolved.Kind != SymbolFunction {
@@ -1325,7 +1325,7 @@ end`,
 	if tSym == nil {
 		t.Fatal("expected public re-export symbol `t` in main's ModuleScope")
 	}
-	if !tSym.Public {
+	if tSym.Visibility != ast.Public {
 		t.Error("re-exported `t` should be Public=true")
 	}
 	if tSym.Resolved == nil || tSym.Resolved.Kind != SymbolFunction {
@@ -1357,7 +1357,7 @@ end`,
 		if sym == nil {
 			t.Fatalf("expected `%s` in main's ModuleScope", name)
 		}
-		if !sym.Public {
+		if sym.Visibility != ast.Public {
 			t.Errorf("`pub import` should mark `%s` Public=true", name)
 		}
 	}
@@ -1380,7 +1380,7 @@ end`,
 	if sym == nil {
 		t.Fatal("expected `thing` in main's ModuleScope")
 	}
-	if sym.Public {
+	if sym.Visibility == ast.Public {
 		t.Error("`thing` should be private to main when the import has no `pub`")
 	}
 }

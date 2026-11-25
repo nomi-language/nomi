@@ -1,7 +1,8 @@
--- The TOML files the language server reads: a module's nomi.toml, and its
--- phrase catalogs, the TOML files its `phrase` translations live in, under
--- the directory `[i18n].catalogs` names in its nomi.toml (`locales` unless
--- it says otherwise). `nomi lsp` attaches to them, and to no other TOML file
+-- The TOML files the language server reads: a module's nomi.toml, a
+-- workspace's nomi-workspace.toml, and a module's phrase catalogs, the
+-- TOML files its `phrase` translations live in, under the directory
+-- `[i18n].catalogs` names in its nomi.toml (`locales` unless it says
+-- otherwise). `nomi lsp` attaches to them, and to no other TOML file
 -- (lsp/nomi.lua's root_dir).
 local M = {}
 
@@ -31,14 +32,16 @@ function M.dir(manifest)
   return (dir:gsub('^%./', ''):gsub('/+$', ''))
 end
 
--- root is the module root of the nomi.toml or catalog at path, an
--- absolute path, or nil when path is neither: a catalog is under the
--- catalog directory of the nearest module, which has locales.
+-- root is the directory of the nomi.toml or nomi-workspace.toml at path,
+-- or the module root of the catalog at path, an absolute path, or nil when
+-- path is none of them: a catalog is under the catalog directory of the
+-- nearest module, which has locales.
 function M.root(path)
   if not path or path == '' or not path:match('%.toml$') then
     return nil
   end
-  if vim.fs.basename(path) == 'nomi.toml' then
+  local base = vim.fs.basename(path)
+  if base == 'nomi.toml' or base == 'nomi-workspace.toml' then
     return vim.fs.dirname(path)
   end
   local root = vim.fs.root(path, 'nomi.toml')

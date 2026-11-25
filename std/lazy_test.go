@@ -12,7 +12,7 @@ import (
 // impl index holds every impl it could select, so an impl of an interface
 // for a type is built whenever both are. That holds when the impl's module
 // is the interface's or the type's, or one either of them imports, or one
-// the stdlib is first built with (stdBaseModules). std is one Nomi module,
+// the stdlib is first built with (stdBaseModules). std is one package,
 // so its orphan rule would allow an impl anywhere else; this is what keeps
 // it out.
 func TestShared_ImplsAreBuiltWithWhatTheyImplement(t *testing.T) {

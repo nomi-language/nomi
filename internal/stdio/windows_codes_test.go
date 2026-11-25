@@ -16,7 +16,7 @@ import (
 // windowsOps answers as Windows does: a missing name whose directory exists
 // is ERROR_FILE_NOT_FOUND (2), a missing directory above it or a file there
 // is ERROR_PATH_NOT_FOUND (3), and removing a directory with entries is
-// ERROR_DIR_NOT_EMPTY (145). Over it, with windowsCodes set, the disk
+// ERROR_DIR_NOT_EMPTY (145). Over it, reading Windows codes, the disk
 // backend is held to the answers it gives on this system.
 type windowsOps struct{ hostOS }
 
@@ -82,8 +82,7 @@ func (w windowsOps) Stat(n string) (fs.FileInfo, error) {
 // the same failures: Windows' one code for a missing directory and for a
 // file where a directory should be is told apart by looking.
 func TestDiskAnswersWindowsCodesAsUnixErrnos(t *testing.T) {
-	windowsCodes = true
-	t.Cleanup(func() { windowsCodes = false })
+	t.Cleanup(rt.ReadWindowsCodesForTest())
 
 	dir := filepath.ToSlash(t.TempDir())
 	backends := map[string]struct {
@@ -138,8 +137,7 @@ func TestDiskAnswersWindowsCodesAsUnixErrnos(t *testing.T) {
 // TestWindowsCodesNameTheirUnixErrno holds the codes Windows reports where
 // Unix names its own errno to the io.Error a Unix system answers.
 func TestWindowsCodesNameTheirUnixErrno(t *testing.T) {
-	windowsCodes = true
-	t.Cleanup(func() { windowsCodes = false })
+	t.Cleanup(rt.ReadWindowsCodesForTest())
 
 	for _, c := range []struct {
 		code syscall.Errno

@@ -10,7 +10,7 @@ import (
 
 // leadManifest holds the dependency in dependencyFiles to an entry that
 // allows nothing, so its read of a file is refused.
-const leadManifest = effectManifest + "\n[effects.deps]\n\n[effects.deps.modules]\n\"pricing\" = []\n"
+const leadManifest = effectManifest + "\n[effects.deps]\n\n[effects.deps.packages]\n\"pricing\" = []\n"
 
 // refusalOf loads app/main.nomi from a project of files, holds it to its
 // lists as `nomi check` does, and answers the refusal, with the project's

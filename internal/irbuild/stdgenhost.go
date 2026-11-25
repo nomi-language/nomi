@@ -214,7 +214,7 @@ func stdGenHostDeclIn(fa *analysis.FileAnalysis, s *stdGenHostSpec) *ast.ExternT
 // declModifiers refuses it on its own terms and redirecting the type to rt
 // would silently drop that refusal.
 func (s *stdGenHostSpec) matches(decl *ast.ExternType) bool {
-	if decl.Name != s.nomi || !decl.Public {
+	if decl.Name != s.nomi || decl.Visibility != ast.Public {
 		return false
 	}
 	if len(decl.TypeParams) != len(s.params) {
@@ -607,7 +607,7 @@ func (s *stdMarkerSpec) matches(decl *ast.TypeDef) bool {
 	if !decl.Opaque {
 		want = formDistinct
 	}
-	if decl.Name != s.nomi || s.form != want || !decl.Public {
+	if decl.Name != s.nomi || s.form != want || decl.Visibility != ast.Public {
 		return false
 	}
 	if decl.InnerTypeExpr != nil {

@@ -12,17 +12,17 @@ import
 end
 
 /// A new private key on `curve`.
-pub host fn generate(curve: Int64) -> Bytes
+host fn generate(curve: Int64) -> Bytes
 
 /// Whether `data` is a private key on `curve`.
-pub host fn private_is_valid(curve: Int64, data: Bytes) -> Bool
+host fn private_is_valid(curve: Int64, data: Bytes) -> Bool
 
 /// Whether `data` is a public key on `curve`.
-pub host fn public_is_valid(curve: Int64, data: Bytes) -> Bool
+host fn public_is_valid(curve: Int64, data: Bytes) -> Bool
 
 /// The public key of the private key `private` on `curve`.
-pub host fn public_of(curve: Int64, private: Bytes) -> Bytes
+host fn public_of(curve: Int64, private: Bytes) -> Bytes
 
 /// The shared secret of `private` and `public` on `curve`, or `None` when
 /// the exchange gives none: an X25519 public key of low order.
-pub host fn shared_secret(curve: Int64, private: Bytes, public: Bytes) -> Option<Bytes>
+host fn shared_secret(curve: Int64, private: Bytes, public: Bytes) -> Option<Bytes>

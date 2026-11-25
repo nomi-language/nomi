@@ -1,0 +1,11 @@
+import std::json.ToJson
+
+private struct Draft
+    text: String
+end
+
+derive ToJson for Draft
+
+pub fn draft_text(text: String) -> String
+    Draft{text:}.text
+end

@@ -323,6 +323,10 @@ type gen struct {
 	// a `once` reads that file's cell (onceValue). See lowerNamesFrom.
 	namesFrom int
 
+	// linesAbove is the module's LinesAbove, which ownPos takes off every
+	// position.
+	linesAbove int
+
 	// nomiLine is the Nomi line the next lowered statement is attributed to.
 	nomiLine int
 
@@ -747,6 +751,11 @@ type gen struct {
 	// interface, so a lookup there never answers one of several; a call
 	// selects among these (instimpl.go).
 	instImpls map[string]map[kind][]*implDef
+	// pendingImpls is the blocks of a generic interface filed for each of
+	// this gen's generic instances (or mirrors of another file's) and
+	// registered when an impl of the instance is first asked for
+	// (impltables.go).
+	pendingImpls map[*typeDef][]pendingBlock
 	// erasedInstances are the generic struct instances this unit holds as
 	// an interface's existential (irErases), whose per-instance impls
 	// irInstanceImpls records for the VM's dispatch.
@@ -990,7 +999,7 @@ type gen struct {
 // forward-declaration rule in either direction, so no per-file order can
 // satisfy both. See Generate and foreign.go.
 func newGen(m *Module, pkg string, std *stdlibIndex, files *fileIndex, unit int, reg *typeRegistry) *gen {
-	g := &gen{dc: newDeclineCensus(DeclineHooks{}), nomiPath: m.Path, pkg: pkg, fa: m.FA, funcs: map[string]*fnSig{}, onces: map[string]*onceDef{}, oncesByDecl: map[ast.Node]*onceDef{}, types: map[string]*typeDef{}, blockTypes: map[*ast.Block]*blockTypeDecls{}, ifaces: map[string]*ifaceDef{}, implsByIface: map[string]map[kind]*implDef{}, tids: map[kind]bool{}, std: std, files: files, fileUnit: unit, reg: reg, foreignDefs: map[ast.Node]*typeDef{}, foreignIfaces: map[ast.Node]*ifaceDef{}, nodes: m.Nodes}
+	g := &gen{dc: newDeclineCensus(DeclineHooks{}), nomiPath: m.Path, pkg: pkg, fa: m.FA, linesAbove: m.LinesAbove, funcs: map[string]*fnSig{}, onces: map[string]*onceDef{}, oncesByDecl: map[ast.Node]*onceDef{}, types: map[string]*typeDef{}, blockTypes: map[*ast.Block]*blockTypeDecls{}, ifaces: map[string]*ifaceDef{}, implsByIface: map[string]map[kind]*implDef{}, tids: map[kind]bool{}, std: std, files: files, fileUnit: unit, reg: reg, foreignDefs: map[ast.Node]*typeDef{}, foreignIfaces: map[ast.Node]*ifaceDef{}, nodes: m.Nodes}
 	g.declaresTests = m.DeclaresTests
 	g.twins = m.twins
 	if name, inStd := strings.CutPrefix(m.Name, "std/"); inStd && isProgramStd(name) {

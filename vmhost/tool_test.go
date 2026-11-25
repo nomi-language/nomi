@@ -42,7 +42,7 @@ fn main() -> Result<Unit, String>
 end
 
 // FILE: nomi.toml
-[module]
+[package]
 name = "demo"
 entry_points = ["main", "tools/bump"]
 
@@ -80,9 +80,9 @@ module demo
 	}
 }
 
-// A tool's Startup holds ToolModuleEnv, the module name it was run under,
+// A tool's Startup holds ToolPackageEnv, the package name it was run under,
 // as `nomi tool` sets it.
-func TestToolMarked_TellsTheToolItsModulesName(t *testing.T) {
+func TestToolMarked_TellsTheToolItsPackagesName(t *testing.T) {
 	src := `// FILE: tools/name.nomi
 import std::io
 
@@ -95,11 +95,11 @@ fn boot(startup: Startup) -> Result<App, String>
 end
 
 fn main()
-    io.print(Map.get(App.env, "` + vmhost.ToolModuleEnv + `") |> Option.with_default("unset"))
+    io.print(Map.get(App.env, "` + vmhost.ToolPackageEnv + `") |> Option.with_default("unset"))
 end
 
 // FILE: nomi.toml
-[module]
+[package]
 name = "demo"
 `
 	var out bytes.Buffer
@@ -107,7 +107,7 @@ name = "demo"
 		t.Fatalf("the tool failed: %v\n%s", err, out.String())
 	}
 	if out.String() != "demo\n" {
-		t.Errorf("the tool found %q in %s, want demo", out.String(), vmhost.ToolModuleEnv)
+		t.Errorf("the tool found %q in %s, want demo", out.String(), vmhost.ToolPackageEnv)
 	}
 }
 

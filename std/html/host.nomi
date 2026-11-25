@@ -9,19 +9,19 @@ end
 
 /// Text escaped for element content or a quoted attribute value: `&`, `<`,
 /// `>`, `"` and `'` as character references.
-pub host fn escape(text: String) -> String
+host fn escape(text: String) -> String
 
 /// The URL itself when it is relative or its scheme is http, https, mailto
 /// or tel, else `about:invalid#unsafe-url`.
-pub host fn filter_url(text: String) -> String
+host fn filter_url(text: String) -> String
 
 /// One URL path segment, percent-encoded, `:` included.
-pub host fn escape_url_path(text: String) -> String
+host fn escape_url_path(text: String) -> String
 
 /// Text with its character references decoded as HTML5 decodes them in
 /// element content: `html.unescape`.
-pub host fn unescape_references(text: String) -> String
+host fn unescape_references(text: String) -> String
 
 /// What the named character reference `&name;` stands for, or None:
 /// `html.entity`.
-pub host fn named_reference(name: String) -> Option<String>
+host fn named_reference(name: String) -> Option<String>

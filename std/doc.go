@@ -15,28 +15,28 @@
 // std/http over net/http, std/toml over BurntSushi/toml, std/passwords'
 // Argon2id, scrypt and bcrypt and std/cipher's ChaCha20-Poly1305 over
 // golang.org/x/crypto). lib/ holds
-// first-party modules that carry an engine of their own or are
+// first-party packages that carry an engine of their own or are
 // opinionated layers over std: lib/sql/sqlite (SQLite) and lib/image
-// (C image codecs), each compiled to WebAssembly in the module and run by
+// (C image codecs), each compiled to WebAssembly in the package and run by
 // std::wasm, and lib/markdown (CommonMark with GitHub's extensions),
 // lib/sql/postgres (the Postgres driver, over std::net and std::tls),
 // lib/sql/migrate (the migration runner sqlkit's `migrate` calls),
 // lib/sql/sqlkit, lib/jobs/postgres and lib/storage/s3, which are Nomi
-// alone over std and the drivers. No lib module binds Go.
+// alone over std and the drivers. No lib package binds Go.
 //
-// Each lib module is a directory of this repository with its own
+// Each lib package is a directory of this repository with its own
 // nomi.toml, and holds no Go. One release tag versions the repository, so
-// every lib module a project depends on is taken at that one tag. A module
+// every lib package a project depends on is taken at that one tag. A package
 // that depends on a sibling names it in [dependencies] by the sibling's
 // directory alone (`sqlite = { dir = "../sqlite" }`), which a project that
-// fetches the module reads as the sibling at the same tag (internal/modcache
+// fetches the package reads as the sibling at the same tag (internal/pkgcache
 // package doc), so a sibling's entry never needs a version.
 //
 // TestLibModules in cmd/nomi runs their Nomi tests, the shop example's
 // generated-code check and `nomi effects --check` on each. Its postgres
 // runs skip without `initdb` and `postgres` on PATH and on
-// Windows. The tour attaches the Nomi sources of each lib module a block
-// imports (internal/tourmodules package doc).
+// Windows. The tour attaches the Nomi sources of each lib package a block
+// imports (internal/tourpackages package doc).
 //
 // # What host means
 //
@@ -58,7 +58,7 @@
 //     OS facility, and keeping them out of rt puts their dependency and
 //     their binary size on the programs that ask for them. std/calendar is
 //     why a hello-world artifact contains no `time/tzdata`. The stdlib is
-//     one Nomi module, so such a package is not separately distributable
+//     one Nomi package, so such a Go package is not separately distributable
 //     and carries no nomi.toml.
 //
 // # Modules written only in Nomi

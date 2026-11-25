@@ -11,8 +11,8 @@ type StdHostType struct {
 // The names of std's `host type`s whose values are rt's own Go structs
 // (std/io's Reader, std/http/host's Client, ...). Such a type declares no
 // `impl Debug`, so its Debug is the universal default, the bare type name
-// (spec §12 *Display and Debug*), at the top and nested; its Display, which
-// a values: row reads, is `<Name>`, as a HostHandle's is. Dynamic, Context
+// (spec §12 *Display and Debug*), at the top and nested, and a values: row
+// reads it the same way, as a HostHandle's. Dynamic, Context
 // and Supervisor are absent: Dynamic's Debug is std's impl, and the other
 // two render as their Opaque text.
 //

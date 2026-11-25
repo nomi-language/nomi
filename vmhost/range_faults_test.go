@@ -24,17 +24,18 @@ fn main()
 end
 `, "line 7: Decimal.round: scale 4294967298 is past a Decimal's, which is -2147483648 to 2147483647"},
 		{"TLS cipher suite", `import
+    std::http.Client
     std::io
     std::tls
 end
 
 fn main()
-    case tls.ClientConfig.host(tls.ClientConfig{cipher_suites: Some([0x1C02F])})
+    case Client.with_tls(Client.new(), tls.ClientConfig{cipher_suites: Some([0x1C02F])})
         Ok(_)  -> io.print("built")
         Err(e) -> io.print(e)
     end
 end
-`, "line 7: tls: cipher suite 0x1C02F is past a suite ID's 16 bits, 0x0000 to 0xFFFF"},
+`, "line 8: tls: cipher suite 0x1C02F is past a suite ID's 16 bits, 0x0000 to 0xFFFF"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

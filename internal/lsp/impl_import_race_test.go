@@ -26,7 +26,7 @@ import (
 // analysis.TestDocumentManager_BuildLeavesOtherDocumentsNodesAlone.
 func TestRPC_ImplImportCheckWhileSiblingIsRead(t *testing.T) {
 	fixture := filepath.Join("..", "irbuild", "testdata", "sibimpl_cycle")
-	files := map[string]string{"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n"}
+	files := map[string]string{"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n"}
 	for _, name := range []string{"main.nomi", "decls.nomi", "back.nomi", "hop.nomi"} {
 		src, err := os.ReadFile(filepath.Join(fixture, name))
 		if err != nil {

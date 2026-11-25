@@ -12,14 +12,14 @@ import (
 // parameters, no result type and a body the parser splits into patterns:
 // white space separates them, and a pattern holding a space is written in
 // double quotes. What each pattern matches is the front end's to find.
-func (p *Parser) parseEmbedDecl(kwTok, nameTok token.Token, public bool) (ast.Node, error) {
+func (p *Parser) parseEmbedDecl(kwTok, nameTok token.Token, vis ast.Visibility) (ast.Node, error) {
 	decl := &ast.EmbedDecl{
-		Name:     nameTok.Lexeme,
-		Public:   public,
-		Line:     kwTok.Line,
-		Col:      kwTok.Col,
-		NameLine: nameTok.Line,
-		NameCol:  nameTok.Col,
+		Name:       nameTok.Lexeme,
+		Visibility: vis,
+		Line:       kwTok.Line,
+		Col:        kwTok.Col,
+		NameLine:   nameTok.Line,
+		NameCol:    nameTok.Col,
 	}
 	shape := "it is `embed name `pattern``, with one or more file patterns between the backticks"
 	if p.atEnd() {

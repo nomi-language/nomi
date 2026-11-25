@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/nomi-language/nomi/internal/osreach"
-	"github.com/nomi-language/nomi/internal/stdio"
 	"github.com/nomi-language/nomi/rt"
 )
 
@@ -89,27 +88,68 @@ func connWith(ctx context.Context, c net.Conn) *conn {
 // streamFailure is the io.Error a read or write of the stream named name
 // answers for err, for every stream this package makes: a connection, a
 // request or response body, a chunked body, a multipart part. The errors
-// of net/http and net, which internal/stdio does not link, are named
-// here: a body the server discarded and closed, a hijacked response and a
-// closed connection are `Closed`, and a chunk size line too long to read
-// is `Corrupt`. Every other error is a file's or a process's stream's, as
-// stdio.Classify sorts it: a read past the deadline `set_read_deadline`
-// set is `TimedOut`.
+// of net/http, net and crypto/tls, which rt does not link, are named here.
+// A body the server discarded and closed, a hijacked response, a closed
+// connection, and a response body written past its Content-Length or
+// given a status that has none are `Closed`; a chunk size line too long to
+// read is `Corrupt`. Over TLS, an alert the peer sent is `Reset`, as a
+// reset connection is, and a record that does not decode or authenticate,
+// for which Go sends the peer an alert, is `Corrupt`. rt.IOErrorOf sorts
+// every other error: a read past the deadline `set_read_deadline` set is
+// `TimedOut`.
 func streamFailure(name string) func(op string, err error) rt.IOError {
 	return func(op string, err error) rt.IOError {
+		var alert *net.OpError
+		var record tls.RecordHeaderError
 		switch {
-		case errors.Is(err, http.ErrBodyReadAfterClose), errors.Is(err, http.ErrHijacked), errors.Is(err, net.ErrClosed):
+		case errors.Is(err, http.ErrBodyReadAfterClose), errors.Is(err, http.ErrHijacked), errors.Is(err, net.ErrClosed),
+			errors.Is(err, http.ErrBodyNotAllowed), errors.Is(err, http.ErrContentLength):
 			return rt.IOError{Tag: rt.TagIOClosed}
 		case errors.Is(err, http.ErrLineTooLong):
 			return rt.IOError{Tag: rt.TagIOCorrupt, Path: name, Reason: "a chunk size line is too long"}
+		case errors.As(err, &alert) && alert.Op == tlsPeerAlert:
+			return rt.IOError{Tag: rt.TagIOReset, Path: name}
+		case errors.As(err, &alert) && alert.Op == tlsOwnAlert:
+			return rt.IOError{Tag: rt.TagIOCorrupt, Path: name, Reason: tlsRecordReason + strings.TrimPrefix(alert.Err.Error(), "tls: ")}
+		case errors.As(err, &record):
+			return rt.IOError{Tag: rt.TagIOCorrupt, Path: name, Reason: tlsRecordReason + record.Msg}
 		}
-		return stdio.Classify(op, name, err)
+		return rt.IOErrorOf(op, name, err)
+	}
+}
+
+// tlsPeerAlert and tlsOwnAlert are the operations crypto/tls names the
+// alert a connection fails with: one the peer sent, and one Go sent the
+// peer over a record it read. Go exports neither these words nor the
+// alert's type, so they are matched as Go writes them, and
+// TestStreamFailure_TLSAlertsOnAConnection holds the match to Go's
+// behaviour.
+const (
+	tlsPeerAlert = "remote error"
+	tlsOwnAlert  = "local error"
+)
+
+// tlsRecordReason begins a TLS record's Corrupt reason.
+const tlsRecordReason = "a TLS record is not valid: "
+
+// decodedFailure is streamFailure for a stream that decodes another Nomi
+// stream, a chunked body or a multipart part. A failure of its input
+// reaches the program as the input's own io.Error, so an error
+// streamFailure names no variant for is the decoder's: the data does not
+// decode, and it is `Corrupt` for reason.
+func decodedFailure(name, reason string) func(op string, err error) rt.IOError {
+	fail := streamFailure(name)
+	return func(op string, err error) rt.IOError {
+		if e := fail(op, err); e.Tag != rt.TagIOOther {
+			return e
+		}
+		return rt.IOError{Tag: rt.TagIOCorrupt, Path: name, Reason: reason}
 	}
 }
 
 // netErr is err, from operation op on address, as a net.Error variant's
 // parts: a TLS failure as tls.Error's, else Go's error sorted by what
-// happened, a system's failure by its errno as stdio.Errno reads it on
+// happened, a system's failure by its errno as rt.Errno reads it on
 // every system.
 func netErr(op, address string, err error) *rt.List[string] {
 	if isTLSError(err) {
@@ -120,7 +160,7 @@ func netErr(op, address string, err error) *rt.List[string] {
 	var parse *net.ParseError
 	var timeout interface{ Timeout() bool }
 	var lacks unsupported
-	switch errno := stdio.Errno(err); {
+	switch errno := rt.Errno(err); {
 	case errors.As(err, &lacks):
 		return listOf([]string{"Unsupported", op, string(lacks)})
 	case errors.As(err, &dns):

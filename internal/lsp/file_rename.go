@@ -29,7 +29,7 @@ func fileRenameFilters() []protocol.FileOperationFilter {
 }
 
 // workspaceWillRenameFiles answers a rename or move of .nomi files or of
-// folders with the edits that keep every import of them in the workspace
+// folders with the edits that keep every import of them in the editor folder
 // pointing at them: the import path, and where a path-only import without
 // `as` binds the file under its last segment, each use of that qualifier
 // (`users.make()` becomes `people.make()`).
@@ -72,7 +72,7 @@ func moved(moves []fileMove, path string) (string, bool) {
 	return "", false
 }
 
-// importRenameEdits computes the edits for moves over the workspace's open
+// importRenameEdits computes the edits for moves over the editor folder's open
 // documents and its .nomi files on disk.
 func importRenameEdits(dm *analysis.DocumentManager, moves []fileMove) *protocol.WorkspaceEdit {
 	// An import of a moved file names its last segment, or for a folder
@@ -85,7 +85,7 @@ func importRenameEdits(dm *analysis.DocumentManager, moves []fileMove) *protocol
 	for _, uri := range dm.OpenURIs() {
 		paths[uriToPath(uri)] = true
 	}
-	if root := dm.WorkspaceRoot(); root != "" {
+	if root := dm.EditorFolder(); root != "" {
 		for _, p := range findNomiFiles(root) {
 			paths[p] = true
 		}
@@ -160,7 +160,7 @@ func importEntries(nodes []ast.Node) []*ast.ImportStmt {
 
 // importTarget resolves an import's path to the project file it names, as
 // the analyzer does: against the importing file's project root, after
-// stripping the module's own name when the path starts with it, taking
+// stripping the package's own name when the path starts with it, taking
 // the longest prefix of the path that names a file (the rest of a
 // drill-through path, `models/users.User.{name}`, names owners inside
 // it). It also returns the stripped prefix ("" or the module name) and n,

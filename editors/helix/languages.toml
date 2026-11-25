@@ -39,8 +39,9 @@ completion = [
 ]
 args = { mode = "test", program = "{0}", line = "{1}" }
 
-# The TOML files the language server reads: a module's nomi.toml, and its
-# phrase catalogs, the TOML files under `locales/`. Helix's TOML grammar,
+# The TOML files the language server reads: a module's nomi.toml, a
+# workspace's nomi-workspace.toml, and a module's phrase catalogs, the TOML
+# files under `locales/`. Helix's TOML grammar,
 # and `nomi lsp` for their diagnostics, completion, hover and quick fixes. Helix
 # picks a language by path, so a module whose `[i18n].catalogs` names
 # another directory adds its own glob here.
@@ -48,12 +49,12 @@ args = { mode = "test", program = "{0}", line = "{1}" }
 name = "nomi-catalog"
 scope = "source.toml.nomi-catalog"
 grammar = "toml"
-file-types = [{ glob = "nomi.toml" }, { glob = "locales/**/*.toml" }]
-roots = ["nomi.toml"]
+file-types = [{ glob = "nomi.toml" }, { glob = "nomi-workspace.toml" }, { glob = "locales/**/*.toml" }]
+roots = ["nomi.toml", "nomi-workspace.toml"]
 comment-tokens = ["#"]
 indent = { tab-width = 2, unit = "  " }
 language-servers = ["nomi"]
 
 [[grammar]]
 name = "nomi"
-source = { git = "https://github.com/nomi-language/tree-sitter-nomi", rev = "1c887dfc5079bbb3340b71b35a028edf531f72a8" }
+source = { git = "https://github.com/nomi-language/tree-sitter-nomi", rev = "49500f684cce783db6e709dd44e9ed9de61d8ea2" }

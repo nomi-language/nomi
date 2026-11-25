@@ -52,10 +52,12 @@ func (g *gen) irPos(line, col int) ir.Pos {
 	return g.ownPos(ir.At(g.nomiPath, line, col))
 }
 
-// ownPos is p, a position in this gen's file, marked as a stdlib position
+// ownPos is p, a position in this gen's file, as a line of what the
+// file's author wrote (Module.LinesAbove), and marked as a stdlib position
 // when this gen lowers a stdlib module, shared or the program's own
-// (ir.Pos.WithStdlib).
+// (ir.Pos.WithStdlib). Every position the builder lowers passes here.
 func (g *gen) ownPos(p ir.Pos) ir.Pos {
+	p = p.Below(g.linesAbove)
 	if g.stdModule != "" || g.programStd {
 		return p.WithStdlib()
 	}

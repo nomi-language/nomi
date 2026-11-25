@@ -28,14 +28,14 @@ func TestOpenFromRecordReadsCatalogs(t *testing.T) {
 	}
 	texts := map[string]string{"main": p.texts["main"], "cart": p.texts["cart"]}
 	writer := newManager()
-	writer.SetWorkspaceRoot(p.dir)
+	writer.SetEditorFolder(p.dir)
 	writer.Open(uri("main"), texts["main"])
 	writer.NoteLoweredClean(uri("main"), texts["main"], nil)
 	if _, stored := writer.StoredPrograms(); stored == 0 {
 		t.Fatal("no record was written for a program that reads catalogs")
 	}
 	open := func(dm *analysis.DocumentManager) {
-		dm.SetWorkspaceRoot(p.dir)
+		dm.SetEditorFolder(p.dir)
 		for _, key := range []string{"main", "cart"} {
 			dm.Open(uri(key), texts[key])
 			dm.AnalyzeLatest(context.Background(), uri(key))

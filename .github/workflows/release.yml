@@ -54,6 +54,15 @@ jobs:
           go-version-file: go.mod
           check-latest: true
 
+      # `nomi` carries the VS Code extension, packaged with npm, and the Zed
+      # extension's WebAssembly, built with cargo for wasm32-wasip2.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Add the Zed extension's Rust target
+        run: rustup target add wasm32-wasip2
+
       - name: Build the release matrix
         run: ./scripts/release.sh "${{ github.event.inputs.version || github.ref_name }}"
 

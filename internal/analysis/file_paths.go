@@ -53,7 +53,7 @@ type ImportedPath struct {
 // DirectoryBinding is what a directory import binds (SymbolDirectory).
 type DirectoryBinding struct {
 	// Path is the import's path as resolution reads it: `views/admin`,
-	// `std`, or a module's name for its root.
+	// `std`, or a package's name for its root.
 	Path []string
 	// Spelled is the path as written, `views::admin`.
 	Spelled string
@@ -82,16 +82,16 @@ func importSpelledPath(n *ast.ImportStmt) string {
 
 // importParentDir is the directory to import so that a path at a use
 // reaches the file or directory n imports: `db` for `db::posts`, the
-// module's name for a file at its root, "" when there is none to name.
+// package's name for a file at its root, "" when there is none to name.
 func (b *builder) importParentDir(n *ast.ImportStmt) string {
 	spelled := strings.Split(importSpelledPath(n), ast.PathSeparator)
 	if len(spelled) > 1 {
 		return strings.Join(spelled[:len(spelled)-1], ast.PathSeparator)
 	}
-	if t := b.importDest(spelled); t.named && t.module != b.inModule {
+	if t := b.importDest(spelled); t.named && t.pkg != b.inPackage {
 		return spelled[0]
 	}
-	return b.moduleIndex.selfName(b.inModule, b.currentModuleName)
+	return b.packageIndex.selfName(b.inPackage, b.currentPackageName)
 }
 
 // bindShortName binds sym, a path-only import's file or directory, under
@@ -230,15 +230,15 @@ func lastPathSegment(spelled string) string {
 }
 
 // directoryOf answers what path, an import's path that resolved to no file,
-// names when it names a directory, or nil: a directory of the module, the
+// names when it names a directory, or nil: a directory of the package, the
 // standard library's root (`std`), a dependency's root (its name, when it
-// has no file of that name), or the importing module's root (its name).
+// has no file of that name), or the importing package's root (its name).
 func (b *builder) directoryOf(path []string, miss *importMiss) *DirectoryError {
 	if miss == nil {
 		return nil
 	}
 	if miss.dir != nil {
-		if miss.dir.Module {
+		if miss.dir.Package {
 			return nil
 		}
 		return miss.dir
@@ -250,7 +250,7 @@ func (b *builder) directoryOf(path []string, miss *importMiss) *DirectoryError {
 	switch {
 	case len(miss.path) == 0 && miss.dep != "":
 		root = miss.root
-	case len(path) == 1 && path[0] != "" && path[0] == b.moduleIndex.selfName(b.inModule, b.currentModuleName):
+	case len(path) == 1 && path[0] != "" && path[0] == b.packageIndex.selfName(b.inPackage, b.currentPackageName):
 		root = b.projectRoot
 	default:
 		return nil
@@ -282,18 +282,14 @@ func (b *builder) stdDirectory() *DirectoryError {
 
 // publicStdModules is the std modules a program may import, sorted, each
 // spelled from std's root with `::` (`io`, `storage::testing`): every
-// module but the prelude, an internal one (`fs::host`) and one under a
-// directory or file whose name starts with `_`.
+// module IsPublicStdModule answers for. A module of std's plumbing
+// (`fs::host`) declares nothing public.
 func (b *builder) publicStdModules() []string {
 	var out []string
 	for _, name := range b.stdlibModuleNames() {
-		if name == "prelude" || strings.HasPrefix(name, "_") || strings.Contains(name, "/_") {
-			continue
+		if IsPublicStdModule(name) {
+			out = append(out, strings.ReplaceAll(name, "/", ast.PathSeparator))
 		}
-		if _, internal := internalStdModules[name]; internal {
-			continue
-		}
-		out = append(out, strings.ReplaceAll(name, "/", ast.PathSeparator))
 	}
 	return out
 }
@@ -370,46 +366,37 @@ func (b *builder) reachThroughDirectory(dirSym *Symbol, use string, scope *Scope
 }
 
 // reachAccessError is the message for a path at a use that reaches a file
-// the file may not import: one inside another subtree's `internal/`, or an
-// internal std module. "" when it may.
+// the file may not import: a file in another package's directory. "" when
+// it may.
 func (b *builder) reachAccessError(full []string, spelled string) string {
 	if full[0] == "std" {
-		if len(full) < 2 || IsStdlibKey(b.file.Origin) {
-			return ""
-		}
-		if owner, internal := internalStdModules[strings.Join(full[1:], "/")]; internal {
-			return fmt.Sprintf("`%s` is internal to std::%s", spelled, owner)
-		}
 		return ""
 	}
-	if err := b.internalAccessError(full); err != nil {
-		return err.Error()
-	}
-	// A directory holding a nomi.toml is another module's root.
+	// A directory holding a nomi.toml is another package's root.
 	t := b.importDest(full)
 	root, rel := t.root, t.rest
 	if root == "" {
 		return ""
 	}
 	for end := 1; end < len(rel); end++ {
-		if isModuleRoot(filepath.Join(append([]string{root}, rel[:end]...)...)) {
-			return fmt.Sprintf("`%s` is in another module's directory: %s/ holds a nomi.toml", spelled, strings.Join(rel[:end], "/"))
+		if isPackageRoot(filepath.Join(append([]string{root}, rel[:end]...)...)) {
+			return fmt.Sprintf("`%s` is in another package's directory: %s/ holds a nomi.toml", spelled, strings.Join(rel[:end], "/"))
 		}
 	}
 	return ""
 }
 
 // reachError is the error for segs, a path below dirSym's name whose file
-// full did not resolve: a directory, another module's directory, or no
+// full did not resolve: a directory, another package's directory, or no
 // file, with what the directory holds.
 func (b *builder) reachError(dirSym *Symbol, segs, full []string, miss *importMiss) TypeError {
 	spell := func(parts ...string) string {
 		return strings.Join(append([]string{dirSym.Name}, parts...), ast.PathSeparator)
 	}
 	written := spell(segs...)
-	if miss.dir != nil && miss.dir.Module {
-		return TypeError{Message: fmt.Sprintf("`%s` is another module's directory: it holds a nomi.toml", written)}.
-			WithHint("a module is reached by its own name: add it with `nomi add` and import it by that name")
+	if miss.dir != nil && miss.dir.Package {
+		return TypeError{Message: fmt.Sprintf("`%s` is another package's directory: it holds a nomi.toml", written)}.
+			WithHint("a package is reached by its own name: add it with `nomi add` and import it by that name")
 	}
 	if miss.dir != nil {
 		e := TypeError{Message: fmt.Sprintf("`%s` is a directory, not a file", written)}

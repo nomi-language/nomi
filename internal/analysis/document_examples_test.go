@@ -27,7 +27,7 @@ func TestDocumentManager_LambdaPassedAsCommandBuilderIsTyped(t *testing.T) {
 	lib := loadStd()
 	dm := analysis.NewDocumentManager()
 	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
-	dm.SetWorkspaceRoot(root)
+	dm.SetEditorFolder(root)
 
 	doc := dm.Open(fileuri.FromPath(path), string(content))
 	if doc.Analysis == nil {

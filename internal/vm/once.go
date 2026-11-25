@@ -65,7 +65,7 @@ func (m *Machine) forceOnce(fr *frame, n *ir.Ref) (err error) {
 			}
 		}
 	}()
-	v := cell.value.Get(fr.runtime, func(runtime *rt.Frame) any {
+	v := cell.value.Get(fr.runtime, siteOf(nil, n.Pos()), func(runtime *rt.Frame) any {
 		v, err := m.activate(cell.body, nil, nil, runtime, false, fr.depth, nil)
 		if err != nil {
 			panic(onceFailure{err})

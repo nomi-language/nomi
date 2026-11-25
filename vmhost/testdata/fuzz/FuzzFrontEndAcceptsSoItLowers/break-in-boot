@@ -1,0 +1,2 @@
+go test fuzz v1
+string("struct App\n    port: Int\nend\n\npub fn boot(startup: Startup) -> Result<App, String>\n    if Iter.is_empty(startup.args) then break Ok(App{port: 1})\n    Ok(App{port: 2})\nend\n\nfn main()\n    dbg App.port\nend\n")

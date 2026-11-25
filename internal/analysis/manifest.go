@@ -12,33 +12,33 @@ import (
 
 	"github.com/nomi-language/nomi/internal/cldrfull"
 	"github.com/nomi-language/nomi/internal/effects"
-	"github.com/nomi-language/nomi/internal/modcache"
+	"github.com/nomi-language/nomi/internal/pkgcache"
 	"github.com/nomi-language/nomi/internal/stdformat"
 	"github.com/nomi-language/nomi/internal/stdlocale"
 )
 
 // ErrManifestMissing is returned by LoadManifest when nomi.toml is
-// absent. Callers may treat this as "not a Nomi module" or as an
+// absent. Callers may treat this as "not a package" or as an
 // error depending on context.
 var ErrManifestMissing = errors.New("nomi.toml not found")
 
 // Manifest is the in-memory representation of nomi.toml. Fields
 // mirror the design doc's TOML schema:
 //
-//	[module]
+//	[package]
 //	name = "..."
 //	entry_points = [...]
 //
 //	[dependencies]
 //	name = { repo = "...", version = "..." }
 type Manifest struct {
-	Name string // [module].name
-	// Dependencies is the [dependencies] table as modcache.ParseModuleFile
-	// reads it, sorted by name: each module the module's files import, by
+	Name string // [package].name
+	// Dependencies is the [dependencies] table as pkgcache.ParseManifest
+	// reads it, sorted by name: each package the package's files import, by
 	// the name they import it by.
-	Dependencies []modcache.Requirement
-	// EntryPoints is [module].entry_points: paths under the module root,
-	// .nomi implicit. The module's tools are entry points too without being
+	Dependencies []pkgcache.Requirement
+	// EntryPoints is [package].entry_points: paths under the package root,
+	// .nomi implicit. The package's tools are entry points too without being
 	// listed (IsEntry, Entries).
 	EntryPoints []string
 	// Locales is [i18n].locales, each tag canonical, in the manifest's
@@ -53,7 +53,7 @@ type Manifest struct {
 	// catalogs may leave a phrase out, which then shows in the source
 	// locale. The program carries their data too.
 	PartialLocales []string
-	// Catalogs is [i18n].catalogs: the directory under the module root
+	// Catalogs is [i18n].catalogs: the directory under the package root
 	// holding one directory of catalogs per locale. "locales" when unset.
 	Catalogs string
 	// WebEmbedded is [i18n].web_embedded, canonical: the carried locales
@@ -62,24 +62,24 @@ type Manifest struct {
 	// source locale alone (WebLocales).
 	WebEmbedded []string
 	// CustomCurrencies is [money].custom_currencies: the custom currencies
-	// a “Currency`…` “ or “Money`…` “ literal in this module may name,
+	// a “Currency`…` “ or “Money`…` “ literal in this package may name,
 	// each as its literal writes it (`PTS:0`), in the manifest's order. Nil
 	// or empty allows none.
 	CustomCurrencies []string
 	// Effects is the [effects.self] and [effects.deps]
-	// tables: the effects the module's own code, and the code of the
-	// modules it depends on, may have. Nil when the manifest has neither
+	// tables: the effects the package's own code, and the code of the
+	// packages it depends on, may have. Nil when the manifest has neither
 	// table, which holds nothing.
 	Effects *Effects
 }
 
 // Effects is nomi.toml's effects tables: the effects the
-// module's own files, and the files of the modules it depends on, may have
+// package's own files, and the files of the packages it depends on, may have
 // (vmhost's EffectCallsNotAllowed). A std list's names are `std::` and a
 // std module as an import writes it (`std::fs`), or `std::startup`; a list
 // of dependencies holds their names as [dependencies] writes them. The parser
 // checks each entry's form; whether a std module has functions with
-// effects and a module is one the project requires is the program's to
+// effects and a package is one the project requires is the program's to
 // answer (vmhost).
 //
 // When the project has an [effects.deps] table, a dependency's own
@@ -89,10 +89,10 @@ type Manifest struct {
 // own builds and are not read when it is a dependency.
 type Effects struct {
 	// Self is [effects.self] with [effects.self.modules], nil
-	// when the manifest leaves both out, which holds the module's own code
+	// when the manifest leaves both out, which holds the package's own code
 	// to nothing.
 	Self *SelfEffects
-	// Deps is [effects.deps] with [effects.deps.modules], nil
+	// Deps is [effects.deps] with [effects.deps.packages], nil
 	// when the manifest leaves both out, which holds the dependencies to
 	// nothing.
 	Deps *DepsEffects
@@ -101,9 +101,9 @@ type Effects struct {
 // EntryLists is the lists that hold entries, each a table under
 // [effects] keyed by the code an entry is for:
 // [effects.self.modules] by a module of the project as its own code
-// imports it, and [effects.deps.modules] by a dependency's name as
+// imports it, and [effects.deps.packages] by a dependency's name as
 // [dependencies] names it.
-var EntryLists = []string{ListSelfModules, ListDepsModules}
+var EntryLists = []string{ListSelfModules, ListDepsPackages}
 
 // Entries is the table of entries list names, one of EntryLists: each
 // entry's key and its std names, nil when c leaves the table out.
@@ -111,8 +111,8 @@ func (c *Effects) Entries(list string) map[string][]string {
 	switch {
 	case list == ListSelfModules && c.Self != nil:
 		return c.Self.Modules
-	case list == ListDepsModules && c.Deps != nil:
-		return c.Deps.Modules
+	case list == ListDepsPackages && c.Deps != nil:
+		return c.Deps.Packages
 	}
 	return nil
 }
@@ -124,7 +124,7 @@ func EntryKeyPath(list, key string) []string {
 }
 
 // SelfEffects is [effects.self] and [effects.self.modules]:
-// the effects the calls written in the module's own files may have.
+// the effects the calls written in the package's own files may have.
 type SelfEffects struct {
 	// Std is the effects its own files may have, by std name. Empty when
 	// the table leaves it out, which allows no std call.
@@ -142,12 +142,12 @@ type SelfEffects struct {
 	Modules map[string][]string
 }
 
-// DepsEffects is [effects.deps] and [effects.deps.modules]:
-// the effects the calls written in the files of the modules the project
+// DepsEffects is [effects.deps] and [effects.deps.packages]:
+// the effects the calls written in the files of the packages the project
 // depends on, directly or transitively, may have.
 type DepsEffects struct {
 	// EntriesRequired is entries_required: every dependency whose Nomi
-	// files the program loads must have an entry under Modules or an
+	// files the program loads must have an entry under Packages or an
 	// [effects.self] of its own.
 	EntriesRequired bool
 	// Std is the most any dependency's files may have, a ceiling over
@@ -157,11 +157,11 @@ type DepsEffects struct {
 	// StdInTests is added to Std when the roots are test cases. The table
 	// sets it only beside Std.
 	StdInTests []string
-	// Modules is [effects.deps.modules]: for a module the project
+	// Packages is [effects.deps.packages]: for a package the project
 	// needs, by its name as [dependencies] names it, the std names that
-	// module's own files may have. A dependency with no entry is held by
+	// package's own files may have. A dependency with no entry is held by
 	// Std and its own [effects.self] alone.
-	Modules map[string][]string
+	Packages map[string][]string
 }
 
 // StdFor is the std names s allows its own files, with StdInTests when
@@ -182,12 +182,12 @@ func (d *DepsEffects) StdFor(tests bool) []string {
 	return d.Std
 }
 
-// ToolsDir is the directory under a module's root that holds its tools,
-// the programs `nomi tool <module> <name>` runs.
+// ToolsDir is the directory under a package's root that holds its tools,
+// the programs `nomi tool <package> <name>` runs.
 const ToolsDir = "tools"
 
-// IsToolFile reports whether modRel, a file's module-relative path with
-// "/" separators and without .nomi, is one of its module's tools: a file
+// IsToolFile reports whether modRel, a file's package-relative path with
+// "/" separators and without .nomi, is one of its package's tools: a file
 // under tools/ that is not a test file and is in no internal/ directory,
 // where a tool's helpers go. Every tool is an entry point.
 func IsToolFile(modRel string) bool {
@@ -198,16 +198,16 @@ func IsToolFile(modRel string) bool {
 	return !slices.Contains(strings.Split(rest, "/")[:strings.Count(rest, "/")], "internal")
 }
 
-// IsEntry reports whether modRel, a file's module-relative path without
-// .nomi, is an entry point of the module: listed in entry_points, or a
+// IsEntry reports whether modRel, a file's package-relative path without
+// .nomi, is an entry point of the package: listed in entry_points, or a
 // tool (IsToolFile).
 func (m *Manifest) IsEntry(modRel string) bool {
 	return IsToolFile(modRel) || slices.Contains(m.EntryPoints, modRel)
 }
 
-// Entries is every entry point of the module rooted at root: entry_points
+// Entries is every entry point of the package rooted at root: entry_points
 // in the manifest's order, then each tool under root's tools/ directory
-// that entry_points does not list, by path. Each is module-relative, as
+// that entry_points does not list, by path. Each is package-relative, as
 // entry_points writes it.
 func (m *Manifest) Entries(root string) []string {
 	out := slices.Clone(m.EntryPoints)
@@ -276,7 +276,7 @@ func (m *Manifest) Source() string {
 	return m.SourceLocale
 }
 
-// CatalogDir is the catalog directory under the module root: Catalogs, or
+// CatalogDir is the catalog directory under the package root: Catalogs, or
 // the default.
 func (m *Manifest) CatalogDir() string {
 	if m == nil || m.Catalogs == "" {
@@ -294,17 +294,13 @@ const (
 // manifestFile is the TOML decoding shape. Separate from Manifest so
 // the exported type doesn't expose nested anonymous structs.
 type manifestFile struct {
-	Module struct {
+	Package struct {
 		Name        string   `toml:"name"`
 		Nomi        string   `toml:"nomi"`
 		EntryPoints []string `toml:"entry_points"`
-	} `toml:"module"`
-	Dependencies map[string]modcache.DependencyEntry `toml:"dependencies"`
-	// Indirect is [indirect], which modcache.ParseModuleFile checks: a
-	// repository's key, quoted, and the lowest version the build takes it
-	// at.
-	Indirect map[string]string `toml:"indirect"`
-	I18n     struct {
+	} `toml:"package"`
+	Dependencies map[string]pkgcache.DependencyEntry `toml:"dependencies"`
+	I18n         struct {
 		Locales        *[]string `toml:"locales"`
 		SourceLocale   *string   `toml:"source_locale"`
 		PartialLocales *[]string `toml:"partial_locales"`
@@ -320,20 +316,20 @@ type manifestFile struct {
 			Std             []string            `toml:"std"`
 			StdInTests      []string            `toml:"std_in_tests"`
 			Modules         map[string][]string `toml:"modules"`
-		} "toml:\"self\" keys:\"`std` lists the effects this module's own code may have, by std module, and `std_in_tests` those its tests may also have, `entries_required` makes every module of the project have an entry, and [effects.self.modules] holds an entry for each of its modules\""
+		} "toml:\"self\" keys:\"`std` lists the effects this package's own code may have, by std module, and `std_in_tests` those its tests may also have, `entries_required` makes every module of the project have an entry, and [effects.self.modules] holds an entry for each of its modules\""
 		Deps *struct {
 			EntriesRequired bool                `toml:"entries_required"`
 			Std             []string            `toml:"std"`
 			StdInTests      []string            `toml:"std_in_tests"`
-			Modules         map[string][]string `toml:"modules"`
-		} "toml:\"deps\" keys:\"`std` and `std_in_tests` list the most effects any dependency may have, `entries_required` makes every dependency have an entry, and [effects.deps.modules] holds an entry for each dependency\""
-	} "toml:\"effects\" keys:\"it holds two tables: [effects.self] is the effects this module's own code may have, and [effects.deps] the effects the code of the modules it depends on may have\""
+			Packages        map[string][]string `toml:"packages"`
+		} "toml:\"deps\" keys:\"`std` and `std_in_tests` list the most effects any dependency may have, `entries_required` makes every dependency have an entry, and [effects.deps.packages] holds an entry for each dependency\""
+	} "toml:\"effects\" keys:\"it holds two tables: [effects.self] is the effects this package's own code may have, and [effects.deps] the effects the code of the packages it depends on may have\""
 }
 
 // effectLists checks [effects.self] and [effects.deps]: each
 // std list's names `std::<module>` (effects.NameProblem), each listed
 // once in its list, deps' std_in_tests only beside its std, and each
-// module path under [effects.deps.modules] non-empty. A `host:` name is a
+// dependency name under [effects.deps.packages] non-empty. A `host:` name is a
 // function an embedding Go program supplies, which a manifest cannot
 // allow.
 func effectLists(raw manifestFile, data []byte, sourceLabel string) (*Effects, error) {
@@ -409,7 +405,7 @@ func effectLists(raw manifestFile, data []byte, sourceLabel string) (*Effects, e
 		if c.Deps.StdInTests, err = check("effects.deps", "std_in_tests", d.StdInTests, "effects", "deps", "std_in_tests"); err != nil {
 			return nil, err
 		}
-		if c.Deps.Modules, err = entries(ListDepsModules, d.Modules, "write a dependency's name as [dependencies] names it"); err != nil {
+		if c.Deps.Packages, err = entries(ListDepsPackages, d.Packages, "write a dependency's name as [dependencies] names it"); err != nil {
 			return nil, err
 		}
 	}
@@ -480,7 +476,7 @@ func i18nLocales(raw *[]string, sourceLabel string) ([]string, error) {
 // i18nMessageSettings reads [i18n]'s settings for phrases into m:
 // source_locale, a tag that locales lists when it lists any; partial_locales,
 // tags that locales does not list; and catalogs, a relative directory that
-// stays under the module root.
+// stays under the package root.
 func i18nMessageSettings(m *Manifest, raw manifestFile, sourceLabel string) error {
 	if raw.I18n.SourceLocale != nil {
 		tags, err := i18nLocales(&[]string{*raw.I18n.SourceLocale}, sourceLabel)
@@ -527,7 +523,7 @@ func i18nMessageSettings(m *Manifest, raw manifestFile, sourceLabel string) erro
 	if raw.I18n.Catalogs != nil {
 		dir := filepath.ToSlash(filepath.Clean(*raw.I18n.Catalogs))
 		if *raw.I18n.Catalogs == "" || rootedPath(dir) || dir == "." || dir == ".." || strings.HasPrefix(dir, "../") {
-			return fmt.Errorf("%s: [i18n] catalogs %q is not a directory under the module root", sourceLabel, *raw.I18n.Catalogs)
+			return fmt.Errorf("%s: [i18n] catalogs %q is not a directory under the package root", sourceLabel, *raw.I18n.Catalogs)
 		}
 		m.Catalogs = dir
 	}
@@ -535,7 +531,7 @@ func i18nMessageSettings(m *Manifest, raw manifestFile, sourceLabel string) erro
 }
 
 // rootedPath reports whether p, a manifest path in slash form, names a
-// place from a root rather than from the module root: `/abs` or a drive
+// place from a root rather than from the package root: `/abs` or a drive
 // (`C:/x`, `C:x`). A nomi.toml means the same on every system, so a path
 // that is absolute on any of them is refused on all of them; Windows alone
 // would read `/abs` as under the current drive.
@@ -571,7 +567,7 @@ func LoadManifest(dir string) (*Manifest, error) {
 }
 
 // ParseManifestIn parses data as the nomi.toml of the directory dir, as
-// LoadManifest parses the file there: a table named for a module data's
+// LoadManifest parses the file there: a table named for a package data's
 // [dependencies] names is its tools'.
 func ParseManifestIn(dir string, data []byte) (*Manifest, error) {
 	return parseManifestData(data, filepath.Join(dir, "nomi.toml"), isStdlibManifestDir(dir), func() []string { return toolTables(data) })
@@ -585,20 +581,20 @@ func ParseManifestIn(dir string, data []byte) (*Manifest, error) {
 //
 // Validation rules:
 //
-//   - [module].name is required and must not be whitespace-only.
-//   - [module].name must not be "std" (reserved for the standard library).
-//   - [module].entry_points entries must be non-empty strings.
-//   - [module].entry_points must not contain duplicates.
+//   - [package].name is required and must not be whitespace-only.
+//   - [package].name must not be "std" (reserved for the standard library).
+//   - [package].entry_points entries must be non-empty strings.
+//   - [package].entry_points must not contain duplicates.
 //   - Every table and key is one manifestFile declares (unknownManifestKey),
-//     except a top-level table named for a module the project requires,
-//     which belongs to that module's tools; a manifest given as bytes has
+//     except a top-level table named for a package the project requires,
+//     which belongs to that package's tools; a manifest given as bytes has
 //     no project, so none.
 func ParseManifestData(data []byte, sourceLabel string) (*Manifest, error) {
 	return parseManifestData(data, sourceLabel, false, nil)
 }
 
 // parseManifestData is ParseManifestData. tools answers the names of the
-// tables that belong to other modules' tools (toolTables), asked only when
+// tables that belong to other packages' tools (toolTables), asked only when
 // the manifest has a table it does not know.
 func parseManifestData(data []byte, sourceLabel string, allowStdName bool, tools func() []string) (*Manifest, error) {
 	var raw manifestFile
@@ -606,25 +602,25 @@ func parseManifestData(data []byte, sourceLabel string, allowStdName bool, tools
 	if err != nil {
 		return nil, fmt.Errorf("parse %s: %w", sourceLabel, err)
 	}
-	// The module's [module] and [dependencies], as the module graph reads
-	// them. A module that needs a later nomi is refused before anything
+	// The package's [package] and [dependencies], as the package graph reads
+	// them. A package that needs a later nomi is refused before anything
 	// else is checked, since it may write the rest in a form this nomi
 	// does not read; any other problem there is reported in its turn.
-	mf, mfErr := modcache.ParseModuleFile(data)
-	if tooOld := (*modcache.NomiVersionError)(nil); errors.As(mfErr, &tooOld) {
+	mf, mfErr := pkgcache.ParseManifest(data)
+	if tooOld := (*pkgcache.NomiVersionError)(nil); errors.As(mfErr, &tooOld) {
 		return nil, tooOld
 	}
-	if err := unknownManifestKey(data, md.Undecoded(), md, sourceLabel, tools); err != nil {
+	if err := unknownManifestKey(data, md.Undecoded(), md, sourceLabel, tools, packageSchema); err != nil {
 		return nil, err
 	}
-	if strings.TrimSpace(raw.Module.Name) == "" {
-		return nil, fmt.Errorf("%s: [module] name is required (non-empty, non-whitespace)", sourceLabel)
+	if strings.TrimSpace(raw.Package.Name) == "" {
+		return nil, fmt.Errorf("%s: [package] name is required (non-empty, non-whitespace)", sourceLabel)
 	}
-	if raw.Module.Name == "std" && !allowStdName {
-		return nil, fmt.Errorf("%s: [module] name %q is reserved for the standard library; choose a different name", sourceLabel, raw.Module.Name)
+	if raw.Package.Name == "std" && !allowStdName {
+		return nil, fmt.Errorf("%s: [package] name %q is reserved for the standard library; choose a different name", sourceLabel, raw.Package.Name)
 	}
 	seen := map[string]bool{}
-	for _, e := range raw.Module.EntryPoints {
+	for _, e := range raw.Package.EntryPoints {
 		if e == "" {
 			return nil, fmt.Errorf("%s: entry_points contains an empty string — every entry must name a file", sourceLabel)
 		}
@@ -638,17 +634,17 @@ func parseManifestData(data []byte, sourceLabel string, allowStdName bool, tools
 		return nil, err
 	}
 	if mfErr != nil {
-		var problem *modcache.ManifestProblem
+		var problem *pkgcache.ManifestProblem
 		if errors.As(mfErr, &problem) {
-			return nil, (&ManifestError{Path: sourceLabel, Line: ManifestKeyLine(data, problem.Key...)}).with("%s", problem.Error())
+			return nil, placeManifestProblem(sourceLabel, data, problem)
 		}
 		return nil, fmt.Errorf("parse %s: %w", sourceLabel, mfErr)
 	}
 	m := &Manifest{
-		Name:         raw.Module.Name,
+		Name:         raw.Package.Name,
 		Dependencies: mf.Requires,
 
-		EntryPoints:  append([]string(nil), raw.Module.EntryPoints...),
+		EntryPoints:  append([]string(nil), raw.Package.EntryPoints...),
 		Locales:      locales,
 		SourceLocale: DefaultSourceLocale,
 		Catalogs:     DefaultCatalogs,
@@ -666,7 +662,7 @@ func parseManifestData(data []byte, sourceLabel string, allowStdName bool, tools
 }
 
 // IsForeignStdlibDir reports whether dir is the root of a standard library
-// other than this binary's: its nomi.toml names the module "std", and it is
+// other than this binary's: its nomi.toml names the package "std", and it is
 // not StdlibPath(). Another Nomi checkout's std is one.
 func IsForeignStdlibDir(dir string) bool {
 	data, err := ReadManifest(dir)
@@ -677,7 +673,7 @@ func IsForeignStdlibDir(dir string) bool {
 	if err := toml.Unmarshal(data, &raw); err != nil {
 		return false
 	}
-	return raw.Module.Name == "std" && !isStdlibManifestDir(dir)
+	return raw.Package.Name == "std" && !isStdlibManifestDir(dir)
 }
 
 func isStdlibManifestDir(dir string) bool {

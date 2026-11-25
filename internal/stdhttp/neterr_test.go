@@ -7,7 +7,7 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/nomi-language/nomi/internal/stdio"
+	"github.com/nomi-language/nomi/rt"
 )
 
 // netErrCase is a system error a socket call returns, wrapped as Go's net
@@ -51,7 +51,7 @@ func TestNetErr_UnixErrnosNameTheirVariant(t *testing.T) {
 // a number of Go's own, so a comparison with it never matches the
 // WSAECONNREFUSED a refused dial carries.
 func TestNetErr_WindowsCodesNameTheUnixVariant(t *testing.T) {
-	defer stdio.ReadWindowsCodesForTest()()
+	defer rt.ReadWindowsCodesForTest()()
 	checkNetErrs(t, "Windows", []netErrCase{
 		{"connectex", 10061, "Refused"},     // WSAECONNREFUSED
 		{"connectex", 10051, "Unreachable"}, // WSAENETUNREACH
@@ -64,7 +64,7 @@ func TestNetErr_WindowsCodesNameTheUnixVariant(t *testing.T) {
 	})
 	// A receive reads WSAEMSGSIZE, a datagram longer than its buffer, as
 	// the errno a Unix system would give, which it names Truncated.
-	if got := stdio.Errno(os.NewSyscallError("wsarecvfrom", syscall.Errno(10040))); got != syscall.EMSGSIZE {
+	if got := rt.Errno(os.NewSyscallError("wsarecvfrom", syscall.Errno(10040))); got != syscall.EMSGSIZE {
 		t.Errorf("WSAEMSGSIZE reads as errno %d, want EMSGSIZE", uint64(got))
 	}
 }

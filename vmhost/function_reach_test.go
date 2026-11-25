@@ -122,7 +122,7 @@ end
 // through the functions on the way, and whether nomi.toml's lists allow
 // it; a function that reaches nothing has no line.
 func TestFunctionReach_OwnFunctions(t *testing.T) {
-	const module = "[module]\nname = \"app\"\nentry_points = [\"main\"]\n"
+	const module = "[package]\nname = \"app\"\nentry_points = [\"main\"]\n"
 	dir := writeProject(t, map[string]string{
 		"main.nomi": functionReachMain,
 		"nomi.toml": module + "\n[effects.self]\nstd = [\"std::io\"]\n",
@@ -167,11 +167,11 @@ func TestFunctionReach_ADependencysFunction(t *testing.T) {
 	for _, tc := range []struct {
 		name, app, want string
 	}{
-		{"no tables", "[module]\nname = \"app\"\nentry_points = [\"main\"]\n", "Has effects: `std::fs`."},
-		{"held by deps and its entry", "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.deps]\nstd = [\"std::fs\"]\n\n" +
-			"[effects.deps.modules]\n\"pricing\" = [\"std::fs\"]\n",
+		{"no tables", "[package]\nname = \"app\"\nentry_points = [\"main\"]\n", "Has effects: `std::fs`."},
+		{"held by deps and its entry", "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.deps]\nstd = [\"std::fs\"]\n\n" +
+			"[effects.deps.packages]\n\"pricing\" = [\"std::fs\"]\n",
 			"Has effects: `std::fs`, which `nomi.toml` allows in `[effects.deps]` and in the entry for `pricing`."},
-		{"refused by its entry", "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.deps.modules]\n\"pricing\" = []\n",
+		{"refused by its entry", "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.deps.packages]\n\"pricing\" = []\n",
 			"Has effects: `std::fs`, which `nomi.toml` does not allow in the entry for `pricing`."},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

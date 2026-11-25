@@ -44,9 +44,11 @@ func TestRender_RowAndDebug(t *testing.T) {
 		// The differences.
 		{"struct", point, nil, want{row: "Point{x: 1, y: 2}", display: "Point{x: 1, y: 2}",
 			debug: "Point{y: 2, x: 1}"}},
-		{"host value with no impl", handle, nil, want{row: "<Handle>", display: "<Handle>", debug: "Handle"}},
 		{"hand impl", id, idHook, want{row: "Id(5)", rowWith: "#5", display: "Id(5)", debug: "#5"}},
 		// The agreements.
+		{"host value with no impl", handle, nil, want{row: "Handle", display: "Handle", debug: "Handle"}},
+		{"host value nested", TupleDesc(SlotRef, SlotInt).Make(handle, int64(1)), nil,
+			want{row: "(Handle, 1)", display: "(Handle, 1)", debug: "(Handle, 1)"}},
 		{"Decimal", dec, nil, want{row: "1.50d", display: "1.50", debug: "1.50d"}},
 		{"Dynamic", dyn, nil, want{row: `"hello"`, display: `"hello"`, debug: `"hello"`}},
 		{"String", `f"\.txt`, nil, want{row: `"f\"\\.txt"`, display: `f"\.txt`, debug: `"f\"\\.txt"`}},

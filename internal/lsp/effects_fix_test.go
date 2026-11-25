@@ -49,7 +49,7 @@ func effectFixOf(t *testing.T, path, src string) parser.ParseError {
 
 // The fix of a call nomi.toml's tables do not allow edits nomi.toml, at the
 // key of the table the help names: self's std, or std_in_tests when only a
-// test reaches the call; a dependency's entry under [effects.deps.modules],
+// test reaches the call; a dependency's entry under [effects.deps.packages],
 // with deps' std too when that does not allow it either, in one action; and
 // deps' std or std_in_tests alone. Every other line, comments included, stays, and with the
 // edited file the call is allowed.
@@ -57,7 +57,7 @@ func TestEffectFix_EditsEachList(t *testing.T) {
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
-	const module = "# The app.\n[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n"
+	const module = "# The app.\n[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n"
 	// pricingModule is module naming the dependency the case's files hold.
 	const pricingModule = module + "[dependencies]\npricing = { dir = \"../pricing\" }\n\n"
 	const testsMain = "import\n    std::fs\n    std::io\nend\n\nfn main()\n    io.print(\"hi\")\nend\n\n" +
@@ -66,7 +66,7 @@ func TestEffectFix_EditsEachList(t *testing.T) {
 	const pricingTestMain = "import\n    std::io\n    pricing::rules\nend\n\nfn main()\n    io.print(\"hi\")\nend\n\n" +
 		"test \"loads\"\n    assert rules.load(\"x\") == \"\"\nend\n"
 	pricing := map[string]string{
-		"pricing/nomi.toml":  "[module]\nname = \"pricing\"\n",
+		"pricing/nomi.toml":  "[package]\nname = \"pricing\"\n",
 		"pricing/rules.nomi": "import std::fs\n\npub fn load(path: String) -> String\n    fs.read_text(path) |> Result.with_default(\"\")\nend\n",
 	}
 	cases := []struct {
@@ -79,21 +79,21 @@ func TestEffectFix_EditsEachList(t *testing.T) {
 		name:     "self's std",
 		main:     effectMain,
 		manifest: module + "[effects.self]\n# what main prints\nstd = [\"std::io\"]  # output\n",
-		title:    "Allow std::fs for this module in nomi.toml",
+		title:    "Allow std::fs for this package in nomi.toml",
 		want:     module + "[effects.self]\n# what main prints\nstd = [\"std::io\", \"std::fs\"]  # output\n",
 	}, {
 		name:     "self's std_in_tests",
 		main:     testsMain,
 		manifest: module + "[effects.self]\nstd = [\"std::io\"]\n\n# tests\nstd_in_tests = []\n",
-		title:    "Allow std::fs for this module's tests in nomi.toml",
+		title:    "Allow std::fs for this package's tests in nomi.toml",
 		want:     module + "[effects.self]\nstd = [\"std::io\"]\n\n# tests\nstd_in_tests = [\"std::fs\"]\n",
 	}, {
 		name: "a dependency's entry and deps' std",
 		main: pricingMain,
-		manifest: pricingModule + "[effects.deps]\nstd = [] # all\n\n[effects.deps.modules]\n" +
+		manifest: pricingModule + "[effects.deps]\nstd = [] # all\n\n[effects.deps.packages]\n" +
 			"# prices\n\"pricing\" = []\n",
 		title: "Allow std::fs for pricing in nomi.toml",
-		want: pricingModule + "[effects.deps]\nstd = [\"std::fs\"] # all\n\n[effects.deps.modules]\n" +
+		want: pricingModule + "[effects.deps]\nstd = [\"std::fs\"] # all\n\n[effects.deps.packages]\n" +
 			"# prices\n\"pricing\" = [\"std::fs\"]\n",
 		app:   "app",
 		files: pricing,
@@ -148,9 +148,9 @@ func TestEffectFix_NoneForADependencysOwnList(t *testing.T) {
 	}
 	main := "import\n    std::io\n    pricing::rules\nend\n\nfn main()\n    io.print(rules.load(\"prices.txt\"))\nend\n"
 	dir := writeProject(t, map[string]string{
-		"app/nomi.toml":      "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = [\"std::io\"]\n\n[effects.deps]\nstd = [\"std::io\"]\n\n[dependencies]\npricing = { dir = \"../pricing\" }\n",
+		"app/nomi.toml":      "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = [\"std::io\"]\n\n[effects.deps]\nstd = [\"std::io\"]\n\n[dependencies]\npricing = { dir = \"../pricing\" }\n",
 		"app/main.nomi":      main,
-		"pricing/nomi.toml":  "[module]\nname = \"pricing\"\n\n[effects.self]\nstd = [\"std::io\"]\n",
+		"pricing/nomi.toml":  "[package]\nname = \"pricing\"\n\n[effects.self]\nstd = [\"std::io\"]\n",
 		"pricing/rules.nomi": "import std::fs\n\npub fn load(path: String) -> String\n    fs.read_text(path) |> Result.with_default(\"\")\nend\n",
 	})
 	path := filepath.Join(dir, "app", "main.nomi")
@@ -208,7 +208,7 @@ func TestEffectFix_CodeActionClearsTheDiagnostic(t *testing.T) {
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
-	manifest := "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\n# printing\nstd = [\"std::io\"]\n"
+	manifest := "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\n# printing\nstd = [\"std::io\"]\n"
 	dir := writeProject(t, map[string]string{"main.nomi": effectMain, "nomi.toml": manifest})
 	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
 	manifestPath := filepath.Join(dir, "nomi.toml")
@@ -226,7 +226,7 @@ func TestEffectFix_CodeActionClearsTheDiagnostic(t *testing.T) {
 	actions := c.codeActions(uri, diag)
 	var fix *protocol.CodeAction
 	for i, a := range actions {
-		if a.Title == "Allow std::fs for this module in nomi.toml" {
+		if a.Title == "Allow std::fs for this package in nomi.toml" {
 			fix = &actions[i]
 		}
 	}

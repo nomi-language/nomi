@@ -254,13 +254,13 @@ pub fn make(name: String) -> Widget
   Widget{name:}
 end
 
-fn secret(w: Widget) -> String
+private fn secret(w: Widget) -> String
   w.name
 end
 `,
 	})
 
-	assertErrorContains(t, errs, "file 'api' has no member 'secret'")
+	assertErrorContains(t, errs, "`secret` is private to `api.nomi`")
 }
 
 func hasTypeErrorContaining(errs []analysis.TypeError, substrs ...string) bool {
@@ -364,14 +364,13 @@ func TestBuildProject_MalformedManifestSurfacesAsTypeError(t *testing.T) {
 	}
 }
 
-// writeCratePackagingExample lays out a two-module tree on disk: a `todo/`
-// module whose nomi.toml names a sibling `stringkit/` module by its local
-// path.
+// writeTwoPackageExample lays out two packages on disk: a `todo/` package
+// whose nomi.toml names a sibling `stringkit/` package by its local path.
 // Returns the path of the entry file the caller wants to build from.
 //
 // The shared helper keeps each test focused on its assertion; the
-// disk shape is identical across the cross-module tests.
-func writeCratePackagingExample(t *testing.T, todoMain string, stringkitPad string, extraTodoFiles map[string]string) (todoRoot, stringkitRoot, entryPath string) {
+// disk shape is identical across the cross-package tests.
+func writeTwoPackageExample(t *testing.T, todoMain string, stringkitPad string, extraTodoFiles map[string]string) (todoRoot, stringkitRoot, entryPath string) {
 	t.Helper()
 	tmp := t.TempDir()
 	todoRoot = filepath.Join(tmp, "todo")
@@ -385,13 +384,13 @@ func writeCratePackagingExample(t *testing.T, todoMain string, stringkitPad stri
 		}
 	}
 	// stringkit module
-	mustWrite(filepath.Join(stringkitRoot, "nomi.toml"), `[module]
+	mustWrite(filepath.Join(stringkitRoot, "nomi.toml"), `[package]
 name = "stringkit"
 `)
 	mustWrite(filepath.Join(stringkitRoot, "pad.nomi"), stringkitPad)
 
 	// todo module
-	mustWrite(filepath.Join(todoRoot, "nomi.toml"), `[module]
+	mustWrite(filepath.Join(todoRoot, "nomi.toml"), `[package]
 name = "todo"
 entry_points = ["main"]
 
@@ -407,7 +406,7 @@ stringkit = { dir = "../stringkit" }
 	return todoRoot, stringkitRoot, entryPath
 }
 
-// TestBuildProject_CrossModuleImportResolves is the happy-path test
+// TestBuildProject_CrossPackageImportResolves is the happy-path test
 // for cross-module imports: an `import stringkit::pad` in todo/main.nomi must resolve
 // against ../stringkit/pad.nomi (per todo/nomi.toml's dir entry)
 // and bring pad.nomi's symbols into the import-time scope of main.nomi.
@@ -416,7 +415,7 @@ stringkit = { dir = "../stringkit" }
 // declares `pad_left(s, w, p)` and main.nomi calls it. If
 // resolution worked, no "module not found" or "undefined name" type
 // errors should fire on the entry file.
-func TestBuildProject_CrossModuleImportResolves(t *testing.T) {
+func TestBuildProject_CrossPackageImportResolves(t *testing.T) {
 	stringkitPad := `pub fn pad_left(s: String, _width: Int, _pad: String) -> String
   s
 end
@@ -430,7 +429,7 @@ fn main()
   Unit
 end
 `
-	todoRoot, _, entryPath := writeCratePackagingExample(t, todoMain, stringkitPad, nil)
+	todoRoot, _, entryPath := writeTwoPackageExample(t, todoMain, stringkitPad, nil)
 
 	data, _ := os.ReadFile(entryPath)
 	entryNodes, _ := parser.ParseWithRecovery(lexer.Lex(string(data)))
@@ -473,71 +472,6 @@ end
 	}
 }
 
-// TestBuildProject_CrossModuleInternalRejected confirms that the
-// internal/ access check actively rejects cross-module imports into
-// another module's internal/ subtree; the module index is what
-// distinguishes intra- from cross-module. A cross-
-// module import of an internal/ path must produce a type error.
-func TestBuildProject_CrossModuleInternalRejected(t *testing.T) {
-	// stringkit exposes an internal helper; todo tries to reach across
-	// the module boundary into it.
-	stringkitPad := `pub fn pad_left(s: String, _width: Int, _pad: String) -> String
-  s
-end
-`
-	todoMain := `import
-  stringkit::internal::secret: secret
-end
-
-fn main()
-  Unit
-end
-`
-	todoRoot, stringkitRoot, entryPath := writeCratePackagingExample(t, todoMain, stringkitPad, nil)
-
-	// Plant the internal file in stringkit so the loader has something
-	// to find; the access check should reject before resolution
-	// matters, but a present file rules out "file not found" as the
-	// reason for any non-error.
-	internalPath := filepath.Join(stringkitRoot, "internal", "secret.nomi")
-	if err := os.MkdirAll(filepath.Dir(internalPath), 0755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-	if err := os.WriteFile(internalPath, []byte("module secret\n\npub fn s() -> Int\n    0\nend\n"), 0644); err != nil {
-		t.Fatalf("write: %v", err)
-	}
-
-	data, _ := os.ReadFile(entryPath)
-	entryNodes, _ := parser.ParseWithRecovery(lexer.Lex(string(data)))
-
-	loader := func(projectRoot string, modulePath []string) ([]ast.Node, error) {
-		filePath := filepath.Join(projectRoot, filepath.Join(modulePath...)) + ".nomi"
-		fileData, err := os.ReadFile(filePath)
-		if err != nil {
-			return nil, err
-		}
-		nodes, _ := parser.ParseWithRecovery(lexer.Lex(string(fileData)))
-		return nodes, nil
-	}
-
-	lib := loadStd()
-	fa := analysis.BuildProject(entryNodes, lib.Primitives, lib.Modules, lib.Files, todoRoot, loader)
-	if fa == nil {
-		t.Fatal("expected non-nil FileAnalysis")
-	}
-	found := false
-	for _, e := range entryErrors(fa) {
-		if strings.Contains(e.Message, "internal/") && strings.Contains(e.Message, "unreachable") {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Errorf("expected an `internal/ paths are unreachable` type error, got %d: %v",
-			len(entryErrors(fa)), entryErrors(fa))
-	}
-}
-
 // TestBuildProject_SelfNameReferenceResolves confirms that referring to
 // your own module by its short name (`import todo::helper` from within
 // todo/) is equivalent to a bare `helper` import — the cross-module
@@ -567,7 +501,7 @@ end
 	extra := map[string]string{
 		"helper.nomi": "pub fn greet() -> String\n    \"hi\"\nend\n",
 	}
-	todoRoot, _, entryPath := writeCratePackagingExample(t, todoMain, stringkitPad, extra)
+	todoRoot, _, entryPath := writeTwoPackageExample(t, todoMain, stringkitPad, extra)
 
 	data, _ := os.ReadFile(entryPath)
 	entryNodes, _ := parser.ParseWithRecovery(lexer.Lex(string(data)))
@@ -610,18 +544,18 @@ end
 	}
 }
 
-// TestOrphanImpl_CrossModuleRejected exercises the orphan-rule check
+// TestOrphanImpl_CrossPackageRejected exercises the orphan-rule check
 // wired into BuildProjectWithCache: the todo entry
 // module declares `impl Display for Pad { fn to_string(p: pad.Pad) }` — Display
 // belongs to stdlib, Pad belongs to the stringkit sibling module, so
 // neither side anchors the impl in todo. The build must surface a
 // `orphan impl` TypeError on the entry FA.
 //
-// Drives BuildProjectWithCache through the same writeCratePackagingExample
+// Drives BuildProjectWithCache through the same writeTwoPackageExample
 // helper the cross-module import tests use, so the assertion exercises
-// the full wiring: discovery → declaringModuleIndex over filesByKey →
-// implModuleOf via moduleNameFromKey → detectOrphanImpls.
-func TestOrphanImpl_CrossModuleRejected(t *testing.T) {
+// the full wiring: discovery → declaringPackageIndex over filesByKey →
+// implPackageOf via packageNameFromKey → detectOrphanImpls.
+func TestOrphanImpl_CrossPackageRejected(t *testing.T) {
 	stringkitPad := `pub struct Pad
   width: Int
 end
@@ -641,7 +575,7 @@ fn main()
   Unit
 end
 `
-	todoRoot, _, entryPath := writeCratePackagingExample(t, todoMain, stringkitPad, nil)
+	todoRoot, _, entryPath := writeTwoPackageExample(t, todoMain, stringkitPad, nil)
 
 	data, _ := os.ReadFile(entryPath)
 	entryNodes, _ := parser.ParseWithRecovery(lexer.Lex(string(data)))
@@ -649,7 +583,7 @@ end
 	// Production-style loader: serves stdlib from the embedded FS first,
 	// disk under projectRoot for everything else. Post-stdlib-as-package,
 	// the orphan-rule check derives stdlib name buckets from
-	// declaringModuleIndex's walk of discovery-loaded stdlib files (not
+	// declaringPackageIndex's walk of discovery-loaded stdlib files (not
 	// from package globals anymore), so a disk-only loader would leave
 	// `Display` unresolved and silently skip the orphan diagnostic.
 	loader := std.MakeLoader()
@@ -704,7 +638,7 @@ fn main()
   Unit
 end
 `
-	todoRoot, _, entryPath := writeCratePackagingExample(t, todoMain, stringkitPad, nil)
+	todoRoot, _, entryPath := writeTwoPackageExample(t, todoMain, stringkitPad, nil)
 
 	data, _ := os.ReadFile(entryPath)
 	entryNodes, _ := parser.ParseWithRecovery(lexer.Lex(string(data)))
@@ -745,7 +679,7 @@ fn main()
   Unit
 end
 `
-	todoRoot, _, entryPath := writeCratePackagingExample(t, todoMain, stringkitPad, nil)
+	todoRoot, _, entryPath := writeTwoPackageExample(t, todoMain, stringkitPad, nil)
 
 	data, _ := os.ReadFile(entryPath)
 	entryNodes, _ := parser.ParseWithRecovery(lexer.Lex(string(data)))
@@ -781,7 +715,7 @@ fn main()
   Unit
 end
 `
-	todoRoot, _, entryPath := writeCratePackagingExample(t, todoMain, "", nil)
+	todoRoot, _, entryPath := writeTwoPackageExample(t, todoMain, "", nil)
 
 	data, _ := os.ReadFile(entryPath)
 	entryNodes, _ := parser.ParseWithRecovery(lexer.Lex(string(data)))
@@ -819,7 +753,7 @@ fn main()
   Unit
 end
 `
-	todoRoot, _, entryPath := writeCratePackagingExample(t, todoMain, stringkitPad, nil)
+	todoRoot, _, entryPath := writeTwoPackageExample(t, todoMain, stringkitPad, nil)
 
 	data, _ := os.ReadFile(entryPath)
 	entryNodes, _ := parser.ParseWithRecovery(lexer.Lex(string(data)))
@@ -1009,7 +943,7 @@ end
 // This test deletes the explicit `import std::display.{Display}` and
 // uses `Display` purely via the prelude. The entry FA's orphan
 // diagnostic must still fire — proof that the cache-side fold makes
-// declaringModuleIndex see Display even when the user never wrote a
+// declaringPackageIndex see Display even when the user never wrote a
 // `std/display` import.
 //
 // The test passes `nil, nil` for `primitives, modules` to force the
@@ -1032,7 +966,7 @@ end
 `
 	// todo's main.nomi uses Display purely via the prelude — no
 	// explicit `import std::display.{Display}`. This is the key
-	// difference from TestOrphanImpl_CrossModuleRejected.
+	// difference from TestOrphanImpl_CrossPackageRejected.
 	todoMain := `import
   stringkit::pad.{Pad}
 end
@@ -1047,7 +981,7 @@ fn main()
   Unit
 end
 `
-	todoRoot, _, entryPath := writeCratePackagingExample(t, todoMain, stringkitPad, nil)
+	todoRoot, _, entryPath := writeTwoPackageExample(t, todoMain, stringkitPad, nil)
 
 	data, _ := os.ReadFile(entryPath)
 	entryNodes, _ := parser.ParseWithRecovery(lexer.Lex(string(data)))

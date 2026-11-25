@@ -12,29 +12,29 @@ import (
 	"github.com/nomi-language/nomi/rt"
 )
 
-// fn1258Regs is wasm/host.compile over slots.
-func (b *bound) fn1258Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+// fn1259Regs is wasm/host.compile over slots.
+func (b *bound) fn1259Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	a0 := rt.Bytes(rt.Bytes(s.S[0]))
 	r0 := stdwasm.Compile(a0)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out1259(r0)
+		rec, err := b.out1260(r0)
 		if err != nil {
 			return false, hostadapt.Returned("wasm/host.compile", err)
 		}
 		s.R[0] = rec
 		return false, nil
 	}
-	w1262, err := b.out1260(r0.Ok)
+	w1263, err := b.out1261(r0.Ok)
 	if err != nil {
 		return false, hostadapt.Returned("wasm/host.compile", err)
 	}
-	s.R[0] = w1262
+	s.R[0] = w1263
 	return true, nil
 }
 
-// fn1263Regs is wasm/host.run over slots.
-func (b *bound) fn1263Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	a0, err := b.in1264(fr, s.R[0])
+// fn1264Regs is wasm/host.run over slots.
+func (b *bound) fn1264Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1265(fr, s.R[0])
 	if err != nil {
 		return false, hostadapt.Param("wasm/host.run", 0, "wasm/host.run", "module", err)
 	}
@@ -43,7 +43,7 @@ func (b *bound) fn1263Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error)
 	a3 := s.Int(3)
 	r0 := stdwasm.Run(a0, a1, a2, a3)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out1265(r0)
+		rec, err := b.out1266(r0)
 		if err != nil {
 			return false, hostadapt.Returned("wasm/host.run", err)
 		}
@@ -54,85 +54,85 @@ func (b *bound) fn1263Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error)
 	return true, nil
 }
 
-// fn1267Regs is wasm/host.instantiate over slots.
-func (b *bound) fn1267Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	a0, err := b.in1264(fr, s.R[0])
+// fn1268Regs is wasm/host.instantiate over slots.
+func (b *bound) fn1268Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1265(fr, s.R[0])
 	if err != nil {
 		return false, hostadapt.Param("wasm/host.instantiate", 0, "wasm/host.instantiate", "module", err)
 	}
-	a1, err := b.in391(fr, s.R[1])
+	a1, err := b.in392(fr, s.R[1])
 	if err != nil {
 		return false, hostadapt.Param("wasm/host.instantiate", 1, "wasm/host.instantiate", "modules", err)
 	}
-	a2, err := b.in391(fr, s.R[2])
+	a2, err := b.in392(fr, s.R[2])
 	if err != nil {
 		return false, hostadapt.Param("wasm/host.instantiate", 2, "wasm/host.instantiate", "names", err)
 	}
-	a3, err := b.in1268(fr, s.R[3])
+	a3, err := b.in1269(fr, s.R[3])
 	if err != nil {
 		return false, hostadapt.Param("wasm/host.instantiate", 3, "wasm/host.instantiate", "params", err)
 	}
-	a4, err := b.in1268(fr, s.R[4])
+	a4, err := b.in1269(fr, s.R[4])
 	if err != nil {
 		return false, hostadapt.Param("wasm/host.instantiate", 4, "wasm/host.instantiate", "results", err)
 	}
-	a5, err := b.in1268(fr, s.R[5])
+	a5, err := b.in1269(fr, s.R[5])
 	if err != nil {
 		return false, hostadapt.Param("wasm/host.instantiate", 5, "wasm/host.instantiate", "stops", err)
 	}
-	a6, err := b.in1270(fr, s.R[6])
+	a6, err := b.in1271(fr, s.R[6])
 	if err != nil {
 		return false, hostadapt.Param("wasm/host.instantiate", 6, "wasm/host.instantiate", "fns", err)
 	}
 	a7 := s.Int(7)
 	r0 := stdwasm.Instantiate(fr, a0, a1, a2, a3, a4, a5, a6, a7)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out1274(r0)
+		rec, err := b.out1275(r0)
 		if err != nil {
 			return false, hostadapt.Returned("wasm/host.instantiate", err)
 		}
 		s.R[0] = rec
 		return false, nil
 	}
-	w1278, err := b.out1275(r0.Ok)
+	w1279, err := b.out1276(r0.Ok)
 	if err != nil {
 		return false, hostadapt.Returned("wasm/host.instantiate", err)
 	}
-	s.R[0] = w1278
+	s.R[0] = w1279
 	return true, nil
 }
 
-// fn1279Regs is wasm/host.call over slots.
-func (b *bound) fn1279Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	a0, err := b.in1280(fr, s.R[0])
+// fn1280Regs is wasm/host.call over slots.
+func (b *bound) fn1280Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1281(fr, s.R[0])
 	if err != nil {
 		return false, hostadapt.Param("wasm/host.call", 0, "wasm/host.call", "instance", err)
 	}
 	a1 := string(s.S[1])
-	a2, err := b.in1269(fr, s.R[2])
+	a2, err := b.in1270(fr, s.R[2])
 	if err != nil {
 		return false, hostadapt.Param("wasm/host.call", 2, "wasm/host.call", "args", err)
 	}
 	r0 := stdwasm.Call(fr, a0, a1, a2)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out1281(r0)
+		rec, err := b.out1282(r0)
 		if err != nil {
 			return false, hostadapt.Returned("wasm/host.call", err)
 		}
 		s.R[0] = rec
 		return false, nil
 	}
-	w1284, err := b.out849(r0.Ok)
+	w1285, err := b.out850(r0.Ok)
 	if err != nil {
 		return false, hostadapt.Returned("wasm/host.call", err)
 	}
-	s.R[0] = w1284
+	s.R[0] = w1285
 	return true, nil
 }
 
-// fn1285Regs is wasm/host.run_on over slots.
-func (b *bound) fn1285Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	a0, err := b.in1280(fr, s.R[0])
+// fn1286Regs is wasm/host.run_on over slots.
+func (b *bound) fn1286Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1281(fr, s.R[0])
 	if err != nil {
 		return false, hostadapt.Param("wasm/host.run_on", 0, "wasm/host.run_on", "instance", err)
 	}
@@ -140,7 +140,7 @@ func (b *bound) fn1285Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error)
 	a2 := rt.Bytes(rt.Bytes(s.S[2]))
 	r0 := stdwasm.RunOn(fr, a0, a1, a2)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out1265(r0)
+		rec, err := b.out1266(r0)
 		if err != nil {
 			return false, hostadapt.Returned("wasm/host.run_on", err)
 		}
@@ -151,9 +151,9 @@ func (b *bound) fn1285Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error)
 	return true, nil
 }
 
-// fn1286Regs is wasm/host.read over slots.
-func (b *bound) fn1286Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	a0, err := b.in1280(fr, s.R[0])
+// fn1287Regs is wasm/host.read over slots.
+func (b *bound) fn1287Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1281(fr, s.R[0])
 	if err != nil {
 		return false, hostadapt.Param("wasm/host.read", 0, "wasm/host.read", "instance", err)
 	}
@@ -161,7 +161,7 @@ func (b *bound) fn1286Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error)
 	a2 := s.Int(2)
 	r0 := stdwasm.Read(a0, a1, a2)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out1265(r0)
+		rec, err := b.out1266(r0)
 		if err != nil {
 			return false, hostadapt.Returned("wasm/host.read", err)
 		}
@@ -172,9 +172,9 @@ func (b *bound) fn1286Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error)
 	return true, nil
 }
 
-// fn1287Regs is wasm/host.write over slots.
-func (b *bound) fn1287Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	a0, err := b.in1280(fr, s.R[0])
+// fn1288Regs is wasm/host.write over slots.
+func (b *bound) fn1288Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1281(fr, s.R[0])
 	if err != nil {
 		return false, hostadapt.Param("wasm/host.write", 0, "wasm/host.write", "instance", err)
 	}
@@ -182,30 +182,30 @@ func (b *bound) fn1287Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error)
 	a2 := rt.Bytes(rt.Bytes(s.S[2]))
 	r0 := stdwasm.Write(a0, a1, a2)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out940(r0)
+		rec, err := b.out941(r0)
 		if err != nil {
 			return false, hostadapt.Returned("wasm/host.write", err)
 		}
 		s.R[0] = rec
 		return false, nil
 	}
-	w1288, err := b.out521(r0.Ok)
+	w1289, err := b.out522(r0.Ok)
 	if err != nil {
 		return false, hostadapt.Returned("wasm/host.write", err)
 	}
-	s.R[0] = w1288
+	s.R[0] = w1289
 	return true, nil
 }
 
-// fn1289Regs is wasm/host.size over slots.
-func (b *bound) fn1289Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	a0, err := b.in1280(fr, s.R[0])
+// fn1290Regs is wasm/host.size over slots.
+func (b *bound) fn1290Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1281(fr, s.R[0])
 	if err != nil {
 		return false, hostadapt.Param("wasm/host.size", 0, "wasm/host.size", "instance", err)
 	}
 	r0 := stdwasm.Size(a0)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out1290(r0)
+		rec, err := b.out1291(r0)
 		if err != nil {
 			return false, hostadapt.Returned("wasm/host.size", err)
 		}
@@ -216,24 +216,24 @@ func (b *bound) fn1289Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error)
 	return true, nil
 }
 
-// fn1292Regs is wasm/host.drop over slots.
-func (b *bound) fn1292Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	a0, err := b.in1280(fr, s.R[0])
+// fn1293Regs is wasm/host.drop over slots.
+func (b *bound) fn1293Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1281(fr, s.R[0])
 	if err != nil {
 		return false, hostadapt.Param("wasm/host.drop", 0, "wasm/host.drop", "instance", err)
 	}
 	r0 := stdwasm.Drop(a0)
-	w1293, err := b.out521(r0)
+	w1294, err := b.out522(r0)
 	if err != nil {
 		return false, hostadapt.Returned("wasm/host.drop", err)
 	}
-	s.R[0] = w1293
+	s.R[0] = w1294
 	return true, nil
 }
 
-// fn1294Regs is wasm/host.memory_read over slots.
-func (b *bound) fn1294Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	a0, err := b.in1295(fr, s.R[0])
+// fn1295Regs is wasm/host.memory_read over slots.
+func (b *bound) fn1295Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1296(fr, s.R[0])
 	if err != nil {
 		return false, hostadapt.Param("wasm/host.memory_read", 0, "wasm/host.memory_read", "memory", err)
 	}
@@ -241,7 +241,7 @@ func (b *bound) fn1294Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error)
 	a2 := s.Int(2)
 	r0 := stdwasm.MemoryRead(a0, a1, a2)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out1265(r0)
+		rec, err := b.out1266(r0)
 		if err != nil {
 			return false, hostadapt.Returned("wasm/host.memory_read", err)
 		}
@@ -252,9 +252,9 @@ func (b *bound) fn1294Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error)
 	return true, nil
 }
 
-// fn1296Regs is wasm/host.memory_write over slots.
-func (b *bound) fn1296Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	a0, err := b.in1295(fr, s.R[0])
+// fn1297Regs is wasm/host.memory_write over slots.
+func (b *bound) fn1297Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1296(fr, s.R[0])
 	if err != nil {
 		return false, hostadapt.Param("wasm/host.memory_write", 0, "wasm/host.memory_write", "memory", err)
 	}
@@ -262,30 +262,30 @@ func (b *bound) fn1296Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error)
 	a2 := rt.Bytes(rt.Bytes(s.S[2]))
 	r0 := stdwasm.MemoryWrite(a0, a1, a2)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out940(r0)
+		rec, err := b.out941(r0)
 		if err != nil {
 			return false, hostadapt.Returned("wasm/host.memory_write", err)
 		}
 		s.R[0] = rec
 		return false, nil
 	}
-	w1297, err := b.out521(r0.Ok)
+	w1298, err := b.out522(r0.Ok)
 	if err != nil {
 		return false, hostadapt.Returned("wasm/host.memory_write", err)
 	}
-	s.R[0] = w1297
+	s.R[0] = w1298
 	return true, nil
 }
 
-// fn1298Regs is wasm/host.memory_size over slots.
-func (b *bound) fn1298Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
-	a0, err := b.in1295(fr, s.R[0])
+// fn1299Regs is wasm/host.memory_size over slots.
+func (b *bound) fn1299Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1296(fr, s.R[0])
 	if err != nil {
 		return false, hostadapt.Param("wasm/host.memory_size", 0, "wasm/host.memory_size", "memory", err)
 	}
 	r0 := stdwasm.MemorySize(a0)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out1290(r0)
+		rec, err := b.out1291(r0)
 		if err != nil {
 			return false, hostadapt.Returned("wasm/host.memory_size", err)
 		}

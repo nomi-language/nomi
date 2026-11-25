@@ -55,7 +55,7 @@ func memberProgramOf(p *CheckedProgram, key, manifest string) *EntryProgram {
 				continue
 			}
 			if p.Files[imported] == nil {
-				// A file p does not hold: one of another module, which
+				// A file p does not hold: one of another package, which
 				// programClean already refused, or an import p's check
 				// did not answer.
 				return nil

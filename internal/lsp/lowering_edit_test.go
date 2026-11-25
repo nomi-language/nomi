@@ -21,7 +21,7 @@ func openLoweringRPC(t *testing.T, src string, delay time.Duration) (*Server, *r
 	t.Helper()
 	dir := writeProject(t, map[string]string{
 		"main.nomi": src,
-		"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+		"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n",
 	})
 	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
 	s := NewServer()
@@ -161,7 +161,7 @@ func waitText(t *testing.T, s *Server, uri, text string) {
 }
 
 // entryToml declares main.nomi an entry.
-const entryToml = "[module]\nname = \"app\"\nentry_points = [\"main\"]\n"
+const entryToml = "[package]\nname = \"app\"\nentry_points = [\"main\"]\n"
 
 func lowerOnEditSource(marker string) string {
 	return "// " + marker + "\nfn main() end\n"

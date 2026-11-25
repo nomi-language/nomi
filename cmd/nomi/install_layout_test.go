@@ -64,7 +64,7 @@ func TestInstalledBinaryRunsWithoutASourceTree(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	write("nomi.toml", "[module]\nname = \"installcheck\"\nentry_points = [\"main\"]\n")
+	write("nomi.toml", "[package]\nname = \"installcheck\"\nentry_points = [\"main\"]\n")
 	write("main.nomi", `import
   std::io
   std::calendar.Date

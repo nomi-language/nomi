@@ -21,12 +21,12 @@ pub fn reveal(s: Secret) -> Int
 end
 `
 
-// TestDestructurePattern_AnOpaqueStructOutsideItsModuleIsRejected: a
+// TestDestructurePattern_AnOpaqueStructOutsideItsFileIsRejected: a
 // destructuring statement over an opaque struct from another file is the
 // error a struct pattern over it is, and one in the declaring file is
 // accepted.
-func TestDestructurePattern_AnOpaqueStructOutsideItsModuleIsRejected(t *testing.T) {
-	const want = "cannot destructure opaque type 'Secret' outside its defining module"
+func TestDestructurePattern_AnOpaqueStructOutsideItsFileIsRejected(t *testing.T) {
+	const want = "cannot destructure opaque type 'Secret' outside `secret.nomi`"
 	for _, form := range []string{"{value:} = s", "Secret{value:} = s"} {
 		_, errs := opaqueProject(t, map[string]string{
 			"secret.nomi": opaqueBoxModule,
@@ -76,12 +76,12 @@ pub fn reveal(t: Token) -> Int
 end
 `
 
-// TestDestructurePattern_AnOpaqueDistinctOutsideItsModuleIsRejected: a
+// TestDestructurePattern_AnOpaqueDistinctOutsideItsFileIsRejected: a
 // destructuring statement over an opaque distinct type from another file is
 // the error the pattern is in a `case` arm, and one in the declaring file is
 // accepted.
-func TestDestructurePattern_AnOpaqueDistinctOutsideItsModuleIsRejected(t *testing.T) {
-	const want = "cannot destructure opaque type 'Token' outside its defining module"
+func TestDestructurePattern_AnOpaqueDistinctOutsideItsFileIsRejected(t *testing.T) {
+	const want = "cannot destructure opaque type 'Token' outside `secret.nomi`"
 	for _, body := range []string{"Token(n) = t\n    n", "case t\n        Token(n) -> n\n    end"} {
 		_, errs := opaqueProject(t, map[string]string{
 			"secret.nomi": opaqueTokenModule,

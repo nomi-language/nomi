@@ -38,7 +38,7 @@ declares.
 Nomi is very early and pre-release. The language changes without
 compatibility guarantees. The core (expressions, types, pattern matching,
 imports, interfaces, derives, tests, collections and control flow) is the most
-exercised; concurrency, embedding and module management are younger.
+exercised; concurrency, embedding and package management are younger.
 
 ## Learn
 
@@ -53,8 +53,7 @@ exercised; concurrency, embedding and module management are younger.
   does.
 - **[The tooling reference](docs/tooling.md)**: the `nomi` command,
   `nomi.toml`, dependencies, the test runner and builds.
-- **[Style guide](docs/style.md)**, **[feature status](docs/feature-status.md)**,
-  **[roadmap](docs/roadmap.md)**.
+- **[The style guide](docs/style.md)**: how to write Nomi well.
 
 ## Getting started
 
@@ -146,7 +145,9 @@ that isn't a fair use of a contributor's time. Bug reports, questions and
 feedback are welcome as [issues](https://github.com/nomi-language/nomi/issues).
 
 To build and test from source, see [`CONTRIBUTING.md`](CONTRIBUTING.md) and
-[`AGENTS.md`](AGENTS.md).
+[`AGENTS.md`](AGENTS.md). What is not built yet is in
+[feature status](docs/feature-status.md), and the larger work ahead in the
+[roadmap](docs/roadmap.md).
 
 ## License
 

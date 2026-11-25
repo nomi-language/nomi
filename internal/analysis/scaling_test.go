@@ -197,7 +197,7 @@ func bodyEditsReadNoClosedFile(t *testing.T, p *projectgen.Project) {
 	}
 	backdate(t, dir, time.Now().Add(-time.Hour))
 	dm := newManager()
-	dm.SetWorkspaceRoot(dir)
+	dm.SetEditorFolder(dir)
 	for _, kind := range []projectgen.EditKind{projectgen.BodyLeaf, projectgen.BodyHub, projectgen.BodyEntry} {
 		key, text := p.Edit(kind, 0)
 		uri := fileuri.FromPath(filepath.Join(dir, filepath.FromSlash(key)+".nomi"))

@@ -298,7 +298,7 @@ var typeCycleShapes = []struct {
 }
 
 // typeCycleSource is f's text with its imports spelled through prefix
-// (`cyc::` for the module's own name, "" for the bare file name), and std/io
+// (`cyc::` for the package's own name, "" for the bare file name), and std/io
 // imported when io is set.
 func typeCycleSource(f typeCycleFile, prefix string, io bool) string {
 	var lines []string
@@ -317,7 +317,7 @@ func typeCycleSource(f typeCycleFile, prefix string, io bool) string {
 
 // Every cycle shape runs as one file, as files importing each other by file
 // name, and as files importing each other through their module's own name
-// (`import cyc::value.Value` in module `cyc`), and prints the same.
+// (`import cyc::value.Value` in package `cyc`), and prints the same.
 func TestTypeCycle_ShapesRunAsOneFile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
@@ -337,7 +337,7 @@ func TestTypeCycle_ShapesRunAsOneFile(t *testing.T) {
 			})
 			for _, spelling := range []struct{ name, prefix, toml string }{
 				{"file names", "", ""},
-				{"the module's own name", "cyc::", "[module]\nname = \"cyc\"\nentry_points = [\"main\"]\n"},
+				{"the module's own name", "cyc::", "[package]\nname = \"cyc\"\nentry_points = [\"main\"]\n"},
 			} {
 				t.Run(spelling.name, func(t *testing.T) {
 					files := map[string]string{"main.nomi": typeCycleSource(shape.main, spelling.prefix, true)}

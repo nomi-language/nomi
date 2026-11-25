@@ -49,8 +49,8 @@ func applyOnly(t *testing.T, content, uri string, a protocol.CodeAction) string 
 // an Int parameter, with the source locale's categories, as `nomi fmt`
 // writes it, and the result checks.
 func TestCodeAction_AddPluralForms(t *testing.T) {
-	english := "[module]\nname = \"shop\"\n"
-	polish := "[module]\nname = \"shop\"\n\n[i18n]\nsource_locale = \"pl\"\nlocales = [\"pl\"]\n"
+	english := "[package]\nname = \"shop\"\n"
+	polish := "[package]\nname = \"shop\"\n\n[i18n]\nsource_locale = \"pl\"\nlocales = [\"pl\"]\n"
 	for _, c := range []struct {
 		name, manifest, src string
 		line                uint32
@@ -107,7 +107,7 @@ func TestCodeAction_AddPluralForms(t *testing.T) {
 // catalog locale's categories.
 func TestCodeAction_AddPluralFormsInACatalog(t *testing.T) {
 	files := map[string]string{
-		"nomi.toml":            "[module]\nname = \"shop\"\nentry_points = [\"main\"]\n\n[i18n]\nlocales = [\"en\", \"pl\"]\n",
+		"nomi.toml":            "[package]\nname = \"shop\"\nentry_points = [\"main\"]\n\n[i18n]\nlocales = [\"en\", \"pl\"]\n",
 		"main.nomi":            "import\n    std::io\n    cart\nend\n\nfn main()\n    io.print(Phrase.format(cart.items(3), Locale\"pl\"))\nend\n",
 		"cart.nomi":            "pub phrase items(count: Int) `{$count} items`\n",
 		"locales/pl/cart.toml": "[items]\nsource = '''{$count} items'''\ntext = '''{$count} rzeczy'''\n",

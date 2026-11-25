@@ -1,7 +1,7 @@
 # sqlite
 
 The SQLite driver for Nomi's `std/sql`. SQLite itself, compiled to
-WebAssembly, ships inside the module, and std::wasm runs it; the file
+WebAssembly, ships inside the package, and std::wasm runs it; the file
 layer SQLite reads and writes through is Nomi over std::fs ([How it
 runs](#how-it-runs)). A program that uses it needs no C compiler.
 
@@ -164,7 +164,7 @@ statement breaks, and rolls the savepoint back. Any other error is
 ## How it runs
 
 `engine/sqlite3.wasm` is SQLite 3.54.1 compiled with `engine/shim.c` by
-`engine/build.sh`, embedded in the module. Each connection is an instance
+`engine/build.sh`, embedded in the package. Each connection is an instance
 of it. A statement crosses into the instance once: its SQL and parameters
 in, every row out (a statement `each_row` reads crosses once for each 64
 rows). The module imports SQLite's file layer from the driver
@@ -207,13 +207,13 @@ open on a machine compiles it, about half a second.
   own `fs.open_dir` opened. Its entry can say so:
 
   ```toml
-  [effects.deps.modules]
+  [effects.deps.packages]
   "sqlite" = ["std::calendar", "std::channels", "std::instant", "std::random", "std::timer", "std::wasm"]
   ```
 
   `sqlite.open` and `sqlite.memory` open their directories themselves, so
   a program that calls either has `std::fs` in the driver too. The
-  module's own `nomi.toml` lists all seven.
+  package's own `nomi.toml` lists all seven.
 - **Targets.** On amd64 and arm64 the engine runs as machine code;
   other architectures interpret it, 20 to 50 times slower. A `js/wasm`
   build runs it on the browser's or Node's own engine. `wasip1/wasm` has no std::wasm, so `nomi build --target

@@ -11,9 +11,9 @@
 # T <transcript line>, verbatim
 population irbuild
 what one record per program an internal/irbuild test compares the VM against, keyed <entry>@<sha256(its files, .nomi files as tokens)[:16]>, run as the command that owns it would run it. <dir> is the program's directory. A temp program carries its files as source; a repository program's entry is its path from the worktree root.
-records 381
+records 383
 declared-cases 0
-failing 86
+failing 88
 C assert_subject_test.nomi@cbda3e84c0be00e0
 E 1
 N 0
@@ -2498,9 +2498,9 @@ T ok <dir>/group_test.nomi :: spawn over a called supervisor / both tasks report
 T test result: ok. 1 passed, 0 failed
 T
 C group_test.nomi@ae26860590b98fb9
-E 0
+E 1
 N 0
-H ce3c5c5db875733f7a8e6d65d188599feb85ec376f89ebcaf542412274688302
+H 8e13054fc0c7f60e5b91992eae7a75fbf070d7a9236d707a04bd0ce991487d3f
 S -- group_test.nomi 955 --
 S import
 S   std::instant.Instant
@@ -2546,9 +2546,13 @@ S   end
 S end
 S
 S
-T ok <dir>/group_test.nomi :: virtual clock / a short-circuit cancels its siblings
-T ok <dir>/group_test.nomi :: virtual clock / time passes in the bubble
-T test result: ok. 2 passed, 0 failed
+T FAIL <dir>/group_test.nomi
+T error: Task bound to 'long' is never awaited or cancelled: line 26 awaits or cancels it only inside a lambda, which may never run; pass it to `Task.await`, `Task.await_all`, `Task.outcome` or `Task.cancel`
+T   --> <dir>/group_test.nomi:25:7
+T    |
+T 25 |       long = Task.spawn(fn -> long_sleep())
+T    |       ^^^^
+T test result: FAILED. 0 passed, 1 failed
 T
 C group_test.nomi@bcd4d4a2bd8b8c03
 E 0
@@ -3098,6 +3102,60 @@ T FAIL <dir>/group_test.nomi :: tasks / a failing any shows its operand
 T   line 80: assertion failed
 T     assert drain() |> Iter.all_match(fn m -> m == "y")
 T test result: FAILED. 2 passed, 2 failed
+T
+C group_test.nomi@edb5ac70d6941e4a
+E 0
+N 0
+H ce3c5c5db875733f7a8e6d65d188599feb85ec376f89ebcaf542412274688302
+S -- group_test.nomi 920 --
+S import
+S   std::instant.Instant
+S   std::duration.Duration
+S   std::tasks.Task
+S   std::testing.Clock
+S   std::timer
+S end
+S
+S fn long_sleep() -> Unit
+S   timer.sleep(Duration.seconds(5))
+S end
+S
+S fn short_fail() -> Result<Int, String>
+S   Err("boom")
+S end
+S
+S group "virtual clock"
+S   clock Clock.Virtual
+S
+S   test "a short-circuit cancels its siblings"
+S     before = Instant.now()
+S
+S     outcome = concurrent
+S       short = Task.spawn(fn -> short_fail())
+S       long = Task.spawn(fn -> long_sleep())
+S       first = Task.await(short)?
+S       Task.await(long)
+S       Ok(first)
+S     end
+S
+S     elapsed = Instant.to_seconds(Instant.now()) - Instant.to_seconds(before)
+S     failed: Result<Int, String> = Err("boom")
+S
+S     assert outcome == failed
+S     assert elapsed == 0
+S   end
+S
+S   test "time passes in the bubble"
+S     before = Instant.now()
+S     timer.sleep(Duration.seconds(7))
+S     assert Instant.to_seconds(Instant.now()) - Instant.to_seconds(before) == 7
+S   end
+S end
+S
+S
+T ok <dir>/group_test.nomi :: virtual clock / a short-circuit cancels its siblings
+T ok <dir>/group_test.nomi :: virtual clock / time passes in the bubble
+T test result: ok. 2 passed, 0 failed
 T
 C group_test.nomi@f171de16a6d57868
 E 0
@@ -3855,7 +3913,7 @@ T strings = ab
 T second_ctor = 99
 T both = 41
 T
-C internal/irbuild/testdata/check_project.nomi@82c9d09deb74fa3e
+C internal/irbuild/testdata/check_project.nomi@90553939fafb7a45
 E 0
 N 0
 H 19845bdd207b1256a62fdd3a196cdc90f7743bfd4ac294e00e18aba02eaaaa67
@@ -6929,7 +6987,7 @@ H f3c035e5741076909849deee3825ecc55e569d7408785094872ff64d4c2cf7a1
 T A12
 T written<5>
 T
-C internal/irbuild/testdata/sibimpl/main.nomi@5a723e6d14c85d5e
+C internal/irbuild/testdata/sibimpl/main.nomi@c756cd065ebb2910
 E 0
 N 0
 H 25903ab3ef35f25a8d4c9fcc93106fce5d0455cbd3e22ce2a90606e9d2c1ed15
@@ -6941,7 +6999,7 @@ T reason: maintenance
 T tag:x
 T <opaque Status>
 T
-C internal/irbuild/testdata/sibimpl/report_test.nomi@3699f9bf77ae14ca
+C internal/irbuild/testdata/sibimpl/report_test.nomi@cdf0fdbfcb399572
 E 1
 N 0
 H ea5a96278d0dbee15638f1ffc05a4864de903fa5a51a841e552bc7b1247242bb
@@ -6960,7 +7018,7 @@ N 0
 H f7401952233607f55e3f63f88395e92d5f7290dd57a43a4ac5638ccb5cd2de78
 T go = 0
 T
-C internal/irbuild/testdata/sibling_enum_case/app/main.nomi@03b6efc0a5455463
+C internal/irbuild/testdata/sibling_enum_case/app/main.nomi@6c4d97a3359300ee
 E 0
 N 0
 H e801fb034e89ff78eb75e7045e3ef67c4c25ffeb80e1519938f327f3604d1279
@@ -7030,7 +7088,7 @@ T [1, 4, 7]
 T False
 T [2, 4]
 T
-C internal/irbuild/testdata/siblings/main.nomi@50f67950ffd07df0
+C internal/irbuild/testdata/siblings/main.nomi@4a43f7602c3a70ea
 E 0
 N 0
 H 028ca39fe6886026d8173984eadb60c9435af702cc53229e768671436a035825
@@ -7040,7 +7098,7 @@ T tripled(4) = 12
 T announced from a sibling file
 T main is done
 T
-C internal/irbuild/testdata/siblings/report_test.nomi@334bfd3dd3c657e1
+C internal/irbuild/testdata/siblings/report_test.nomi@119bb49af848cc8a
 E 1
 N 0
 H 4863716a199e2283291b8bc2d18e6932e58d9d1e8e54e0c85368c07b0f33f175
@@ -9594,10 +9652,97 @@ T     assert Some(Shape.Circle(r)) = pick(0)
 T     actual: Some(Dot)
 T test result: FAILED. 1 passed, 1 failed
 T
+C pattern_test.nomi@757f1f10e0eeb7fb
+E 1
+N 0
+H 1a2e76fe4d64a507894e97187415b6125c682d1a62558b5326fc73bf41810311
+S -- pattern_test.nomi 1307 --
+S import
+S   std::duration.Duration
+S   std::instant.Instant
+S   std::tasks.Task
+S   std::testing.Clock
+S   std::timer
+S end
+S
+S fn long_sleep() -> Unit
+S   timer.sleep(Duration.seconds(5))
+S end
+S
+S fn short_fail() -> Result<Int, String>
+S   Err("boom")
+S end
+S
+S fn pair_of() -> (Int, String)
+S   (1, "one")
+S end
+S
+S group "sibling cancellation under a virtual clock"
+S   clock Clock.Virtual
+S
+S   test "a short-circuit cancels its siblings instead of waiting for them"
+S     before = Instant.now()
+S
+S     outcome = concurrent
+S       short = Task.spawn(fn -> short_fail())
+S       long = Task.spawn(fn -> long_sleep())
+S       first = Task.await(short)?
+S       Task.await(long)
+S       Ok(first)
+S     end
+S
+S     elapsed = Instant.to_seconds(Instant.now()) - Instant.to_seconds(before)
+S
+S     assert Err(e) = outcome
+S     assert e == "boom"
+S     assert elapsed == 0
+S   end
+S
+S   test "a failing pattern over a concurrent block shows its definition"
+S     outcome = concurrent
+S       short = Task.spawn(fn -> short_fail())
+S       Ok(Task.await(short)?)
+S     end
+S
+S     assert Ok(n) = outcome
+S     assert n == 1
+S   end
+S
+S   test "a tuple pattern binds both parts"
+S     pair = pair_of()
+S     assert (n, word) = pair
+S     assert n == 1
+S     assert word == "one"
+S   end
+S
+S   test "a list pattern that does not match shows the whole list"
+S     assert [a, b] = ["one"]
+S     assert a == b
+S   end
+S end
+S
+S
+T ok <dir>/pattern_test.nomi :: sibling cancellation under a virtual clock / a short-circuit cancels its siblings instead of waiting for them
+T FAIL <dir>/pattern_test.nomi :: sibling cancellation under a virtual clock / a failing pattern over a concurrent block shows its definition
+T   line 48: pattern did not match
+T     assert Ok(n) = outcome
+T     defined as:
+T       concurrent
+T           short = Task.spawn(fn -> short_fail())
+T           Ok(Task.await(short)?)
+T       end
+T     actual: Err("boom")
+T ok <dir>/pattern_test.nomi :: sibling cancellation under a virtual clock / a tuple pattern binds both parts
+T FAIL <dir>/pattern_test.nomi :: sibling cancellation under a virtual clock / a list pattern that does not match shows the whole list
+T   line 60: pattern did not match
+T     assert [a, b] = ["one"]
+T     actual: ["one"]
+T test result: FAILED. 2 passed, 2 failed
+T
 C pattern_test.nomi@888e891179518094
 E 1
 N 0
-H a6caf6dd877ca4da8185e5f9386557197647d3d718a0ed5ebbe3ec47765ac0bb
+H dee9bc571b45586641c1616f0c2e4b5fd52290c0ccd8db0acc0108db94e4229e
 S -- pattern_test.nomi 1342 --
 S import
 S   std::duration.Duration
@@ -9663,22 +9808,13 @@ S   end
 S end
 S
 S
-T ok <dir>/pattern_test.nomi :: sibling cancellation under a virtual clock / a short-circuit cancels its siblings instead of waiting for them
-T FAIL <dir>/pattern_test.nomi :: sibling cancellation under a virtual clock / a failing pattern over a concurrent block shows its definition
-T   line 47: pattern did not match
-T     assert Ok(n) = outcome
-T     defined as:
-T       concurrent
-T           short = Task.spawn(fn -> short_fail())
-T           Ok(Task.await(short)?)
-T       end
-T     actual: Err("boom")
-T ok <dir>/pattern_test.nomi :: sibling cancellation under a virtual clock / a tuple pattern binds both parts
-T FAIL <dir>/pattern_test.nomi :: sibling cancellation under a virtual clock / a list pattern that does not match shows the whole list
-T   line 59: pattern did not match
-T     assert [a, b] = ["one"]
-T     actual: ["one"]
-T test result: FAILED. 2 passed, 2 failed
+T FAIL <dir>/pattern_test.nomi
+T error: Task bound to 'long' is never awaited or cancelled: line 30 awaits or cancels it only inside a lambda, which may never run; pass it to `Task.await`, `Task.await_all`, `Task.outcome` or `Task.cancel`
+T   --> <dir>/pattern_test.nomi:29:7
+T    |
+T 29 |       long = Task.spawn(fn -> long_sleep())
+T    |       ^^^^
+T test result: FAILED. 0 passed, 1 failed
 T
 C pattern_test.nomi@bd76f7be07419d50
 E 1
@@ -10075,7 +10211,7 @@ T ok <dir>/supervisors_test.nomi :: named task groups / a cancelled task reports
 T ok <dir>/supervisors_test.nomi :: named task groups / a spawn in an assertion's subject
 T test result: ok. 7 passed, 0 failed
 T
-C tests/17-typed-literals/toml_literal_test.nomi@42c0bcda299b5991
+C tests/17-typed-literals/toml_literal_test.nomi@dbe517f95089a54f
 E 0
 N 0
 H 6e23940da7bc16159934fc5937c470e9bd6ebe9827114ade3a25f415581d3327

@@ -10,7 +10,7 @@ import (
 // the file; the second entry's failure says its errors are above.
 func TestCheckCommand_PrintsAnErrorTwoEntriesShareOnce(t *testing.T) {
 	dir := t.TempDir()
-	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[module]\nname = \"app\"\nentry_points = [\"a\", \"b\"]\n")
+	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[package]\nname = \"app\"\nentry_points = [\"a\", \"b\"]\n")
 	mustWrite(t, filepath.Join(dir, "shared.nomi"), "pub fn n() -> Int\n    \"not an int\"\nend\n")
 	for _, entry := range []string{"a", "b"} {
 		mustWrite(t, filepath.Join(dir, entry+".nomi"), "import\n    shared\n    std::io\nend\n\nfn main()\n    io.print(shared.n())\nend\n")

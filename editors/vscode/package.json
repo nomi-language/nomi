@@ -21,6 +21,7 @@
   "activationEvents": [
     "onLanguage:nomi",
     "workspaceContains:**/nomi.toml",
+    "workspaceContains:**/nomi-workspace.toml",
     "onDebugResolve:nomi",
     "onDebugInitialConfigurations"
   ],

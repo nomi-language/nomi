@@ -29,7 +29,7 @@ Here is the cart badge as a phrase:
 
 ```nomi
 /// The cart badge, such as "3 items in your cart".
-pub phrase cart_count(count: Int) `
+phrase cart_count(count: Int) `
     .input {$count :integer}
     .match $count
     one {{{$count} item in your cart}}
@@ -95,7 +95,7 @@ end
 
 // FILE: cart.nomi
 /// The cart badge, such as "3 items in your cart".
-pub phrase cart_count(count: Int) `
+phrase cart_count(count: Int) `
     .input {$count :integer}
     .match $count
     one {{{$count} item in your cart}}
@@ -120,7 +120,7 @@ many {{{$count} produktów w koszyku}}
 '''
 
 // FILE: nomi.toml
-[module]
+[package]
 name = "shop"
 entry_points = ["main"]
 
@@ -262,14 +262,14 @@ end
 
 // FILE: cart.nomi
 /// Where an order is.
-pub enum Status
+enum Status
     Pending
     Shipped
     Delivered
 end
 
 /// The cart badge, such as "3 items in your cart".
-pub phrase cart_count(count: Int) `
+phrase cart_count(count: Int) `
     .input {$count :integer}
     .match $count
     one {{{$count} item in your cart}}
@@ -277,7 +277,7 @@ pub phrase cart_count(count: Int) `
     `
 
 /// Where the customer's order is.
-pub phrase order_status(status: Status) `
+phrase order_status(status: Status) `
     .input {$status :string}
     .match $status
     Pending {{Your order is waiting to ship}}
@@ -287,7 +287,7 @@ pub phrase order_status(status: Status) `
     `
 
 /// Other shoppers looking at the same item.
-pub phrase watching(people: List<String>) `
+phrase watching(people: List<String>) `
     .input {$people :nomi:list}
     .match $people
     one {{{$people} is watching this item}}
@@ -295,7 +295,7 @@ pub phrase watching(people: List<String>) `
     `
 
 /// A greeting before the cart badge.
-pub phrase greeting(name: String, cart: Phrase) `{$name}, you have {$cart}`
+phrase greeting(name: String, cart: Phrase) `{$name}, you have {$cart}`
 
 // FILE: locales/pl/cart.toml
 [cart_count]
@@ -353,7 +353,7 @@ source = '''{$name}, you have {$cart}'''
 text = '''{$name}, masz {$cart}'''
 
 // FILE: nomi.toml
-[module]
+[package]
 name = "shop"
 entry_points = ["main"]
 
@@ -420,10 +420,10 @@ import
 end
 
 /// The order's total, in its currency.
-pub phrase order_total(total: Money) `Total: {$total :currency}`
+phrase order_total(total: Money) `Total: {$total :currency}`
 
 /// The day the order ships.
-pub phrase ships_on(date: Date) `Ships {$date :datetime weekday=long month=long day=numeric}`
+phrase ships_on(date: Date) `Ships {$date :datetime weekday=long month=long day=numeric}`
 
 // FILE: locales/pl/order.toml
 [order_total]
@@ -435,7 +435,7 @@ source = '''Ships {$date :datetime weekday=long month=long day=numeric}'''
 text = '''Wysyłka: {$date :datetime weekday=long month=long day=numeric}'''
 
 // FILE: nomi.toml
-[module]
+[package]
 name = "shop"
 entry_points = ["main"]
 
@@ -487,14 +487,14 @@ fn main()
 end
 
 // FILE: shop.nomi
-pub noun book `
+noun book `
     .input {$count :integer}
     .match $count
     one {{book}}
     * {{books}}
     `
 
-pub noun laptop `
+noun laptop `
     .input {$count :integer}
     .match $count
     one {{laptop}}
@@ -502,7 +502,7 @@ pub noun laptop `
     `
 
 /// Sent when a parcel leaves the warehouse.
-pub phrase has_shipped(product: Noun) `Your {$product :nomi:noun} has shipped.`
+phrase has_shipped(product: Noun) `Your {$product :nomi:noun} has shipped.`
 
 // FILE: locales/pl/shop.toml
 [book]
@@ -550,7 +550,7 @@ inanimate {{Twój {$product :nomi:noun} został wysłany.}}
 '''
 
 // FILE: nomi.toml
-[module]
+[package]
 name = "shop"
 entry_points = ["main"]
 

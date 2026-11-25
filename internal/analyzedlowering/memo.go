@@ -12,7 +12,8 @@ import (
 // same program, both times.
 //
 // A lowering from an analysis reads nothing but the texts the analysis was
-// built from (the entry's, each other project file's and nomi.toml's;
+// built from (the entry's, each other project file's and nomi.toml's with
+// the files that select its versions, analysis.ManifestTexts;
 // Check refuses an analysis whose files do not hold those texts on disk)
 // and the stdlib, which a process does not change. Two analyses of the same
 // texts are the same program (analysis.DocumentManager.RecheckEdits answers what

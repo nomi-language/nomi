@@ -57,10 +57,10 @@ func TestGenericArity_TreeIsClean(t *testing.T) {
 	}
 
 	lib := loadStd()
-	newManager := func(workspace string) *analysis.DocumentManager {
+	newManager := func(folder string) *analysis.DocumentManager {
 		dm := analysis.NewDocumentManager()
 		dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
-		dm.SetWorkspaceRoot(workspace)
+		dm.SetEditorFolder(folder)
 		return dm
 	}
 
@@ -466,7 +466,7 @@ func diagnosticsFor(t *testing.T, src string) []analysis.TypeError {
 	if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	dm.SetWorkspaceRoot(dir)
+	dm.SetEditorFolder(dir)
 	doc := dm.Open(fileuri.FromPath(path), src)
 	if doc == nil || doc.Analysis == nil {
 		t.Fatal("source did not analyze")

@@ -6,7 +6,7 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/buildversion"
 	"github.com/nomi-language/nomi/internal/fileuri"
-	"github.com/nomi-language/nomi/internal/modcache"
+	"github.com/nomi-language/nomi/internal/pkgcache"
 	"github.com/nomi-language/nomi/internal/stdcache"
 	"github.com/nomi-language/nomi/std"
 	"path/filepath"
@@ -80,7 +80,7 @@ type Server struct {
 	// requestCtxs maps a running request's *glsp.Context to its
 	// cancellable context (rpc.go).
 	requestCtxs sync.Map
-	// bg is the context background work (the workspace scan, closed
+	// bg is the context background work (the editor folder's scan, closed
 	// files' diagnostics) runs under; shutdown cancels it via stopBg.
 	bg     context.Context
 	stopBg context.CancelFunc
@@ -110,7 +110,8 @@ func NewServer() *Server {
 	// builder read: the lowering check lowers a document's analysis
 	// (lowering.go), and the builder knows a std declaration by its node.
 	// Every module of it, since an editor reaches any (completion, the
-	// workspace's symbols), and analyses run on several goroutines.
+	// editor folder's symbols for workspace/symbol), and analyses run on
+	// several goroutines.
 	lib := std.All()
 	s.docs.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
 	// Std modules a document imports are read from this server's own
@@ -254,10 +255,13 @@ func (s *Server) initialize(ctx *glsp.Context, params *protocol.InitializeParams
 	// (file_rename.go).
 	capabilities.Workspace.FileOperations.WillRename.Filters = fileRenameFilters()
 
-	// Store workspace root for scanning
+	// The protocol calls the folder the editor opened its workspace (rootUri,
+	// workspace/* requests); the server calls it the editor folder, which it
+	// scans (analysis.DocumentManager.SetEditorFolder). In Nomi a workspace
+	// is a nomi-workspace.toml's packages, which is another thing.
 	if params.RootURI != nil {
 		root := fileuri.ToPath(string(*params.RootURI))
-		s.docs.SetWorkspaceRoot(root)
+		s.docs.SetEditorFolder(root)
 	}
 
 	version := buildversion.Current()
@@ -279,7 +283,7 @@ func (s *Server) initialized(ctx *glsp.Context, params *protocol.InitializedPara
 	s.notify = ctx.Notify
 	s.call = ctx.Call
 
-	// Register file watcher and scan workspace in background.
+	// Register the file watcher and scan the editor folder in the background.
 	// ctx.Call blocks waiting for a response, which deadlocks the message
 	// loop (jsonrpc2 reads messages sequentially). Run it in a goroutine.
 	go func() {
@@ -300,7 +304,7 @@ func (s *Server) initialized(ctx *glsp.Context, params *protocol.InitializedPara
 		}, nil)
 	}()
 
-	go s.scanWorkspace()
+	go s.scanEditorFolder()
 	return nil
 }
 
@@ -540,8 +544,8 @@ func (s *Server) propagateAsync(uri string) {
 func (s *Server) workspaceDidChangeWatchedFiles(ctx *glsp.Context, params *protocol.DidChangeWatchedFilesParams) error {
 	for _, event := range params.Changes {
 		uri := string(event.URI)
-		// nomi.lock selects the versions of the modules nomi.toml names.
-		if isManifestURI(uri) || filepath.Base(uriToPath(uri)) == modcache.LockName {
+		// nomi.lock selects the versions of the packages nomi.toml names.
+		if isManifestURI(uri) || filepath.Base(uriToPath(uri)) == pkgcache.LockName {
 			s.manifestChanged(uri)
 			continue
 		}
@@ -576,7 +580,7 @@ func (s *Server) workspaceDidChangeWatchedFiles(ctx *glsp.Context, params *proto
 			s.propagateAsync(uri)
 
 		case protocol.FileChangeTypeDeleted:
-			s.docs.RemoveWorkspaceFile(uri)
+			s.docs.RemoveEditorFolderFile(uri)
 			ctx.Notify(protocol.ServerTextDocumentPublishDiagnostics, &protocol.PublishDiagnosticsParams{
 				URI:         protocol.DocumentUri(uri),
 				Diagnostics: []protocol.Diagnostic{},

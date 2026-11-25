@@ -21,7 +21,7 @@ func loadManifest(t *testing.T, src, toml string) (*Program, error) {
 	return LoadSource("main", src, WithVirtualManifest(m))
 }
 
-const carriedToml = "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[i18n]\nlocales = [\"en\", \"de\"]\n"
+const carriedToml = "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[i18n]\nlocales = [\"en\", \"de\"]\n"
 
 // localeLiteral is a program that formats in the locale tag names, written
 // as a literal.
@@ -68,7 +68,7 @@ func TestLocaleLiteral_CarriedOrUnlistedIsNoError(t *testing.T) {
 		{"de", carriedToml, "a und b\n"},
 		{"de-CH", carriedToml, "a und b\n"},
 		{"en-GB", carriedToml, "a and b\n"},
-		{"fr", "[module]\nname = \"app\"\nentry_points = [\"main\"]\n", "a et b\n"},
+		{"fr", "[package]\nname = \"app\"\nentry_points = [\"main\"]\n", "a et b\n"},
 	} {
 		p, err := loadManifest(t, localeLiteral(c.tag), c.toml)
 		if err != nil {

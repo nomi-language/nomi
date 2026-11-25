@@ -9,15 +9,15 @@ import "testing"
 // check reads a type expression's parts through ast.Children, so it has
 // no list of the kinds of type expression to fall behind.
 func TestVisibility_APrivateTypeAnywhereInAPublicSignature(t *testing.T) {
-	const decls = `interface Hidden
+	const decls = `private interface Hidden
     fn hid(value: self) -> Int
 end
 
-interface Named
+private interface Named
     fn name(value: self) -> String
 end
 
-struct Secret
+private struct Secret
     n: Int
 end
 

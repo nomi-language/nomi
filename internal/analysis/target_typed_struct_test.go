@@ -320,7 +320,7 @@ fn forge() -> Counter
   {value: -999, increments: 0}
 end
 `))
-	want := "constructor of opaque type 'Counter' is private to its defining module"
+	want := "constructor of opaque type 'Counter' is private to `counter.nomi`"
 	for _, e := range errs {
 		if strings.Contains(e.Message, want) {
 			return

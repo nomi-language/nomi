@@ -26,7 +26,7 @@ struct Mk
 end
 
 impl Mk
-    pub fn make(_o: Mk) -> Int
+    fn make(_o: Mk) -> Int
         fn inner() -> Int
             j = 1
             j + 1
@@ -67,7 +67,7 @@ end
 // The nested fn's body is checked, so an error in it is reported.
 func TestDeclNestedFn_BodyErrorIsReported(t *testing.T) {
 	for _, src := range []string{
-		"struct Mk\n    v: Int\nend\n\nimpl Mk\n    pub fn make(_o: Mk) -> Int\n        fn inner() -> Int\n            \"nope\"\n        end\n        inner()\n    end\nend\n",
+		"struct Mk\n    v: Int\nend\n\nimpl Mk\n    fn make(_o: Mk) -> Int\n        fn inner() -> Int\n            \"nope\"\n        end\n        inner()\n    end\nend\n",
 		"fn far(a: Int = begin\n    fn inner() -> Int\n        \"nope\"\n    end\n    inner()\nend) -> Int\n    a\nend\n",
 		"interface Make\n    fn make(_x: self) -> Int\n        base = 0\n        fn inner() -> Int\n            \"nope\"\n        end\n        base + inner()\n    end\nend\n",
 	} {

@@ -25,7 +25,7 @@ import (
 // synthetic project root is empty, the opaque-construction *package-identity*
 // check spuriously fires ("constructor of opaque type ... is private to its
 // defining module") — that is a harness artifact of projectRoot="", not a real
-// diagnostic (the real std build, which has a module root, does not emit it,
+// diagnostic (the real std build, which has a package root, does not emit it,
 // and `go test ./analysis` over the real stdlib is clean). We filter
 // exactly that string and assert everything else is empty.
 func TestRandomModuleTypechecksAsPrimary(t *testing.T) {

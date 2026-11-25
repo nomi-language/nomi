@@ -90,7 +90,7 @@ func (bl *irScalarBuilder) assertableFailure(k kind) *assertableImpl {
 	if k.tag != tagNamed || k.def == nil {
 		return nil
 	}
-	d := bl.g.implsByIface[stdIfaceImplKey(stdAssertable)][k]
+	d := bl.g.implAt(stdIfaceImplKey(stdAssertable), k)
 	if d == nil || !d.lowerable {
 		return bl.stdAssertableFailure(k)
 	}

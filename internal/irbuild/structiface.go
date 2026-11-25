@@ -117,7 +117,7 @@ var structIfaceDef = sync.OnceValue(func() *ifaceDef {
 	// It carries no methods, as (2) above says: the canonical AST and the def
 	// agree that nothing dispatches, so no derivation over either can
 	// disagree with the other.
-	canon := &ast.InterfaceDef{Name: structIfaceName, Public: true}
+	canon := &ast.InterfaceDef{Name: structIfaceName, Visibility: ast.Public}
 	return &ifaceDef{
 		nomi:      structIfaceName,
 		decl:      canon,
@@ -135,7 +135,7 @@ var structIfaceDef = sync.OnceValue(func() *ifaceDef {
 // describes. See the file comment for what the check is for and what voids it.
 func structIfaceMatches(decl *ast.InterfaceDef) bool {
 	switch {
-	case decl == nil, decl.Name != structIfaceName, !decl.Public:
+	case decl == nil, decl.Name != structIfaceName, decl.Visibility != ast.Public:
 		return false
 	case len(decl.TypeParams) > 0, len(decl.WhereClauses) > 0:
 		return false

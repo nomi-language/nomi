@@ -79,10 +79,10 @@ func TestStdHostContextAnchorsInStdAndInAnImporter(t *testing.T) {
 		decl *ast.ExternType
 	}{
 		{"a private declaration", &ast.ExternType{Name: "Context"}},
-		{"a differently named declaration", &ast.ExternType{Name: "Ctx", Public: true}},
-		{"a GENERIC host type", &ast.ExternType{Name: "Context", Public: true,
+		{"a differently named declaration", &ast.ExternType{Name: "Ctx", Visibility: ast.Public}},
+		{"a GENERIC host type", &ast.ExternType{Name: "Context", Visibility: ast.Public,
 			TypeParams: []ast.TypeParam{{Name: "T"}}}},
-		{"a declaration carrying a non-derive decorator", &ast.ExternType{Name: "Context", Public: true,
+		{"a declaration carrying a non-derive decorator", &ast.ExternType{Name: "Context", Visibility: ast.Public,
 			Decorators: []ast.Decorator{{Name: "wrap"}}}},
 	} {
 		if row.declaredHostType(bad.decl) {
@@ -90,7 +90,7 @@ func TestStdHostContextAnchorsInStdAndInAnImporter(t *testing.T) {
 				"REPRESENTATION and must fail toward NO anchor", bad.name)
 		}
 	}
-	if !row.declaredHostType(&ast.ExternType{Name: "Context", Public: true}) {
+	if !row.declaredHostType(&ast.ExternType{Name: "Context", Visibility: ast.Public}) {
 		t.Error("the Context row rejected the shape std/context actually declares, so the anchor " +
 			"can never fire and the two doors above are passing for some other reason")
 	}
@@ -98,7 +98,7 @@ func TestStdHostContextAnchorsInStdAndInAnImporter(t *testing.T) {
 	// metadata about work already done, not a gap. Without this the predicate
 	// could be tightened to "no decorators at all" and nothing would notice
 	// until std added one.
-	if !row.declaredHostType(&ast.ExternType{Name: "Context", Public: true,
+	if !row.declaredHostType(&ast.ExternType{Name: "Context", Visibility: ast.Public,
 		Decorators: []ast.Decorator{{Name: "derive"}}}) {
 		t.Error("the Context row rejected a `derive` decorator; derive is synthesized into an " +
 			"ordinary impl block that lowers through the ordinary path, so it is not a refusal " +

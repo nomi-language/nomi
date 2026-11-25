@@ -1,4 +1,4 @@
-//# The renderer held to goldmark, which this module wrapped before it was
+//# The renderer held to goldmark, which this package wrapped before it was
 //# written in Nomi: each fixture under testdata/ is a Markdown input and
 //# the HTML goldmark v1.8.7 rendered for it with its GFM extension, and
 //# each must render the same, byte for byte. testdata/NOTICE.txt says

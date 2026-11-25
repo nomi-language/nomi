@@ -34,7 +34,7 @@ func TestEnterKeptFields(t *testing.T) {
 	// none.
 	bounded := EnterContext(root, ContextWithTimeout(ContextRoot(), Duration(time.Hour)))
 	fr, _ = EnterKeptFields(bounded, kept)
-	if _, has := contextEffectiveDeadline(ActiveContext(fr)); !has || ScopedField[string](fr, "label") != "made" {
+	if !chainBound(ActiveContext(fr)).set() || ScopedField[string](fr, "label") != "made" {
 		t.Fatal("the caller's deadline does not bound the body")
 	}
 

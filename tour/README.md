@@ -63,8 +63,8 @@ A ` ```nomi-run ` block becomes a live editor. The authoring rules (fence
 words, expect blocks, the Examples pages) are in the repository's
 `AGENTS.md`. The Go side is documented in the packages that run blocks:
 `vmhost.LoadMarked` and `vmhost.BlockFiles` (a block's files, data files,
-modules and sibling projects), `vmhost.ToolMarked` (`tool:` steps),
-`internal/tourmodules` (the `lib/` modules the tour links) and
+packages and sibling projects), `vmhost.ToolMarked` (`tool:` steps),
+`internal/tourpackages` (the `lib/` packages the tour links) and
 `cmd/nomi-docgen` (the stdlib reference's editors). This section is the
 browser side.
 
@@ -113,7 +113,7 @@ can be split into two groups of tabs, and the output can move below the code.
 A block that is a solution and its test opens the first time, in a large view
 at least 1100px wide, with the two side by side. A file is editable only when
 an edit can change what the block prints (`readOnlyReason`): a
-`nomi.toml` whose only table is `[module]`, data
+`nomi.toml` whose only table is `[package]`, data
 files a `read-only:` word marks, and binary files are locked. A binary
 file is a `// FILE: <path> (base64)` section: its tab shows one line with
 its size, the run sends the section's base64 as the block holds it, and

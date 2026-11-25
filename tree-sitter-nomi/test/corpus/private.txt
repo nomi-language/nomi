@@ -1,0 +1,75 @@
+================================================================================
+Private declarations
+================================================================================
+
+private fn helper(n: Int) -> Int
+    n
+end
+
+private struct Point
+    x: Int
+end
+
+private host fn now() -> Int
+
+private once limit: Int = 3
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (private_keyword)
+    name: (identifier)
+    (parameters
+      (parameter
+        name: (identifier)
+        (type_identifier)))
+    return_type: (type_identifier)
+    (body
+      (identifier)))
+  (struct_definition
+    (private_keyword)
+    name: (qualified_type_identifier
+      (type_identifier))
+    (struct_body
+      (field_definition
+        name: (identifier)
+        type: (type_identifier))))
+  (extern_func_definition
+    (private_keyword)
+    (host_keyword)
+    name: (identifier)
+    (parameters)
+    return_type: (type_identifier))
+  (once_binding
+    (private_keyword)
+    name: (identifier)
+    type: (type_identifier)
+    value: (integer)))
+
+================================================================================
+Private as a name
+================================================================================
+
+fn f(private: Int) -> Int
+    private = private + 1
+    private
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters
+      (parameter
+        name: (identifier)
+        (type_identifier)))
+    return_type: (type_identifier)
+    (body
+      (binding
+        (identifier)
+        (binary_expression
+          (identifier)
+          (integer)))
+      (identifier))))

@@ -17,6 +17,29 @@ package vm
 // (RunCases), and leaves the bubble's context alone: a bubble blocked on a
 // channel from outside it would never advance its clock.
 //
+// # A wait the stop cannot reach
+//
+// The flag stops computing and the cancelled context wakes a wait, std's
+// waits outside the program among them, so a case on the real clock ends
+// once its time runs out, and the tests after it run. A bubbled case
+// has no context the limit may cancel, so a wait outside the program (a
+// socket, a process) does not wake, and its bubble cannot end: nothing
+// outside a bubble may touch its channels, and nothing inside it can run
+// while the clock stands still. The limit's timer also closes the case's
+// stop channel (rt.Test.Stop), and rt.RunBubbled gives up on a bubble that
+// has not ended shortly after: the case fails with a *TimedOut that says it
+// was waiting outside the program, and no case starts in the process after
+// it, since a bubble beside it could close one of its channels.
+//
+// Where it waits cannot come from an unwind, since nothing unwinds. A
+// bubbled case's view notes each call into Go (an adapter, the only code
+// that can wait outside the program) on the calling task's record in rt's
+// task registry while it runs (rt.EnterGo): the activation that made it
+// and the call's position, the record a task's wait inside the program
+// also keeps its place in (rt's package doc, "Deadlock"). The calls still
+// open when the bubble is given up on are where the case waits, the
+// innermost Nomi frame of each task that waits (rt.CaseStillRunning).
+//
 // # The stack, paid for only by a case that is stopped
 //
 // A plain machine keeps no logical call stack (a debug machine does,
@@ -55,20 +78,25 @@ type caseLimit struct {
 	fuel *fuel
 	// timedOut says the timer fired, rather than an outer stop (StopOn).
 	timedOut atomic.Bool
+	// expired closes when the timer fires (rt.Test.Stop).
+	expired chan struct{}
+	// virtual says the case runs under a virtual clock, so its view notes
+	// each call into Go on the calling task's record (Machine.noteGo).
+	virtual bool
 	// fileName is the machine's (WithFileNames).
 	fileName func(string) string
 }
 
 // newCaseLimit is the limit of one case on m, or nil when m has none.
-func (m *Machine) newCaseLimit() *caseLimit {
+func (m *Machine) newCaseLimit(virtual bool) *caseLimit {
 	if m.caseLimit <= 0 || m.dbg != nil {
 		return nil
 	}
-	return &caseLimit{d: m.caseLimit, fuel: &fuel{watch: true, outer: m.fuel}, fileName: m.fileName}
+	return &caseLimit{d: m.caseLimit, fuel: &fuel{watch: true, outer: m.fuel}, expired: make(chan struct{}), virtual: virtual, fileName: m.fileName}
 }
 
 // arm starts the case's clock, which also calls cancel, when not nil, as it
-// runs out. The answer stops the clock.
+// runs out. The answer stops the clock. A case arms its limit once.
 func (l *caseLimit) arm(cancel func()) (disarm func()) {
 	t := time.AfterFunc(l.d, func() {
 		l.timedOut.Store(true)
@@ -76,8 +104,31 @@ func (l *caseLimit) arm(cancel func()) (disarm func()) {
 		if cancel != nil {
 			cancel()
 		}
+		close(l.expired)
 	})
 	return func() { t.Stop() }
+}
+
+// siteOf is where an activation of fn is at pos, as rt records a wait or a
+// call into Go: fn may be nil when the caller does not know the function.
+func siteOf(fn *ir.Func, pos ir.Pos) rt.Site {
+	s := rt.Site{File: pos.File(), Line: pos.Line(), Stdlib: pos.Stdlib()}
+	if fn != nil {
+		s.Fn = frameName(fn)
+	}
+	return s
+}
+
+// siteFrame is s as a stack frame of a report.
+func siteFrame(s rt.Site) StackFrame {
+	f := StackFrame{Name: s.Fn}
+	if s.File != "" && s.Line > 0 {
+		f.Pos = ir.At(s.File, s.Line, 1)
+		if s.Stdlib {
+			f.Pos = f.Pos.WithStdlib()
+		}
+	}
+	return f
 }
 
 // bubble is vclock.RunCase with the case's clock running around the
@@ -132,8 +183,13 @@ type TimedOut struct {
 	// activation with the call or statement it was at. A frame with an
 	// empty Name is a program call whose tail call into the stdlib replaced
 	// its activation. It is empty when the stop reached the case by a path
-	// that kept no frames.
+	// that kept no frames. For a case Waiting, it is the innermost frame of
+	// each call into Go the case was still in, the latest first.
 	Stack []StackFrame
+	// Waiting says the stop could not end the case: it was waiting outside
+	// the program, under a virtual clock, and no case after it ran
+	// (rt.ErrCaseStillRunning).
+	Waiting bool
 	// Line is the line of the innermost frame in the case's own file that
 	// is not the stdlib's, or 0.
 	Line int
@@ -146,11 +202,27 @@ type TimedOut struct {
 
 // failure is the failure of the case fn, stopped by its limit with err.
 func (l *caseLimit) failure(fn *ir.Func, err error) *TimedOut {
-	t := &TimedOut{Limit: l.d, fileName: l.fileName}
 	var in *interruption
 	if errors.As(err, &in) {
-		t.Stack = in.frames
+		return l.timedOutAt(fn, in.frames, false)
 	}
+	return l.timedOutAt(fn, nil, false)
+}
+
+// waiting is the failure of the case fn, whose bubble rt.RunBubbled gave
+// up on: the calls into Go its tasks are still in (rt.CaseStillRunning)
+// are where it waits.
+func (l *caseLimit) waiting(fn *ir.Func, inGo []rt.Site) *TimedOut {
+	stack := make([]StackFrame, len(inGo))
+	for i, s := range inGo {
+		stack[i] = siteFrame(s)
+	}
+	return l.timedOutAt(fn, stack, true)
+}
+
+// timedOutAt is the failure of the case fn, at stack.
+func (l *caseLimit) timedOutAt(fn *ir.Func, stack []StackFrame, waiting bool) *TimedOut {
+	t := &TimedOut{Limit: l.d, Stack: stack, Waiting: waiting, fileName: l.fileName}
 	file := fn.Pos().File()
 	for _, f := range t.Stack {
 		if !f.Pos.Stdlib() && f.Pos.File() == file && f.Pos.Line() > 0 {
@@ -170,26 +242,33 @@ func (t *TimedOut) Error() string {
 	if t.Line > 0 {
 		fmt.Fprintf(&b, "line %d: ", t.Line)
 	}
-	fmt.Fprintf(&b, "did not finish within %s, so it was stopped", t.Limit)
-	if len(t.Stack) > 0 {
+	if t.Waiting {
+		fmt.Fprintf(&b, "did not finish within %s and could not be stopped: it was waiting outside the program", t.Limit)
+	} else {
+		fmt.Fprintf(&b, "did not finish within %s, so it was stopped", t.Limit)
+	}
+	switch {
+	case len(t.Stack) > 0 && t.Waiting:
+		b.WriteString("\nit was waiting at:")
+	case len(t.Stack) > 0:
 		b.WriteString("\nit was running:")
-		for i, f := range t.Stack {
-			if len(t.Stack) > stackShownInner+stackShownOuter+1 && i >= stackShownInner && i < len(t.Stack)-stackShownOuter {
-				if i == stackShownInner {
-					fmt.Fprintf(&b, "\n  ... %d more", len(t.Stack)-stackShownInner-stackShownOuter)
-				}
-				continue
+	}
+	for i, f := range t.Stack {
+		if len(t.Stack) > stackShownInner+stackShownOuter+1 && i >= stackShownInner && i < len(t.Stack)-stackShownOuter {
+			if i == stackShownInner {
+				fmt.Fprintf(&b, "\n  ... %d more", len(t.Stack)-stackShownInner-stackShownOuter)
 			}
-			name := rt.DisplayPath(f.Pos.File())
-			if t.fileName != nil {
-				name = t.fileName(f.Pos.File())
-			}
-			at := fmt.Sprintf("%s:%d", name, f.Pos.Line())
-			if f.Name == "" {
-				fmt.Fprintf(&b, "\n  %s", at)
-			} else {
-				fmt.Fprintf(&b, "\n  %s in %s", at, f.Name)
-			}
+			continue
+		}
+		name := rt.DisplayPath(f.Pos.File())
+		if t.fileName != nil {
+			name = t.fileName(f.Pos.File())
+		}
+		at := fmt.Sprintf("%s:%d", name, f.Pos.Line())
+		if f.Name == "" {
+			fmt.Fprintf(&b, "\n  %s", at)
+		} else {
+			fmt.Fprintf(&b, "\n  %s in %s", at, f.Name)
 		}
 	}
 	if t.Hint != "" {

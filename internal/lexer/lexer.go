@@ -87,8 +87,9 @@ func IsComplete(source string) bool {
 }
 
 // openBodies counts the bodies tokens open and do not close with `end`, by
-// the tokens alone: a declaration keyword starting a line (`fn name(`,
-// `struct`, `enum`, `interface`, `impl`, `test`), `case`, `begin`, and a
+// the tokens alone: a declaration keyword (`fn name(`, `struct`, `enum`,
+// `interface`, `impl`, `test`) starting a line or after a modifier
+// (IsVisibilityModifier, `opaque`), `case`, `begin`, and a
 // `then`, a lambda's `->`, a binding's `else`, `import` or `concurrent` that
 // ends its line. A REPL reads on until each has its `end`.
 func openBodies(tokens []token.Token) int {
@@ -102,7 +103,7 @@ func openBodies(tokens []token.Token) int {
 		return n.Type == token.NEWLINE || n.Type == token.COMMENT || n.Type == token.EOF || n.Line > tokens[i].Line
 	}
 	startsLine := func(i int) bool {
-		return i == 0 || tokens[i-1].Line < tokens[i].Line || tokens[i-1].Type == token.PUB || tokens[i-1].Type == token.OPAQUE
+		return i == 0 || tokens[i-1].Line < tokens[i].Line || IsVisibilityModifier(tokens[i-1], tokens[i]) || tokens[i-1].Type == token.OPAQUE
 	}
 	for i, t := range tokens {
 		switch t.Type {
@@ -1231,11 +1232,33 @@ func KeywordPurpose(word string) (purpose, instead string, ok bool) {
 // contextualWords are the words that are keywords only where their
 // construct stands and ordinary names elsewhere (spec §2 *Keywords*). The
 // lexer gives each an IDENT; the parser recognizes it by lexeme in its
-// construct. `TestContextualWordsAreListed` (internal/parser) holds this
-// list to the lexemes the parser compares against.
+// construct, and a few here (IsVisibilityModifier, IsComplete).
+// `TestContextualWordsAreListed` (internal/parser) holds this list to the
+// lexemes the parser and the lexer compare against.
 var contextualWords = []string{
 	"boot", "clock", "concurrent", "derive", "embed", "embeds", "error", "group",
-	"host", "noun", "on", "open", "phrase", "setup", "subtests", "todo",
+	"host", "noun", "on", "open", "phrase", "private", "setup", "subtests", "todo",
+}
+
+// IsVisibilityModifier reports whether t, followed by next, is a visibility
+// modifier: `pub`, or the contextual word `private` where a declaration's
+// keyword, a name (a `host` or keyword declaration) or another modifier
+// follows it on its line. `private` anywhere else is a name. The parser
+// reads a modifier by it, and IsComplete finds a declaration after one.
+func IsVisibilityModifier(t, next token.Token) bool {
+	if t.Type == token.PUB {
+		return true
+	}
+	if t.Type != token.IDENT || t.Lexeme != "private" {
+		return false
+	}
+	switch next.Type {
+	case token.FN, token.STRUCT, token.ENUM, token.TYPE, token.REFINE, token.OPAQUE,
+		token.INTERFACE, token.TYPEALIAS, token.ONCE, token.IMPORT, token.EXPORT,
+		token.EXTERN, token.PUB, token.IMPL, token.TEST, token.IDENT:
+		return true
+	}
+	return false
 }
 
 // ReservedWords returns the reserved words, which the lexer turns into

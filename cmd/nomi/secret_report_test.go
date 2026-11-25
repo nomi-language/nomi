@@ -34,7 +34,7 @@ func TestSecretReport_LibConfigsShowNoSecret(t *testing.T) {
 		}
 		return filepath.ToSlash(r)
 	}
-	mustWrite(t, filepath.Join(app, "nomi.toml"), "[module]\nname = \"app\"\n\n[dependencies]\n"+
+	mustWrite(t, filepath.Join(app, "nomi.toml"), "[package]\nname = \"app\"\n\n[dependencies]\n"+
 		"s3 = { dir = \""+rel("storage", "s3")+"\" }\n"+
 		"postgres = { dir = \""+rel("sql", "postgres")+"\" }\n")
 	mustWrite(t, filepath.Join(app, "secrets_test.nomi"), `import

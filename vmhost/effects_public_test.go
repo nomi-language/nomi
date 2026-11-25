@@ -23,7 +23,7 @@ func checkedRootsPass(t *testing.T, entry string, files map[string]string) {
 // [effects.self] allows std, with its files and more added.
 func libraryFiles(std string, more map[string]string) map[string]string {
 	files := map[string]string{
-		"nomi.toml": "[module]\nname = \"libroots\"\n\n[effects.self]\nstd = " + std + "\n",
+		"nomi.toml": "[package]\nname = \"libroots\"\n\n[effects.self]\nstd = " + std + "\n",
 		"libroots.nomi": `import std::fs
 
 pub fn load(path: String) -> Result<String, fs.Error>
@@ -43,7 +43,7 @@ end
 // tests; and allowed once std names std::fs.
 func TestEffectRoots_ALibrarysPublicFunctionsAreRoots(t *testing.T) {
 	got, ds := effectDiagnostics(t, "libroots.nomi", libraryFiles("[]", nil))
-	want := "libroots.nomi:4:5: this module's own code has the effect std::fs, and [effects.self] allows it no effects\n" +
+	want := "libroots.nomi:4:5: this package's own code has the effect std::fs, and [effects.self] allows it no effects\n" +
 		"libroots.nomi:4:5: help: reached from `load`\n" +
 		"libroots.nomi:4:5: help: add \"std::fs\" to std under [effects.self] in nomi.toml, or remove the call"
 	if got != want {
@@ -55,10 +55,10 @@ func TestEffectRoots_ALibrarysPublicFunctionsAreRoots(t *testing.T) {
 	checkedRootsPass(t, "libroots.nomi", libraryFiles(`["std::fs"]`, nil))
 }
 
-// What no public function reaches is not counted: a private function that
-// reads a file and that nothing calls, and a `pub fn` in an internal/
-// file, which no other module can call, leave the library pure. A private
-// function a public one calls counts, reached through it.
+// What no public function reaches is not counted: an internal function
+// that reads a file and that nothing calls, and one in another file of the
+// module, which no other module can call, leave the library pure. An
+// internal function a public one calls counts, reached through it.
 func TestEffectRoots_WhatNoPublicFunctionReachesIsNotCounted(t *testing.T) {
 	pure := map[string]string{
 		"libroots.nomi": `import
@@ -76,11 +76,11 @@ end
 `,
 		"internal/files.nomi": `import std::fs
 
-pub fn count(text: String) -> Int
+fn count(text: String) -> Int
     String.length(text)
 end
 
-pub fn read_all(path: String) -> Result<String, fs.Error>
+fn read_all(path: String) -> Result<String, fs.Error>
     fs.read_text(path)
 end
 `,
@@ -100,7 +100,7 @@ end
 `,
 	}
 	got, _ := effectDiagnostics(t, "libroots.nomi", libraryFiles("[]", through))
-	want := "libroots.nomi:8:5: this module's own code has the effect std::fs, and [effects.self] allows it no effects\n" +
+	want := "libroots.nomi:8:5: this package's own code has the effect std::fs, and [effects.self] allows it no effects\n" +
 		"libroots.nomi:8:5: help: reached from `size`; `size` calls `read`\n" +
 		"libroots.nomi:8:5: help: add \"std::fs\" to std under [effects.self] in nomi.toml, or remove the call"
 	if got != want {
@@ -109,7 +109,7 @@ end
 }
 
 // The bodies a value of a type may run are roots once a public function
-// makes one, in an internal/ file and of a private type too, since the
+// makes one, in another file and of an internal type too, since the
 // value can leave through the function: Loud's Display reads a file. So
 // are the impls of a type another module can build itself, a `pub` type
 // that is not `opaque`, though no function makes one: Note's Display. A
@@ -149,11 +149,11 @@ end
 `,
 		"internal/loud.nomi": `import std::fs
 
-pub struct Loud
+struct Loud
     path: String
 end
 
-pub fn make() -> Loud
+fn make() -> Loud
     Loud{path: "loud.txt"}
 end
 
@@ -165,10 +165,10 @@ end
 `,
 	}
 	got, _ := effectDiagnostics(t, "libroots.nomi", libraryFiles("[]", impls))
-	want := "internal/loud.nomi:13:9: this module's own code has the effect std::fs, and [effects.self] allows it no effects\n" +
+	want := "internal/loud.nomi:13:9: this package's own code has the effect std::fs, and [effects.self] allows it no effects\n" +
 		"internal/loud.nomi:13:9: help: reached from `Display.to_string for Loud`\n" +
 		"internal/loud.nomi:13:9: help: add \"std::fs\" to std under [effects.self] in nomi.toml, or remove the call\n" +
-		"libroots.nomi:12:9: this module's own code has the effect std::fs, and [effects.self] allows it no effects\n" +
+		"libroots.nomi:12:9: this package's own code has the effect std::fs, and [effects.self] allows it no effects\n" +
 		"libroots.nomi:12:9: help: reached from `Display.to_string for Note`\n" +
 		"libroots.nomi:12:9: help: add \"std::fs\" to std under [effects.self] in nomi.toml, or remove the call"
 	if got != want {
@@ -196,7 +196,7 @@ end
 `,
 	}
 	got, _ := effectDiagnostics(t, "libroots.nomi", libraryFiles("[]", impls))
-	want := "libroots.nomi:9:9: this module's own code has the effect std::fs, and [effects.self] allows it no effects\n" +
+	want := "libroots.nomi:9:9: this package's own code has the effect std::fs, and [effects.self] allows it no effects\n" +
 		"libroots.nomi:9:9: help: reached from `Display.to_string for Store`\n" +
 		"libroots.nomi:9:9: help: add \"std::fs\" to std under [effects.self] in nomi.toml, or remove the call"
 	if got != want {
@@ -210,7 +210,7 @@ end
 func TestEffectRoots_AnAppsUnreachedPublicFunction(t *testing.T) {
 	app := func(std string) map[string]string {
 		return map[string]string{
-			"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = " + std + "\n",
+			"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = " + std + "\n",
 			"main.nomi": `import
     std::io
     notes
@@ -234,7 +234,7 @@ end
 	}
 	checkedRootsPass(t, "main.nomi", app(`["std::io", "std::fs"]`))
 	got, _ := effectDiagnostics(t, "main.nomi", app(`["std::io"]`))
-	want := "notes.nomi:8:5: this module's own code has the effect std::fs, and [effects.self] allows it only std::io\n" +
+	want := "notes.nomi:8:5: this package's own code has the effect std::fs, and [effects.self] allows it only std::io\n" +
 		"notes.nomi:8:5: help: reached from `load`\n" +
 		"notes.nomi:8:5: help: add \"std::fs\" to std under [effects.self] in nomi.toml, or remove the call"
 	if got != want {
@@ -250,8 +250,8 @@ end
 func TestEffectRoots_ADependencysPublicFunctionsAreNotRoots(t *testing.T) {
 	files := func(call string) map[string]string {
 		return map[string]string{
-			"app/nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[dependencies]\npricing = { dir = \"../pricing\" }\n\n" +
-				"[effects.self]\nstd = [\"std::io\"]\n\n[effects.deps.modules]\n\"pricing\" = []\n",
+			"app/nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[dependencies]\npricing = { dir = \"../pricing\" }\n\n" +
+				"[effects.self]\nstd = [\"std::io\"]\n\n[effects.deps.packages]\n\"pricing\" = []\n",
 			"app/main.nomi": `import
     std::io
     pricing::rules
@@ -261,7 +261,7 @@ fn main()
     io.print(rules.` + call + `)
 end
 `,
-			"pricing/nomi.toml": "[module]\nname = \"pricing\"\n",
+			"pricing/nomi.toml": "[package]\nname = \"pricing\"\n",
 			"pricing/rules.nomi": `import std::fs
 
 pub fn rate() -> String
@@ -276,9 +276,9 @@ end
 	}
 	checkedRootsPass(t, "app/main.nomi", files("rate()"))
 	got, _ := effectDiagnostics(t, "app/main.nomi", files(`load("prices.txt")`))
-	want := "pricing/rules.nomi:8:5: pricing has the effect std::fs, and its entry under [effects.deps.modules] allows it no effects\n" +
+	want := "pricing/rules.nomi:8:5: pricing has the effect std::fs, and its entry under [effects.deps.packages] allows it no effects\n" +
 		"pricing/rules.nomi:8:5: help: reached from `main`; `main` calls `load`\n" +
-		"pricing/rules.nomi:8:5: help: add \"std::fs\" to \"pricing\" under [effects.deps.modules] in nomi.toml, or remove the call\n" +
+		"pricing/rules.nomi:8:5: help: add \"std::fs\" to \"pricing\" under [effects.deps.packages] in nomi.toml, or remove the call\n" +
 		"app/main.nomi:7:14: note: your code has the effect std::fs in pricing here: `main` calls `load`"
 	if got != want {
 		t.Errorf("diagnostics:\n%s\nwant:\n%s", got, want)

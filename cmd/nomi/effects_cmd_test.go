@@ -38,17 +38,17 @@ test "the clock moves"
     assert 1 == 1
 end
 `)
-	mustWrite(t, filepath.Join(dir, "pricing", "nomi.toml"), "[module]\nname = \"pricing\"\n")
+	mustWrite(t, filepath.Join(dir, "pricing", "nomi.toml"), "[package]\nname = \"pricing\"\n")
 	mustWrite(t, filepath.Join(dir, "pricing", "rules.nomi"), "import std::fs\n\npub fn load(path: String) -> String\n    fs.read_text(path) |> Result.with_default(\"\")\nend\n")
-	mustWrite(t, filepath.Join(dir, "pure", "nomi.toml"), "[module]\nname = \"pure\"\n")
+	mustWrite(t, filepath.Join(dir, "pure", "nomi.toml"), "[package]\nname = \"pure\"\n")
 	mustWrite(t, filepath.Join(dir, "pure", "calc.nomi"), "pub fn double(n: Int) -> Int\n    n * 2\nend\n")
 	return app
 }
 
-const effectsModule = "[module]\nname = \"app\"\nentry_points = [\"main\"]\n"
+const effectsModule = "[package]\nname = \"app\"\nentry_points = [\"main\"]\n"
 
 // effectsApp is effectsProject's nomi.toml with no [effects] tables: the
-// module, and its two dependencies.
+// package, and its two dependencies.
 const effectsApp = effectsModule + "\n[dependencies]\npricing = { dir = \"../pricing\" }\npure = { dir = \"../pure\" }\n"
 
 // What effectsProject reaches, as the report prints the tightest
@@ -60,7 +60,7 @@ const effectsReached = `self: app
 deps
   std            std::fs
   std_in_tests   (none)
-  modules
+  packages
     pricing
       std::fs
     pure
@@ -75,16 +75,16 @@ std_in_tests = ["std::instant"]
 [effects.deps]
 std = ["std::fs"]
 
-[effects.deps.modules]
+[effects.deps.packages]
 "pricing" = ["std::fs"]
 "pure" = []
 `
 
 // changeLine is one line of the report's differences, its label padded to
-// the width of `deps.modules "pricing"`, the longest
+// the width of `deps.packages "pricing"`, the longest
 // effectsProject's reports print.
 func changeLine(word, label, name string) string {
-	return fmt.Sprintf("  %-8s %-22s  %s\n", word, label, name)
+	return fmt.Sprintf("  %-8s %-23s  %s\n", word, label, name)
 }
 
 // With no tables, the command prints what the program reaches and says
@@ -136,8 +136,8 @@ func TestEffects_CommandComparesWithTheTable(t *testing.T) {
 	app := effectsProject(t, loose)
 	plain := runNomiIn(t, app, "off", "effects")
 	want := effectsReached + "\nnomi.toml's [effects] tables differ:\n" +
-		changeLine("missing", `deps.modules "pricing"`, "std::fs") +
-		changeLine("missing", `deps.modules "pure"`, "(an empty entry)") +
+		changeLine("missing", `deps.packages "pricing"`, "std::fs") +
+		changeLine("missing", `deps.packages "pure"`, "(an empty entry)") +
 		changeLine("unused", "self.std", "std::net") +
 		changeLine("unused", "self.std_in_tests", "std::process") +
 		changeLine("unused", "deps.std", "std::io") +
@@ -147,8 +147,8 @@ func TestEffects_CommandComparesWithTheTable(t *testing.T) {
 	}
 	write := runNomiIn(t, app, "off", "effects", "--write")
 	if !strings.HasSuffix(write.stdout, effectsTable+"\n"+
-		changeLine("added", `deps.modules "pricing"`, "std::fs")+
-		changeLine("added", `deps.modules "pure"`, "(an empty entry)")+
+		changeLine("added", `deps.packages "pricing"`, "std::fs")+
+		changeLine("added", `deps.packages "pure"`, "(an empty entry)")+
 		changeLine("removed", "self.std", "std::net")+
 		changeLine("removed", "self.std_in_tests", "std::process")+
 		changeLine("removed", "deps.std", "std::io")) {
@@ -182,12 +182,12 @@ func TestEffects_CommandComparesWithTheTable(t *testing.T) {
 // and the comment on its line; a key the file lacks goes after the keys it
 // has.
 func TestEffects_WriteKeepsTheRestOfNomiToml(t *testing.T) {
-	before := "# The app.\n[module]\nname = \"app\"   # its name\nentry_points = [\"main\"]\n\n" +
+	before := "# The app.\n[package]\nname = \"app\"   # its name\nentry_points = [\"main\"]\n\n" +
 		"[dependencies]\npricing = { dir = \"../pricing\" }\npure = { dir = \"../pure\" }\n\n" +
 		"# What it may reach.\n[effects.self]\nstd = [\"std::io\", \"std::net\"]  # too many\n\n" +
 		"# The tables of the tools.\n[pricing]\nrates = \"rates.csv\"\n\n" +
 		"[effects.deps]\nentries_required = true # every dependency\nstd = []\n\n" +
-		"[effects.deps.modules]\n\"pricing\" = []\n# trailing comment\n"
+		"[effects.deps.packages]\n\"pricing\" = []\n# trailing comment\n"
 	app := effectsProject(t, before)
 	write := runNomiIn(t, app, "off", "effects", "--write")
 	if write.exit != 0 {
@@ -197,12 +197,12 @@ func TestEffects_WriteKeepsTheRestOfNomiToml(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "# The app.\n[module]\nname = \"app\"   # its name\nentry_points = [\"main\"]\n\n" +
+	want := "# The app.\n[package]\nname = \"app\"   # its name\nentry_points = [\"main\"]\n\n" +
 		"[dependencies]\npricing = { dir = \"../pricing\" }\npure = { dir = \"../pure\" }\n\n" +
 		"# What it may reach.\n[effects.self]\nstd = [\"std::io\"]  # too many\nstd_in_tests = [\"std::instant\"]\n\n" +
 		"# The tables of the tools.\n[pricing]\nrates = \"rates.csv\"\n\n" +
 		"[effects.deps]\nentries_required = true # every dependency\nstd = [\"std::fs\"]\n\n" +
-		"[effects.deps.modules]\n\"pricing\" = [\"std::fs\"]\n\"pure\" = []\n# trailing comment\n"
+		"[effects.deps.packages]\n\"pricing\" = [\"std::fs\"]\n\"pure\" = []\n# trailing comment\n"
 	if string(data) != want {
 		t.Errorf("nomi.toml:\n%s\nwant:\n%s", data, want)
 	}
@@ -213,7 +213,7 @@ func TestEffects_WriteKeepsTheRestOfNomiToml(t *testing.T) {
 
 // annotatedManifest is the tooling reference's example of the tables with
 // a comment on each key, for annotatedProject.
-const annotatedManifest = `[module]
+const annotatedManifest = `[package]
 name = "app"
 entry_points = ["main"]
 
@@ -243,7 +243,7 @@ entries_required = true
 # no dependency may reach more than this
 std = ["std::fs", "std::http"]
 
-[effects.deps.modules]
+[effects.deps.packages]
 # computes, and has no effects
 "pricing" = []
 # reads and writes files
@@ -264,7 +264,7 @@ func annotatedProject(t *testing.T, reports bool) string {
 	app := filepath.Join(dir, "app")
 	deps := []string{"fetch", "pg", "pricing", "reports"}
 	for _, d := range deps {
-		mustWrite(t, filepath.Join(dir, d, "nomi.toml"), "[module]\nname = \""+d+"\"\n")
+		mustWrite(t, filepath.Join(dir, d, "nomi.toml"), "[package]\nname = \""+d+"\"\n")
 	}
 	mustWrite(t, filepath.Join(app, "nomi.toml"), annotatedManifest)
 	save, use := "", ""
@@ -302,7 +302,7 @@ func TestEffects_WriteKeepsComments(t *testing.T) {
 	}
 
 	app = annotatedProject(t, false)
-	if r := runNomiIn(t, app, "off", "effects", "--write"); r.exit != 0 || !strings.HasSuffix(r.stdout, "  removed  deps.modules \"reports\"  std::fs\n") {
+	if r := runNomiIn(t, app, "off", "effects", "--write"); r.exit != 0 || !strings.HasSuffix(r.stdout, "  removed  deps.packages \"reports\"  std::fs\n") {
 		t.Errorf("nomi effects --write with reports unused:\n%s", r)
 	}
 	want := strings.Replace(annotatedManifest, "# reads and writes files\n\"reports\" = [\"std::fs\"]\n", "", 1)
@@ -339,7 +339,7 @@ func TestEffects_CommandJSON(t *testing.T) {
 		strings.Join(got.Deps.Std, " ") != "std::fs" || len(got.Deps.StdInTests) != 0 || got.Written {
 		t.Errorf("lists: %+v", got)
 	}
-	if m := got.Deps.Modules; len(m) != 2 || m[0].Path != "pricing" || strings.Join(m[0].Std, " ") != "std::fs" ||
+	if m := got.Deps.Packages; len(m) != 2 || m[0].Path != "pricing" || strings.Join(m[0].Std, " ") != "std::fs" ||
 		len(m[0].StdTestsOnly) != 0 || m[1].Path != "pure" || len(m[1].Std) != 0 {
 		t.Errorf("modules: %+v", m)
 	}
@@ -347,16 +347,39 @@ func TestEffects_CommandJSON(t *testing.T) {
 		{Change: "add", List: "self.std_in_tests", Name: "std::instant"},
 		{Change: "add", List: "deps"},
 		{Change: "add", List: "deps.std", Name: "std::fs"},
-		{Change: "add", List: "deps.modules", Module: "pricing", Name: "std::fs"},
-		{Change: "add", List: "deps.modules", Module: "pure"},
+		{Change: "add", List: "deps.packages", Key: "pricing", Name: "std::fs"},
+		{Change: "add", List: "deps.packages", Key: "pure"},
 	}
 	if got.Table == nil || got.Table.Refused != 1 || fmt.Sprint(got.Table.Changes) != fmt.Sprint(wantChanges) {
 		t.Errorf("table: %+v", got.Table)
 	}
-	for _, field := range []string{`"self": {`, `"deps": {`, `"std_tests_only"`, `"declared_less": []`, `"problems": []`} {
+	// A change to an entry of [effects.deps.packages] names its key a
+	// package, since the key is a dependency.
+	for _, field := range []string{`"self": {`, `"deps": {`, `"std_tests_only"`, `"declared_less": []`, `"problems": []`, `"package": "pricing"`} {
 		if !strings.Contains(r.stdout, field) {
 			t.Errorf("the output has no %s:\n%s", field, r.stdout)
 		}
+	}
+	if strings.Contains(r.stdout, `"module"`) {
+		t.Errorf("a dependency's entry is named a module:\n%s", r.stdout)
+	}
+}
+
+// A dependency whose own [effects.self] allows less than its code has is
+// in --format json's declared_less, named as the package it is.
+func TestEffects_CommandJSONNamesTheDependencyThatDeclaresLess(t *testing.T) {
+	app := effectsProject(t, effectsApp)
+	mustWrite(t, filepath.Join(filepath.Dir(app), "pricing", "nomi.toml"), "[package]\nname = \"pricing\"\n\n[effects.self]\nstd = []\n")
+	r := runNomiIn(t, app, "off", "effects", "--format", "json")
+	var got struct {
+		DeclaredLess []map[string]string `json:"declared_less"`
+	}
+	if err := json.Unmarshal([]byte(r.stdout), &got); err != nil {
+		t.Fatalf("the output is not JSON: %v\n%s", err, r)
+	}
+	if len(got.DeclaredLess) != 1 || got.DeclaredLess[0]["package"] != "pricing" || got.DeclaredLess[0]["name"] != "std::fs" ||
+		got.DeclaredLess[0]["module"] != "" {
+		t.Errorf("declared_less: %v\n%s", got.DeclaredLess, r)
 	}
 }
 
@@ -386,7 +409,7 @@ func TestEffects_Check(t *testing.T) {
 	// Tables that leave out the dependencies' entries, their ceiling, or
 	// all of [effects.deps], hold them by what is left, which --check
 	// does not count as a difference.
-	listsOnly, _, _ := strings.Cut(effectsTable, "[effects.deps.modules]")
+	listsOnly, _, _ := strings.Cut(effectsTable, "[effects.deps.packages]")
 	selfOnly, _, _ := strings.Cut(effectsTable, "[effects.deps]")
 	for name, tables := range map[string]string{
 		"no entries":    listsOnly,
@@ -445,10 +468,10 @@ func TestEffects_Check(t *testing.T) {
 // dependency, and a missing one is a difference; nomi check fails on it
 // too.
 func TestEffects_CheckWithEntriesRequired(t *testing.T) {
-	listsOnly, _, _ := strings.Cut(effectsTable, "[effects.deps.modules]")
+	listsOnly, _, _ := strings.Cut(effectsTable, "[effects.deps.packages]")
 	app := effectsProject(t, effectsApp+"\n"+strings.Replace(listsOnly, "[effects.deps]\n", "[effects.deps]\nentries_required = true\n", 1))
 	r := runNomiIn(t, app, "off", "effects", "--check")
-	if r.exit != 1 || !strings.Contains(r.stdout, `  missing  deps.modules "pricing"  std::fs`) {
+	if r.exit != 1 || !strings.Contains(r.stdout, `  missing  deps.packages "pricing"  std::fs`) {
 		t.Errorf("--check with entries_required and no entries:\n%s", r)
 	}
 }
@@ -487,7 +510,7 @@ func TestEffects_ListProblems(t *testing.T) {
 
 	// The tightest lists, with no entries, which entries_required asks of
 	// each dependency.
-	listsOnly, _, _ := strings.Cut(effectsTable, "[effects.deps.modules]")
+	listsOnly, _, _ := strings.Cut(effectsTable, "[effects.deps.packages]")
 	mustWrite(t, filepath.Join(app, "nomi.toml"), effectsApp+"\n"+strings.Replace(listsOnly, "[effects.deps]\n", "[effects.deps]\nentries_required = true\n", 1))
 	if check := runNomiIn(t, app, "off", "check", "."); check.exit != 1 || !strings.Contains(check.stdout+check.stderr, "entries_required: pricing has no entry") {
 		t.Fatalf("nomi check with entries_required:\n%s", check)
@@ -509,6 +532,16 @@ func TestEffects_Why(t *testing.T) {
 	want := "1 call has the effect std::fs:\n  rules.nomi:4:5 in pricing\n    reached from `main`; `main` calls `load`\n"
 	if fs.exit != 0 || fs.stdout != want {
 		t.Errorf("--why std::fs:\n%s\nwant stdout:\n%s", fs, want)
+	}
+	// In JSON each call names the package charged for it: here the
+	// dependency pricing, whose file holds it.
+	fsJSON := runNomiIn(t, app, "off", "effects", "--why", "std::fs", "--format", "json")
+	var why struct {
+		Calls []map[string]any `json:"calls"`
+	}
+	if err := json.Unmarshal([]byte(fsJSON.stdout), &why); err != nil || fsJSON.exit != 0 || len(why.Calls) != 1 ||
+		why.Calls[0]["package"] != "pricing" || why.Calls[0]["module"] != nil {
+		t.Errorf("--why std::fs --format json (%v):\n%s", err, fsJSON)
 	}
 	module := runNomiIn(t, app, "off", "effects", "--why", "app")
 	want = "3 calls in this project's own files have effects:\n" +
@@ -589,11 +622,11 @@ func TestEffects_RefusalsAreGrouped(t *testing.T) {
 	mustWrite(t, filepath.Join(dir, "main.nomi"), "import std::io\n\nfn main()\n    io.print(\"a\")\n    io.print(\"b\")\n    io.print(\"c\")\nend\n\n"+
 		"test \"prints\"\n    main()\n    assert 1 == 1\nend\n")
 	check := runNomiIn(t, dir, "off", "check", "--format", "short", "main.nomi")
-	want := "main.nomi:4:5: this module's own code has the effect std::io, and [effects.self] allows it no effects\n" +
+	want := "main.nomi:4:5: this package's own code has the effect std::io, and [effects.self] allows it no effects\n" +
 		"main.nomi:4:5: help: reached from `main`\n" +
 		"main.nomi:4:5: help: add \"std::io\" to std under [effects.self] in nomi.toml, or remove the call\n" +
 		"main.nomi:4:5: help: and 2 more calls have the effect std::io; --all-calls lists them\n"
-	if check.exit != 1 || !strings.HasSuffix(check.stderr, want) || strings.Count(check.stderr, "this module's own code has") != 1 {
+	if check.exit != 1 || !strings.HasSuffix(check.stderr, want) || strings.Count(check.stderr, "this package's own code has") != 1 {
 		t.Errorf("nomi check:\n%s\nwant stderr ending:\n%s", check, want)
 	}
 	for _, args := range [][]string{

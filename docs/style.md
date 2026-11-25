@@ -811,7 +811,7 @@ its own file and call that:
 type Balance Int
 
 impl Balance
-    pub fn cents(Balance(n)) -> Int
+    fn cents(Balance(n)) -> Int
         n
     end
 end
@@ -1566,12 +1566,12 @@ Build the application struct's `Context` field in `boot` from
 fields*; tour: [App Fields, Defer & Context](/app-fields/#the-basic-shape)):
 
 ```nomi
-pub struct Config
+struct Config
     port:    Int = 8080
     context: Context
 end
 
-pub fn boot() -> Result<Config, String>
+fn boot() -> Result<Config, String>
     Ok(Config{context: Context.root()})
 end
 ```
@@ -1626,9 +1626,9 @@ end
 ```
 
 Put the tests of `shapes.nomi` in `shapes_test.nomi` beside it. That file
-is its partner test and reads its private declarations (spec §14
-*Visibility*), so a private helper is tested as it is: don't make a
-declaration `pub` only so a test can reach it.
+sees what every file of the package sees (spec §14 *Visibility*). Test a
+`private` helper in a `test` block in its own file: don't loosen a
+declaration's visibility only so a test can reach it.
 
 Use unique full test names within a file. The enclosing `group` is part
 of the full name, so repeated leaf names are fine in different groups.
@@ -1872,9 +1872,9 @@ end
 
 Put the fakes a project's tests install, and the `Startup` they boot with when
 they need one (spec §17 *Groups*; tour: [Testing](/testing/#groups-and-setup)),
-in a test helper file such as `test_support.nomi`. It exports
-the fake types and, when tests need startup input, `pub fn startup() ->
-Startup`. A group passes `test_support.startup()` to its `boot` line and
+in a test helper file such as `test_support.nomi`. It declares
+the fake types and, when tests need startup input, `fn startup() ->
+Startup`, unmarked, so the package's test files see them (§62). A group passes `test_support.startup()` to its `boot` line and
 installs fakes with `with` lines in `setup`, so every test in the group runs
 against them. Build the Startup with only the fields it sets; the rest default
 to empty:
@@ -1883,11 +1883,11 @@ to empty:
 // test_support.nomi
 import server.Mailer
 
-pub fn startup() -> Startup
+fn startup() -> Startup
     Startup{env: {"SENDER" => "test@example.com"}}
 end
 
-pub type FakeMailer
+type FakeMailer
 
 impl Mailer for FakeMailer
     fn send(_mailer: FakeMailer, to: String) -> Result<Unit, String>
@@ -2158,14 +2158,17 @@ tool`), such as sqlkit's `generate` (tour:
   change that matters. Lay the code out as the formatter does.
 - **Say what made the file.** Start each file with a comment that names the
   tool and its inputs and says not to edit it, and record a checksum of the
-  inputs there: `// inputs sha256: ...`.
+  inputs there, `// inputs sha256: ...`, and the release of the tool that
+  wrote it (`system.nomi_release` for a tool released with Nomi).
 - **Fail before writing.** Check the inputs first, report each problem at
   its file and line, `db/queries/users.sql:12:5: ...`, and write nothing when
   there is one, so a half-written set of files never reaches the checker.
 - **Offer `--check` and a test.** `--check` writes nothing and fails when a
   file is not what the tool would write, for an automated check. A generated
   test that computes the inputs' checksum again and compares it with the
-  header's makes a plain `nomi test` notice a forgotten run.
+  header's makes a plain `nomi test` notice a forgotten run, and a second
+  test that compares the recorded release with the running one notices an
+  upgrade the files predate.
 
 ### 51. Acquire a resource, then `defer` its release on the next line
 
@@ -2480,3 +2483,44 @@ your own that should end at shutdown takes `Sender.close_on_drain`:
 ```nomi
 total = Receiver.iter(inbox) |> Iter.sum()
 ```
+
+## Visibility
+
+### 62. Leave a declaration unmarked unless another package or a file boundary needs a level
+
+A declaration with no modifier is seen by every file of its package (spec §14
+*Visibility*; tour: [Modules & Imports](/modules-and-imports/#visibility)).
+Write that by default. Mark a declaration `pub` when another package needs
+it, and `private` when keeping it to its file is the point:
+
+```nomi
+// The library's API: other packages call it.
+pub fn total(items: List<Decimal>) -> Decimal
+    with_tax(subtotal(items))
+end
+
+// The package's other files call it too.
+fn subtotal(items: List<Decimal>) -> Decimal
+    Iter.sum(items)
+end
+
+// A detail of this file.
+private fn with_tax(amount: Decimal) -> Decimal
+    amount * 1.2d
+end
+```
+
+`pub` is a promise to other packages: they may call the declaration, and a
+change to it can break them. A library's `pub` declarations are its API, so
+choose them one by one. An application, which no other package imports,
+rarely writes `pub`.
+
+To protect a type's rule, make the type `opaque` (§47) rather than surround
+it with `private` helpers. `opaque` keeps every other file from building or
+taking apart a value, so the rule holds however the type's functions are
+marked.
+
+Test a `private` function, or an opaque type's inside, in a `test` block in
+its own file (§39). A test file is an ordinary file of its package: a helper
+it needs from another file stays unmarked, and it uses an opaque type
+through the functions the type offers.

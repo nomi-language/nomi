@@ -76,7 +76,7 @@ func mapKindIn(g *gen, key, val kind) kind {
 // One function so the refusal is stated once: a key that cannot be hashed
 // cannot be compared either, and reporting two refusals for one gap would let
 // it outvote two real ones.
-func (g *gen) mapKeyOK(key kind, at ast.Node) bool {
+func (g *gen) mapKeyOK(key kind, at ast.Node) (keyable bool) {
 	if !g.valueHashes(key) || !g.valueEquates(key) {
 		g.reject("map key type", key.nomi(), at)
 		return false
@@ -119,7 +119,7 @@ func (g *gen) endExpand(d *typeDef) { delete(g.expanding, d) }
 // requirement and not a coincidence: a hash without a matching equality is a
 // bucket nobody can search. TestMapKeyOpsAgreeOnTheirDomain holds the two in
 // step over the shapes its table lists.
-func (g *gen) valueHashes(k kind) bool {
+func (g *gen) valueHashes(k kind) (hashes bool) {
 	if isDecimalKind(k) || isStdHostPrim(k, analysis.TypeByte) || isStdHostPrim(k, analysis.TypeBytes) || irStdHandleKind(k) || irDynamicKind(k) || irTypeWitnessKind(k) {
 		// A Decimal's, a Byte's and a Bytes' kinds are `tagNamed` over an
 		// rt-opaque def, which namedHashes declines; rt.Hash has a case for
@@ -217,7 +217,7 @@ func (g *gen) namedHashes(k kind) bool {
 // valueEquates reports whether the machine compares values of kind k
 // (rt.Equal): by their shape, and a declared type with a hand-written
 // `equal` through it (keyedByBody). See the file comment.
-func (g *gen) valueEquates(k kind) bool {
+func (g *gen) valueEquates(k kind) (equates bool) {
 	if isDecimalKind(k) || isStdHostPrim(k, analysis.TypeByte) || isStdHostPrim(k, analysis.TypeBytes) || irStdHandleKind(k) || irDynamicKind(k) || irTypeWitnessKind(k) {
 		// rt.EqDecimal compares `1.50d == 1.5d` as Nomi does; Byte and Bytes
 		// compare their octets, a std handle its key, a Dynamic its
@@ -258,7 +258,7 @@ func (g *gen) valueEquates(k kind) bool {
 // function has a body (analysis.ImplAsksParts), which answers whatever k's
 // parts hold.
 func (g *gen) keyedByBody(k kind, iface analysis.StdType) bool {
-	d := g.implsByIface[stdIfaceImplKey(iface)][k]
+	d := g.implAt(stdIfaceImplKey(iface), k)
 	return d != nil && d.lowerable && irKeyImplRecv(k) && !analysis.ImplAsksParts(d.decl)
 }
 

@@ -169,10 +169,16 @@ type ImplInfo struct {
 
 // Symbol represents a named definition in the source.
 type Symbol struct {
-	Name   string
-	Kind   SymbolKind
-	Pos    Pos
-	Public bool
+	Name string
+	Kind SymbolKind
+	Pos  Pos
+	// Visibility is where the declaration may be named from, which
+	// FileAnalysis.Sees decides; an interface impl function's is its
+	// interface's.
+	Visibility ast.Visibility
+	// Package is the package of the file that declares the symbol
+	// (FileAnalysis.Package), written by that file (builder.define).
+	Package string
 	// Opaque is true when a distinct type was declared with the inline
 	// `pub opaque type` (or bare `opaque type`) qualifier. The type name
 	// is visible outside the owning module but the construction surface

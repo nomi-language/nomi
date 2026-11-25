@@ -93,7 +93,7 @@ func TestToolEntry_PlacementTreatsToolsAsEntries(t *testing.T) {
 func TestToolEntry_DocumentsSeeAnUnlistedTool(t *testing.T) {
 	root := t.TempDir()
 	writeToolEntryFile(t, root, "go.mod", "module cafe\n\ngo 1.26.3\n")
-	writeToolEntryFile(t, root, "nomi.toml", "[module]\nname = \"cafe\"\nentry_points = [\"main\"]\n")
+	writeToolEntryFile(t, root, "nomi.toml", "[package]\nname = \"cafe\"\nentry_points = [\"main\"]\n")
 	writeToolEntryFile(t, root, "main.nomi", "import std::io\n\nfn main()\n    io.print(\"cafe\")\nend\n")
 	tool := writeToolEntryFile(t, root, "tools/greet.nomi", `import
     std::io

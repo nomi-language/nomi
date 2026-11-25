@@ -146,7 +146,7 @@ func boot(image *Image, stdout, stderr io.Writer, stdin io.Reader, args []string
 	if found := m.Unretained(roots, boots); len(found) > 0 {
 		reasons := make([]string, len(found))
 		for i, u := range found {
-			reasons[i] = unretainedReason(u)
+			reasons[i] = u.Reason()
 		}
 		return nil, fmt.Errorf("the VM cannot run this program: %s", strings.Join(reasons, "; "))
 	}

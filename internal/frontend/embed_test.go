@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-const embedManifest = "[module]\nname = \"site\"\nentry_points = [\"main\"]\n"
+const embedManifest = "[package]\nname = \"site\"\nentry_points = [\"main\"]\n"
 
 // embedFiles is a project whose main.nomi holds decl, beside a static
 // folder, a hidden file, a nested module and a template.
@@ -21,7 +21,7 @@ func embedFiles(decl string) map[string]string {
 		"static/.keep":        "",
 		"static/_draft.html":  "draft\n",
 		"empty/.keep":         "",
-		"tools/nomi.toml":     "[module]\nname = \"tools\"\n",
+		"tools/nomi.toml":     "[package]\nname = \"tools\"\n",
 		"tools/gen.nomi":      "fn main() end\n",
 		"page.html":           "<p>page</p>\n",
 	}
@@ -50,9 +50,9 @@ func TestEmbed_AcceptedPatterns(t *testing.T) {
 func TestEmbed_EachPatternErrorRefuses(t *testing.T) {
 	cases := []struct{ decl, want string }{
 		{"embed site `static/*.png`", "main.nomi:3:13: the `embed` pattern `static/*.png` matches no file"},
-		{"embed site `/static`", "main.nomi:3:13: the `embed` pattern `/static` starts with `/`\n  help: a pattern names files from the module root; remove the `/`"},
+		{"embed site `/static`", "main.nomi:3:13: the `embed` pattern `/static` starts with `/`\n  help: a pattern names files from the package root; remove the `/`"},
 		{"embed site `static/`", "main.nomi:3:13: the `embed` pattern `static/` ends with `/`\n  help: a directory's name embeds every file under it; remove the `/`"},
-		{"embed site `../x`", "main.nomi:3:13: the `embed` pattern `../x` names `..`\n  help: an `embed` reads only files in its own module, named from the module root"},
+		{"embed site `../x`", "main.nomi:3:13: the `embed` pattern `../x` names `..`\n  help: an `embed` reads only files in its own package, named from the package root"},
 		{"embed site `./static`", "main.nomi:3:13: the `embed` pattern `./static` names `.`"},
 		{"embed site `static//a`", "main.nomi:3:13: the `embed` pattern `static//a` has an empty name between two `/`"},
 		{"embed site `static/**`", "main.nomi:3:13: the `embed` pattern `static/**` holds `**`\n  help: a directory's name embeds every file under it: write the directory"},
@@ -66,8 +66,8 @@ func TestEmbed_EachPatternErrorRefuses(t *testing.T) {
 		{"embed site `static/[-a]`", "main.nomi:3:13: the `embed` pattern `static/[-a]` is not a valid pattern: a `-` in a class does not join two characters into a range"},
 		{"embed site `static/[a-c]/[b-d-e]`", "main.nomi:3:13: the `embed` pattern `static/[a-c]/[b-d-e]` is not a valid pattern: a `-` in a class does not join two characters into a range"},
 		{"embed site `empty`", "main.nomi:3:13: cannot embed `empty`: it holds no file to embed\n  help: files whose names start with `.` or `_` are left out of a directory; write `all:empty` to embed them too"},
-		{"embed site `tools`", "main.nomi:3:13: cannot embed `tools`: it is another module, with its own nomi.toml"},
-		{"embed site `tools/gen.nomi`", "main.nomi:3:13: cannot embed files under `tools`: it is another module, with its own nomi.toml"},
+		{"embed site `tools`", "main.nomi:3:13: cannot embed `tools`: it is another package, with its own nomi.toml"},
+		{"embed site `tools/gen.nomi`", "main.nomi:3:13: cannot embed files under `tools`: it is another package, with its own nomi.toml"},
 		{"embed site `all:`", "main.nomi:3:13: an `embed` pattern after `all:` is empty"},
 		{"embed site `static static/*.txt`", "main.nomi:3:20: the `embed` pattern `static/*.txt` matches no file"},
 	}
@@ -135,7 +135,7 @@ func TestEmbed_ASymbolicLinkIsRefused(t *testing.T) {
 	}
 }
 
-// A pattern names files from the module root, as an import path does,
+// A pattern names files from the package root, as an import path does,
 // whatever directory the declaring file is in: moving the file keeps its
 // patterns valid, and a nested file's `static` is the root's.
 func TestEmbed_PatternsAreFromTheModuleRoot(t *testing.T) {
@@ -164,7 +164,7 @@ func TestEmbed_PatternsAreFromTheModuleRoot(t *testing.T) {
 	delete(files, "static/a.html")
 	files["web/static/b.html"] = "b\n"
 	ds := checkShop(t, files)
-	want := "web/pages.nomi:1:24: the `embed` pattern `static` matches no file\n  help: a pattern names files from the module root, as an import path does"
+	want := "web/pages.nomi:1:24: the `embed` pattern `static` matches no file\n  help: a pattern names files from the package root, as an import path does"
 	if len(ds) == 0 || ds[0] != want {
 		t.Fatalf("got:\n%s\nwant:\n%s", strings.Join(ds, "\n"), want)
 	}

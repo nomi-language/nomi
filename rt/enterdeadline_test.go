@@ -21,9 +21,14 @@ import (
 // that does not wait.
 //
 // These also pin the module boundary the first-party-adapter question turns
-// on. If the deadline walk ever leaves rt, `contextEffectiveDeadline` stops
+// on. If the deadline walk ever leaves rt, `chainBound` stops
 // resolving and these stop compiling — which is a better failure than a
 // program that reads a deadline correctly and waits past it.
+//
+// The frame's Go deadline is now plus the time left, so it carries now's
+// monotonic reading. A named deadline's wall time reaches it exactly, and the
+// tests below compare wall times: each `at` drops its monotonic reading
+// (Round(0)), and Equal then compares the wall clock's.
 
 func TestEnterDeadline_NoDeadlineReturnsTheParentUnchanged(t *testing.T) {
 	parent := NewFrame(context.Background())
@@ -40,7 +45,7 @@ func TestEnterDeadline_NoDeadlineReturnsTheParentUnchanged(t *testing.T) {
 
 func TestEnterDeadline_AFutureDeadlineReachesTheFrame(t *testing.T) {
 	parent := NewFrame(context.Background())
-	at := time.Now().Add(time.Hour)
+	at := time.Now().Add(time.Hour).Round(0)
 	child, release := EnterDeadline(parent, ContextWithDeadline(ContextRoot(), Instant(at.UnixNano())))
 	defer release()
 
@@ -80,7 +85,7 @@ func TestEnterDeadline_APastDeadlineIsAlreadyDone(t *testing.T) {
 // a splice: a rebind can tighten and never widen.
 func TestEnterDeadline_TakesTheEarliestLinkOnTheChain(t *testing.T) {
 	parent := NewFrame(context.Background())
-	tight := time.Now().Add(time.Minute)
+	tight := time.Now().Add(time.Minute).Round(0)
 	loose := tight.Add(time.Hour)
 
 	chain := ContextWithDeadline(ContextRoot(), Instant(tight.UnixNano()))
@@ -98,13 +103,13 @@ func TestEnterDeadline_TakesTheEarliestLinkOnTheChain(t *testing.T) {
 	}
 }
 
-// A value link leaves `set` false, so it must be invisible to this walk too —
+// A value link has no deadline clock, so it must be invisible to this walk too —
 // otherwise `with MyApp.context = Context.with_value(…)` would drop whatever
 // bound the caller was under. One node type serves both link kinds, which is
 // what makes this fall out rather than needing an arm.
 func TestEnterDeadline_AValueLinkDoesNotHideAnAncestorDeadline(t *testing.T) {
 	parent := NewFrame(context.Background())
-	at := time.Now().Add(time.Hour)
+	at := time.Now().Add(time.Hour).Round(0)
 
 	chain := ContextWithDeadline(ContextRoot(), Instant(at.UnixNano()))
 	chain = ContextWithValue(chain, &TypeID{Nomi: "enterdl.TraceId"}, "t-1")
@@ -170,7 +175,7 @@ func TestEnterScope_InheritsDeadline(t *testing.T) {
 
 	block := EnterScope(fr)
 	err := recoverFault(func() {
-		defer ScopeExit(block)
+		defer ScopeExit(block, Site{})
 		CancelIfDone(block)
 	})
 	if err == nil {
@@ -192,14 +197,14 @@ func TestEnterScope_ACancelledTaskUnderALiveDeadlineIsNotTheDeadline(t *testing.
 
 	block := EnterScope(fr)
 	err := recoverFault(func() {
-		defer ScopeExit(block)
-		h := TaskSpawn[Unit](block, func(tf *Frame) Unit {
+		defer ScopeExit(block, Site{})
+		h := TaskSpawn[Unit](block, Site{}, func(tf *Frame) Unit {
 			<-tf.Context().Done()
 			CancelIfDone(tf)
 			return Unit{}
 		})
 		TaskCancel(h)
-		TaskAwait(block, h)
+		TaskAwait(block, Site{}, h)
 	})
 	if err == nil {
 		t.Fatal("awaiting a cancelled task on the main line returned normally")

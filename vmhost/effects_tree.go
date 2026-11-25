@@ -34,9 +34,9 @@ type TreeFunc struct {
 	// Name is the function as a chain names it (`load_config`,
 	// `Display.to_string for Card`).
 	Name string
-	// Module is the dependency whose files declare it, by its path, or ""
+	// Package is the dependency whose files declare it, by its path, or ""
 	// for the project's own.
-	Module string
+	Package string
 	// Calls is each effect call its own body makes, once per name, callee,
 	// kind and standing.
 	Calls []TreeCall
@@ -90,7 +90,7 @@ func (r *Reach) Trees() []CallTree {
 				return t
 			}
 			f := n.Func
-			t := &TreeFunc{Key: funcKey(f), Name: f.Name(), Module: w.p.moduleOf(f.Pos().File()), Pure: n.Pure}
+			t := &TreeFunc{Key: funcKey(f), Name: f.Name(), Package: w.p.packageOf(f.Pos().File()), Pure: n.Pure}
 			funcs[n] = t
 			seen := map[TreeCall]bool{}
 			for _, i := range n.Calls {
@@ -135,7 +135,7 @@ func refusedBy(s standing) string {
 	case OverDeps:
 		return "[effects.deps]"
 	case OverEntry:
-		return "the entry for " + s.Module
+		return "the entry for " + s.Package
 	}
-	return s.Module + "'s own [effects.self]"
+	return s.Package + "'s own [effects.self]"
 }

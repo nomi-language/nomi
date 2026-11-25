@@ -1,11 +1,13 @@
 package vm
 
 import (
+	"fmt"
 	"maps"
 	"slices"
 	"sort"
 	"strings"
 
+	"github.com/nomi-language/nomi/hostadapt"
 	"github.com/nomi-language/nomi/internal/ir"
 	"github.com/nomi-language/nomi/rt"
 )
@@ -69,6 +71,21 @@ type Unretained struct {
 	// (`main`, `run_prompt`, `run`): how the program reaches it. Empty
 	// when a boot or one of the machine's tables reaches it.
 	Chain []string
+}
+
+// Reason is the line a blocked run reports for u, naming u by the name a
+// reader knows it by (a project host function by its key). A host that
+// knows why the producer declined a body adds that after a colon.
+func (u Unretained) Reason() string {
+	switch u.Kind {
+	case NoBinding:
+		return fmt.Sprintf("[%s] is a host function, and the VM has no implementation for it", hostadapt.DisplayName(u.Name))
+	case NoImplementation:
+		return fmt.Sprintf("[%s] dispatched, and no implementation was retained", u.Name)
+	case OnceNotRetained:
+		return fmt.Sprintf("[%s] once initializer not retained", u.Name)
+	}
+	return fmt.Sprintf("[%s] not retained", u.Name)
 }
 
 // Unretained walks everything reachable from roots and the boot symbols and

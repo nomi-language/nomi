@@ -21,7 +21,7 @@ func TestLoad_CodepointTryFromOutsideStdIsRejected(t *testing.T) {
 		if err == nil {
 			t.Fatalf("the front end admits a provided conversion of Codepoint outside std:\n%s", src)
 		}
-		if want := "constructs the opaque type 'Codepoint', whose construction is private to its defining module"; !strings.Contains(err.Error(), want) {
+		if want := "constructs the opaque type 'Codepoint', whose construction is private to `code_points.nomi`"; !strings.Contains(err.Error(), want) {
 			t.Fatalf("error %q, want it to contain %q\n%s", err, want, src)
 		}
 	}

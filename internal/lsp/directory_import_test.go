@@ -19,7 +19,7 @@ import (
 func directoryImportProject(t *testing.T, main string) (*Server, string, string) {
 	t.Helper()
 	dir := writeProject(t, map[string]string{
-		"nomi.toml":                      "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+		"nomi.toml":                      "[package]\nname = \"app\"\nentry_points = [\"main\"]\n",
 		"views/admin/users.nomi":         "pub fn count() -> Int\n    1\nend\n",
 		"views/admin/reports/daily.nomi": "pub fn total() -> Int\n    2\nend\n",
 		"db/posts.nomi":                  "pub fn count() -> Int\n    3\nend\n",

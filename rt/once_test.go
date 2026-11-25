@@ -33,7 +33,7 @@ func TestOnceCellForcesExactlyOnceUnderConcurrency(t *testing.T) {
 		go func() {
 			defer done.Done()
 			start.Wait()
-			got[i] = cell.Get(NewFrame(context.Background()), rhs)
+			got[i] = cell.Get(NewFrame(context.Background()), Site{}, rhs)
 		}()
 	}
 	start.Done()
@@ -57,7 +57,7 @@ func TestOnceCellIsLazy(t *testing.T) {
 	if ran {
 		t.Fatal("constructing the cell ran something")
 	}
-	v := cell.Get(NewFrame(context.Background()), func(fr *Frame) int64 {
+	v := cell.Get(NewFrame(context.Background()), Site{}, func(fr *Frame) int64 {
 		ran = true
 		return 7
 	})
@@ -77,10 +77,10 @@ func TestOnceCellIdentityIsTheAddressNotTheName(t *testing.T) {
 	outer := NewOnceCell[int64]("config")
 	inner := NewOnceCell[int64]("config")
 
-	v := outer.Get(NewFrame(context.Background()), func(fr *Frame) int64 {
+	v := outer.Get(NewFrame(context.Background()), Site{}, func(fr *Frame) int64 {
 		// Forcing a different cell of the same name from inside the first
 		// one's RHS. Legal, and the frame handed down carries the outer cell.
-		return inner.Get(fr, func(fr *Frame) int64 { return 5 }) + 1
+		return inner.Get(fr, Site{}, func(fr *Frame) int64 { return 5 }) + 1
 	})
 	if v != 6 {
 		t.Fatalf("two same-named cells collided: got %d, want 6", v)
@@ -96,7 +96,7 @@ func TestOnceCellCycleTrapsRatherThanDeadlocking(t *testing.T) {
 	rhs := func(fr *Frame) int64 {
 		// The re-entry, reached through the frame the force installed —
 		// which is what a Nomi function call in the RHS would do.
-		return cell.Get(fr, func(fr *Frame) int64 { return 0 })
+		return cell.Get(fr, Site{}, func(fr *Frame) int64 { return 0 })
 	}
 
 	defer func() {
@@ -112,7 +112,7 @@ func TestOnceCellCycleTrapsRatherThanDeadlocking(t *testing.T) {
 			t.Fatalf("diagnostic text is %q", err.Msg)
 		}
 	}()
-	cell.Get(NewFrame(context.Background()), rhs)
+	cell.Get(NewFrame(context.Background()), Site{}, rhs)
 }
 
 // TestOnceCellCycleIsPerLineage asserts the negative the cycle test needs to
@@ -123,10 +123,10 @@ func TestOnceCellCycleIsPerLineage(t *testing.T) {
 	b := NewOnceCell[int64]("b")
 	root := NewFrame(context.Background())
 
-	v := a.Get(root, func(fr *Frame) int64 {
+	v := a.Get(root, Site{}, func(fr *Frame) int64 {
 		// `fr` is inside a's RHS; forcing b from it is an ordinary
 		// dependency, not a cycle.
-		return b.Get(fr, func(fr *Frame) int64 { return 10 }) * 2
+		return b.Get(fr, Site{}, func(fr *Frame) int64 { return 10 }) * 2
 	})
 	if v != 20 {
 		t.Fatalf("a dependency between two onces must not read as a cycle: %d", v)
@@ -167,17 +167,17 @@ func TestOnceCellACancelledForceUnwindsTheTaskAndLeavesTheCellUnforced(t *testin
 	block := EnterScope(NewFrame(context.Background()))
 	var got Outcome[int64]
 	func() {
-		defer ScopeExit(block)
-		h := TaskSpawn[int64](block, func(tf *Frame) int64 { return cell.Get(tf, blocking) })
+		defer ScopeExit(block, Site{})
+		h := TaskSpawn[int64](block, Site{}, func(tf *Frame) int64 { return cell.Get(tf, Site{}, blocking) })
 		<-started
 		TaskCancel(h)
-		got = TaskOutcomeOf(block, h)
+		got = TaskOutcomeOf(block, Site{}, h)
 	}()
 	if got.Tag != TagCancelled {
 		t.Fatalf("a task cancelled mid-force settled %v (%q), want Cancelled", got.Tag, got.Failed.Msg)
 	}
 
-	v := cell.Get(NewFrame(context.Background()), func(fr *Frame) int64 {
+	v := cell.Get(NewFrame(context.Background()), Site{}, func(fr *Frame) int64 {
 		runs.Add(1)
 		return 7
 	})
@@ -195,7 +195,7 @@ func TestOnceCellAForceUnderAnExpiredDeadlineReportsTheDeadline(t *testing.T) {
 
 	cell := NewOnceCell[int64]("slow")
 	err := recoverFault(func() {
-		cell.Get(fr, func(rf *Frame) int64 {
+		cell.Get(fr, Site{}, func(rf *Frame) int64 {
 			CancelIfDone(rf)
 			return 1
 		})
@@ -223,7 +223,7 @@ func TestOnceCellRHSReadsBootsPublicationNotTheForcersRebinds(t *testing.T) {
 		ContextWithDeadline(ContextRoot(), Instant(time.Now().Add(2*time.Hour).UnixNano())))
 	read := func(fr *Frame) string {
 		cell := NewOnceCell[string]("seen")
-		return cell.Get(fr, func(rf *Frame) string {
+		return cell.Get(fr, Site{}, func(rf *Frame) string {
 			label := ScopedField[string](rf, "label")
 			if ActiveContext(rf).node != bootContext.node {
 				return "the forcer's context"
@@ -241,11 +241,11 @@ func TestOnceCellRHSReadsBootsPublicationNotTheForcersRebinds(t *testing.T) {
 	block := EnterScope(rebound)
 	var fromTask string
 	func() {
-		defer ScopeExit(block)
+		defer ScopeExit(block, Site{})
 		if got := read(block); got != "booted" {
 			t.Errorf("forced inside a concurrent block: %q, want booted", got)
 		}
-		fromTask = TaskAwait(block, TaskSpawn[string](block, read))
+		fromTask = TaskAwait(block, Site{}, TaskSpawn[string](block, Site{}, read))
 	}()
 	if fromTask != "booted" {
 		t.Errorf("forced from a block task: %q, want booted", fromTask)
@@ -255,7 +255,7 @@ func TestOnceCellRHSReadsBootsPublicationNotTheForcersRebinds(t *testing.T) {
 	defer ResetSupervisors()
 	sup := newTestSupervisor(EnterBoot(rebound), 1, Duration(time.Second))
 	supervised := make(chan string, 1)
-	_ = SupervisorSpawn(rebound, sup, func(tf *Frame) Unit {
+	_ = SupervisorSpawn(rebound, Site{}, sup, func(tf *Frame) Unit {
 		supervised <- read(tf)
 		return Unit{}
 	})

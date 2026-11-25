@@ -124,7 +124,7 @@ end
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
 			files := map[string]string{
-				"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+				"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n",
 				"main.nomi": tc.main,
 			}
 			if tc.bag != "" {

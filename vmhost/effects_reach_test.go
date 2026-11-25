@@ -18,10 +18,10 @@ var reachFixtures = []struct {
 	want        string
 }{
 	{"a dependency that reads a file for main", "app/main.nomi",
-		dependencyFiles("[module]\nname = \"app\"\nentry_points = [\"main\"]\n", ""),
+		dependencyFiles("[package]\nname = \"app\"\nentry_points = [\"main\"]\n", ""),
 		"self.std=[std::io] self.std_in_tests=[] deps.std=[std::fs] deps.std_in_tests=[] pricing=[std::fs]"},
 	{"effect calls only in tests, and a dependency that reaches nothing", "app/main.nomi", map[string]string{
-		"app/nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[dependencies]\npure = { dir = \"../pure\" }\n",
+		"app/nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[dependencies]\npure = { dir = \"../pure\" }\n",
 		"app/main.nomi": `import
     std::fs
     pure::calc
@@ -36,12 +36,12 @@ test "reads"
     assert calc.double(1) == 2
 end
 `,
-		"pure/nomi.toml":  "[module]\nname = \"pure\"\n",
+		"pure/nomi.toml":  "[package]\nname = \"pure\"\n",
 		"pure/calc.nomi":  "pub fn double(n: Int) -> Int\n    n * 2\nend\n",
 		"pure/other.nomi": "import std::io\n\npub fn say()\n    io.print(\"never called\")\nend\n",
 	}, "self.std=[] self.std_in_tests=[std::fs] deps.std=[] deps.std_in_tests=[] pure=[]"},
 	{"a dependency reached only from tests", "app/main.nomi", map[string]string{
-		"app/nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[dependencies]\npricing = { dir = \"../pricing\" }\n",
+		"app/nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[dependencies]\npricing = { dir = \"../pricing\" }\n",
 		"app/main.nomi": `import
     std::io
     pricing::rules
@@ -55,7 +55,7 @@ test "loads"
     assert rules.load("x") == ""
 end
 `,
-		"pricing/nomi.toml": "[module]\nname = \"pricing\"\n",
+		"pricing/nomi.toml": "[package]\nname = \"pricing\"\n",
 		"pricing/rules.nomi": `import std::fs
 
 pub fn load(path: String) -> String
@@ -86,8 +86,8 @@ func listsText(c *Effects) string {
 	parts = append(parts,
 		fmt.Sprintf("deps.std=%v", c.Deps.Std), fmt.Sprintf("deps.std_in_tests=%v", c.Deps.StdInTests),
 	)
-	for _, m := range slices.Sorted(maps.Keys(c.Deps.Modules)) {
-		parts = append(parts, fmt.Sprintf("%s=%v", m, c.Deps.Modules[m]))
+	for _, m := range slices.Sorted(maps.Keys(c.Deps.Packages)) {
+		parts = append(parts, fmt.Sprintf("%s=%v", m, c.Deps.Packages[m]))
 	}
 	return strings.Join(parts, " ")
 }
@@ -127,9 +127,9 @@ func withoutName(c *Effects, list, name string) *Effects {
 	case "deps.std_in_tests":
 		drop(&out.Deps.StdInTests)
 	default:
-		entry := out.Deps.Modules[list]
+		entry := out.Deps.Packages[list]
 		drop(&entry)
-		out.Deps.Modules[list] = entry
+		out.Deps.Packages[list] = entry
 	}
 	return out
 }
@@ -157,7 +157,7 @@ func TestTightestLists_PassAndEveryNameIsNeeded(t *testing.T) {
 				"self.std": tight.Self.Std, "self.std_in_tests": tight.Self.StdInTests,
 				"deps.std": tight.Deps.Std, "deps.std_in_tests": tight.Deps.StdInTests,
 			}
-			maps.Copy(lists, tight.Deps.Modules)
+			maps.Copy(lists, tight.Deps.Packages)
 			for key, entry := range tight.Self.Modules {
 				lists["self.modules."+key] = entry
 			}
@@ -179,7 +179,7 @@ func TestTightestLists_PassAndEveryNameIsNeeded(t *testing.T) {
 // text gives every call.
 func TestEffectError_GroupsCallsByNameAndList(t *testing.T) {
 	dir := writeProject(t, map[string]string{
-		"app/nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\n",
+		"app/nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\n",
 		"app/main.nomi": `import
     std::fs
     std::io
@@ -214,9 +214,9 @@ end
 		got = append(got, fmt.Sprintf("%d:%d %s | %s", d.Line, d.Col, d.Message, d.Hints[len(d.Hints)-1]))
 	}
 	want := []string{
-		"7:5 this module's own code has the effect std::io, and [effects.self] allows it no effects | and 3 more calls have the effect std::io; --all-calls lists them",
-		"10:14 this module's own code has the effect std::fs, and [effects.self] allows it no effects | add \"std::fs\" to std under [effects.self] in nomi.toml, or remove the call",
-		"14:5 this module's tests have the effect std::io, and [effects.self] allows them no effects | and 1 more call has the effect std::io; --all-calls lists it",
+		"7:5 this package's own code has the effect std::io, and [effects.self] allows it no effects | and 3 more calls have the effect std::io; --all-calls lists them",
+		"10:14 this package's own code has the effect std::fs, and [effects.self] allows it no effects | add \"std::fs\" to std under [effects.self] in nomi.toml, or remove the call",
+		"14:5 this package's tests have the effect std::io, and [effects.self] allows them no effects | and 1 more call has the effect std::io; --all-calls lists it",
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Errorf("shown:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))

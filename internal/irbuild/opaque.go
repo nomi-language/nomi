@@ -325,7 +325,7 @@ func (s *opaqueSpec) matches(decl *ast.TypeDef) bool {
 	if !decl.Opaque {
 		want = formDistinct
 	}
-	if decl.Name != s.nomi || s.form != want || !decl.Public {
+	if decl.Name != s.nomi || s.form != want || decl.Visibility != ast.Public {
 		return false
 	}
 	// An attached `//!` test is not checked: see stdStructSpec.mismatch.

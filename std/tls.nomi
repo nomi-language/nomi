@@ -236,7 +236,7 @@ end
 
 /// A certificate chain and its private key, which a side presents. The key
 /// stays inside the value: nothing reads it back.
-pub struct Certificate
+pub opaque struct Certificate
     handle: http_host.Certificate
 end
 
@@ -431,7 +431,7 @@ end
 impl ClientConfig
     /// The configuration Go builds for this config, for std::http and
     /// std::net.
-    pub fn host(config: ClientConfig) -> Result<http_host.TlsConfig, Error>
+    fn host(config: ClientConfig) -> Result<http_host.TlsConfig, Error>
         made =
             http_host.tls_config(
                 False,
@@ -473,7 +473,7 @@ end
 impl ServerConfig
     /// The configuration Go builds for this config, for std::http and
     /// std::net.
-    pub fn host(config: ServerConfig) -> Result<http_host.TlsConfig, Error>
+    fn host(config: ServerConfig) -> Result<http_host.TlsConfig, Error>
         made =
             http_host.tls_config(
                 True,
@@ -575,7 +575,7 @@ impl ConnectionState
     /// The state a crossing returns: the handshake's fields, the local
     /// certificate's info, the peer's certificates, then each verified
     /// chain.
-    pub fn of_parts(parts: List<List<String>>) -> ConnectionState
+    fn of_parts(parts: List<List<String>>) -> ConnectionState
         (head, local, peers, chains) =
             case parts
                 [h, l, p, ..c] -> (h, l, p, c)
@@ -637,7 +637,7 @@ derive Equatable for Error
 
 impl Error
     /// The error for the parts a crossing returns.
-    pub fn from_parts(parts: List<String>) -> Error
+    fn from_parts(parts: List<String>) -> Error
         case parts
             ["Alert", code, reason] ->
                 Error.Alert{code: String.to_int(code) |> Option.with_default(0), reason:}

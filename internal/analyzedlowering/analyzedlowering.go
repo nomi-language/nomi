@@ -29,7 +29,9 @@ type Analyzed struct {
 	// ReachesEntry reports that a file of the program imports the entry,
 	// and the build answered that import with the entry's analyzed text.
 	ReachesEntry bool
-	// Manifest is Root's nomi.toml as the build read it, "" for none.
+	// Manifest is what decided Root's build beside its sources as the build
+	// read it (analysis.ManifestTexts): its nomi.toml, "" for none, and the
+	// lock and workspace that select its versions.
 	Manifest string
 	// Stored, when set, is the entry of a program the language server opened
 	// from its record, which is lowered from the record's kept lowering and

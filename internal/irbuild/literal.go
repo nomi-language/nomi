@@ -310,7 +310,7 @@ func (g *gen) literalImplFor(t *ast.TaggedString, fd *ast.FuncDef) (literalTarge
 // anywhere in the program.
 //
 // PROGRAM-wide, through the sibling impl index (siblingimpl.go): the orphan
-// rule admits `impl I for T` in T's module, a Nomi module is several files,
+// rule admits `impl I for T` in T's package, a package is several files,
 // so "how many blocks provide this" is not a question one file can answer.
 //
 // Non-lowerable blocks COUNT. resolveImplMembers indexes them deliberately,

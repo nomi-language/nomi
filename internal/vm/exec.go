@@ -183,7 +183,9 @@ func putStack(s *regStack) {
 		fr.c, fr.fn, fr.runtime = nil, nil, nil
 	}
 	clear(s.hostViews)
-	s.rr, s.rty, s.nf, s.hw = nil, nil, 0, 0
+	// No last return: a stack parked after a return in parts would hand
+	// the next activation a retParts with no pack to box it by.
+	s.rr, s.rty, s.rcls, s.nf, s.hw = nil, nil, bankNone, 0, 0
 	clear(s.rpb)
 	clear(s.rpr)
 	s.rpack = nil
@@ -2005,7 +2007,7 @@ func (m *Machine) loop(fr *frame, pc int) (err error) {
 			if h.regs != nil && !m.hooked {
 				// The adapter's register form: operands and answer in
 				// registers, nothing boxed (hostslots.go).
-				carried, ran, herr := fr.callSlots(h)
+				carried, ran, herr := fr.callSlots(h, m.noteGo)
 				w, s, r = stk.w[fr.wb:fr.wb+c.nW], stk.s[fr.sb:fr.sb+c.nS], stk.r[fr.rb:fr.rb+c.nR]
 				if herr != nil {
 					err = herr
@@ -2048,7 +2050,7 @@ func (m *Machine) loop(fr *frame, pc int) (err error) {
 			case h.intr != nil:
 				v, herr = h.intr(m.boundAt(fr, h.name), h.call.Pos(), args)
 			default:
-				v, herr = callAdapter(h.fn, fr.runtime, args)
+				v, herr = callAdapter(m.noteGo, fr, h.call.Pos(), h.fn, args)
 			}
 			clear(args)
 			w, s, r = stk.w[fr.wb:fr.wb+c.nW], stk.s[fr.sb:fr.sb+c.nS], stk.r[fr.rb:fr.rb+c.nR]

@@ -33,7 +33,10 @@ type manifestEdits struct {
 // its own diagnostics, and rechecks what reads it once the edits pause.
 func (s *Server) setManifest(uri, text string) {
 	analysis.SetEditedManifest(uriToPath(uri), text)
-	s.unused.opened(uri)
+	if !isWorkspaceURI(uri) {
+		// A workspace's file holds no [effects] lists.
+		s.unused.opened(uri)
+	}
 	s.publishManifestText(uri, text)
 	e := &s.manifestEdits
 	e.mu.Lock()
@@ -65,12 +68,17 @@ func (s *Server) closeManifest(uri string) {
 }
 
 // publishManifestText publishes the error the front end finds in text, the
-// nomi.toml at uri, at its line: what parsing it as the module's manifest
-// answers. Empty text publishes nothing of its own.
+// manifest at uri, at its line: what parsing it as the package's manifest
+// answers, or for a nomi-workspace.toml what the workspace lookup answers
+// (workspaceTextDiagnostics). Empty text publishes nothing of its own.
 func (s *Server) publishManifestText(uri, text string) {
 	var diags []protocol.Diagnostic
-	if text != "" {
-		path := uriToPath(uri)
+	path := uriToPath(uri)
+	switch {
+	case text == "":
+	case isWorkspaceURI(uri):
+		diags = workspaceTextDiagnostics(path, text)
+	default:
 		if _, err := analysis.ParseManifestIn(filepath.Dir(path), []byte(text)); err != nil {
 			line, message := analysis.ManifestErrorAt(err)
 			diags = append(diags, manifestDiagnostic(text, line, message))
@@ -172,7 +180,7 @@ func (s *Server) manifestDiagnostics(problems, err error) (map[string][]protocol
 // manifestCompletion is what completes at pos in text, the nomi.toml at
 // uri: a std module's name inside a list of std names; and as a key under
 // [effects.self.modules] or
-// [effects.deps.modules], each module of the project or dependency
+// [effects.deps.packages], each module of the project or dependency
 // with its whole entry, what its own files reach, as the fix of a missing
 // entry writes it (Reach.Entries, analysis.ModuleEntryText). The keys are
 // those the project's programs load files from (Reach.EntryKeys), from
@@ -181,6 +189,9 @@ func (s *Server) manifestDiagnostics(problems, err error) (map[string][]protocol
 // quoted unless the cursor is inside a string; a key's entry replaces its
 // quotes.
 func (s *Server) manifestCompletion(uri, text string, pos protocol.Position) []protocol.CompletionItem {
+	if isWorkspaceURI(uri) {
+		return workspaceCompletion(text, pos)
+	}
 	at := manifestPlaceAt(text, pos)
 	line, lineText, col, lines := at.line, at.lineText, at.col, at.lines
 	data := []byte(text)

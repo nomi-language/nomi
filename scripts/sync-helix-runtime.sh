@@ -84,7 +84,7 @@ esac
 
 # --dev: install as a user would, from this checkout, then replace the
 # copied queries with links to it. nomi-catalog is the language of a
-# module's phrase catalogs, whose queries inherit Helix's TOML ones.
+# package's phrase catalogs, whose queries inherit Helix's TOML ones.
 go run -C "$ROOT" ./cmd/nomi editor install helix
 for lang in nomi nomi-catalog; do
   user_dir="$USER_HELIX/runtime/queries/$lang"

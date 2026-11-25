@@ -76,6 +76,10 @@ type Program struct {
 
 	// ContextType is the canonical std/context.Context identity.
 	ContextType Type
+	// Packages is the package index the program's files were built with
+	// (Project.PackageIndex): which package each key name is and whether a
+	// fetch supplied it. Empty for a program built with no package graph.
+	Packages PackageIndex
 	// StdlibModuleScopes maps each stdlib module's short name ("iter",
 	// "maps", ...) to its defining module Scope. Stdlib symbols carry no
 	// SourceFile, so this is how a pass finds the scope that defines a

@@ -253,7 +253,7 @@ func TestConstructorValue_OpaqueDistinctOutsideItsFile(t *testing.T) {
 		"main.nomi":   "import secret\n\nfn main()\n  xs = Iter.map([\"a\"], secret.Secret) |> Iter.to_list()\n  _ = xs\n  _ = secret.all([\"b\"])\nend\n",
 	}
 	_, errs := opaqueProject(t, files)
-	if len(errs) != 1 || !strings.Contains(errs[0].Message, "constructor of opaque type 'Secret' is private to its defining module") {
+	if len(errs) != 1 || !strings.Contains(errs[0].Message, "constructor of opaque type 'Secret' is private to `secret.nomi`") {
 		t.Fatalf("want one opaque-constructor error, got %v", errs)
 	}
 }
@@ -270,12 +270,12 @@ func TestTypeName_PipedIntoAStructIsTheCallForm(t *testing.T) {
 		expr    string
 		want    string
 	}{
-		{"", `00 |> Range()`, "constructor of opaque type 'Range' is private to its defining module"},
+		{"", `00 |> Range()`, "constructor of opaque type 'Range' is private to `ranges.nomi`"},
 		{"", `00 |> Range()`, "Range expects an anonymous struct literal {...} matching its fields, got Int"},
 		{"", `1 |> Point()`, "Point expects an anonymous struct literal {...} matching its fields, got Int"},
 		{"", `{x: 1} |> Point(2)`, "Point takes the piped record as its only argument, got 1 more"},
 		{"", `{y: 1} |> Point()`, "Point has no field 'y'"},
-		{"import std::instant.Instant\n\n", `1 |> Instant()`, "constructor of opaque type 'Instant' is private to its defining module"},
+		{"import std::instant.Instant\n\n", `1 |> Instant()`, "constructor of opaque type 'Instant' is private to `instant.nomi`"},
 	} {
 		src := tc.imports + typeNameDecls + "fn main()\n  _ = " + tc.expr + "\nend\n"
 		_, errs := checkSourceWithStdlib(src)

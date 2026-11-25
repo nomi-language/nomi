@@ -37,9 +37,9 @@ on it.
 - [ ] **Calling JavaScript from Nomi.** A page calls a Nomi program's exported functions (`nomi.js`'s `load` and `call`), but Nomi cannot call the page: no DOM, `fetch` or local storage. The mirror of `export fn` would be a small set of host functions in a `std::web`-like module, or the page passing callbacks to `load`. Nothing is designed.
 - [ ] **An npm package for the wasm build** (`cmd/nomi-wasm`, the tour's runtime) with a small JS API: run source, hover, semantic tokens.
 - [ ] **Tour hardening, what remains.** The stack-depth limit (`rt/calldepth_js.go`, 1,000 calls) and the run-worker's recovery were measured in Chrome and Node only; Firefox and Safari are unmeasured. And a Go fatal error prints a goroutine trace to the worker's console naming the build machine's paths; `-trimpath` would remove them, and it must go on both `scripts/build-tour-wasm.sh` and `vmhost/tour_bundle_test.go`'s rebuild at once.
-- [ ] **Doc-gen, registry and package-manager UX.** `nomi doc`, publishing, distribution polish. Nomi modules are fetched from their git repositories, at version tags.
-  - `nomi publish` is reserved. Publishing a module is pushing a version tag to its repository, and `nomi` fetches the tag from the repository's host.
-  - A registry. There is no Nomi-specific registry, and none is planned; if Nomi-specific module discovery becomes a need, the simplest path is an index of tags on existing git hosts rather than a registry that holds the modules.
+- [ ] **Doc-gen, registry and package-manager UX.** `nomi doc`, publishing, distribution polish. Packages are fetched from their git repositories, at version tags.
+  - `nomi publish` is reserved. Publishing a package is pushing a version tag to its repository, and `nomi` fetches the tag from the repository's host.
+  - A registry. There is no Nomi-specific registry, and none is planned; if Nomi-specific package discovery becomes a need, the simplest path is an index of tags on existing git hosts rather than a registry that holds the packages.
   - Compiler-enforced semver: a compiler that diffs the public API between versions and rejects mismatched version bumps. A long-horizon nice-to-have. The closest existing precedent is Elm/Gleam; the mechanism requires both a registry hook (where to compare against) and a published-API extraction step that doesn't exist yet.
 
 ## Track 2: Irreversible semantics
@@ -61,7 +61,7 @@ on it.
 
 ## Track 5: Standard library I/O and services
 
-Where each item lives follows one rule. std holds what Go's standard library can back with no third-party code: `std::fs`, `std::sql`'s vocabulary, later `std::http` over `net/http`. `lib/` holds first-party modules that carry a third-party engine or code, or are opinionated layers over std: database drivers (`lib/sql/sqlite`, SQLite compiled to WebAssembly), `lib/sql/sqlkit`, later an HTTP router or framework. Each `lib/` module is a directory of the compiler's repository with its own `nomi.toml`, versioned by the compiler's release tags, tested by nomi's checks, and added by users with `nomi add github.com/nomi-language/nomi/lib/...`.
+Where each item lives follows one rule. std holds what Go's standard library can back with no third-party code: `std::fs`, `std::sql`'s vocabulary, later `std::http` over `net/http`. `lib/` holds first-party packages that carry a third-party engine or code, or are opinionated layers over std: database drivers (`lib/sql/sqlite`, SQLite compiled to WebAssembly), `lib/sql/sqlkit`, later an HTTP router or framework. Each `lib/` module is a directory of the compiler's repository with its own `nomi.toml`, versioned by the compiler's release tags, tested by nomi's checks, and added by users with `nomi add github.com/nomi-language/nomi/lib/...`.
 
 What a program needs to talk to the world outside the VM. The items are in the agreed order. Items 1 and 2 and the subprocesses of `std::process` share one stream type (`Reader`/`Writer`) and one test seam, and were designed together in the I/O design proposal (`docs/design/io.md`, not committed), which also sketches 3, 4, 5 and 7. Every item is backed by Go's standard library.
 

@@ -290,8 +290,13 @@
           "match": "\\bhost\\b(?=\\s+(?:fn|type)\\b)"
         },
         {
+          "comment": "`private` is a keyword only before a declaration, where a word that is not an operator follows it on its line; `private = 2` stays a name.",
+          "name": "keyword.declaration.nomi",
+          "match": "\\bprivate\\b(?=[ \\t]+(?!(?:and|or|in|is|as|not)\\b)[a-z_][A-Za-z0-9_]*)"
+        },
+        {
           "comment": "A keyword declaration Nomi builds in (`phrase cart_items(...)`, `noun item`): its keyword and its name, at the start of a line.",
-          "match": "^(?:(pub)\\s+)?(phrase|noun)\\s+([a-z_][A-Za-z0-9_]*)",
+          "match": "^(?:(pub|private)\\s+)?(phrase|noun)\\s+([a-z_][A-Za-z0-9_]*)",
           "captures": {
             "1": {
               "name": "keyword.declaration.nomi"
@@ -306,7 +311,7 @@
         },
         {
           "comment": "An `embed` declaration (`embed site `static``): its keyword, and its name, a value.",
-          "match": "^(?:(pub)\\s+)?(embed)\\s+([a-z_][A-Za-z0-9_]*)",
+          "match": "^(?:(pub|private)\\s+)?(embed)\\s+([a-z_][A-Za-z0-9_]*)",
           "captures": {
             "1": {
               "name": "keyword.declaration.nomi"

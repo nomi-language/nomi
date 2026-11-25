@@ -38,7 +38,7 @@ type published struct {
 }
 
 // startRPC serves s over an in-memory pipe and initializes it with root as
-// the workspace.
+// the editor folder.
 func startRPC(t testing.TB, s *Server, root string) *rpcClient {
 	t.Helper()
 	server, client := net.Pipe()
@@ -134,7 +134,7 @@ func (c *rpcClient) waitDiagnostics(uri string) published {
 }
 
 // waitErrors waits for a publication for uri with at least one
-// diagnostic. The background workspace scan may publish the clean file
+// diagnostic. The background scan of the editor folder may publish the clean file
 // again; an edit that adds an error is told apart from it this way.
 func (c *rpcClient) waitErrors(uri string) published {
 	c.t.Helper()
@@ -157,7 +157,7 @@ func (c *rpcClient) waitPublished(uri string, atLeast int) published {
 }
 
 // datesFixture copies tests/05-calendar-and-time/dates_test.nomi, the file
-// the latency was measured on, into a fresh workspace.
+// the latency was measured on, into a fresh editor folder.
 func datesFixture(t testing.TB) (dir, uri, text string) {
 	t.Helper()
 	src, err := os.ReadFile(filepath.Join("..", "..", "tests", "05-calendar-and-time", "dates_test.nomi"))

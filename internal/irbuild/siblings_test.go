@@ -13,8 +13,8 @@ import (
 // returns the entry's path.
 //
 // Not testdata/, and the reason is a property of testdata/ worth keeping: the
-// LSP's workspace scan analyzes every `.nomi` in the repository except five
-// named directories, and one of its tests asserts the whole workspace
+// LSP's scan of its editor folder analyzes every `.nomi` in the repository except five
+// named directories, and one of its tests asserts the whole folder
 // publishes NO diagnostics. Every file in testdata/ is a differential fixture
 // — a program that runs both ways — so "testdata/ is diagnostic-free" is true
 // today and worth not spending. A program the ANALYZER rejects, and a program
@@ -34,10 +34,9 @@ func stagedProgram(t *testing.T, entry string, files map[string]string) string {
 	return filepath.Join(dir, entry)
 }
 
-// Visibility. `pub` controls cross-file visibility, so a non-`pub` top-level
-// declaration is FILE-PRIVATE — but every function the builder lowers links by
-// symbol into one program, so nothing below the front end stops a sibling file
-// from naming a private function.
+// Visibility. A `private` top-level declaration is FILE-PRIVATE, but every
+// function the builder lowers links by symbol into one program, so nothing
+// below the front end stops a sibling file from naming a private function.
 //
 // Both halves are asserted, and the reason the second one exists is that the
 // first makes the builder's path UNREACHABLE for this program: the analyzer
@@ -49,18 +48,18 @@ func stagedProgram(t *testing.T, entry string, files map[string]string) string {
 // builder's own answer for the declaration is asserted directly, against an
 // index built from real analysis of a program that DOES pass.
 func TestSiblingFile_PrivateDeclarationIsNotCallable(t *testing.T) {
-	// `secret` carries no `pub` and sits beside a `pub` neighbour on purpose:
+	// `secret` is `private` and sits beside a `pub` neighbour on purpose:
 	// the file is importable and one of its two functions is reachable, so a
 	// check that looked at the FILE rather than the DECLARATION would pass.
 	private := stagedProgram(t, "main.nomi", map[string]string{
 		"main.nomi": "import\n  std::io\n  helpers\nend\n\nfn main()\n  io.print(\"${helpers.secret(2)}\")\nend\n",
 		"helpers.nomi": "pub fn public_one(x: Int) -> Int\n  x + 1\nend\n\n" +
-			"fn secret(x: Int) -> Int\n  x * 100\nend\n",
+			"private fn secret(x: Int) -> Int\n  x * 100\nend\n",
 	})
 	if _, err := Analyze(private); err == nil {
-		t.Fatal("the analyzer accepted a reference to a non-pub sibling declaration; " +
+		t.Fatal("the analyzer accepted a reference to a private sibling declaration; " +
 			"this test no longer pins what it was written for")
-	} else if !strings.Contains(err.Error(), "has no member 'secret'") {
+	} else if !strings.Contains(err.Error(), "`secret` is private to `helpers.nomi`") {
 		t.Fatalf("analyzer rejected it for an unexpected reason: %v", err)
 	}
 
@@ -96,9 +95,11 @@ func TestSiblingFile_PrivateDeclarationIsNotCallable(t *testing.T) {
 		t.Fatal("a private sibling declaration must be FOUND, so a call site refuses " +
 			"under the reason it was refused for rather than under 'no such function'")
 	}
-	if !priv.private {
-		t.Fatal("a non-pub sibling declaration is file-private and must not be callable across files, " +
-			"except from its partner test file")
+	for i := range x.units {
+		g := &gen{files: x, fileUnit: i}
+		if i != helpers && g.sees(helpers, priv.vis) {
+			t.Fatalf("a private sibling declaration must not be callable from any other file, and %s's sees it", x.units[i].key)
+		}
 	}
 }
 

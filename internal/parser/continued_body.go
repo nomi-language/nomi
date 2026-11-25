@@ -3,6 +3,7 @@ package parser
 import (
 	"strings"
 
+	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/token"
 )
 
@@ -108,8 +109,11 @@ func (p *Parser) startsDeclarationAt(i int) bool {
 		return false
 	}
 	t := p.tokens[i]
+	if i+1 < len(p.tokens) && lexer.IsVisibilityModifier(t, p.tokens[i+1]) {
+		return true
+	}
 	switch t.Type {
-	case token.TEST_PROMPT, token.DOC_COMMENT, token.AT, token.PUB, token.EXTERN,
+	case token.TEST_PROMPT, token.DOC_COMMENT, token.AT, token.EXTERN,
 		token.FN, token.ONCE, token.TYPE, token.STRUCT, token.ENUM, token.TYPEALIAS, token.REFINE,
 		token.INTERFACE, token.IMPL, token.OPAQUE, token.TEST:
 		return true

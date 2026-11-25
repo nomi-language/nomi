@@ -204,7 +204,7 @@ func (s *operIfaceSpec) matchesDecl(decl *ast.InterfaceDef) bool {
 		typeParams = 1
 	}
 	switch {
-	case decl.Name != s.nomi, !decl.Public:
+	case decl.Name != s.nomi, decl.Visibility != ast.Public:
 		return false
 	case len(decl.TypeParams) != typeParams, len(decl.WhereClauses) > 0:
 		return false

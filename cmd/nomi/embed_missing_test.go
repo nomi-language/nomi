@@ -33,7 +33,7 @@ const missingEmbedWarning = "warning: the `embed` pattern `web/dist` matches no 
 func TestEmbedMissingDirectory_RunAndCheckWarnBuildRefuses(t *testing.T) {
 	dir := t.TempDir()
 	cache := t.TempDir()
-	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[module]\nname = \"app\"\nentry_points = [\"main\"]\n")
+	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[package]\nname = \"app\"\nentry_points = [\"main\"]\n")
 	entry := filepath.Join(dir, "main.nomi")
 	mustWrite(t, entry, missingEmbedProgram)
 
@@ -88,7 +88,7 @@ func TestEmbedMissingDirectory_RunAndCheckWarnBuildRefuses(t *testing.T) {
 // `nomi run`: only a pattern whose base does not exist is a warning.
 func TestEmbedMissingDirectory_AGlobInAnExistingFolderStaysAnError(t *testing.T) {
 	dir := t.TempDir()
-	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[module]\nname = \"app\"\nentry_points = [\"main\"]\n")
+	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[package]\nname = \"app\"\nentry_points = [\"main\"]\n")
 	mustWrite(t, filepath.Join(dir, "web", "dist", "index.html"), "x")
 	entry := filepath.Join(dir, "main.nomi")
 	mustWrite(t, entry, strings.Replace(missingEmbedProgram, "`web/dist`", "`web/dist/*.css`", 1))

@@ -6,6 +6,11 @@
 // have. cmd/nomi-docgen reads it to keep a stdlib reference example live
 // in the browser when its run reaches no such call (promptClassifier).
 //
+// A crossing notes its class before anything the platform decides, such
+// as Windows refusing a Unix datagram socket, since the reference is one
+// page whichever system built it: a call that reaches the class on one
+// system counts on every one.
+//
 // The class names are internal/stdlibbindings' (`connect`, `listen`,
 // `processes`), which cannot be imported here: that package imports the
 // ones that call Note.

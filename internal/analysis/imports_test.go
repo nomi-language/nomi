@@ -100,7 +100,7 @@ func TestReverseDeps(t *testing.T) {
 	os.WriteFile(filepath.Join(dir, "main.nomi"), []byte("import math: math\nfn main()\n    math.double(21)\nend"), 0644)
 
 	dm := NewDocumentManager()
-	dm.SetWorkspaceRoot(dir)
+	dm.SetEditorFolder(dir)
 
 	mathURI := fileuri.FromPath(filepath.Join(dir, "math.nomi"))
 	mainURI := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
@@ -131,7 +131,7 @@ func TestReverseDeps_BlockFormImport(t *testing.T) {
 	os.WriteFile(filepath.Join(dir, "main.nomi"), []byte("import\n  math.{double}\nend\n\nfn main()\n    double(21)\nend\n"), 0644)
 
 	dm := NewDocumentManager()
-	dm.SetWorkspaceRoot(dir)
+	dm.SetEditorFolder(dir)
 
 	mathURI := fileuri.FromPath(filepath.Join(dir, "math.nomi"))
 	mainURI := fileuri.FromPath(filepath.Join(dir, "main.nomi"))

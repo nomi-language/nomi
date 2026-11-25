@@ -101,7 +101,7 @@ func (r *completionRequest) pipeCandidates() []candidate {
 			}
 		case real.Kind == analysis.SymbolModule && real.ModuleScope != nil:
 			for _, fn := range sortedSymbols(real.ModuleScope.Symbols) {
-				if fn.Public && fn.Kind == analysis.SymbolFunction && valueSymbol(fn) && r.firstParamAccepts(fn, lhs) {
+				if r.fa.Sees(fn) && fn.Kind == analysis.SymbolFunction && valueSymbol(fn) && r.firstParamAccepts(fn, lhs) {
 					add(sym.Name, fn, 2, nil)
 				}
 			}
@@ -139,7 +139,7 @@ func (r *completionRequest) firstParamAccepts(fn *analysis.Symbol, t analysis.Ty
 }
 
 // interfaceSymbol finds the interface declaration named name: visible at
-// the cursor, or public in a standard-library file.
+// the cursor, or one the document sees in a file it can import.
 func (r *completionRequest) interfaceSymbol(name string) *analysis.Symbol {
 	if sym := realSymbol(r.scope.Lookup(name)); sym != nil && sym.Kind == analysis.SymbolInterface {
 		return sym
@@ -148,7 +148,7 @@ func (r *completionRequest) interfaceSymbol(name string) *analysis.Symbol {
 		if src.scope == nil {
 			continue // a closed file's index entry holds no symbols
 		}
-		if sym := src.scope.LookupLocal(name); sym != nil && sym.Public && sym.Kind == analysis.SymbolInterface {
+		if sym := src.scope.LookupLocal(name); sym != nil && r.fa.Sees(sym) && sym.Kind == analysis.SymbolInterface {
 			return sym
 		}
 	}
@@ -165,7 +165,7 @@ func (r *completionRequest) ownerReach(owner string) (*analysis.MissingImport, b
 	}
 	var found *analysis.MissingImport
 	for _, src := range r.importSources() {
-		if !src.exportsType(owner) {
+		if !r.exportsType(src, owner) {
 			continue
 		}
 		if found != nil {
@@ -176,15 +176,16 @@ func (r *completionRequest) ownerReach(owner string) (*analysis.MissingImport, b
 	return found, found != nil
 }
 
-// exportsType reports whether the file declares a public type named name:
-// in its analyzed scope, or in its index entry when it is closed.
-func (src importSource) exportsType(name string) bool {
+// exportsType reports whether the file src declares a type named name the
+// document sees: in its analyzed scope, or in its index entry when it is
+// closed.
+func (r *completionRequest) exportsType(src importSource, name string) bool {
 	if src.scope != nil {
 		sym := src.scope.LookupLocal(name)
-		return sym != nil && sym.Public && sym.Resolved == nil && typeSymbol(sym)
+		return sym != nil && r.fa.Sees(sym) && sym.Resolved == nil && typeSymbol(sym)
 	}
 	for _, d := range src.decls {
-		if d.Name == name && d.Public && declIsType(d.Kind) {
+		if d.Name == name && r.seesProjectDecl(d.Visibility, src.file) && declIsType(d.Kind) {
 			return true
 		}
 	}

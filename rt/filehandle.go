@@ -55,8 +55,7 @@ type FileSource struct {
 	Writable bool
 	// Close releases the file, or is nil.
 	Close func() error
-	// Fail is the io.Error for err, a failure of operation op, when err is
-	// not an IOFailure. Nil makes such a failure Other.
+	// Fail is as ReadSource's.
 	Fail func(op string, err error) IOError
 	// Sync makes what was written to the file durable: its data and its
 	// metadata, or with dataOnly the data and what reading it back needs.

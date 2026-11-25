@@ -41,7 +41,7 @@ func (s *Server) followsInput(uri string) bool {
 // readsInput reports whether an analysis reads the file at uri as an input:
 // a phrase catalog, under a module's `[i18n].catalogs` directory in a
 // listed locale's, or one an analysis read. Editing any
-// other TOML file, a Cargo.toml in the same workspace, rechecks nothing.
+// other TOML file, a Cargo.toml in the same editor folder, rechecks nothing.
 func (s *Server) readsInput(uri string) bool {
 	if _, ok := analysis.CatalogAt(uriToPath(uri)); ok {
 		return true
@@ -175,9 +175,10 @@ func (s *Server) inputChanged(uri string) {
 	}()
 }
 
-// isManifestURI reports whether uri is a module's nomi.toml.
+// isManifestURI reports whether uri is a manifest document: a package's
+// nomi.toml, or a workspace's nomi-workspace.toml (isWorkspaceURI).
 func isManifestURI(uri string) bool {
-	return filepath.Base(uriToPath(uri)) == "nomi.toml"
+	return filepath.Base(uriToPath(uri)) == "nomi.toml" || isWorkspaceURI(uri)
 }
 
 // manifestChanged rechecks after a nomi.toml changed, on disk or in an

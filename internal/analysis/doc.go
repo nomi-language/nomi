@@ -105,7 +105,7 @@
 // # nomi.toml
 //
 // The language server tells this package the text of each nomi.toml an
-// editor has open (SetEditedManifest), and every reader of a module's
+// editor has open (SetEditedManifest), and every reader of a package's
 // nomi.toml reads it through ReadManifest: LoadManifest, so the front end
 // and the document manager, and vmhost's checks of the [effects]
 // lists. A program the editor shows is checked and lowered as `nomi check`
@@ -115,17 +115,29 @@
 // ParseManifestIn answers a problem it can place as a *ManifestError, with
 // its line; ManifestErrorAt places any of its errors, the TOML decoder's
 // among them, as the language server shows them in the file. A build
-// whose nomi.toml has a problem reports it once, on the entry, and checks
-// the program as one with no manifest: the walk of its imports still
-// runs (discoverProjectStd), so std's modules come from the shared
-// stdlib and report nothing. The one exception is a module, the project
-// or one it depends on, whose [module].nomi names a later release than the
-// running nomi (modcache.NomiVersionError): its files are written for that
-// release, so the build reads and checks nothing and the entry answers
-// that one error (NomiVersionCode).
+// whose packages cannot be read, because the project's nomi.toml has a
+// problem or the package graph of its dependencies' nomi.toml files does,
+// checks nothing, and the entry answers that one error (ManifestCode): an
+// import by a package's name and every dependency resolve through them,
+// so any error past it would follow from it. A package, the project or one
+// it depends on, whose [package].nomi names a later release than the
+// running nomi (pkgcache.NomiVersionError) stops the build the same way,
+// with its own code (NomiVersionCode), since its files are written for
+// that release. So does a problem in the nomi-workspace.toml of the
+// workspace the project is a member of, which internal/pkgcache reads
+// (pkgcache.WorkspaceOf) with this package's reporting of unknown keys
+// and finding of lines, and its reading of the text an editor holds
+// (ReadManifestFile), installed as its WorkspaceReader when this package
+// starts (manifest_workspace.go), so the error is at its line in that
+// file, and so does a package under a workspace that lists it in neither
+// members nor exclude (pkgcache.UnlistedError), reported at the package's
+// nomi.toml with a fix that adds it to members (AddWorkspaceMember). The
+// DocumentManager keeps a program while ManifestTexts, the package's
+// nomi.toml with the lock and workspace that select its versions, is the
+// same.
 //
 // One writer edits the [effects.self], [effects.self.modules],
-// [effects.deps] and [effects.deps.modules] tables of a
+// [effects.deps] and [effects.deps.packages] tables of a
 // nomi.toml's text (WriteEffectTables, over ManifestTableLayout):
 // `nomi effects --write`, which writes the tightest tables, and the
 // fix of an effect-not-allowed error (AllowEffects), which adds
@@ -135,15 +147,17 @@
 // tables, and the
 // comments and layout inside them, by the same rules. Which keys a table
 // holds is manifestFile's, nested tables included, and an unknown key is
-// an error that says what the table's keys hold (unknownManifestKey).
+// an error that says what the table's keys hold (unknownManifestKey). The
+// same reporting holds nomi-workspace.toml to pkgcache.WorkspaceFile's
+// keys (manifestSchema).
 // WriteRequirements (manifest_deps_write.go) writes the [dependencies]
-// and [indirect] tables for `nomi add`, `remove` and `update` by the same
-// layout rules, over ManifestTableLayout, one writer for both tables of
-// entries (writeEntries), keeping every line outside them, and checks only
-// those tables, so an error elsewhere in the file never blocks the edit. A
-// top-level table named by the text's own [module].name or a key of its
+// table for `nomi add`, `remove` and `update` by the same layout rules,
+// over ManifestTableLayout (writeEntries), keeping every line outside it,
+// and checks only that table, so an error elsewhere in the file never
+// blocks the edit. A
+// top-level table named by the text's own [package].name or a key of its
 // own [dependencies] is a tool's (toolTables), read from the text and not
-// from a module graph, so the edit that adds a dependency is the one that
+// from a package graph, so the edit that adds a dependency is the one that
 // makes its tool's table valid.
 //
 // # Opening from a record
@@ -172,7 +186,7 @@
 // checked in its program whole.
 //
 //   - A record is written only for a program that reads no file of another
-//     module.
+//     package.
 //   - A program that reports what only the whole check words (its impls'
 //     errors, a missing impl, a noun's or phrase's disagreement, a catalog
 //     nothing reads, any diagnostic beside an application type, a
@@ -711,8 +725,8 @@
 // std::resources.{Release as Freeable}`, `impl Freeable for Lock` is
 // Lock's Release, a duplicate of an `impl Release for Lock`, and its
 // identity's origin is read through the header (ImplIface). The passes
-// that run before a file has a scope (the universal Debug, a partner's
-// impls, a file's interface) read a header through the file's import
+// that run before a file has a scope (the universal Debug, a file's
+// interface) read a header through the file's import
 // aliases (importedAs). One rule names an
 // interface in a diagnostic about whether a type implements it
 // (ProjectImplIndex.shownInterface): through its file (throughFile,
@@ -1237,6 +1251,65 @@
 // The formatter keeps a parenthesized body's parentheses, which it drops
 // elsewhere, since they change the meaning: `&(f(&1))` is no partial and
 // `&f(&1)` is one.
+//
+// # Visibility
+//
+// A declaration has one of three levels, ast.Visibility on its node and
+// Symbol.Visibility on its symbol (spec §14 *Visibility*): public (`pub`),
+// internal (no modifier) and private (`private`). FileAnalysis.Sees is the
+// one answer to "may this file name that declaration": a public one from
+// every file, an internal one from every file of its package, a private one
+// from its own file alone (FileAnalysis.inside). A file named
+// `x_test.nomi` is an ordinary file of its package. A REPL session's files
+// are one file (FileDecls.Session, set on each file a session's build
+// makes): each is inside every other, for a private declaration and the
+// inside of an opaque type, since a session reads to its user as one
+// file. The builder asks the same answer before it calls another file's
+// private function or reads its private once (irbuild's gen.sees).
+// SeesDeclaration is the same rule for a declaration the language server
+// knows from a parse. Every place that reaches another file's declaration
+// asks it: a file qualifier (checkModuleMemberVisibility,
+// checkQualifiedTypeMember), an import by name and a re-export
+// (checkImportVisibility, the drill-through owners of defineImport), a
+// type's functions from an imported file (importedTypeMethod,
+// unseenTypeMethod), the "did you mean" lists, and completion and
+// auto-import in package lsp.
+//
+// A file's package is FileAnalysis.Package, the key name PackageIndex gives
+// it ("" for the program's own, "std", or a dependency's), set where its
+// builder is made; define writes it onto each symbol the file declares
+// (Symbol.Package), as it writes SourceFile, so the comparison needs no
+// path arithmetic. A std symbol, which has no SourceFile, is in a file when
+// that file defines it at its position.
+//
+// A use Sees refuses is PrivateDeclarationCode or InternalDeclarationCode,
+// naming the level and what would make the declaration reachable. A std
+// declaration's message is any package's, and its help says the name is not
+// part of std's public surface, with the reference page of the one public
+// std module that declares a type of the name (stdSurfaceHint), since no
+// edit of the program's reaches it. The help for a declaration of the
+// program's own package or of a dependency loaded from a directory says to
+// write `pub` (or drop `private`). A dependency a fetch put in the package
+// cache is not the reader's to edit, so a message about its declaration
+// ends with no help. That fact is PackageIndex.Fetched, from
+// pkgcache.Dep.Local; the builder holds the index and the checker reads
+// it as Program.Packages. A name reached through an expansion's hidden
+// import (`phrase$.compiled`, isHiddenImportAlias) is the expansion's, and
+// is not judged. A `pub import` of an item that is not public is
+// ReexportNotPublicCode: a re-export never widens. Its help, to write
+// `pub` on the declaration, follows the same rule. Visibility
+// consistency (checkVisibilityConsistency) ranks the levels and refuses,
+// as ExposesTypeCode, a signature that names a type fewer files see than
+// see the declaration, the type's level read from its declaration in this
+// file, through an import or a qualifier (writtenTypeDecl), or, for an
+// inferred type, in the file its origin names. A top-level declaration and
+// each function and `once` of an inherent impl are held at their own level
+// (checkFunctionExposure, checkOnceExposure). A member of an inherent impl
+// is also held to its type's level whatever its signature names
+// (checkMemberLevel): one that outranks the type is
+// MemberMoreVisibleThanTypeCode at its name, with a fix that gives it the
+// type's level, and its signature's mentions of the type are not reported
+// again (exposure.owner).
 //
 // # Diagnostic codes
 //
@@ -1818,7 +1891,7 @@
 //     ways above.
 //
 // For an opaque T the generated `try_from` and `unchecked` are
-// construction, refused outside T's file and its partner test as T's call
+// construction, refused outside T's file as T's call
 // form is: one rule, refuseOpaqueConstruction, answers every construction
 // form of an opaque type. A function value of either is refused where the
 // checker resolves `T.try_from`, and a call once its impl is chosen

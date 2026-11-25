@@ -99,49 +99,69 @@ type fileFunc struct {
 	// monomorphic signature exists to call; a call site builds an instance
 	// in the declaring file instead (siblinggeneric.go).
 	generic bool
-	// private marks a non-`pub` declaration: callable across files only from
-	// its file's partner test (`shapes_test.nomi` for `shapes.nomi`, spec §14
-	// *Visibility*). Every other caller refuses it as a private sibling file
+	// vis is the declaration's level. A caller the checker says does not
+	// see a private one (gen.sees) refuses it as a private sibling file
 	// function, so a builder that resolves names across the program never
 	// lowers a call the language rejects.
-	private bool
+	vis ast.Visibility
 }
 
 func (f *fileFunc) lowerable() bool { return f.why == "" }
 
-// siblingPrivate reports whether g's file may not call unit to's function f
-// because f is private to its file and g's file is not that file's partner
-// test. It notes the refusal when it answers true.
+// siblingPrivate reports whether g's file may not call function f of unit
+// to because f is private to a file g's file is not inside (gen.sees). It
+// notes the refusal when it answers true.
 func (g *gen) siblingPrivate(to int, f *fileFunc) bool {
-	if f == nil || !f.private || g.partnerTestOf(to) {
+	if f == nil || g.sees(to, f.vis) {
 		return false
 	}
 	g.dc.note("private sibling file function")
 	return true
 }
 
-// partnerTestOf reports whether g's file is unit to's partner test, by the
-// analyzer's rule (analysis.FileAnalysis.PartnerTestOf): the same directory,
-// and to's file name with `_test` before `.nomi`. A module key cannot answer
-// it, since a test file checked as the entry is keyed by its name alone.
-func (g *gen) partnerTestOf(to int) bool {
+// sees reports whether g's file may name a declaration of level vis in
+// unit to. For a private one it is the checker's answer
+// (analysis.FileAnalysis.SeesDeclarationIn): only its own file, or in a
+// REPL session any of the session's files, which read as one
+// (analysis.FileDecls.Session). A declaration of another level is one the
+// checker let the file name before anything lowered, std's internal
+// functions an expansion's hidden import reaches included.
+func (g *gen) sees(to int, vis ast.Visibility) bool {
+	if vis != ast.Private || to == g.fileUnit {
+		return true
+	}
 	x := g.files
-	if x == nil || g.fileUnit < 0 || g.fileUnit >= len(x.units) || to < 0 || to >= len(x.units) {
+	if x == nil || g.fileUnit < 0 || g.fileUnit >= len(x.units) || to < 0 || to >= len(x.units) ||
+		x.units[g.fileUnit] == nil || x.units[to] == nil {
 		return false
 	}
-	return x.units[g.fileUnit].fa.PartnerTestOf(x.units[to].fa)
+	return x.units[g.fileUnit].fa.SeesDeclarationIn(vis, x.units[to].fa)
 }
 
-// hasPartnerTest reports whether g's file has its partner test in the
-// program, the one other file that may call its private functions.
-func (g *gen) hasPartnerTest() bool {
+// anotherFileSees reports whether a file other than g's may call a
+// declaration of level vis in g's file (analysis.FileAnalysis.Sees): any
+// file for a public one, whatever the program holds, a file of the
+// program in its module for an internal one, and none for a private one.
+// In a REPL session it is every level: the files that call g's are the
+// later inputs, which read as one file with it (FileAnalysis.Session) and
+// are not in the program yet when g's file is lowered, since each is
+// lowered later against the module g's file keeps (LowerSessionFile).
+// A file builds the default accessors of a function, free or of an
+// inherent impl, by this answer (irFileSlotDefaults, irImplSlotDefaults).
+func (g *gen) anotherFileSees(vis ast.Visibility) bool {
+	if vis == ast.Public {
+		return true
+	}
 	x := g.files
 	if x == nil || g.fileUnit < 0 || g.fileUnit >= len(x.units) {
 		return false
 	}
 	src := x.units[g.fileUnit].fa
-	for _, u := range x.units {
-		if u != nil && u.fa.PartnerTestOf(src) {
+	if src != nil && src.Session {
+		return true
+	}
+	for i, u := range x.units {
+		if i != g.fileUnit && u != nil && u.fa != nil && u.fa.SeesDeclarationIn(vis, src) {
 			return true
 		}
 	}
@@ -156,8 +176,8 @@ type fileUnit struct {
 	// Nil when the file was checked without an analysis library, in which case
 	// nothing can resolve to it and every call into it refuses.
 	scope *analysis.Scope
-	// fa is the file's analysis, which the partner-test rule reads its path
-	// from. Nil when scope is.
+	// fa is the file's analysis, which says which files see its
+	// declarations (anotherFileSees). Nil when scope is.
 	fa *analysis.FileAnalysis
 }
 
@@ -230,7 +250,7 @@ func buildFileIndex(p *Program, reg *typeRegistry) *fileIndex {
 			case *ast.FuncDef:
 				// One declaration, one entry: keyed on the node, so two
 				// declarations cannot collide.
-				x.byDecl[d] = fileSite{unit: i, fn: fileFuncShell(reg, d, strings.HasPrefix(m.Name, "std/"))}
+				x.byDecl[d] = fileSite{unit: i, fn: fileFuncShell(reg, d)}
 			case *ast.OnceBinding:
 				// No shell: a `once`'s kind is settled in declareOnces, which
 				// runs after this index exists, and the declaring gen's own
@@ -256,7 +276,7 @@ func buildFileIndex(p *Program, reg *typeRegistry) *fileIndex {
 				if !hostTableFn(d) {
 					continue
 				}
-				x.byDecl[d] = fileSite{unit: i, fn: fileFuncShell(reg, hostShellOf(d), false), host: true}
+				x.byDecl[d] = fileSite{unit: i, fn: fileFuncShell(reg, hostShellOf(d)), host: true}
 			}
 		}
 		x.units[i] = u
@@ -348,32 +368,31 @@ func (x *fileIndex) resolveSignatures(gens []*gen) {
 // are filled in by typeFileFunc.
 //
 // The visibility check is the load-bearing one and it is NOT redundant with
-// the analyzer's. `pub` controls cross-file visibility, so a non-`pub`
-// top-level declaration is FILE-PRIVATE — but every lowered function links by
-// symbol across the program's modules, so a sibling file's private function
-// is reachable purely because both files landed in one program, and a builder
-// that resolved names without checking `pub` would lower a program the
-// language REJECTS. That is invisible to any output comparison: such a program
+// the analyzer's. A `private` top-level declaration is FILE-PRIVATE, but
+// every lowered function links by symbol across the program's modules, so a
+// sibling file's private function is reachable purely because both files
+// landed in one program, and a builder that resolved names without checking
+// `private` would lower a program the language REJECTS. An internal one,
+// with no modifier, is any file of its module's to call, and the analyzer
+// refuses a call from another module before anything lowers. That is invisible to any output comparison: such a program
 // has no recorded output, so there is no second observation to disagree with.
 // It is a divergence in the ANALYZER's direction, and a named refusal is the
 // only thing that catches it.
 //
-// A std module lowered with the program (inStd) is the exception: its
-// private functions are what an expansion's hidden import calls
-// (`phrase$.compiled`), and the analyzer refuses any other file that names
-// one ("`phrase.compiled` is internal to std/phrase"), so a call the
-// builder sees is one the language admits.
-func fileFuncShell(reg *typeRegistry, fd *ast.FuncDef, inStd bool) *fileFunc {
+// An expansion's hidden import calls a std module's internal functions
+// (`phrase$.compiled`), which are std's own and which the analyzer refuses
+// to any other file of a program ("`compiled` is internal to package
+// `std`"), so a call the builder sees is one the language admits.
+func fileFuncShell(reg *typeRegistry, fd *ast.FuncDef) *fileFunc {
 	f := &fileFunc{name: fd.Name, decl: fd}
 	for _, p := range fd.Params {
 		if p.Default != nil {
 			f.defaults = true
 		}
 	}
-	// A private function lowers in its own file, and the only other file
-	// that may call it is that file's partner test, which the call site asks
-	// (gen.siblingPrivate).
-	f.private = !fd.Public && !inStd
+	// A private function lowers in its own file, and a call from a file
+	// that does not see it refuses it (gen.siblingPrivate).
+	f.vis = fd.Visibility
 	if len(fd.TypeParams) > 0 || len(fd.WhereClauses) > 0 {
 		// No monomorphic signature exists to type or call. A call site
 		// instantiates the declaration in its own file's gen at the call's
@@ -383,8 +402,8 @@ func fileFuncShell(reg *typeRegistry, fd *ast.FuncDef, inStd bool) *fileFunc {
 	}
 	// A `host fn` has no Body and IS lowerable, so the body clause is
 	// asked about the shell rather than about the shape. Everything else here
-	// still applies to one: it must be `pub` to be reachable and it must not be
-	// generic. Its unit builds the accessors a call that omits a defaulted
+	// still applies to one: it must be seen by the calling file and it must
+	// not be generic. Its unit builds the accessors a call that omits a defaulted
 	// parameter fills it with, as for a `fn` (irHostFnRetain). See
 	// hostpkg.go's hostShellOf.
 	_, host := hostExtOf(fd)

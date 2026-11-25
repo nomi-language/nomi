@@ -21,7 +21,7 @@ import (
 func TestDocumentManager_BuildLeavesOtherDocumentsNodesAlone(t *testing.T) {
 	fixture := filepath.Join("..", "irbuild", "testdata", "sibimpl_cycle")
 	dir := t.TempDir()
-	files := map[string]string{"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n"}
+	files := map[string]string{"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n"}
 	for _, name := range []string{"main.nomi", "decls.nomi", "back.nomi", "hop.nomi"} {
 		src, err := os.ReadFile(filepath.Join(fixture, name))
 		if err != nil {
@@ -38,7 +38,7 @@ func TestDocumentManager_BuildLeavesOtherDocumentsNodesAlone(t *testing.T) {
 	lib := loadStd()
 	dm := analysis.NewDocumentManager()
 	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
-	dm.SetWorkspaceRoot(dir)
+	dm.SetEditorFolder(dir)
 	hop := fileuri.FromPath(filepath.Join(dir, "hop.nomi"))
 	decls := fileuri.FromPath(filepath.Join(dir, "decls.nomi"))
 	dm.Open(hop, files["hop.nomi"])

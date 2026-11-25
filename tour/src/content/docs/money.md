@@ -198,7 +198,7 @@ A shop may count in something that isn't money in a bank, such as loyalty
 points. A custom currency has its own code and says how many digits it has
 after the point: `PTS:0` has none.
 
-A module lists the custom currencies it writes in its `nomi.toml`, in the
+A package lists the custom currencies it writes in its `nomi.toml`, in the
 `[money]` section, and then writes them in `Currency` and `Money` literals
 the same way. A currency built from text the program reads while it runs
 needs no listing.
@@ -221,7 +221,7 @@ fn main()
 end
 
 // FILE: nomi.toml
-[module]
+[package]
 name = "shop"
 entry_points = ["main"]
 
@@ -241,12 +241,12 @@ can't reuse an ISO code, and has no symbol, so `Money.format` writes its
 code.
 
 A custom currency needs no other setup, so the list is what catches a typo.
-A literal naming a custom currency the module doesn't list is an error when
+A literal naming a custom currency the package doesn't list is an error when
 the program is checked, and it suggests a listed one that is close. With
 `PTS:0` listed, `Money"5 PST:0"` is:
 
 ```console
-error: typed literal Money"5 PST:0": `PST:0` is a custom currency this module does not list: add it to [money].custom_currencies in nomi.toml
+error: typed literal Money"5 PST:0": `PST:0` is a custom currency this package does not list: add it to [money].custom_currencies in nomi.toml
  --> main.nomi:7:14
   |
 7 |     io.print(Money"5 PST:0")
@@ -259,7 +259,7 @@ error: typed literal Money"5 PST:0": `PST:0` is a custom currency this module do
 
 - `Currency.custom("PST", 0)` with both arguments written out is checked
   the same way as a literal.
-- Each module has its own list: a library lists the currencies it writes,
+- Each package has its own list: a library lists the currencies it writes,
   and the application's list doesn't cover them.
 - A single file with no `nomi.toml`, like the other examples on this page,
   may write any custom currency.

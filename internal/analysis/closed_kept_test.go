@@ -68,7 +68,7 @@ func closedDiff(tb testing.TB, dm *analysis.DocumentManager, dir string, texts m
 		release()
 		built += dm.FilesBuilt() - before
 		fresh := newManager()
-		fresh.SetWorkspaceRoot(dir)
+		fresh.SetEditorFolder(dir)
 		for k := range open {
 			fresh.Open(uri(k), texts[k])
 		}
@@ -120,8 +120,8 @@ func TestClosedFilesFromProgramsMatchTheirOwnBuilds(t *testing.T) {
 				dir := writeProject(t, p)
 				uri := func(key string) string { return fileuri.FromPath(filepath.Join(dir, filepath.FromSlash(key)+".nomi")) }
 				dm := newManager()
-				dm.SetWorkspaceRoot(dir)
-				dm.IndexWorkspace(context.Background())
+				dm.SetEditorFolder(dir)
+				dm.IndexEditorFolder(context.Background())
 				texts := map[string]string{}
 				for key, text := range p.texts {
 					texts[key] = text

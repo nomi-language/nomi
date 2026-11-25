@@ -2,6 +2,7 @@ package rt
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand/v2"
@@ -79,9 +80,19 @@ import (
 //
 // A package-level registry serves one program per process. The one caller that
 // needs per-run isolation is the test harness, and it takes it explicitly:
-// `ResetSupervisors` drains and clears, and `runTest` calls it after every case
-// — inside the virtual-time bubble when there is one, so a drain budget is
-// spent in virtual time and no goroutine outlives the bubble.
+// `ResetSupervisors` drains and clears, and `runTest` calls it after every case.
+//
+// A case in a virtual-time bubble (RunBubbled) drains inside the bubble, so a
+// drain budget is spent in virtual time, and the registry stays drained until
+// the bubble has ended: a task the drain woke that registers a drain hook,
+// makes a supervisor or subscribes to signals afterwards has it end at once,
+// on its own goroutine, inside its own bubble. The registry is dropped only
+// once nothing the case started can run again. Clearing it inside the bubble
+// would let such a task register into the next case's registry, whose drain
+// would then close a channel another bubble made, which Go ends the process
+// for. For the same reason a bubble that has not ended once its case's time
+// ran out, which is waiting outside the program, is given up on, and no case
+// starts in the process after it (RunBubbled).
 //
 // # Signal handling is not here, and that is a rule rather than a gap
 //
@@ -91,7 +102,7 @@ import (
 // than calling os.Exit from a background goroutine.
 
 // settleCheckInterval is how often a draining permanent supervisor asks whether
-// all its work has parked. Only ever runs on the shutdown path, and only until
+// all its work waits. Only ever runs on the shutdown path, and only until
 // the group settles or its budget expires.
 const settleCheckInterval = 2 * time.Millisecond
 
@@ -112,45 +123,11 @@ const unwindBudget = time.Second
 // equal has to be able to name it.
 const DefaultShutdownTimeout Duration = Duration(5 * time.Second)
 
-// parkTracker counts, for one supervisor, how many of its running tasks are in
-// a wait with no scheduled wake.
-//
-// The drain reads it to stop waiting for work that cannot arrive. It is a count rather than a set because the
-// only question asked of it is "are they all parked".
-type parkTracker struct {
-	live   atomic.Int64 // tasks past the semaphore and not yet finished
-	parked atomic.Int64 // of those, how many are in a no-wake wait
-}
-
-// settled reports that every running task is parked. False when the group has
-// no running tasks at all, which is the ordinary "finished" case the WaitGroup
-// already covers — answering true there would make the drain return before the
-// WaitGroup had seen the last completion.
-func (p *parkTracker) settled() bool {
-	if p == nil {
-		return false
-	}
-	live := p.live.Load()
-	return live > 0 && p.parked.Load() >= live
-}
-
-func (p *parkTracker) enter() {
-	if p != nil {
-		p.parked.Add(1)
-	}
-}
-
-func (p *parkTracker) exit() {
-	if p != nil {
-		p.parked.Add(-1)
-	}
-}
-
 // supervisor is the state behind a Supervisor value.
 //
-// Every field is fixed at construction. The primitives — WaitGroup, semaphore
-// channel, context — are individually goroutine-safe and drive themselves, so
-// the struct needs no mutex.
+// Every field is fixed at construction. The primitives — the idle latch, the
+// semaphore, the context — are individually goroutine-safe and drive
+// themselves, so the struct needs no mutex.
 type supervisor struct {
 	// ctx is cancelled when the supervisor drains. Derived from the registry
 	// root, so cancelling the root reaches every one of them.
@@ -161,25 +138,21 @@ type supervisor struct {
 	// record the program-level failure it implies.
 	reg *supervisorRegistry
 
-	// enrolled counts enrolled tasks, under enrolMu: incremented by the
-	// spawning goroutine before its worker starts, so a `Supervisor.flush`
-	// that begins after the spawn returned always sees the task. Adding
-	// inside the goroutine would leave a window where the supervisor looks
-	// idle and a flush silently misses work. idleCh is closed while the
-	// count is 0, and a new one is made when it leaves 0, so whoever waits
-	// for the supervisor to go idle (idle) sees at once that it is.
-	enrolMu  sync.Mutex
-	enrolled int64
-	idleCh   chan struct{}
+	// idle counts enrolled tasks: incremented by the spawning goroutine
+	// before its worker starts, so a `Supervisor.flush` that begins after the
+	// spawn returned always sees the task. Adding inside the goroutine would
+	// leave a window where the supervisor looks idle and a flush silently
+	// misses work. It is open while the count is 0, so whoever waits for the
+	// supervisor to go idle sees at once that it is.
+	idle latch
 
-	// sem is the `max_running` semaphore: a buffered channel with one slot per
-	// permitted concurrent task, held by a worker for the duration of its body.
-	//
-	// A channel rather than a worker pool because a parked goroutine blocked on
-	// a chan send is durably blocked, which is precisely what testing/synctest
-	// understands — the property that makes the whole surface testable under a
-	// virtual clock.
-	sem chan struct{}
+	// sem is the `max_running` semaphore, one slot per permitted concurrent
+	// task, held by a worker for the duration of its body. A wait object
+	// (wait.go) rather than a worker pool: a worker waiting for a slot waits
+	// on a channel of its own goroutine, which is precisely what
+	// testing/synctest counts as durably blocked — the property that makes
+	// the whole surface testable under a virtual clock.
+	sem *semaphore
 
 	shutdownTimeout Duration
 	maxRunning      int64
@@ -187,8 +160,6 @@ type supervisor struct {
 	restart Restart
 	backoff Backoff
 	giveUp  GiveUp
-
-	park *parkTracker
 
 	// diag is where a failure report goes: the diagnostic output of the frame
 	// that created the supervisor (WithDiagnosticOutput).
@@ -323,17 +294,14 @@ func SupervisorNewExact(
 		ctx:             ctx,
 		cancel:          cancel,
 		reg:             reg,
-		sem:             make(chan struct{}, int(maxRunning)),
+		sem:             newSemaphore(maxRunning),
 		shutdownTimeout: shutdownTimeout,
 		maxRunning:      maxRunning,
 		restart:         restart,
 		backoff:         backoffOrDefault(backoff),
 		giveUp:          onGiveUp,
-		park:            &parkTracker{},
 		diag:            diagnosticOutput(fr.ctx),
-		idleCh:          make(chan struct{}),
 	}
-	close(g.idleCh)
 	reg.groups = append(reg.groups, g)
 	return Supervisor{s: g}
 }
@@ -365,8 +333,10 @@ func SupervisorNewExact(
 //
 // Structural cancellation is untouched: shutdown and `Task.cancel` still reach
 // the task.
-func SupervisorSpawn(fr *Frame, sup Supervisor, body func(*Frame) Unit) Task[Unit] {
-	return supervisorEnrol(fr, sup, body)
+//
+// site is the spawn, which names the task in a deadlock's report.
+func SupervisorSpawn(fr *Frame, site Site, sup Supervisor, body func(*Frame) Unit) Task[Unit] {
+	return supervisorEnrol(fr, site, sup, body)
 }
 
 // SupervisorSpawnAll is `Supervisor.spawn_all(supervisor, source, f)`: one task
@@ -381,10 +351,10 @@ func SupervisorSpawn(fr *Frame, sup Supervisor, body func(*Frame) Unit) Task[Uni
 // it, and a `List` of handles out, in source order. Bodies return Unit, as all
 // supervised work does, so the handles come back for cancellation or for
 // `Task.await_all` on this batch rather than the supervisor's whole workload.
-func SupervisorSpawnAll[T any](fr *Frame, sup Supervisor, source Seq[T], f func(*Frame, T) Unit) *List[Task[Unit]] {
+func SupervisorSpawnAll[T any](fr *Frame, site Site, sup Supervisor, source Seq[T], f func(*Frame, T) Unit) *List[Task[Unit]] {
 	var handles []Task[Unit]
 	source.Run(fr, func(_ *Frame, item T) bool {
-		handles = append(handles, supervisorEnrol(fr, sup, func(taskFr *Frame) Unit {
+		handles = append(handles, supervisorEnrol(fr, site, sup, func(taskFr *Frame) Unit {
 			return f(taskFr, item)
 		}))
 		return true
@@ -394,7 +364,7 @@ func SupervisorSpawnAll[T any](fr *Frame, sup Supervisor, source Seq[T], f func(
 
 // supervisorEnrol is the shared half of `spawn` and `spawn_all`: one task,
 // enrolled and running under the supervisor's policy.
-func supervisorEnrol(fr *Frame, sup Supervisor, body func(*Frame) Unit) Task[Unit] {
+func supervisorEnrol(fr *Frame, site Site, sup Supervisor, body func(*Frame) Unit) Task[Unit] {
 	g := sup.s
 	if g == nil {
 		// Not reachable from lowered Nomi: a Supervisor value exists only
@@ -419,39 +389,42 @@ func supervisorEnrol(fr *Frame, sup Supervisor, body func(*Frame) Unit) Task[Uni
 	}
 	taskCtx, taskCancel := context.WithCancel(values)
 	stopWithSupervisor := context.AfterFunc(g.ctx, taskCancel)
-	t := &task[Unit]{done: make(chan struct{}), cancel: taskCancel}
+	t := newTaskState[Unit](taskCancel)
+	// Recorded by the spawner, which runs, as a block's task is
+	// (spawnScopeTask).
+	rec := newTask(fr, site, g)
 
-	// Enrol before returning. See supervisor.enrolled.
-	g.enrol()
+	// Enrol before returning. See supervisor.idle.
+	g.idle.add(1)
 
-	forcing := (*forcing)(nil)
-	var app, booted *AppFields
-	var capture *Capture
-	var files any
-	var processes, network any
+	// The frame each attempt's body runs on.
+	base := &Frame{ctx: taskCtx, inTask: true, stop: stopFlag(taskCtx), task: rec}
 	if fr != nil {
-		forcing = fr.forcing
-		app = fr.app
-		booted = fr.booted
-		capture = fr.capture
-		files = fr.files
-		processes = fr.processes
-		network = fr.network
+		base.forcing = fr.forcing
+		base.app = fr.app
+		base.booted = fr.booted
+		base.capture = fr.capture
+		base.files = fr.files
+		base.processes = fr.processes
+		base.network = fr.network
 	}
 	// The task keeps the spawner's fields and its context's values, and not
 	// its deadline. With no deadline to drop the fields are the spawner's
 	// own value, so a function value made there runs in the task as made.
-	if active := app.activeContext(); active.node != nil {
+	if active := base.app.activeContext(); active.node != nil {
 		if detached := ContextWithoutDeadline(active); detached.node != active.node {
-			app = app.withContext(&detached)
+			base.app = base.app.withContext(&detached)
 		}
 	}
 
 	taskBegan()
 	go func() {
-		defer g.leave()
+		// Outermost, after every wake the task's end makes: its awaiters
+		// and its supervisor's flush (spawnScopeTask's order).
+		defer tasks.remove(rec)
+		defer g.idle.add(-1)
 		defer taskEnded()
-		defer close(t.done)
+		defer t.end.add(-1)
 		defer stopWithSupervisor()
 		defer taskCancel()
 
@@ -459,18 +432,16 @@ func supervisorEnrol(fr *Frame, sup Supervisor, body func(*Frame) Unit) Task[Uni
 		// waiting when the supervisor drains never runs at all, which is the
 		// right answer: the alternative is starting work during shutdown that
 		// shutdown is about to abandon.
-		select {
-		case g.sem <- struct{}{}:
-			defer func() { <-g.sem }()
-		case <-taskCtx.Done():
+		if !g.sem.acquire(base, wait{kind: waitSlot, site: site, ctx: taskCtx}) {
 			t.tag = TagCancelled
 			return
 		}
+		defer g.sem.release()
 
-		g.park.live.Add(1)
-		defer g.park.live.Add(-1)
+		tasks.inBody(rec, true)
+		defer tasks.inBody(rec, false)
 
-		g.runWithRestarts(t, body, taskCtx, forcing, app, booted, capture, files, processes, network)
+		g.runWithRestarts(t, body, base)
 	}()
 
 	return Task[Unit]{t: t}
@@ -488,9 +459,11 @@ func supervisorEnrol(fr *Frame, sup Supervisor, body func(*Frame) Unit) Task[Uni
 // a cancelled one is being shut down; restarting either would fight the thing
 // that stopped it.
 //
-// Every restart inherits the spawn site's fields and detached Context, so it
-// reads the same configuration as the first attempt.
-func (g *supervisor) runWithRestarts(t *task[Unit], body func(*Frame) Unit, taskCtx context.Context, forcing *forcing, app, booted *AppFields, capture *Capture, files, processes, network any) {
+// Every restart runs on a copy of base, with the spawn site's fields and
+// detached Context, so it reads the same configuration as the first
+// attempt.
+func (g *supervisor) runWithRestarts(t *task[Unit], body func(*Frame) Unit, base *Frame) {
+	taskCtx := base.ctx
 	// attempt counts failures across the task's whole life and is what
 	// `max_restarts` refers to.
 	//
@@ -504,11 +477,10 @@ func (g *supervisor) runWithRestarts(t *task[Unit], body func(*Frame) Unit, task
 	// budget covers one bout rather than the process lifetime.
 	var troubleStarted time.Time
 
-	stop := stopFlag(taskCtx)
 	for {
 		runStart := time.Now()
-		taskFrame := &Frame{ctx: taskCtx, forcing: forcing, app: app, booted: booted, inTask: true, stop: stop, park: g.park, capture: capture, files: files, processes: processes, network: network}
-		outcome, failure := runSupervisedBody(body, taskFrame)
+		taskFrame := *base
+		outcome, failure := runSupervisedBody(body, &taskFrame)
 		ranFor := Duration(time.Since(runStart))
 
 		switch outcome {
@@ -783,55 +755,24 @@ func SupervisorFlushBounded(fr *Frame, sup Supervisor, bound Wait) FlushOutcome 
 		Trap("Supervisor.flush: supervisor has no runtime state")
 	}
 
-	done := g.idle()
-
-	var expired <-chan time.Time
-	if bound.Tag == TagUpTo {
-		timer := time.NewTimer(time.Duration(bound.UpTo))
-		defer func() {
-			if !timer.Stop() {
-				select {
-				case <-timer.C:
-				default:
-				}
-			}
-		}()
-		expired = timer.C
+	// A wait object's wait, so a task blocked here counts as waiting for its
+	// own supervisor's drain (taskRegistry.settled). Never part of a
+	// deadlock's report: a flush always could end (wait.couldWake). An idle
+	// supervisor is Flushed whatever the bound, a bound of 0 too, since the
+	// latch is read before the timer starts.
+	w := wait{kind: waitFlush, timed: bound.Tag == TagUpTo, after: bound.UpTo, afterWon: 1}
+	if fr != nil {
+		w.ctx = fr.ctx
 	}
-
-	var ctxDone <-chan struct{}
-	if fr != nil && fr.ctx != nil {
-		ctxDone = fr.ctx.Done()
-	}
-
-	// The waiter is parked for the parkTracker's purposes: a flush that blocks
-	// inside a supervised task must not make a draining permanent supervisor
-	// look busy. Nil-safe, and nil for a flush called outside any task.
-	var park *parkTracker
-	if fr != nil && fr.inTask {
-		park = g.park
-	}
-	park.enter()
-	defer park.exit()
-
-	// An idle supervisor is Flushed whatever the bound, a bound of 0 too:
-	// its channel is closed already, and a select would pick at random
-	// between it and a timer that has fired.
-	select {
-	case <-done:
+	switch waitLatches(fr, w, &g.idle) {
+	case 0:
 		return FlushOutcome{Tag: TagFlushed}
-	default:
-	}
-	select {
-	case <-done:
-		return FlushOutcome{Tag: TagFlushed}
-	case <-expired:
+	case 1:
 		// Nothing is cancelled: the work carries on, and shutdown's drain is
 		// still what eventually bounds it.
 		return FlushOutcome{Tag: TagTimedOut}
-	case <-ctxDone:
-		raiseCanceled(fr)
 	}
+	raiseCanceled(fr)
 	panic("unreachable")
 }
 
@@ -885,6 +826,11 @@ func drainSupervisors(status int) {
 	reg.drainEnded = make(chan struct{})
 	reg.signalStatus = status
 	defer close(reg.drainEnded)
+	// The drain is a wake source outside the tasks: it closes channels,
+	// cancels supervised tasks and stops their waits, on goroutines of its
+	// own, so nothing is reported while it runs (package doc, "Deadlock").
+	tasks.arm()
+	defer tasks.disarm()
 	groups := make([]*supervisor, len(reg.groups))
 	copy(groups, reg.groups)
 	cancelRoot := reg.cancelRoot
@@ -923,12 +869,21 @@ func drainSupervisors(status int) {
 // Go's Server.Shutdown spends its timeout. f must not block. When the drain
 // has already started, f runs at once. The returned func unregisters f.
 func OnDrain(f func()) (unregister func()) {
+	unregister, began := onDrain(f)
+	if began {
+		f()
+	}
+	return unregister
+}
+
+// onDrain is OnDrain that, when the drain has already started, neither
+// registers f nor runs it, and answers began.
+func onDrain(f func()) (unregister func(), began bool) {
 	reg := supervisors()
 	reg.mu.Lock()
+	defer reg.mu.Unlock()
 	if reg.drained {
-		reg.mu.Unlock()
-		f()
-		return func() {}
+		return func() {}, true
 	}
 	if reg.drainHooks == nil {
 		reg.drainHooks = map[int]func(){}
@@ -936,12 +891,11 @@ func OnDrain(f func()) (unregister func()) {
 	id := reg.nextHook
 	reg.nextHook++
 	reg.drainHooks[id] = f
-	reg.mu.Unlock()
 	return func() {
 		reg.mu.Lock()
 		delete(reg.drainHooks, id)
 		reg.mu.Unlock()
-	}
+	}, false
 }
 
 // drainOnce gives one supervisor its grace period, then stops it: it cancels
@@ -956,99 +910,65 @@ func OnDrain(f func()) (unregister func()) {
 // it owns have stopped (§15 *Cleanup and boot failure*). The wait is bounded
 // for item 2's reason in the file header: a task that never reaches a safe
 // point is still abandoned.
-// enrol counts one more task under g, and leave one fewer.
-func (g *supervisor) enrol() {
-	g.enrolMu.Lock()
-	defer g.enrolMu.Unlock()
-	if g.enrolled == 0 {
-		g.idleCh = make(chan struct{})
-	}
-	g.enrolled++
-}
-
-func (g *supervisor) leave() {
-	g.enrolMu.Lock()
-	defer g.enrolMu.Unlock()
-	g.enrolled--
-	if g.enrolled == 0 {
-		close(g.idleCh)
-	}
-}
-
-// idle is a channel closed once nothing is enrolled under g: closed already
-// when nothing is now.
-func (g *supervisor) idle() <-chan struct{} {
-	g.enrolMu.Lock()
-	defer g.enrolMu.Unlock()
-	return g.idleCh
-}
-
 func (g *supervisor) drainOnce() {
-	done := g.idle()
-	g.grace(done)
+	g.grace()
 	// Cancel on every path out, including the one where it went idle on its
 	// own: the context is a child of the registry root and would otherwise stay
 	// registered on it.
 	g.cancel()
-	timer := time.NewTimer(unwindBudget)
-	defer timer.Stop()
-	select {
-	case <-done:
-	case <-timer.C:
-	}
+	g.awaitIdle(Duration(unwindBudget))
 }
 
-// grace waits for g's work to finish (done closes), for at most its
-// shutdown budget.
-func (g *supervisor) grace(done <-chan struct{}) {
+// awaitIdle waits for g to go idle, for at most d, and reports whether it
+// did. The drain's goroutines are no tasks, so the wait is recorded nowhere.
+func (g *supervisor) awaitIdle(d Duration) bool {
+	return waitLatches(nil, wait{timed: true, after: d, afterWon: 1}, &g.idle) == 0
+}
+
+// grace waits for g's work to finish, for at most its shutdown budget.
+func (g *supervisor) grace() {
 	if g.shutdownTimeout <= 0 {
 		// A zero budget is a legitimate choice: cancel now, with no grace
 		// period.
 		return
 	}
 
-	timer := time.NewTimer(time.Duration(g.shutdownTimeout))
-	defer timer.Stop()
-
-	// A permanent supervisor's work is declared never to finish, so `done` may
-	// never close and the budget would be spent in full on every clean
+	// A permanent supervisor's work is declared never to finish, so it may
+	// never go idle and the budget would be spent in full on every clean
 	// shutdown — five seconds to stop a message-loop server that was sitting
 	// idle on its inbox.
 	//
 	// Cancelling permanent supervisors first is wrong for the header's item-2
 	// reason: the grace period is what lets work spawned just before shutdown
 	// run at all. So instead of shortening the wait, end it when there is
-	// nothing left to wait for: every running task parked with no scheduled
-	// wake. A task sleeping on a timer is not parked and still gets its full
-	// budget, because work is genuinely still coming.
+	// nothing left to wait for: every task of the supervisor that runs its
+	// body waits on a wait object (taskRegistry.settled). A task sleeping on
+	// a timer does not and still gets its full budget, because work is
+	// genuinely still coming.
 	//
 	// Scoped to permanent supervisors deliberately. Everywhere else the budget
 	// already terminates on its own, so there is nothing to fix and no reason
-	// to take on the one case this cannot see: a parked task that another
+	// to take on the one case this cannot see: a waiting task that another
 	// supervisor would have woken.
-	var settle <-chan time.Time
-	if restartsOnReturn(g.restart) {
-		ticker := time.NewTicker(settleCheckInterval)
-		defer ticker.Stop()
-		settle = ticker.C
-	}
-
+	permanent := restartsOnReturn(g.restart)
+	deadline := time.Now().Add(time.Duration(g.shutdownTimeout))
 	for {
-		select {
-		case <-done:
+		left := Duration(time.Until(deadline))
+		if left <= 0 {
+			// Budget spent: drainOnce cancels the stragglers.
+			return
+		}
+		if permanent && left > Duration(settleCheckInterval) {
+			left = Duration(settleCheckInterval)
+		}
+		if g.awaitIdle(left) {
 			// Everything finished inside the budget — the good case, and the
 			// one that keeps shutdown fast rather than always costing the full
 			// grace period.
 			return
-		case <-timer.C:
-			// Budget spent: drainOnce cancels the stragglers.
+		}
+		if permanent && tasks.settled(g) {
 			return
-		case <-settle:
-			// Nil channel for every non-permanent supervisor, so this arm never
-			// fires there and the select is the plain two-way one.
-			if g.park.settled() {
-				return
-			}
 		}
 	}
 }
@@ -1063,14 +983,107 @@ func (g *supervisor) grace(done <-chan struct{}) {
 // any mode and a hard error under testing/synctest, where a bubble reports
 // "main bubble goroutine has exited but blocked goroutines remain".
 //
-// Call it inside a bubble when there is one, so the drain budgets are spent in
-// virtual time rather than real. runTest does.
+// A case in a virtual-time bubble ends through RunBubbled instead, which
+// ends the supervisors inside the bubble and drops the registry after it.
 func ResetSupervisors() {
+	endSupervisors()
+	forgetSupervisors()
+}
+
+// RunBubbled runs body as one case in bubble, a virtual-time bubble with the
+// shape `Test.Bubble` declares (rt/vclock.RunCase). The bubble's cleanup
+// drains the supervisors and releases the signals inside the bubble, so the
+// drain budgets are spent in virtual time, and the registry is dropped once
+// the bubble has ended (the file header, "The registry is process-wide").
+//
+// stop closes when the case's time runs out: internal/vm's case limit
+// closes it once it has stopped the case's work, so a bubble whose every
+// goroutine the stop reaches ends at once. A bubble still running caseGrace
+// later is waiting on something outside the program, a socket or a
+// process, which nothing inside the bubble can wake and nothing outside it
+// may touch. RunBubbled then answers ErrCaseStillRunning without waiting
+// for it, drops the registry, which may hold the bubble's channels, and
+// starts no bubble after it: a case after it answers ErrCaseNotRun
+// (RunTestCases), since a second bubble beside it could close a channel of
+// the first, which Go ends the process for. A nil stop waits as long as the
+// bubble takes.
+func RunBubbled(bubble func(body func() error, cleanup func()) error, body func() error, stop <-chan struct{}) error {
+	if stuckCase.Load() != nil {
+		return ErrCaseNotRun
+	}
+	ended := make(chan error, 1)
+	go func() {
+		err := bubble(body, endSupervisors)
+		// After the bubble, also one given up on that ends later: a
+		// registry made inside a bubble must not outlive it.
+		forgetSupervisors()
+		ended <- err
+	}()
+	var grace <-chan time.Time
+	for {
+		select {
+		case err := <-ended:
+			return err
+		case <-stop:
+			stop, grace = nil, time.After(caseGrace)
+		case <-grace:
+			stuckCase.Store(&stuckBubble{ended: ended})
+			forgetSupervisors()
+			return ErrCaseStillRunning
+		}
+	}
+}
+
+// caseGrace is how long a bubble whose case's time ran out has to end
+// before RunBubbled gives up on it. A stopped case's bubble ends within
+// milliseconds: its computing stops at its next step, a wait inside the
+// bubble ends on the bubble's own clock, and its drain spends virtual time.
+var caseGrace = 2 * time.Second
+
+// stuckCase is the bubble RunBubbled gave up on, or nil while it has given
+// up on none. Once set, no case starts in the process.
+var stuckCase atomic.Pointer[stuckBubble]
+
+// stuckBubble is a bubble RunBubbled gave up on. ended receives its error
+// if it ever ends.
+type stuckBubble struct {
+	ended <-chan error
+}
+
+// ErrCaseStillRunning is a case whose bubble had not ended caseGrace after
+// its time ran out (RunBubbled): it was waiting outside the program.
+var ErrCaseStillRunning = errors.New("the case was still waiting outside the program when its time ran out, and nothing can stop it")
+
+// CaseStillRunning is ErrCaseStillRunning for one case, with where each of
+// its tasks was in a call into Go when it was given up on, the latest call
+// first: what a machine noted for it (EnterGo).
+type CaseStillRunning struct {
+	InGo []Site
+}
+
+func (e *CaseStillRunning) Error() string { return ErrCaseStillRunning.Error() }
+
+// Is makes a CaseStillRunning one ErrCaseStillRunning.
+func (e *CaseStillRunning) Is(target error) bool { return target == ErrCaseStillRunning }
+
+// ErrCaseNotRun is a case that did not start because a case before it in
+// the process was still waiting outside the program (RunBubbled).
+var ErrCaseNotRun = errors.New("did not run: a case before it was still waiting outside the program when its time ran out, and no other case can start beside it")
+
+// endSupervisors drains every supervisor and stops catching the signals the
+// drain left caught, so one arriving during shutdown was dropped and the
+// next program starts with them at their default action (signals.go). The
+// registry stays drained: a drain hook registered later runs at once and a
+// supervisor made later is cancelled.
+func endSupervisors() {
 	DrainSupervisors()
-	// The drain closed every signal feed and left their signals caught,
-	// so one arriving during shutdown was dropped; the next program starts
-	// with them at their default action (signals.go).
 	ReleaseSignals()
+}
+
+// forgetSupervisors drops the registry, so the next supervisor made starts
+// from a fresh root context. It touches no channel, so it may run after the
+// bubble the registry's channels were made in has ended.
+func forgetSupervisors() {
 	supervisorMu.Lock()
 	defer supervisorMu.Unlock()
 	supervisorReg = nil
@@ -1086,41 +1099,4 @@ func SupervisorFatal() error {
 	reg.mu.Lock()
 	defer reg.mu.Unlock()
 	return reg.fatal
-}
-
-// SupervisedPark and SupervisedUnpark bracket a wait with no scheduled wake, so
-// a draining permanent supervisor can tell "still working" from "nothing left
-// to wait for".
-//
-// Exported for the blocking operations in this package that are declared in
-// other files — the channel pair in channel.go — for CancelIfDone's reason: the
-// bracket has one implementation and its pairing cannot be forgotten at a
-// fourth call site. A nil frame or a frame outside a task is a no-op, which is
-// what makes them safe to call unconditionally.
-func SupervisedPark(fr *Frame) {
-	if p := supervisorParkOf(fr); p != nil {
-		p.enter()
-	}
-}
-
-// SupervisedUnpark is SupervisedPark's other half.
-func SupervisedUnpark(fr *Frame) {
-	if p := supervisorParkOf(fr); p != nil {
-		p.exit()
-	}
-}
-
-// supervisorParkOf is the tracker a frame's task belongs to, or nil.
-//
-// Two conditions, and the `inTask` half is not redundant: `Frame` is copied by
-// value at EnterBoot and by field at EnterScope, so a nested `concurrent` block
-// inside a supervised task carries the tracker onwards, which is wanted — a
-// task blocked inside a nested block is still parked. What is not wanted is a
-// tracker surviving onto a frame nobody supervises, and `inTask` is the fact
-// that separates them.
-func supervisorParkOf(fr *Frame) *parkTracker {
-	if fr == nil || !fr.inTask {
-		return nil
-	}
-	return fr.park
 }

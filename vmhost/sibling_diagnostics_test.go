@@ -102,7 +102,7 @@ func loadAppProjectWithLeaf(t *testing.T, leaf string) error {
 		"end",
 		"",
 		"// FILE: nomi.toml",
-		"[module]",
+		"[package]",
 		`name = "cxd"`,
 		`entry_points = ["main"]`,
 	}, "\n")

@@ -1,0 +1,34 @@
+//# Shapes whose helpers are private to this file. The tests are in the
+//# file too, so they read Kind, Shape, area and the opaque Area's
+//# representation, and none of them is seen by another file.
+
+private enum Kind
+    Round
+    Square
+end
+
+private struct Shape
+    kind: Kind
+    size: Int
+end
+
+opaque type Area Int
+
+private fn area(shape: Shape) -> Area
+    case shape.kind
+        .Round  -> Area(shape.size * shape.size * 3)
+        .Square -> Area(shape.size * shape.size)
+    end
+end
+
+pub fn describe(size: Int) -> String
+    Area(a) = area(Shape{kind: .Square, size:})
+    "square of area ${a}"
+end
+
+test "a test in the file reads its private declarations"
+    Area(round) = area(Shape{kind: .Round, size: 2})
+    assert round == 12
+    assert area(Shape{kind: Kind.Square, size: 3}) == Area(9)
+    assert describe(2) == "square of area 4"
+end

@@ -33,7 +33,7 @@ func TestComponent_MergesExactlyTheCycles(t *testing.T) {
 	// `main.nomi` above it, and {protocols, things} under cross_file_impls/
 	// with `impls.nomi` and the test file above it, and {ast, value} under
 	// cross_file_enum_cycle/, which import each other through their
-	// module's own name, with the test file above it. `greeter.nomi` imports
+	// package's own name, with the test file above it. `greeter.nomi` imports
 	// app.EffectsApp to read its fields, and analysed as its own entry it
 	// reaches no boot, so those reads are errors and it is not a program
 	// here. Absolute, because a partition

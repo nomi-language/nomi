@@ -134,7 +134,7 @@ func TestStdMap_ServerFixAllKeepsSomeImport(t *testing.T) {
 		t.Fatalf("read std map: %v", err)
 	}
 	content := string(b)
-	// The stdlib is one Nomi module, so its files name each other bare.
+	// The stdlib is one package, so its files name each other bare.
 	content = strings.Replace(content, "option.Option.{self, None}\n", "option.Option.{self, None, Some}\n", 1)
 	if !strings.Contains(content, "option.Option.{self, None, Some}") {
 		t.Fatal("std map fixture should include Option.Some import")

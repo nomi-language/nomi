@@ -527,7 +527,7 @@ func (m *Machine) hostOption(fr *frame, h *hostCall, tag int) error {
 			return err
 		}
 	case fastRegs, fastBytesAt:
-		carried, ran, err := fr.callSlots(h)
+		carried, ran, err := fr.callSlots(h, m.noteGo)
 		if err != nil {
 			return err
 		}
@@ -589,7 +589,7 @@ func (m *Machine) hostOption(fr *frame, h *hostCall, tag int) error {
 	case h.intr != nil:
 		v, err = h.intr(m.boundAt(fr, h.name), h.call.Pos(), args)
 	default:
-		v, err = callAdapter(h.fn, fr.runtime, args)
+		v, err = callAdapter(m.noteGo, fr, h.call.Pos(), h.fn, args)
 	}
 	if m.dbg == nil {
 		clear(args)

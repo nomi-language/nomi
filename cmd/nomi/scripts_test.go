@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/nomi-language/nomi/internal/modcache"
+	"github.com/nomi-language/nomi/internal/pkgcache"
 	"github.com/nomi-language/nomi/internal/stdlibbindings/families"
 )
 
@@ -207,13 +207,13 @@ func TestScriptsAreExecutable(t *testing.T) {
 	}
 }
 
-// TestReleaseTagsChecksTheLibModules: scripts/release-tags.sh prints the
-// one tag a release makes and exits 0 on this tree, whose lib/ modules each
+// TestReleaseTagsChecksTheLibPackages: scripts/release-tags.sh prints the
+// one tag a release makes and exits 0 on this tree, whose lib/ packages each
 // name themselves and name each other by dir alone. On a copy of the script
-// over a lib/ of its own, it refuses a module whose [module] gives no name
+// over a lib/ of its own, it refuses a package whose [package] gives no name
 // and an entry that names this repository by version, each by file and
 // line, and prints no tag.
-func TestReleaseTagsChecksTheLibModules(t *testing.T) {
+func TestReleaseTagsChecksTheLibPackages(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("runs a bash script; the Unix jobs check it")
 	}
@@ -245,7 +245,7 @@ func TestReleaseTagsChecksTheLibModules(t *testing.T) {
 		if d.IsDir() && (d.Name() == "testdata" || strings.HasPrefix(d.Name(), ".")) {
 			return filepath.SkipDir
 		}
-		if !d.IsDir() && d.Name() == modcache.ManifestName {
+		if !d.IsDir() && d.Name() == pkgcache.ManifestName {
 			modules++
 		}
 		return nil
@@ -266,16 +266,16 @@ func TestReleaseTagsChecksTheLibModules(t *testing.T) {
 		t.Fatal(err)
 	}
 	mustWrite(t, filepath.Join(fake, "scripts", "release-tags.sh"), string(text))
-	mustWrite(t, filepath.Join(fake, "lib", "good", "nomi.toml"), "[module]\nname = \"good\"\n\n[dependencies]\nother = { dir = \"../other\" }\n")
-	mustWrite(t, filepath.Join(fake, "lib", "nameless", "nomi.toml"), "[module]\nentry_points = [\"main\"]\n")
+	mustWrite(t, filepath.Join(fake, "lib", "good", "nomi.toml"), "[package]\nname = \"good\"\n\n[dependencies]\nother = { dir = \"../other\" }\n")
+	mustWrite(t, filepath.Join(fake, "lib", "nameless", "nomi.toml"), "[package]\nentry_points = [\"main\"]\n")
 	mustWrite(t, filepath.Join(fake, "lib", "pinned", "nomi.toml"),
-		"[module]\nname = \"pinned\"\n\n[dependencies]\ngood = { repo = \"github.com/nomi-language/nomi\", subdir = \"lib/good\", version = \"v0.0.1\" }\n")
+		"[package]\nname = \"pinned\"\n\n[dependencies]\ngood = { repo = \"github.com/nomi-language/nomi\", subdir = \"lib/good\", version = \"v0.0.1\" }\n")
 	out, errOut, exit := run(filepath.Join(fake, "scripts", "release-tags.sh"))
 	if exit != 1 || out != "" {
 		t.Errorf("release-tags.sh over a nameless module and a pinned entry exits %d and prints %q, want exit 1 and no tag", exit, out)
 	}
 	for _, want := range []string{
-		"lib/nameless/nomi.toml: [module] gives no name",
+		"lib/nameless/nomi.toml: [package] gives no name",
 		"lib/pinned/nomi.toml:5: good names github.com/nomi-language/nomi by version; a library names another by dir alone",
 		"2 problems above",
 	} {

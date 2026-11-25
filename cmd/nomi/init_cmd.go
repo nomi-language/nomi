@@ -12,15 +12,15 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
-	"github.com/nomi-language/nomi/internal/modcache"
 	"github.com/nomi-language/nomi/internal/parser"
+	"github.com/nomi-language/nomi/internal/pkgcache"
 )
 
 const initUsage = "usage: nomi init <name>"
 
 // manifestText is the nomi.toml `nomi new` and `nomi init` write: the
 // module's name, the release it needs, which is the running release
-// (modcache.Release) and is left out by a `nomi` built from source, and
+// (pkgcache.Release) and is left out by a `nomi` built from source, and
 // its entry points.
 func manifestText(name, release string, entries []string) string {
 	quoted := make([]string, len(entries))
@@ -31,24 +31,24 @@ func manifestText(name, release string, entries []string) string {
 	if release != "" {
 		needs = fmt.Sprintf("nomi = %q\n", release)
 	}
-	return fmt.Sprintf("[module]\nname = %q\n%sentry_points = [%s]\n", name, needs, strings.Join(quoted, ", "))
+	return fmt.Sprintf("[package]\nname = %q\n%sentry_points = [%s]\n", name, needs, strings.Join(quoted, ", "))
 }
 
-// moduleArg reads the argument of `nomi new` and `nomi init`, before
-// either writes anything: the module's name, by the rule nomi.toml is
+// packageArg reads the argument of `nomi new` and `nomi init`, before
+// either writes anything: the package's name, by the rule nomi.toml is
 // read with, a name an import path can start with
-// (modcache.IsModuleName). A module does not name where it is published:
+// (pkgcache.IsPackageName). A package does not name where it is published:
 // a project that depends on it names its repository.
-func moduleArg(cmd, arg string) (string, error) {
+func packageArg(cmd, arg string) (string, error) {
 	switch {
 	case arg == "std":
 		return "", fmt.Errorf("nomi %s: std is the standard library's name; choose another", cmd)
-	case !modcache.IsModuleName(arg):
+	case !pkgcache.IsPackageName(arg):
 		hint := ""
 		if strings.Contains(arg, "/") {
-			hint = "; a module names no repository: a project that depends on it names the repository it is published in"
+			hint = "; a package names no repository: a project that depends on it names the repository it is published in"
 		}
-		return "", fmt.Errorf("nomi %s: %q is not a module name: a name is lowercase letters, digits and _, not starting with a digit, such as hello_world%s", cmd, arg, hint)
+		return "", fmt.Errorf("nomi %s: %q is not a package name: a name is lowercase letters, digits and _, not starting with a digit, such as hello_world%s", cmd, arg, hint)
 	}
 	return arg, nil
 }
@@ -57,7 +57,9 @@ func moduleArg(cmd, arg string) (string, error) {
 // by writing its nomi.toml, never replacing one. nomi.toml's entry_points
 // lists every file of the module with a top-level `fn main` other than its
 // tools, which are entry points without being listed, or `main` when none
-// has one. It writes no source file.
+// has one. It writes no source file. Under a workspace that does not list
+// the directory yet, it adds it to the workspace's members
+// (joinWorkspace); at a workspace's root it refuses.
 func runInit(args []string) error {
 	var pos []string
 	for _, arg := range args {
@@ -72,10 +74,13 @@ func runInit(args []string) error {
 	if isRegular("nomi.toml") {
 		return errors.New("nomi init: this directory is already a Nomi project: it holds nomi.toml")
 	}
-	if len(pos) == 0 {
-		return errors.New("nomi init: give the module's name, such as `nomi init hello`")
+	if err := workspaceRootError("init", ".", "a package goes in a directory of its own, as its members do"); err != nil {
+		return err
 	}
-	name, err := moduleArg("init", pos[0])
+	if len(pos) == 0 {
+		return errors.New("nomi init: give the package's name, such as `nomi init hello`")
+	}
+	name, err := packageArg("init", pos[0])
 	if err != nil {
 		return err
 	}
@@ -83,21 +88,24 @@ func runInit(args []string) error {
 	if err != nil {
 		return fmt.Errorf("nomi init: %w", err)
 	}
-	if err := os.WriteFile("nomi.toml", []byte(manifestText(name, modcache.Release(), entries)), 0o644); err != nil {
+	if err := os.WriteFile("nomi.toml", []byte(manifestText(name, pkgcache.Release(), entries)), 0o644); err != nil {
 		return fmt.Errorf("nomi init: %w", err)
 	}
 	fmt.Println("wrote nomi.toml")
+	if err := joinWorkspace("init", "."); err != nil {
+		return err
+	}
 	if len(entries) > 0 && isRegular(entries[0]+".nomi") {
 		fmt.Printf("next: nomi run %s.nomi\n", entries[0])
 	}
 	return nil
 }
 
-// entryFiles is the module-relative name, without .nomi, of every file
+// entryFiles is the package-relative name, without .nomi, of every file
 // under root with a top-level `fn main`, the names entry_points must list,
 // or ["main"] when there is none and root has no tools. A tool
 // (analysis.IsToolFile), a test file, a hidden directory and a directory
-// with a nomi.toml of its own (another module) are skipped.
+// with a nomi.toml of its own (another package) are skipped.
 func entryFiles(root string) ([]string, error) {
 	var entries []string
 	hasTools := false

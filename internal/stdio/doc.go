@@ -61,7 +61,7 @@
 // else this build's (defaultBackend). `std::fs::testing.run` and `fs.within`
 // replace it for their body (rt.EnterFiles); tasks inherit it as they
 // inherit `io.capture`. `nomi test`
-// gives a test file the disk with its working directory at its module root.
+// gives a test file the disk with its working directory at its package root.
 //
 // `std::fs::testing.conformance` holds the memory backend to the disk, and std's
 // tests run it against both. A test that touches the disk uses a directory
@@ -134,19 +134,18 @@
 // # Classification
 //
 // The operating system backend turns a Go error into the io.Error variant
-// that names it (classify): absence is NotFound, an existing path
-// AlreadyExists, a refusal PermissionDenied, and so on by errno, each
-// carrying the path the program passed. The sentinels of io, os and
-// context a stream returns are named too: a closed file or pipe is Closed,
-// a stream that ends inside its framing (io.ErrUnexpectedEOF) Truncated,
-// and any timeout that is not an errno's TimedOut. What no variant names
-// is `Other`, with Go's operation word (`open`, `read`) and the errno's
-// name, or `unknown` when the error carries none, never Go's prose. The
-// errno is the one Unix answers for the failure, on every system: Errno
-// reads a Windows code through one table (windowsErrnos), and std/net's
-// errors are sorted by the same reading. A write into a missing directory
-// is NotFound naming the directory. A package that links an error's own
-// package names that error first and hands the rest to Classify:
+// that names it (Classify) with rt's one table, rt.IOErrorOf: absence is
+// NotFound, an existing path AlreadyExists, a refusal PermissionDenied,
+// and so on by errno, each carrying the path the program passed, and
+// `Other` for what no variant names. Classify names first the one error
+// that is a file system's own, a name that leaves its root (InvalidPath).
+// The errno is the one Unix answers for the failure, on every system:
+// rt.Errno reads a Windows code through one table, and std/net's errors
+// are sorted by the same reading. A write into a missing directory is
+// NotFound naming the directory. A file's reads and writes, a process's
+// streams and standard input fail through the same table, as every stream
+// with no Fail hook does (rt.ReadSource). A package that links an error's
+// own package names that error first and hands the rest to rt.IOErrorOf:
 // internal/stdhttp's streams name net/http's and net's (streamFailure),
 // which this package does not link, since the lean runners leave net out.
 // The memory backend answers the same variants itself.

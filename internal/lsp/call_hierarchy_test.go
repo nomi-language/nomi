@@ -62,11 +62,11 @@ func callHierarchyServer(t *testing.T) (*Server, string, string) {
 			t.Fatal(err)
 		}
 	}
-	write("nomi.toml", "[module]\nname = \"app\"\nentry_points = [\"main\"]\n")
+	write("nomi.toml", "[package]\nname = \"app\"\nentry_points = [\"main\"]\n")
 	write("models/users.nomi", callUsersSrc)
 	write("main.nomi", callMainSrc)
 	s := NewServer()
-	s.docs.SetWorkspaceRoot(dir)
+	s.docs.SetEditorFolder(dir)
 	uri := pathToURI(filepath.Join(dir, "main.nomi"))
 	if snap := s.docs.Open(uri, callMainSrc); snap.Analysis == nil || len(snap.Analysis.TypeErrors) > 0 {
 		t.Fatalf("main.nomi does not check: %v", snap.Analysis.TypeErrors)

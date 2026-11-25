@@ -46,13 +46,13 @@
 //     release answers a runner.
 //   - ~/.cache/nomi/std (or NOMI_STD_CACHE_ROOT/std): internal/stdcache's
 //     std sources, once per language server.
-//   - modules/ (or NOMI_MODULE_CACHE): the repositories internal/modfetch
+//   - packages/ (or NOMI_PACKAGE_CACHE): the repositories internal/pkgfetch
 //     extracts, each `<path>@<tag>` at any depth under its host, which a
 //     resolve that finds it marks used, at most once a day when a fetch
-//     runs (modcache.Prune, which uses Expired).
+//     runs (pkgcache.Prune, which uses Expired).
 //
 // A test process runs the same code over os.TempDir()/nomi-test-cache, and
 // internal/parser's tree-sitter tests keep a compiled grammar per checkout
 // under os.TempDir()/nomi-tree-sitter-lib by the same rule. A test's
-// module cache is the NOMI_MODULE_CACHE it sets.
+// package cache is the NOMI_PACKAGE_CACHE it sets.
 package artifactcache

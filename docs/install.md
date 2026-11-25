@@ -5,24 +5,59 @@ editor with it, and run a program. `nomi` is one file. It is the compiler,
 the test runner, the formatter, the language server (`nomi lsp`) and the
 debugger (`nomi dap`).
 
-Nomi is pre-release. No version is tagged and no release is published yet,
-so today you build `nomi` from source. "From a release" below describes
-the install from the first release on.
+Nomi is pre-release. The first release, v0.0.1, is not published yet, so
+the commands under "From a release" fail until it is; build `nomi` from
+source until then.
 
 ## Install `nomi`
 
 ### From a release
 
-A release is one archive per platform, holding `nomi` alone:
-`nomi_<version>_<os>_<arch>.tar.gz`, or `.zip` for Windows, with
-`nomi_<version>_checksums.txt` beside them. Unpack the archive for your
-platform and move `nomi` to a directory on your `PATH`:
+On macOS and Linux, on amd64 or arm64:
 
 ```console
-$ tar -xzf nomi_v0.1.0_darwin_arm64.tar.gz
+$ curl -fsSL https://nomi-lang.org/install.sh | sh
+```
+
+The script downloads the release archive for your machine, checks its
+SHA-256 against the release's checksums, and puts `nomi` in `~/.nomi/bin`.
+It changes no shell profile: when that directory is not on your `PATH`, it
+prints the line to add. `NOMI_VERSION=v0.0.1` installs that release in
+place of the latest, and `NOMI_INSTALL_DIR` names another directory. Run it
+again to update.
+
+With Homebrew, on macOS or Linux:
+
+```console
+$ brew install nomi-language/nomi/nomi
+```
+
+`brew upgrade nomi` updates it.
+
+To install by hand, download the archive for your platform from the
+[release page](https://github.com/nomi-language/nomi/releases). A release
+is one archive per platform, holding `nomi` alone:
+`nomi_<version>_<os>_<arch>.tar.gz`, or `.zip` for Windows, with
+`nomi_<version>_checksums.txt` beside them. Check the archive against its
+line in the checksums file, unpack it and move `nomi` to a directory on
+your `PATH`:
+
+```console
+$ shasum -a 256 nomi_v0.0.1_darwin_arm64.tar.gz
+$ tar -xzf nomi_v0.0.1_darwin_arm64.tar.gz
 $ mv nomi ~/.local/bin/
 $ nomi --version
+nomi v0.0.1 (0123456789ab, darwin/arm64)
 ```
+
+The binaries are not signed. On macOS, Gatekeeper quarantines a file
+downloaded with a browser and refuses to run the unsigned `nomi` from it;
+`xattr -d com.apple.quarantine nomi` clears it. The script and Homebrew
+download with tools that set no quarantine.
+
+On Windows, download `nomi_<version>_windows_amd64.zip` from the release
+page and unzip `nomi.exe` into a directory on your `PATH`. Windows is
+exercised by automated tests only ("Windows" below).
 
 A release `nomi` needs nothing else installed.
 
@@ -109,14 +144,14 @@ writes needs nothing installed where it runs.
 
 To run, check, test and format a project, nothing, whichever way `nomi` was
 installed. That includes the project's dependencies: `nomi` fetches the
-modules `nomi.toml` names from their repositories' hosts itself (`nomi
+packages `nomi.toml` names from their repositories' hosts itself (`nomi
 add`, `nomi fetch`), and writes the project's `nomi.toml` dependencies and
-`nomi.lock`. A module in a private repository, or on a host other than
+`nomi.lock`. A package in a private repository, or on a host other than
 GitHub, GitLab, Codeberg, Bitbucket and sourcehut, needs `git` on `PATH`
-(the tooling reference's "Private modules").
+(the tooling reference's "Private packages").
 
-The editor's language server never downloads modules. Run `nomi fetch` in
-the project once, which downloads every module the project needs, so the
+The editor's language server never downloads packages. Run `nomi fetch` in
+the project once, which downloads every package the project needs, so the
 editor finds them and `--offline` commands need no network.
 
 `nomi build` is where a release and a source build differ.
@@ -130,9 +165,9 @@ executable needs nothing else and no network. For another platform
 `nomi build` downloads the runner it needs from the release and checks it
 against the release's checksums.
 
-A release is also one git tag of the compiler's repository (`v0.5.0`),
-which versions the `lib/` modules in it too. A release `nomi` takes the
-`lib/` modules at its own version, so `nomi add` of a library fails and
+A release is also one git tag of the compiler's repository (`v0.0.1`),
+which versions the `lib/` packages in it too. A release `nomi` takes the
+`lib/` packages at its own version, so `nomi add` of a library fails and
 names the tag when the repository lacks its release's tag.
 
 ### What a source build needs
@@ -164,8 +199,10 @@ $ CGO_ENABLED=1 go install -C nomi -ldflags=-linkmode=external ./cmd/nomi
 
 Nomi builds for Windows (amd64), and CI runs the compiler's Go tests there
 on every push to `main`; the js/wasm, tour and editor checks run on Linux
-only. The commands above are the same in PowerShell, and `go install` writes
-`nomi.exe` to `%USERPROFILE%\go\bin`. Set Git's `core.autocrlf` to `false`
+only. That is all the testing Windows gets. A release installs from its zip
+("From a release" above), as the install script and Homebrew are for macOS
+and Linux. The source commands above are the same in PowerShell, and
+`go install` writes `nomi.exe` to `%USERPROFILE%\go\bin`. Set Git's `core.autocrlf` to `false`
 before cloning if you will run the tests, since their recorded output has
 LF line ends; Nomi itself reads source with either.
 

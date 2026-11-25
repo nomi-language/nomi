@@ -81,9 +81,9 @@ longer.
 - A `Task.spawn` that can run outside every `concurrent` block is the
   error `spawn outside concurrent block`. A helper that spawns is fine when
   it is called from inside one.
-- A handle nothing awaits or cancels is `Task bound to 't' is never awaited
-  or cancelled`, and one that leaves its block, returned or sent on a
-  channel, is `Task<T> cannot escape its enclosing concurrent block`.
+- Every path to the block's end must await or cancel each handle; an await in one branch of an `if` only, or in a lambda that captures
+  the handle, does not count. A handle left unsettled is `Task bound to 't' is never awaited or cancelled`, and one that leaves its block,
+  returned or sent on a channel, is `Task<T> cannot escape its enclosing concurrent block`.
 - `return`, `?`, `break` and `continue` in the block leave the block, as in
   a lambda, not the function around it.
 - A task body is a lambda, so it can't `assert`. An `assert` in the block's
@@ -210,7 +210,7 @@ end
 ```
 
 This runs eight database queries at a time, then fifty API calls at a time.
-One limit for the whole block couldn't do both. For a source too long to start at once, [`Task.stream`](/reference/tasks/#taskstream) is the lazy form: a pipeline stage that runs at most `max_running` tasks, yields their results in order as they are read, and needs no `concurrent` block of your own.
+One limit for the whole block couldn't do both. For a source too long to start at once, [`Task.stream`](/reference/tasks/#taskstream) is the lazy form: a pipeline stage that runs at most `max_running` tasks, yields their results in order as they are read (or as they finish, with `ordered: False`), and needs no `concurrent` block of your own.
 
 ## Errors cancel siblings
 
@@ -620,8 +620,8 @@ There are two ways to make a channel:
 
 With an unbuffered channel, the producer runs only as fast as the consumer.
 That makes deadlock easy: a task that sends and then receives on the same
-channel waits forever. Use `buffered` by default. Use `unbuffered` when you
-want the sender to wait for the hand-off.
+channel waits forever, and once every task waits, the program stops with a
+report of each wait. Use `buffered` by default, `unbuffered` for a hand-off.
 
 ### Waiting on more than one channel
 

@@ -10,53 +10,53 @@ import
     strings.String
 end
 
-pub host fn escape_query(text: String) -> String
-pub host fn unescape_query(text: String) -> Result<String, String>
-pub host fn escape_path_segment(text: String) -> String
-pub host fn unescape_path_segment(text: String) -> Result<String, String>
+host fn escape_query(text: String) -> String
+host fn unescape_query(text: String) -> Result<String, String>
+host fn escape_path_segment(text: String) -> String
+host fn unescape_path_segment(text: String) -> Result<String, String>
 
 /// `text` read with Go's `url.Parse`, or `url.ParseRequestURI` when
 /// `request_uri`, as a URL's parts (rt/url.go names their order), or Go's
 /// reason.
-pub host fn parse_parts(text: String, request_uri: Bool) -> Result<List<String>, String>
+host fn parse_parts(text: String, request_uri: Bool) -> Result<List<String>, String>
 
 /// Go's `URL.String` of the URL `parts` holds.
-pub host fn format_parts(parts: List<String>) -> String
+host fn format_parts(parts: List<String>) -> String
 
 /// Go's `URL.Redacted`.
-pub host fn redacted_parts(parts: List<String>) -> String
+host fn redacted_parts(parts: List<String>) -> String
 
 /// Go's `URL.EscapedPath`.
-pub host fn escaped_path_parts(parts: List<String>) -> String
+host fn escaped_path_parts(parts: List<String>) -> String
 
 /// Go's `URL.EscapedFragment`.
-pub host fn escaped_fragment_parts(parts: List<String>) -> String
+host fn escaped_fragment_parts(parts: List<String>) -> String
 
 /// Go's `URL.RequestURI`.
-pub host fn request_uri_parts(parts: List<String>) -> String
+host fn request_uri_parts(parts: List<String>) -> String
 
 /// Go's `URL.Hostname`.
-pub host fn hostname_parts(parts: List<String>) -> String
+host fn hostname_parts(parts: List<String>) -> String
 
 /// Go's `URL.Port`: "" when the host names none.
-pub host fn port_parts(parts: List<String>) -> String
+host fn port_parts(parts: List<String>) -> String
 
 /// Go's `URL.ResolveReference`.
-pub host fn resolve_parts(base: List<String>, reference: List<String>) -> List<String>
+host fn resolve_parts(base: List<String>, reference: List<String>) -> List<String>
 
 /// Go's `URL.JoinPath`.
-pub host fn join_path_parts(parts: List<String>, segments: List<String>) -> List<String>
+host fn join_path_parts(parts: List<String>, segments: List<String>) -> List<String>
 
 /// `text` escaped as a URL fragment.
-pub host fn escape_fragment(text: String) -> String
+host fn escape_fragment(text: String) -> String
 
 /// A query string's pairs in order, alternating key and value, each pair Go
 /// refuses left out.
-pub host fn query_pairs(text: String) -> List<String>
+host fn query_pairs(text: String) -> List<String>
 
 /// Go's `url.ParseQuery` error for `text`, or "".
-pub host fn query_error(text: String) -> String
+host fn query_error(text: String) -> String
 
 /// Pairs alternating key and value as a query string, in their order, each
 /// key and value escaped as `escape_query` does.
-pub host fn query_encode(pairs: List<String>) -> String
+host fn query_encode(pairs: List<String>) -> String

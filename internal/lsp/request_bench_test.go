@@ -85,7 +85,7 @@ func openProject(t testing.TB, files map[string]string, open string) (*Server, s
 	t.Helper()
 	root := writeProject(t, files)
 	s := NewServer()
-	s.docs.SetWorkspaceRoot(root)
+	s.docs.SetEditorFolder(root)
 	uri := pathToURI(filepath.Join(root, open))
 	s.docs.Open(uri, files[open])
 	if snap := s.docs.Snapshot(uri); snap == nil || snap.Analysis == nil {

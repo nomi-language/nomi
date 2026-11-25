@@ -1,0 +1,12 @@
+# The first-party packages under lib/, developed and checked together.
+# They name each other by `dir` entries, and none takes a repository, so
+# the workspace has no nomi.lock.
+members = [
+    "image",
+    "jobs/*",
+    "jobs/examples/*",
+    "markdown",
+    "sql/*",
+    "sql/examples/*",
+    "storage/*",
+]

@@ -2,8 +2,13 @@ package main
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/vmhost"
 )
 
 // replRun runs script, one REPL input per line (an incomplete line continues
@@ -44,7 +49,7 @@ func TestReplVM_AFunctionDefinedEarlierIsCalledLater(t *testing.T) {
 
 func TestReplVM_ATypeDefinedEarlierIsUsedLater(t *testing.T) {
 	replExpect(t, "struct Point\n  x: Int\n  y: Int\nend\n"+
-		"impl Point\n  pub fn sum(p: Point) -> Int\n    p.x + p.y\n  end\nend\n"+
+		"impl Point\n  fn sum(p: Point) -> Int\n    p.x + p.y\n  end\nend\n"+
 		"p = Point{x: 1, y: 2}\nPoint.sum(p)\np.y\n",
 		"3\n2\n")
 }
@@ -155,6 +160,16 @@ func TestReplVM_ARedeclaredTypeIsANewVersion(t *testing.T) {
 		"once origin: P = P{x: 0}\np = P{x: 1}\nps = [P{x: 2}]\n"+
 		"struct P\n  y: Int\nend\npx(p)\np\nps\nLine{a: origin}\nq = P{y: 5}\nq.y\nr = p\npx(r)\n",
 		"1\nP{x: 1}\n[P{x: 2}]\nLine{a: P{x: 0}}\n5\n1\n")
+}
+
+// An input's declarations and onces carry the modifiers the user wrote and
+// no others. An unmarked once of an unmarked type is internal to the
+// session's module, which every later input is in, and a `pub` once that
+// names it is refused as a file would refuse it.
+func TestReplVM_TheUsersModifiersAreTheOnesJudged(t *testing.T) {
+	replExpect(t, "struct P\n  x: Int\nend\nonce a: P = P{x: 1}\na\npub once b: P = P{x: 2}\npub once c: Int = 3\nc\n",
+		"P{x: 1}\n3\n",
+		"public once binding exposes internal type P")
 }
 
 // Mixing the old and the new version of a type is a type error that names
@@ -308,7 +323,7 @@ func TestReplVM_ALazyIterIsKept(t *testing.T) {
 // versioned one a program spells it with.
 func TestReplVM_ErrorsNameOlderDefinitionsByTheUsersName(t *testing.T) {
 	src := &replSource{}
-	got := src.explainText("BLOCKED <repl> [nomi_repl_12_count] not retained: a call to nomi_repl_3_f through nomi_repl_get_4")
+	got := src.explainText("BLOCKED <repl> [nomi_repl_12_count] not retained: a call to nomi_repl_3_f through nomi_repl_get_4", false)
 	want := "BLOCKED <repl> [count] not retained: a call to f through nomi_repl_get_4"
 	if got != want {
 		t.Errorf("got  %q\nwant %q", got, want)
@@ -323,11 +338,127 @@ func TestReplVM_ErrorsNameTheInputsLine(t *testing.T) {
 	}
 }
 
-// A `todo` reached in an input is reported at the input's line, one in an
-// earlier input's function as a fault is, and the session goes on.
+// A `todo` reached in an input is reported at the line of the input it was
+// typed on, one in an earlier input's function as a fault is, and the
+// session goes on. Each input reads k, so its file holds lines the session
+// wrote above what the user typed.
 func TestReplVM_ATodoIsReportedAndTheSessionGoesOn(t *testing.T) {
-	replExpect(t, "n: Int = todo \"now\"\nfn f(n: Int) -> Int\n  todo \"later\"\nend\nf(1)\n2 + 2\n",
+	replExpect(t, "k = 1\nn: Int = begin\n  _ = k\n  todo \"now\"\nend\n"+
+		"fn f(n: Int) -> Int\n  _ = k\n  todo \"later\"\nend\nf(1)\n2 + 2\n",
 		"4\n",
-		"todo reached at repl.nomi:1: now",
+		"todo reached at repl.nomi:3: now",
 		"todo reached at repl.nomi:3 (an earlier input's declaration): later")
+}
+
+// Every position the REPL shows is a line of what the user typed, counted
+// from the input's first line, though each input's file holds imports and
+// declarations the session wrote above it: a `dbg` in the input and in an
+// earlier input's function, a failed assertion's line, and a diagnostic's
+// line and column, in a one-line and in a multi-line input.
+func TestReplVM_PositionsAreTheLinesTheUserTyped(t *testing.T) {
+	out, errOut := replRun(t, "import std::assertions.AssertionFailure\nk = 1\n"+
+		"dbg k\n"+
+		"m = begin\n  a = k + 1\n  dbg a\nend\n"+
+		"fn traced(n: Int) -> Int\n  t = n + k\n  dbg t\nend\ntraced(5)\n"+
+		"fn checked(n: Int) -> Result<Int, AssertionFailure>\n  _ = k\n  assert n > k\n  Ok(n)\nend\n"+
+		"Result.is_err(checked(0))\n"+
+		"case checked(0)\n  Ok(_) -> 0\n  Err(e) -> e.line\nend\n"+
+		"fn bad() -> Int\n  _ = k\n  missing_name\nend\n"+
+		"k + missing_name\n")
+	if want := "dbg line 1: k = 1\n1\ndbg line 3: a = 2\ndbg line 3: t = 6\n6\nTrue\n3\n"; out != want {
+		t.Errorf("stdout:\n%s\nwant:\n%s\nstderr:\n%s", out, want, errOut)
+	}
+	for _, want := range []string{
+		"line 3, col 3: undefined variable 'missing_name'",
+		"line 1, col 5: undefined variable 'missing_name'",
+	} {
+		if !strings.Contains(errOut, want) {
+			t.Errorf("stderr lacks %q:\n%s", want, errOut)
+		}
+	}
+}
+
+// A session reads to its user as one file: a later input calls an earlier
+// input's private function, from a statement and from a function of its
+// own, takes it as a value, reads its private once, keeps a value of its
+// private type and calls a private function of its inherent impl, and
+// builds, reads and destructures its opaque struct, distinct type and enum.
+func TestReplVM_PrivateAndOpaqueReachLaterInputs(t *testing.T) {
+	replExpect(t, "private fn secret(n: Int) -> Int\n  n * 2\nend\n"+
+		"secret(4)\nf = secret\nf(5)\nfn g() -> Int\n  secret(1)\nend\ng()\n"+
+		"private once p: Int = 5\np\n"+
+		"private struct P\n  x: Int\nend\nprivate once origin: P = P{x: 9}\norigin.x\nq = P{x: 4}\nq\n"+
+		"impl P\n  private fn twice(p: P) -> Int\n    p.x * 2\n  end\nend\nP.twice(origin)\n"+
+		"opaque struct Box\n  v: Int\nend\nb = Box{v: 3}\nb.v\nBox{v:} = b\nv\n"+
+		"opaque type Meters Int\nm = Meters(4)\nMeters(k) = m\nk\n"+
+		"opaque enum Shape\n  Sq(Int)\n  Dot\nend\ns = Shape.Sq(2)\ncase s\n  Shape.Sq(n) -> n\n  Shape.Dot -> 0\nend\n",
+		"8\n10\n2\n5\n9\nP{x: 4}\n18\n3\n3\n4\n2\n")
+}
+
+// A later input that leaves out a defaulted parameter of an earlier
+// input's function gets the default, whatever the function's level and
+// though nothing called it when its input was lowered: by position, past a
+// named argument, from a later function, a default that calls an earlier
+// function and reads an earlier once, a generic function's and an
+// inherent impl function's.
+func TestReplVM_ALaterInputLeavesAnEarlierDefaultOut(t *testing.T) {
+	for _, mod := range []string{"", "pub ", "private "} {
+		replExpect(t, mod+"fn e(a: Int, b: Int = 10, c: Int = 100) -> Int\n  a + b + c\nend\n"+
+			"e(1)\ne(1, c: 5)\nfn h() -> Int\n  e(2)\nend\nh()\n"+
+			"once t: Int = 7\nfn ten() -> Int\n  10\nend\n"+
+			mod+"fn f(a: Int, b: Int = ten() + t) -> Int\n  a + b\nend\nf(1)\n"+
+			mod+"fn g<T>(a: T, b: Int = 10) -> (T, Int)\n  (a, b)\nend\ng(\"x\")\n"+
+			mod+"struct P\n  x: Int\nend\nimpl P\n  "+mod+"fn add(p: P, b: Int = 10) -> Int\n    p.x + b\n  end\nend\nP.add(P{x: 1})\n",
+			"111\n16\n112\n18\n(\"x\", 10)\n11\n")
+	}
+}
+
+// The session's files are one file only in a session. The same
+// declarations in a file of a project stay that file's: another file of
+// the project names none of them and does not reach inside the opaque type.
+func TestReplVM_TwoFilesOfAProjectStayApart(t *testing.T) {
+	earlier := "private fn secret(n: Int) -> Int\n  n * 2\nend\n\nprivate once p: Int = 5\n\n" +
+		"opaque struct Box\n  v: Int\nend\n\nfn box() -> Box\n  Box{v: 1}\nend\n"
+	entry := "import earlier.{secret, p, Box}\nimport earlier\n\nfn main()\n  _ = secret(4)\n  _ = p\n" +
+		"  b = Box{v: 3}\n  _ = b.v\n  Box{v:} = earlier.box()\n  _ = v\nend\n"
+	_, err := vmhost.LoadSource("main", entry, vmhost.WithVirtualFiles(map[string]string{"earlier": earlier}))
+	if err == nil {
+		t.Fatal("the front end admits a private declaration and an opaque type's inside named from another file of a project")
+	}
+	var ds vmhost.Diagnostics
+	if !errors.As(err, &ds) {
+		t.Fatalf("the rejection is not diagnostics: %v", err)
+	}
+	var got []string
+	for _, d := range ds {
+		got = append(got, fmt.Sprintf("%d %s %s", d.Line, d.Code, d.Message))
+	}
+	for _, want := range []string{
+		"1 " + analysis.PrivateDeclarationCode + " `secret` is private to `earlier.nomi`",
+		"1 " + analysis.PrivateDeclarationCode + " `p` is private to `earlier.nomi`",
+		"7 " + analysis.OpaqueConstructionCode + " constructor of opaque type 'Box' is private to `earlier.nomi`",
+		"8  cannot access field 'v' of opaque type 'Box' outside `earlier.nomi`",
+		"9  cannot destructure opaque type 'Box' outside `earlier.nomi`",
+	} {
+		found := false
+		for _, g := range got {
+			found = found || strings.HasPrefix(g, want)
+		}
+		if !found {
+			t.Errorf("no diagnostic %q among:\n%s", want, strings.Join(got, "\n"))
+		}
+	}
+}
+
+// The prompt reads a declaration after `private` to its `end`, as it reads
+// one after `pub` or with no modifier, so each declaration below is one
+// input that checks and runs.
+func TestReplVM_APrivateDeclarationIsReadToItsEnd(t *testing.T) {
+	for _, mod := range []string{"", "pub ", "private "} {
+		replExpect(t, mod+"fn f() -> Int\n  1\nend\n"+
+			mod+"struct S\n  x: Int\nend\n"+
+			mod+"once o: Int =\n  2\n"+
+			mod+"once p: Int = begin\n  3\nend\n",
+			"")
+	}
 }

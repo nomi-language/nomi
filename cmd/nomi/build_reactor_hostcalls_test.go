@@ -105,7 +105,7 @@ func TestBuildCommand_ReactorAnswersHostFunctionsThroughItsImport(t *testing.T) 
 			t.Fatalf("nomi %s: exit %d\n%s", strings.Join(args, " "), got.exit, got.transcript())
 		}
 	}
-	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[module]\nname = \"app\"\n")
+	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[package]\nname = \"app\"\n")
 	mustWrite(t, filepath.Join(dir, "app.nomi"), hostCallsApp)
 	mustWrite(t, filepath.Join(dir, "helpers", "util.nomi"), hostCallsUtil)
 	mustWrite(t, filepath.Join(dir, "refused.nomi"), hostCallsRefused)

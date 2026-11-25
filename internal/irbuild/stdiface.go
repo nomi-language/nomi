@@ -231,7 +231,7 @@ var stdIfaceDefs = sync.OnceValue(func() []*ifaceDef {
 	defs := make([]*ifaceDef, len(stdIfaceSpecs))
 	for i := range stdIfaceSpecs {
 		s := &stdIfaceSpecs[i]
-		canon := &ast.InterfaceDef{Name: s.nomi, Public: true}
+		canon := &ast.InterfaceDef{Name: s.nomi, Visibility: ast.Public}
 		d := &ifaceDef{
 			nomi:      s.nomi,
 			decl:      canon,
@@ -393,7 +393,7 @@ func (g *gen) stdIfaceOfDecl(origin string, decl *ast.InterfaceDef) *ifaceDef {
 // the declaring module and not merely the nearest one.
 //
 // `importerKey` is the module key of the file that wrote the import, and it is
-// required rather than convenient. The stdlib is ONE Nomi module, so a stdlib
+// required rather than convenient. The stdlib is ONE package, so a stdlib
 // file names a sibling BARE — `import display.Display` inside std/decimal.nomi
 // — while every spec here identifies its module as `std/display`. Qualifying
 // by the importer is what tells that apart from a USER file importing its own
@@ -461,7 +461,7 @@ func stdImporterOf(fa *analysis.FileAnalysis, sym *analysis.Symbol) string {
 // stdStructSpec.mismatch.
 func (s *stdIfaceSpec) matches(decl *ast.InterfaceDef) bool {
 	switch {
-	case decl.Name != s.nomi, !decl.Public:
+	case decl.Name != s.nomi, decl.Visibility != ast.Public:
 		return false
 	case len(decl.TypeParams) > 0, len(decl.WhereClauses) > 0:
 		// A generic interface needs the dictionary a generic type needs, which

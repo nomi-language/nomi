@@ -15,7 +15,7 @@ import (
 // with NOMI_REGENERATE_EXPECTATIONS=1.
 func TestCheckCommand_JSONLines(t *testing.T) {
 	dir := t.TempDir()
-	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[module]\nname = \"app\"\nentry_points = [\"main\"]\n")
+	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[package]\nname = \"app\"\nentry_points = [\"main\"]\n")
 	mustWrite(t, filepath.Join(dir, "main.nomi"), "import helper\n\nfn main()\n    xs = [1, 2]\n    dbg xs.len()\n    dbg helper.twice(nil)\nend\n")
 	mustWrite(t, filepath.Join(dir, "helper.nomi"), "pub fn twice(n: Int) -> Int\n    n * 2\nend\n")
 	out, err := runNomi(t, t.TempDir(), "check", "--format", "json", dir)

@@ -36,7 +36,7 @@ func TestParseKeywordDeclarations(t *testing.T) {
 			if !ok {
 				t.Fatalf("got %T, want *ast.KeywordDecl", nodes[0])
 			}
-			if d.Keyword != c.keyword || d.Name != c.declName || d.Public != c.public || d.HasParams != c.params || len(d.Params) != c.nparams {
+			if d.Keyword != c.keyword || d.Name != c.declName || d.Visibility == ast.Public != c.public || d.HasParams != c.params || len(d.Params) != c.nparams {
 				t.Errorf("got %+v", d)
 			}
 			got := ""

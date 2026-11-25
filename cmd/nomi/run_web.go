@@ -49,7 +49,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/nomi-language/nomi/internal/stdio"
+	"github.com/nomi-language/nomi/rt"
 	"github.com/nomi-language/nomi/vmhost"
 )
 
@@ -519,7 +519,7 @@ func listenLocal(port int) ([]net.Listener, int, error) {
 		switch {
 		case err == nil:
 			return []net.Listener{v4, v6}, p, nil
-		case stdio.Errno(err) == syscall.EADDRINUSE:
+		case rt.Errno(err) == syscall.EADDRINUSE:
 			_ = v4.Close()
 			return nil, 0, err
 		}
@@ -546,7 +546,7 @@ func listenLocal(port int) ([]net.Listener, int, error) {
 		return nil, 0, err
 	}
 	ls, got, err := try(port)
-	if stdio.Errno(err) == syscall.EADDRINUSE {
+	if rt.Errno(err) == syscall.EADDRINUSE {
 		return nil, 0, fmt.Errorf("port %d is in use", port)
 	}
 	return ls, got, err

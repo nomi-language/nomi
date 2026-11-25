@@ -114,7 +114,7 @@ end
 
 A program that uses sqlkit has its migrations in the generated schema
 file (`schema.migrations`), and `sqlkit.migrate` applies them with this
-module, so it needs neither.
+package, so it needs neither.
 
 ## Moving from golang-migrate
 

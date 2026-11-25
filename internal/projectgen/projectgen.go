@@ -77,7 +77,7 @@ type Project struct {
 }
 
 // Manifest is the project's nomi.toml.
-const Manifest = "[module]\nname = \"generated\"\nentry_points = [\"main\"]\n"
+const Manifest = "[package]\nname = \"generated\"\nentry_points = [\"main\"]\n"
 
 // dirs are the directories units go in.
 var dirs = []string{"billing", "catalog", "accounts", "shipping", "reports", "search"}

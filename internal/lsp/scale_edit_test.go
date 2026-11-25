@@ -58,7 +58,7 @@ func TestScaleEdits(t *testing.T) {
 
 	// The record, written as a server writes it after a clean lowering.
 	writer := NewServer()
-	writer.docs.SetWorkspaceRoot(dir)
+	writer.docs.SetEditorFolder(dir)
 	writer.docs.Open(entry, gen.Files[gen.Entry])
 	func() {
 		defer writer.docs.View()()
@@ -93,7 +93,7 @@ func TestScaleEdits(t *testing.T) {
 				os.Setenv(artifactcache.RootEnv, "off")
 			}
 			s := NewServer()
-			s.docs.SetWorkspaceRoot(dir)
+			s.docs.SetEditorFolder(dir)
 			s.docs.Open(entry, gen.Files[gen.Entry])
 			s.docs.AnalyzeLatest(context.Background(), entry)
 			for _, u := range []string{doc, util} {

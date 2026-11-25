@@ -18,7 +18,7 @@ import (
 // accepted entry, one stale, one for a phrase main never reaches, and one
 // with an enum arm missing.
 var catalogProject = map[string]string{
-	"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[i18n]\nlocales = [\"en\", \"pl\"]\n",
+	"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[i18n]\nlocales = [\"en\", \"pl\"]\n",
 	"text.nomi": "pub enum Status\n    Open\n    Closed\nend\n\n" +
 		"pub phrase items(count: Int) `\n    .input {$count :integer}\n    .match $count\n    one {{{$count} item}}\n    * {{{$count} items}}\n    `\n\n" +
 		"pub phrase status(status: Status) `\n    .input {$status :string}\n    .match $status\n    Open {{open}}\n    Closed {{closed}}\n    * {{open}}\n    `\n\n" +

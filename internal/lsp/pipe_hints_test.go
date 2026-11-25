@@ -343,8 +343,8 @@ func TestPipeHints_RangedRequestOnLargeFile(t *testing.T) {
 	}
 	dir := writeProject(t, map[string]string{"main.nomi": src.String()})
 	s := NewServer()
-	s.docs.SetWorkspaceRoot(dir)
-	s.docs.IndexWorkspace(context.Background())
+	s.docs.SetEditorFolder(dir)
+	s.docs.IndexEditorFolder(context.Background())
 	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
 	s.docs.Open(uri, src.String())
 	before := s.docs.Snapshot(uri)

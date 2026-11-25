@@ -46,7 +46,7 @@ func TestChannelSpecShapeChecksAreLoadBearing(t *testing.T) {
 		name string
 		bend func(d *ast.ExternType)
 	}{
-		{"a private declaration", func(d *ast.ExternType) { d.Public = false }},
+		{"a private declaration", func(d *ast.ExternType) { d.Visibility = ast.Private }},
 		{"a renamed declaration", func(d *ast.ExternType) { d.Name = "Producer" }},
 		{"no type parameter", func(d *ast.ExternType) { d.TypeParams = nil }},
 		{"a renamed type parameter", func(d *ast.ExternType) { d.TypeParams = []ast.TypeParam{{Name: "E"}} }},
@@ -105,7 +105,7 @@ func TestChannelSpecShapeChecksAreLoadBearing(t *testing.T) {
 		name string
 		bend func(d *ast.TypeDef)
 	}{
-		{"a private declaration", func(d *ast.TypeDef) { d.Public = false }},
+		{"a private declaration", func(d *ast.TypeDef) { d.Visibility = ast.Private }},
 		{"a renamed declaration", func(d *ast.TypeDef) { d.Name = "Closed" }},
 		{"the OPAQUE clause the row does not name", func(d *ast.TypeDef) { d.Opaque = true }},
 		{"a SCALAR inner", func(d *ast.TypeDef) { d.InnerTypeExpr = &ast.SimpleType{Name: "Int"} }},

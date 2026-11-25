@@ -225,7 +225,7 @@ func TestLoweringRun_ProgramOfSeveralFilesLowersTheAnalysis(t *testing.T) {
 	dir := writeProject(t, map[string]string{
 		"main.nomi":   src,
 		"shapes.nomi": "pub fn area(r: Int) -> Int\n    r * 3\nend\n",
-		"nomi.toml":   "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+		"nomi.toml":   "[package]\nname = \"app\"\nentry_points = [\"main\"]\n",
 	})
 	s := NewServer()
 	uri := pathToURI(filepath.Join(dir, "main.nomi"))

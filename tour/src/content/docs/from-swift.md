@@ -47,7 +47,7 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `async let`, `TaskGroup` | `Task.spawn` and `Task.await` inside `concurrent` ... `end` |
 | `#expect(a == b)`, `XCTAssertEqual(a, b)` | `assert a == b` in a `test "name"` .. `end` |
 | The files of a module see each other with no `import` | Each file imports what it uses from another: `import db::posts`, then `posts.find(1)` |
-| `internal` unless marked `public` or `private` | A declaration is private to its file unless it is marked `pub` |
+| `public`, `internal` by default, `fileprivate` | `pub`, unmarked, `private`: the same three levels, with the same default. Swift's `private` inside a type, kept to that scope, has no match |
 | Vapor's `app.get("users", ":id")`, then `req.parameters.get("id", as: Int.self)` | `Route.to_with("GET /users/{id}", show)` with `fn show(Request, user: {id: Int}) -> Response`. The handler gets `user.id` already parsed, `/users/ann` gets a 404, and the pattern is checked when the program is. See [HTTP](/http/#handlers-and-routes) and [Frontends](/frontends/). |
 
 ## The same program

@@ -75,7 +75,7 @@ end
 func anonTypeProject(t *testing.T, openRoutes bool) (s *Server, mainURI, routesURI string) {
 	t.Helper()
 	dir := writeProject(t, map[string]string{
-		"nomi.toml":   "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+		"nomi.toml":   "[package]\nname = \"app\"\nentry_points = [\"main\"]\n",
 		"routes.nomi": anonTypeRoutes,
 		"main.nomi":   anonTypeMain,
 	})

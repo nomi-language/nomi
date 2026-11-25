@@ -339,7 +339,7 @@ func TestVMDbg_ColourFollowsTheDestination(t *testing.T) {
 // fails if it does — so the producer's `dbgKey` and this engine's are two
 // string literals in two packages. Nothing but a real lowering can show they
 // agree, and the failure mode if they do not is not subtle: every `dbg`
-// reports "is a host function, and this machine binds no implementation for it".
+// reports "is a host function, and the VM has no implementation for it".
 //
 // It is asserted here rather than left to the record comparison because the
 // comparison would report it as five wrong transcripts rather than as one
@@ -375,7 +375,7 @@ func dbgLoweredModule(t *testing.T, body string) *ir.Module {
 	t.Helper()
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "nomi.toml"),
-		[]byte("[module]\nname = \"dbgprobe\"\nentry_points = [\"main\"]\n"), 0o644); err != nil {
+		[]byte("[package]\nname = \"dbgprobe\"\nentry_points = [\"main\"]\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(dir, "main.nomi")

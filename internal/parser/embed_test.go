@@ -20,7 +20,7 @@ func TestParseEmbedDecl(t *testing.T) {
 	if !ok {
 		t.Fatalf("got %T, want *ast.EmbedDecl", nodes[0])
 	}
-	if d.Name != "site" || !d.Public || d.Doc != "The site." || d.Line != 2 || d.Col != 5 || d.NameCol != 11 {
+	if d.Name != "site" || d.Visibility != ast.Public || d.Doc != "The site." || d.Line != 2 || d.Col != 5 || d.NameCol != 11 {
 		t.Fatalf("got %+v", d)
 	}
 	want := []ast.EmbedPattern{

@@ -239,11 +239,11 @@ func TestWorkspaceFixtureDiagnosticsAreQuietWhenExpectationsMatch(t *testing.T) 
 	}
 	lib := loadStd()
 	dm := analysis.NewDocumentManager()
-	dm.SetWorkspaceRoot(root)
+	dm.SetEditorFolder(root)
 	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
 
 	// Every tracked .nomi file of the repository outside std/, testdata
-	// fixtures included: the workspace scan leaves those out, but an editor
+	// fixtures included: the editor folder's scan leaves those out, but an editor
 	// that opens one analyzes it the same way. Untracked copies (an editor
 	// extension's checkout of a published grammar, say) are not the
 	// repository's to answer for.
@@ -273,7 +273,7 @@ func TestWorkspaceFixtureDiagnosticsAreQuietWhenExpectationsMatch(t *testing.T) 
 		}
 	}
 	if len(noisy) > 0 {
-		t.Fatalf("expected workspace fixture diagnostics to publish cleanly, got %d:\n  %s", len(noisy), strings.Join(noisy, "\n  "))
+		t.Fatalf("expected the folder's fixture diagnostics to publish cleanly, got %d:\n  %s", len(noisy), strings.Join(noisy, "\n  "))
 	}
 }
 
@@ -290,7 +290,7 @@ func TestStdlibSameOwnerPipeCallPublishesCleanly(t *testing.T) {
 
 	lib := loadStd()
 	dm := analysis.NewDocumentManager()
-	dm.SetWorkspaceRoot(root)
+	dm.SetEditorFolder(root)
 	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
 	doc := dm.Open(fileuri.FromPath(path), string(content))
 	if doc.Analysis == nil {
@@ -436,13 +436,13 @@ func TestDocumentManager_DiscardBindingSuppressesIgnoredExpressionDiagnostic(t *
 // `Debug` impl at a synthesized line from a type declared twice.
 func TestImportedFileBuildErrorsPublishOnThatFile(t *testing.T) {
 	dir := writeProject(t, map[string]string{
-		"nomi.toml":   "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+		"nomi.toml":   "[package]\nname = \"app\"\nentry_points = [\"main\"]\n",
 		"main.nomi":   "import std::io\nimport helper\n\nfn main()\n  io.print(helper.greet())\nend\n",
 		"helper.nomi": "import std::regex\n\nstruct A\n  x: Int\nend\n\nenum A\n  One\nend\n\npub fn greet() -> String\n  \"hi\"\nend\n",
 	})
 	lib := loadStd()
 	dm := analysis.NewDocumentManager()
-	dm.SetWorkspaceRoot(dir)
+	dm.SetEditorFolder(dir)
 	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
 	published := func(name string) []string {
 		path := filepath.Join(dir, name)
@@ -476,14 +476,14 @@ func TestImportedFileBuildErrorsPublishOnThatFile(t *testing.T) {
 // file that wrote it, with the misspelling hint, and nowhere else.
 func TestMissingImportPublishesOnTheImportLine(t *testing.T) {
 	dir := writeProject(t, map[string]string{
-		"nomi.toml":   "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+		"nomi.toml":   "[package]\nname = \"app\"\nentry_points = [\"main\"]\n",
 		"main.nomi":   "import std::io\nimport helper\nimport lib\n\nfn main()\n  io.print(helper.greet())\n  lib.go()\nend\n",
 		"helper.nomi": "import utlis\n\npub fn greet() -> String\n  utlis.name()\nend\n",
 		"utils.nomi":  "pub fn name() -> String\n  \"hi\"\nend\n",
 	})
 	lib := loadStd()
 	dm := analysis.NewDocumentManager()
-	dm.SetWorkspaceRoot(dir)
+	dm.SetEditorFolder(dir)
 	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
 	published := func(name string) string {
 		path := filepath.Join(dir, name)
@@ -504,7 +504,7 @@ func TestMissingImportPublishesOnTheImportLine(t *testing.T) {
 	}
 	for _, tc := range []struct{ file, want string }{
 		{"main.nomi", "3:8-3:11: no module `lib`: no file lib.nomi in this file's directory, and nomi.toml has no dependency named `lib`\n" +
-			"help: run `nomi add <repository>` to add a published module, such as `nomi add github.com/owner/name`, or `nomi add <directory>` for one on disk"},
+			"help: run `nomi add <repository>` to add a published package, such as `nomi add github.com/owner/name`, or `nomi add <directory>` for one on disk"},
 		{"helper.nomi", "1:8-1:13: no module `utlis`: no file utlis.nomi in this file's directory\nhelp: did you mean 'utils'?"},
 	} {
 		if got := published(tc.file); got != tc.want {
@@ -606,7 +606,7 @@ func TestNestedTestDeclarationsPublishTheRefusal(t *testing.T) {
 // reported and offered.
 func TestImplOnlyImportPublishesWhatTheProgramUses(t *testing.T) {
 	fixture := filepath.Join("..", "irbuild", "testdata", "sibimpl_cycle")
-	files := map[string]string{"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n"}
+	files := map[string]string{"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n"}
 	for _, name := range []string{"main.nomi", "decls.nomi", "back.nomi", "hop.nomi"} {
 		src, err := os.ReadFile(filepath.Join(fixture, name))
 		if err != nil {
@@ -626,7 +626,7 @@ func TestImplOnlyImportPublishesWhatTheProgramUses(t *testing.T) {
 	dir := writeProject(t, files)
 	lib := loadStd()
 	dm := analysis.NewDocumentManager()
-	dm.SetWorkspaceRoot(dir)
+	dm.SetEditorFolder(dir)
 	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
 	open := func(name string) (*analysis.Document, []string) {
 		path := filepath.Join(dir, name)

@@ -106,9 +106,9 @@ type phraseExpansion struct {
 	// wrappers are, by parameter, the std/phrase function the generated
 	// body wraps the argument with.
 	wrappers map[string]string
-	// root is the module root.
+	// root is the package root.
 	root string
-	// noProject reports a declaration in a file with no module root, which
+	// noProject reports a declaration in a file with no package root, which
 	// has no catalogs.
 	noProject bool
 	// table is the compiled texts, with the parameters by name only, and
@@ -276,7 +276,7 @@ func expandPhrase(kd *ast.KeywordDecl, site *ExpansionSite, cats *catalogSet, sl
 	// its own name's position and the declaration's parameters.
 	fn := &ast.FuncDef{
 		Name:           kd.Name,
-		Public:         kd.Public,
+		Visibility:     kd.Visibility,
 		ReturnTypeExpr: &ast.QualifiedType{Module: phraseModuleAlias, Member: &ast.SimpleType{Name: "Phrase"}},
 		Body:           &ast.Block{Stmts: []ast.Node{exprStmt(body, 0, 0)}},
 		Doc:            kd.Doc,

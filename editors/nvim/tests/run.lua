@@ -809,17 +809,20 @@ end)
 
 test('a module with locales has its catalogs under the directory [i18n] names', function()
   local catalogs = require('nomi.catalogs')
-  eq(catalogs.dir('[module]\nname = "shop"\n\n[i18n]\nlocales = ["en", "pl"]\n'), 'locales', 'default directory')
+  eq(catalogs.dir('[package]\nname = "shop"\n\n[i18n]\nlocales = ["en", "pl"]\n'), 'locales', 'default directory')
   eq(catalogs.dir('[i18n]\nlocales = ["en"]\ncatalogs = "text/catalogs/" # moved\n'), 'text/catalogs', 'named directory')
-  eq(catalogs.dir('[module]\nname = "app"\n'), nil, 'no [i18n]')
+  eq(catalogs.dir('[package]\nname = "app"\n'), nil, 'no [i18n]')
   eq(catalogs.dir('[i18n]\ncatalogs = "locales"\n'), nil, 'no locales')
 end)
 
-test('nomi lsp attaches to a module\'s nomi.toml and catalogs and to no other TOML file', function()
+test('nomi lsp attaches to a module\'s nomi.toml and catalogs, a workspace\'s nomi-workspace.toml, and to no other TOML file', function()
   local shop = dir .. '/shop'
   vim.fn.mkdir(shop .. '/locales/pl', 'p')
   vim.fn.mkdir(shop .. '/config', 'p')
-  vim.fn.writefile({ '[module]', 'name = "shop"', '', '[i18n]', 'locales = ["en", "pl"]' }, shop .. '/nomi.toml')
+  local ws = dir .. '/ws'
+  vim.fn.mkdir(ws, 'p')
+  vim.fn.writefile({ 'members = ["shop"]' }, ws .. '/nomi-workspace.toml')
+  vim.fn.writefile({ '[package]', 'name = "shop"', '', '[i18n]', 'locales = ["en", "pl"]' }, shop .. '/nomi.toml')
   local catalog = shop .. '/locales/pl/cart.toml'
   local other = shop .. '/config/settings.toml'
   vim.fn.writefile({ '[cart_items]' }, catalog)
@@ -840,6 +843,7 @@ test('nomi lsp attaches to a module\'s nomi.toml and catalogs and to no other TO
   eq(root_of(catalog, 'toml'), shop, 'a catalog\'s root')
   eq(root_of(other, 'toml'), false, 'another TOML file attaches')
   eq(root_of(shop .. '/nomi.toml', 'toml'), shop, 'the manifest\'s root')
+  eq(root_of(ws .. '/nomi-workspace.toml', 'toml'), ws, 'the workspace file\'s root')
   eq(root_of(shop .. '/cart.nomi', 'nomi'), shop, 'a Nomi file\'s root')
 end)
 

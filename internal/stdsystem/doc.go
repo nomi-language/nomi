@@ -1,7 +1,10 @@
 // Package stdsystem answers std/system/host's crossings: facts about the
 // machine and the process that std::system turns into its values. Each is
 // read when it is called, from Go's os, os/user, runtime and
-// runtime/metrics packages.
+// runtime/metrics packages, and `nomi_release` from the binary's build
+// info (internal/buildversion's Release): the tag a release's binaries are
+// built at, `nomi` and every runner alike, and none for a build from
+// source.
 //
 // The directory functions read the process's own environment ($HOME,
 // $XDG_CACHE_HOME, $XDG_CONFIG_HOME, $XDG_DATA_HOME, %LocalAppData%,

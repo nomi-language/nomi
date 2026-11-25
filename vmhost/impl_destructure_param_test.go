@@ -20,10 +20,10 @@ func TestImplDestructuringParams_Run(t *testing.T) {
 type Balance Int
 
 impl Balance
-    pub fn cents(Balance(n)) -> Int
+    fn cents(Balance(n)) -> Int
         n * 100
     end
-    pub fn add(Balance(a), Balance(b)) -> Balance
+    fn add(Balance(a), Balance(b)) -> Balance
         Balance(a + b)
     end
 end

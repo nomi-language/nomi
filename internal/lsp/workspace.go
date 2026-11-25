@@ -13,16 +13,16 @@ import (
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
-// The server analyzes and keeps only open documents. Every other workspace
-// file is indexed (analysis.IndexedFile): its imports and top-level
+// The server analyzes and keeps only open documents. Every other file of
+// the editor folder is indexed (analysis.IndexedFile): its imports and top-level
 // declarations, from a parse. Cross-file features read the index, and
 // analyze a closed file on demand when they need its analysis
 // (DocumentManager.Analyzed, which answers a file of a program kept for an
 // open document from that program and caches a bounded number of others).
 //
-// Closed files still get diagnostics, as an editor's workspace view
+// Closed files still get diagnostics, as an editor's view of its folder
 // expects: the background pass below analyzes each one, publishes, and
-// keeps nothing. It runs once after the workspace scan and again for a
+// keeps nothing. It runs once after the editor folder's scan and again for a
 // closed file whenever something it imports changes.
 
 // closedDiagnostics is the queue of closed files waiting for a diagnostics
@@ -43,11 +43,11 @@ func (s *Server) startBackground() {
 	s.bg, s.stopBg = context.WithCancel(context.Background())
 }
 
-// scanWorkspace indexes the workspace's closed files, then queues each for
+// scanEditorFolder indexes the editor folder's closed files, then queues each for
 // a diagnostics pass.
-func (s *Server) scanWorkspace() {
-	defer recoverPanic("scanning the workspace", nil)
-	uris := s.docs.IndexWorkspace(s.bg)
+func (s *Server) scanEditorFolder() {
+	defer recoverPanic("scanning the editor folder", nil)
+	uris := s.docs.IndexEditorFolder(s.bg)
 	s.queueClosedDiagnostics(uris...)
 }
 
@@ -169,7 +169,7 @@ func (s *Server) closedDiagnosticsPending() bool {
 // and the closed files' index entries: every top-level declaration whose
 // name contains the query's characters in order, ignoring case.
 func (s *Server) workspaceSymbol(ctx *glsp.Context, params *protocol.WorkspaceSymbolParams) ([]protocol.SymbolInformation, error) {
-	root := s.docs.WorkspaceRoot()
+	root := s.docs.EditorFolder()
 	var out []protocol.SymbolInformation
 	// lines is nil for a closed file, whose index entry has byte columns.
 	add := func(uri string, lines *lineIndex, d analysis.IndexedDecl) {

@@ -2,10 +2,10 @@ package main
 
 // What `nomi add` and `nomi update` say about a dependency they change:
 // the effects its own files have, in the words `nomi effects` prints
-// under deps' modules (vmhost.WriteModuleReach), and, when nomi.toml has
+// under deps' packages (vmhost.WritePackageReach), and, when nomi.toml has
 // [effects] tables, whether nomi check passes them. The effects are
 // the check's (reachOf, vmhost.Reached), worked out over the project
-// before and after the change, so a module is charged for the effects it
+// before and after the change, so a package is charged for the effects it
 // has in this program and nothing else.
 
 import (
@@ -17,7 +17,7 @@ import (
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/analysis"
-	"github.com/nomi-language/nomi/internal/modcache"
+	"github.com/nomi-language/nomi/internal/pkgcache"
 	"github.com/nomi-language/nomi/vmhost"
 )
 
@@ -35,11 +35,11 @@ func (d *dependencyReach) reachAfter() {
 	d.after, d.failed = reachOf(d.root, nil)
 }
 
-// nomiModules is the name in the program (modcache.Dep.Name) of each of
-// ids that is a Nomi module the project needs, the name the effects lists
+// nomiPackages is the name in the program (pkgcache.Dep.Name) of each of
+// ids that is a package the project needs, the name the effects lists
 // hold it by.
-func nomiModules(root string, ids []modcache.ID) []string {
-	g, err := modcache.Walk(root, modcache.CacheOnly)
+func nomiPackages(root string, ids []pkgcache.ID) []string {
+	g, err := pkgcache.Walk(root, pkgcache.CacheOnly)
 	if err != nil || g == nil {
 		return nil
 	}
@@ -53,8 +53,8 @@ func nomiModules(root string, ids []modcache.ID) []string {
 	return out
 }
 
-// write prints the effects each of modules has, under modules, and how the
-// update changed it when the reach before is known: a module the program
+// write prints the effects each of modules has, under packages, and how the
+// update changed it when the reach before is known: a package the program
 // does not load is not imported yet. Then, when nomi.toml has tables,
 // what they need and whether nomi check passes them (writeTableNote).
 // A reach that could not be worked out is one line saying why.
@@ -65,19 +65,19 @@ func (d *dependencyReach) write(w io.Writer, modules []string, table func(*vmhos
 	if d.failed != nil {
 		what := modules[0]
 		if len(modules) > 1 {
-			what = "the updated modules"
+			what = "the updated packages"
 		}
 		why, _, _ := strings.Cut(strings.TrimSpace(d.failed.Error()), "\n")
 		fmt.Fprintf(w, "could not work out the effects of %s: %s\n", what, why)
 		return
 	}
 	now := reachesByPath(d.after)
-	var was map[string]vmhost.ModuleReach
+	var was map[string]vmhost.PackageReach
 	if d.before != nil {
 		was = reachesByPath(d.before)
 	}
 	fmt.Fprintln(w)
-	fmt.Fprintln(w, "modules")
+	fmt.Fprintln(w, "packages")
 	for _, m := range modules {
 		fmt.Fprintln(w, "  "+m)
 		u, loaded := now[m]
@@ -85,7 +85,7 @@ func (d *dependencyReach) write(w io.Writer, modules []string, table func(*vmhos
 			fmt.Fprintln(w, "    not imported yet")
 			continue
 		}
-		vmhost.WriteModuleReach(w, "    ", u)
+		vmhost.WritePackageReach(w, "    ", u)
 		if old, ok := was[m]; ok {
 			writeReachChange(w, old, u)
 		}
@@ -102,19 +102,19 @@ func (d *dependencyReach) write(w io.Writer, modules []string, table func(*vmhos
 	writeTableNote(w, d.after, d.after.Lists)
 }
 
-// reachesByPath is moduleReaches by the name each module has in the
+// reachesByPath is Reach.PackageReaches by the name each package has in the
 // program.
-func reachesByPath(r *vmhost.Reach) map[string]vmhost.ModuleReach {
-	out := map[string]vmhost.ModuleReach{}
-	for _, u := range r.ModuleReaches() {
+func reachesByPath(r *vmhost.Reach) map[string]vmhost.PackageReach {
+	out := map[string]vmhost.PackageReach{}
+	for _, u := range r.PackageReaches() {
 		out[u.Path] = u
 	}
 	return out
 }
 
-// writeReachChange prints how a module's effects went from old to u: each
+// writeReachChange prints how a package's effects went from old to u: each
 // std name it now also has and no longer has, or that nothing changed.
-func writeReachChange(w io.Writer, old, u vmhost.ModuleReach) {
+func writeReachChange(w io.Writer, old, u vmhost.PackageReach) {
 	changed := false
 	for _, n := range u.Std {
 		if !slices.Contains(old.Std, n) {
@@ -146,9 +146,9 @@ func writeTableNote(w io.Writer, r *vmhost.Reach, lists *vmhost.Effects) {
 }
 
 // addToTable is what nomi add writes into nomi.toml's [effects.deps]
-// table for module, which r reaches, and the lines that say what it did or
-// the user must do: with entries_required, the module's tightest entry
-// under [effects.deps.modules] when the program loads it and the
+// table for module, a dependency r reaches, and the lines that say what it did or
+// the user must do: with entries_required, the package's tightest entry
+// under [effects.deps.packages] when the program loads it and the
 // table has none. It writes nothing when the table needs nothing, or when
 // nomi.toml has no [effects.deps], which holds no dependency. r.Lists
 // is the tables it writes to, and is replaced by the tables written.
@@ -161,18 +161,18 @@ func addToTable(r *vmhost.Reach, module string) []string {
 	edited := lists.Clone()
 	deps := edited.Deps
 	var lines []string
-	loaded := slices.Contains(r.Modules, module)
-	if _, has := deps.Modules[module]; deps.EntriesRequired && !has {
+	loaded := slices.Contains(r.Packages, module)
+	if _, has := deps.Packages[module]; deps.EntriesRequired && !has {
 		if loaded {
-			entry := tight.Modules[module]
-			deps.Modules[module] = entry
+			entry := tight.Packages[module]
+			deps.Packages[module] = entry
 			quoted := make([]string, len(entry))
 			for i, n := range entry {
 				quoted[i] = fmt.Sprintf("%q", n)
 			}
-			lines = append(lines, fmt.Sprintf("wrote %q = [%s] under [effects.deps.modules] in nomi.toml", module, strings.Join(quoted, ", ")))
+			lines = append(lines, fmt.Sprintf("wrote %q = [%s] under [effects.deps.packages] in nomi.toml", module, strings.Join(quoted, ", ")))
 		} else {
-			lines = append(lines, "once a file imports it, entries_required needs its entry under [effects.deps.modules]; nomi effects --write writes it")
+			lines = append(lines, "once a file imports it, entries_required needs its entry under [effects.deps.packages]; nomi effects --write writes it")
 		}
 	}
 	if len(analysis.EffectChanges(lists, edited)) == 0 {

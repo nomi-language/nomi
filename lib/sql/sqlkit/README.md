@@ -21,16 +21,28 @@ writes:
   `queries.nomi`, with a function for each query that runs its SQL on a
   `Conn` and answers typed rows;
 - `schema_test.nomi`: a test that the migrations and queries are still the
-  ones the files were generated from.
+  ones the files were generated from, and one that the sqlkit running is
+  the release that generated them.
 
 The generated files are ordinary, formatted Nomi that you commit. `nomi
 check`, the editor, review and grep read them like any other file. Each
 starts with a header that says what it was generated from and records a
-SHA-256 digest of the inputs. Run `generate` after changing a migration or
-a query. `generate --check` in CI fails when a generated file is not what
-`generate` would write, and the generated test fails `nomi test` when a
-migration or query changed since, wherever `nomi test` runs, since a test
-reads relative paths under its module root.
+SHA-256 digest of the inputs and the release of sqlkit that wrote it.
+sqlkit is released with Nomi, so its release is the running `nomi`'s, and
+a `nomi` built from source records `unreleased`. Run `generate` after
+changing a migration or a query, and after upgrading Nomi. `generate
+--check` in CI fails when a generated file is not what `generate` would
+write. The generated tests fail `nomi test` when a migration or query
+changed since, wherever `nomi test` runs, since a test reads relative paths
+under its package root, and when a release other than the one that wrote
+the files is running. That test's failure names both releases. Code
+`unreleased` wrote passes under any release, and a `nomi` built from
+source passes code any release wrote.
+
+The generated declarations carry no `pub`: they are internal to your
+package, so every file of it may use them and no other package sees them.
+So a `pub fn` of yours cannot take or return a row struct or a schema
+enum: that is the error `function return exposes internal type User`.
 
 See [`../examples/shop`](../examples/shop) for a whole program.
 
@@ -61,7 +73,7 @@ dev_url_env = "DATABASE_URL"   # postgres: the variable naming a development ser
 people = "Person"              # a table's row struct, when the rule misses
 ```
 
-Every key may be left out; those are the defaults. A module with no
+Every key may be left out; those are the defaults. A package with no
 `[sqlkit.database]` table has one database, `main`, with the defaults.
 With several databases, give each its own `queries` and `out` or `schema`,
 so no two write one file. The migrations and the query files are the `.sql`
@@ -148,7 +160,7 @@ WHERE email = @email;
 
 ```nomi
 /// The user with this email, if any.
-pub fn user_by_email(conn: sql.Conn, email: String) -> Result<Option<User>, sql.Error>
+fn user_by_email(conn: sql.Conn, email: String) -> Result<Option<User>, sql.Error>
     statement = runtime.statement(
         [`SELECT id, email, name, created_at FROM users WHERE email = `, ``],
         [runtime.bind(email)],
@@ -374,7 +386,7 @@ Every generated function takes the `Conn` first, so one function runs on a
 connection, a transaction (`sql.transaction`) or a test's.
 
 `sqlkit.migrate(conn, schema.migrations)` brings a database up to date
-through the [migrate](../migrate) module: under a lock (on Postgres an
+through the [migrate](../migrate) package: under a lock (on Postgres an
 advisory lock, on SQLite the write lock), it runs each generated migration
 the database has not run, in order, each in a savepoint with its record.
 The records are the table `nomi_migrations` (`version`, the migration's
@@ -386,7 +398,7 @@ anything runs, with `sql.Error.Database` coded `migrate` naming the file:
 write the change as a new migration. A migration that fails answers its
 own error; the ones before it stay applied.
 
-The migrations directory is read as the migrate module reads it: the
+The migrations directory is read as the migrate package reads it: the
 `.sql` files directly in it, in name order, without `.down.sql` files, so
 a directory golang-migrate keeps (`000001_x.up.sql`, `000001_x.down.sql`)
 describes the schema its `.up.sql` files build.

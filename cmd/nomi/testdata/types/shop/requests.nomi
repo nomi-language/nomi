@@ -1,0 +1,89 @@
+import
+    std::json.{FromJson, Json, ToJson}
+    std::presence.Presence
+end
+
+/// A new account, as the signup form sends it.
+pub struct Signup
+    email:        String
+    title:        Option<String>
+    plan:         String = "free"
+    display_name: Presence<String>
+    bio:          Presence<Option<String>>
+    tags:         Presence<List<String>>
+    role:         Request
+end
+
+derive FromJson for Signup with FromJson.Options{rename_all: Json.Case.Camel}
+
+pub enum Request
+    Join
+    Invite {code: String, note: Option<String>, days: Int = 7}
+end
+
+derive FromJson for Request
+
+/// A profile, as the backend writes it and reads it back.
+pub struct Profile
+    nickname: Presence<String>
+    bio:      Presence<Option<String>>
+    title:    Option<String>
+    plan:     String = "free"
+    scores:   List<Presence<Int>>
+end
+
+derive ToJson for Profile
+derive FromJson for Profile
+
+/// A change the backend writes back: Absent fields leave their keys out.
+pub struct Edit
+    name:  Slot<Presence<String>>
+    note:  Labeled<Presence<Int>>
+    count: Slot<Int>
+    total: Counted<Int>
+end
+
+derive ToJson for Edit
+
+/// Its value's key is left out when it is Absent, so the property is
+/// optional for every instantiation.
+pub struct Slot<T>
+    value: T
+end
+
+derive ToJson for Slot<T> where T: ToJson
+
+/// Passes its parameter on, so Held's property is optional too.
+pub struct Labeled<U>
+    label: String
+    held:  Held<U>
+end
+
+derive ToJson for Labeled<U> where U: ToJson
+
+pub struct Held<T>
+    item: T
+end
+
+derive ToJson for Held<T> where T: ToJson
+
+/// Reached only at Int, so its property stays required.
+pub struct Counted<T>
+    n: T
+end
+
+derive ToJson for Counted<T> where T: ToJson
+
+/// A choice a form sends. Every instantiation's FromJson takes the key, so
+/// it stays required: a Presence argument sends null for Absent.
+pub struct Wish<T>
+    want: T
+end
+
+derive FromJson for Wish<T> where T: FromJson
+
+pub struct Wishlist
+    wish: Wish<Presence<String>>
+end
+
+derive FromJson for Wishlist

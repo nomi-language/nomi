@@ -34,8 +34,8 @@ import (
 //
 // # Why an index rather than a walk at the call site
 //
-// The orphan rule admits `impl I for T` in T's module or in I's, and a Nomi
-// MODULE is several FILES: `pub struct Point` in a.nomi and `impl Debug for
+// The orphan rule admits `impl I for T` in T's package or in I's, and a
+// PACKAGE is several FILES: `pub struct Point` in a.nomi and `impl Debug for
 // Point` in b.nomi is legal. So "which impl serves Point.inspect" is a
 // PROGRAM-wide question, and asking it by scanning one gen would answer "none"
 // for a type that has one. buildImplIndex answers boxing the same way.
@@ -150,7 +150,7 @@ func (x *fileIndex) resolveImplMembers(gens []*gen) {
 			for _, it := range d.order {
 				k := implMemberKey{recv: d.recv.def.decl, method: it.name}
 				x.implMembers[k] = append(x.implMembers[k],
-					implMemberSite{unit: unit, fn: implMemberFunc(d, it),
+					implMemberSite{unit: unit, fn: g.implMemberFunc(d, it),
 						synth: d.synth, iface: d.ifaceKey, block: d.decl,
 						item: it})
 			}
@@ -168,7 +168,7 @@ func (x *fileIndex) resolveImplMembers(gens []*gen) {
 					continue
 				}
 				f := &fileFunc{name: method, params0: w.params, generic: true, why: "generic impl function"}
-				if w.decl != nil && fileOwnFunc(d, w.decl.Public) {
+				if w.decl != nil && g.fileOwnFunc(d, w.decl.Visibility) {
 					f.why = "private sibling file impl function"
 				}
 				k := implMemberKey{recv: d.recv.def.decl, method: method}
@@ -204,7 +204,7 @@ func (x *fileIndex) resolveOwnerMembers(gens []*gen) {
 				for _, it := range d.order {
 					k := implMemberKey{recv: decl, method: it.name}
 					x.ownerMembers[k] = append(x.ownerMembers[k],
-						implMemberSite{unit: unit, fn: implMemberFunc(d, it), block: d.decl,
+						implMemberSite{unit: unit, fn: g.implMemberFunc(d, it), block: d.decl,
 							item: it})
 				}
 				withheld := make([]string, 0, len(d.gaps))
@@ -218,7 +218,7 @@ func (x *fileIndex) resolveOwnerMembers(gens []*gen) {
 						continue
 					}
 					f := &fileFunc{name: method, params0: w.params, generic: true, why: "generic impl function"}
-					if w.decl != nil && fileOwnFunc(d, w.decl.Public) {
+					if w.decl != nil && g.fileOwnFunc(d, w.decl.Visibility) {
 						f.why = "private sibling file impl function"
 					}
 					k := implMemberKey{recv: decl, method: method}
@@ -252,7 +252,7 @@ func writtenImplMembers(sites []implMemberSite) []implMemberSite {
 // the caller's before it compares the signature. An impl function's receiver
 // is an ordinary parameter in whatever position the signature put it
 // (implFunc), so nothing is added for it.
-func implMemberFunc(d *implDef, it *implItem) *fileFunc {
+func (g *gen) implMemberFunc(d *implDef, it *implItem) *fileFunc {
 	f := &fileFunc{name: it.name, params: it.params, result: it.result, params0: it.params0}
 	for _, p := range it.params0 {
 		if p.Default != nil {
@@ -268,7 +268,7 @@ func implMemberFunc(d *implDef, it *implItem) *fileFunc {
 		if f.why == "" {
 			f.why = "call to an unlowered impl"
 		}
-	case fileOwnFunc(d, it.public):
+	case g.fileOwnFunc(d, it.vis):
 		// See fileOwnFunc: no call another file writes reaches it, so this
 		// arm is a fence rather than a route — see implItem.public for the
 		// measurement, and fileFuncShell for the same fence over a free
@@ -278,13 +278,16 @@ func implMemberFunc(d *implDef, it *implItem) *fileFunc {
 	return f
 }
 
-// fileOwnFunc reports whether a function of block d, public or not, is its
-// file's own, which no call in another file reaches: an INHERENT impl
-// function without `pub`, which the analyzer refuses from elsewhere ("type
-// 'Widget' has no member 'hidden'"). An INTERFACE impl function carries no
-// `pub` and is not one, and neither is one of a block the front end writes
-// (a private refinement's `try_from`), which the builder calls where a reader
-// in another module checks a value of the refinement (refinementread.go).
-func fileOwnFunc(d *implDef, public bool) bool {
-	return d.ifaceName == "" && !public && (d.decl == nil || d.decl.SynthOriginLine == 0)
+// fileOwnFunc reports whether a function of block d, which g's file
+// declares and whose visibility is vis, is its file's own, which no call
+// in another file reaches: a `private` INHERENT impl function no other
+// file of the program sees (anotherFileSees), which the analyzer refuses
+// from elsewhere. A REPL session's files see each other's. An INTERFACE
+// impl function carries no modifier and is not one, and neither is one of
+// a block the front end writes (a private refinement's `try_from`), which
+// the builder calls where a reader in another module checks a value of
+// the refinement (refinementread.go).
+func (g *gen) fileOwnFunc(d *implDef, vis ast.Visibility) bool {
+	return d.ifaceName == "" && vis == ast.Private && (d.decl == nil || d.decl.SynthOriginLine == 0) &&
+		!g.anotherFileSees(vis)
 }

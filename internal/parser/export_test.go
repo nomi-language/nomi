@@ -16,8 +16,8 @@ func TestParseExportFunc(t *testing.T) {
 	if !ok {
 		t.Fatalf("got %T, want *ast.FuncDef", nodes[0])
 	}
-	if !fd.Export || fd.Public || fd.Name != "guess" {
-		t.Errorf("Export=%v Public=%v Name=%q, want an exported, non-pub `guess`", fd.Export, fd.Public, fd.Name)
+	if !fd.Export || fd.Visibility == ast.Public || fd.Name != "guess" {
+		t.Errorf("Export=%v Public=%v Name=%q, want an exported, non-pub `guess`", fd.Export, fd.Visibility == ast.Public, fd.Name)
 	}
 	if fd.ExportLine != 1 || fd.ExportCol != 1 {
 		t.Errorf("export keyword at %d:%d, want 1:1", fd.ExportLine, fd.ExportCol)

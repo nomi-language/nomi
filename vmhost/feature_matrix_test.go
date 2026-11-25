@@ -243,8 +243,8 @@ const (
 	// A generic enum whose impl block holds a generic owner function over a
 	// nested instance, as std/presence's Presence.flatten is.
 	mxOpt = "enum Opt<T>\n    Full T\n    Empty\nend\n\n" +
-		"impl Opt<T>\n    pub fn flat<T>(o: Opt<Option<T>>) -> Option<T>\n        case o\n            .Full(m) -> m\n            .Empty -> None\n        end\n    end\n" +
-		"    pub fn map<T, U>(o: Opt<T>, f: (T) -> U) -> Opt<U>\n        case o\n            .Full(v) -> Opt.Full(f(v))\n            .Empty -> Opt.Empty\n        end\n    end\nend"
+		"impl Opt<T>\n    fn flat<T>(o: Opt<Option<T>>) -> Option<T>\n        case o\n            .Full(m) -> m\n            .Empty -> None\n        end\n    end\n" +
+		"    fn map<T, U>(o: Opt<T>, f: (T) -> U) -> Opt<U>\n        case o\n            .Full(v) -> Opt.Full(f(v))\n            .Empty -> Opt.Empty\n        end\n    end\nend"
 )
 
 var mxFeatures = []mxFeature{
@@ -677,10 +677,9 @@ var mxWraps = append([]*mxContext{
 	// A qualified call's named arguments are evaluated first and passed by
 	// stand-ins, which read the checker's records of each written operand
 	// (an interface value it becomes, a conversion). The function is
-	// `pub`, as an inherent function another file calls must be: a
-	// placement may move the call to lib.nomi.
+	// internal, which a call a placement moves to lib.nomi reaches.
 	wrapCtx("qualified named argument", false, mxGives, func(b *mxBuild, n int) {
-		b.decls = append(b.decls, fmt.Sprintf("struct Qual%d\n    k: Int\nend\n\nimpl Qual%d\n    pub fn named(k: Int, a: %s) -> %s\n        _ = k\n        a\n    end\nend", n, n, b.typ, b.typ))
+		b.decls = append(b.decls, fmt.Sprintf("struct Qual%d\n    k: Int\nend\n\nimpl Qual%d\n    fn named(k: Int, a: %s) -> %s\n        _ = k\n        a\n    end\nend", n, n, b.typ, b.typ))
 		b.expr = fmt.Sprintf("Qual%d.named(a: %s, k: 0)", n, b.expr)
 	}),
 	wrapCtx("function result", false, mxGives, func(b *mxBuild, n int) {
@@ -827,11 +826,11 @@ var mxWraps = append([]*mxContext{
 	// value, or makes it in its body: instantiated per call under the
 	// block's frame (methodinst.go), not as a generic fn is.
 	wrapCtx("owner generic function argument", true, mxFlows, func(b *mxBuild, n int) {
-		b.decls = append(b.decls, fmt.Sprintf("struct Own%d<A>\n    v: A\nend\n\nimpl Own%d<A>\n    pub fn get<A>(o: Own%d<A>) -> A\n        o.v\n    end\nend", n, n, n))
+		b.decls = append(b.decls, fmt.Sprintf("struct Own%d<A>\n    v: A\nend\n\nimpl Own%d<A>\n    fn get<A>(o: Own%d<A>) -> A\n        o.v\n    end\nend", n, n, n))
 		b.expr = fmt.Sprintf("Own%d.get(Own%d{v: %s})", n, n, mxIndentTail(b.expr))
 	}),
 	wrapCtx("owner generic function body", true, mxGives, func(b *mxBuild, n int) {
-		b.decls = append(b.decls, fmt.Sprintf("struct Mk%d<A>\n    v: A\nend\n\nimpl Mk%d<A>\n    pub fn make<A>(_o: Mk%d<A>) -> %s\n%s\n    end\nend",
+		b.decls = append(b.decls, fmt.Sprintf("struct Mk%d<A>\n    v: A\nend\n\nimpl Mk%d<A>\n    fn make<A>(_o: Mk%d<A>) -> %s\n%s\n    end\nend",
 			n, n, n, b.typ, mxIndent(mxIndent(b.expr))))
 		b.expr = fmt.Sprintf("Mk%d.make(Mk%d{v: 0})", n, n)
 	}),
@@ -915,7 +914,7 @@ func mxImplCallWraps() []*mxContext {
 					ownParam, ownArg, entryArg = ", u: "+sh.own, ", u", ", 0"
 				}
 				fns := []string{
-					fmt.Sprintf("pub fn open(b: %s) -> %s\n    %s(b%s, 1)\nend", self, res, call("walk"), entryArg),
+					fmt.Sprintf("fn open(b: %s) -> %s\n    %s(b%s, 1)\nend", self, res, call("walk"), entryArg),
 					fmt.Sprintf("fn walk%s(b: %s%s, k: Int) -> %s\n    if k == 0 then\n        %s(b%s, 1)\n    else\n        %s(b%s, k - 1)\n    end\nend",
 						sh.params, self, ownParam, res, call("peel"), ownArg, call("walk"), ownArg),
 					fmt.Sprintf("fn peel%s(b: %s%s, k: Int) -> %s%s\n    if k == 0 then\n        b.v\n    else\n        %s(b%s, k - 1)\n    end\nend",
@@ -1836,7 +1835,9 @@ func checkStdLowers(module, src string, from int) (lo lowerOutcome, k CaseResult
 				lo.unresolved = append(lo.unresolved, fmt.Sprintf("std/%s.nomi:%s", module, u))
 			}
 		}
-		lp, err := loadStdlib(module, nodes, fa, irbuild.GenerateEditedStdlibTestIR)
+		lp, err := loadStdlib(module, func(hooks irbuild.DeclineHooks) (*irbuild.Program, *irbuild.Result, error) {
+			return irbuild.GenerateEditedStdlibTestIR(module, nodes, fa, hooks)
+		})
 		if err != nil {
 			var ie *InternalError
 			if errors.As(err, &ie) {

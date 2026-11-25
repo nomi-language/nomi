@@ -26,7 +26,7 @@ func renameProject(t *testing.T) (*Server, string) {
 			t.Fatal(err)
 		}
 	}
-	write("nomi.toml", "[module]\nname = \"app\"\n")
+	write("nomi.toml", "[package]\nname = \"app\"\n")
 	write("models/users.nomi", "pub fn make() -> Int\n    1\nend\n\npub struct User\n    name: String\nend\n")
 	write("models/roles.nomi", "pub fn admin() -> Int\n    2\nend\n")
 	main := `import models::users
@@ -50,7 +50,7 @@ end
 `)
 	write("audit.nomi", "import models::users\nimport models::users.User.{self}\n\npub fn audit() -> Int\n    users.make()\nend\npub fn name(u: User) -> String\n    u.name\nend\n")
 	s := NewServer()
-	s.docs.SetWorkspaceRoot(dir)
+	s.docs.SetEditorFolder(dir)
 	s.docs.Open(pathToURI(filepath.Join(dir, "main.nomi")), main)
 	return s, dir
 }

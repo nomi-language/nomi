@@ -182,9 +182,9 @@ type StructType struct {
 	TypeParams    []string      // for generics, empty for concrete
 	TypeParamDefs []*TypeParam_ // the actual TypeParam_ pointers referenced by Fields
 	TypeArgs      []Type        // concrete type arguments, e.g. [Int, String] for Pair<Int, String>
-	// Opaque is true when the type's defining module exported it as
-	// `opaque <name>`. Construction and field access are private to
-	// that module; outside callers go through exported accessors.
+	// Opaque is true when the type is declared `opaque`. Construction
+	// and field access are private to its file; other files go through
+	// its accessors.
 	Opaque           bool
 	OwningSourceFile string
 	// Rule is a struct refinement's rule, its body's last item, on one
@@ -259,9 +259,8 @@ type EnumType struct {
 	TypeParams    []string
 	TypeParamDefs []*TypeParam_ // the actual TypeParam_ pointers referenced by Variants
 	TypeArgs      []Type        // concrete type arguments, e.g. [Int] for Option<Int>
-	// Opaque is true when the type's defining module exported it as
-	// `opaque <name>`. Construction and pattern destructuring are
-	// private to the defining module.
+	// Opaque is true when the type is declared `opaque`. Construction
+	// and pattern destructuring are private to its file.
 	Opaque           bool
 	OwningSourceFile string
 	// unbuilt: see StructType.unbuilt.
@@ -296,15 +295,15 @@ type DistinctType struct {
 	// its arguments: `Coord(3, 4)`. An inner type declared as one type is
 	// one argument, as VariantDef.WrittenAsParts says for a payload.
 	WrittenAsParts bool
-	// Opaque is true when the type's defining module exported it as
-	// `opaque <name>`. The construction surface (constructor, unwrap,
-	// destructuring, field access) is private to the defining module.
+	// Opaque is true when the type is declared `opaque`. The
+	// construction surface (constructor, unwrap, destructuring, field
+	// access) is private to its file.
 	Opaque bool
 	// OwningSourceFile is the absolute path of the file that declared
 	// the type. Empty for types declared in the current file under
-	// analysis; non-empty for types imported from other modules.
-	// Combined with Opaque, this lets the analyzer detect
-	// outside-the-module access to an opaque type's representation.
+	// analysis; non-empty for types imported from other files.
+	// Combined with Opaque, this lets the analyzer detect access to an
+	// opaque type's representation from another file (opaqueOutside).
 	OwningSourceFile string
 	// TypeParams / TypeParamDefs / TypeArgs carry generic-type-parameter
 	// information for generic opaque externs (`host type Task<T>`,

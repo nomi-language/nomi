@@ -401,42 +401,6 @@ func sameKinds(a, b []kind) bool {
 	return true
 }
 
-// registerInstImpl files d among its receiver's impls of a generic interface
-// when the receiver implements that interface at several type arguments,
-// and reports whether it did. A first impl stays in implsByIface; a second
-// at other arguments moves both here.
-func (g *gen) registerInstImpl(byRecv map[kind]*implDef, d *implDef) bool {
-	if d.instArgs == nil {
-		return false
-	}
-	byIface := g.instImpls[d.ifaceKey]
-	if held := byIface[d.recv]; len(held) > 0 {
-		for _, o := range held {
-			if sameKinds(o.instArgs, d.instArgs) {
-				o.lowerable, o.why, o.whyDetail = false, "duplicate impl block", d.label()
-				d.lowerable, d.why, d.whyDetail = false, "duplicate impl block", d.label()
-				return true
-			}
-		}
-		byIface[d.recv] = append(held, d)
-		return true
-	}
-	prior, held := byRecv[d.recv]
-	if !held || prior.instArgs == nil || sameKinds(prior.instArgs, d.instArgs) {
-		return false
-	}
-	delete(byRecv, d.recv)
-	if g.instImpls == nil {
-		g.instImpls = map[string]map[kind][]*implDef{}
-	}
-	if byIface == nil {
-		byIface = map[kind][]*implDef{}
-		g.instImpls[d.ifaceKey] = byIface
-	}
-	byIface[d.recv] = []*implDef{prior, d}
-	return true
-}
-
 // blockWrites reports whether impl is one of the block's own functions.
 func blockWrites(b *ast.ImplBlock, impl ast.ImplMethodDecl) bool {
 	if b == nil || impl == nil {

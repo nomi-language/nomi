@@ -271,13 +271,13 @@ func (p *Program) userDeclaringFile(file, name string) string {
 			declared := false
 			switch d := n.(type) {
 			case *ast.StructDef:
-				declared = d.Public && d.Name == name
+				declared = d.Visibility == ast.Public && d.Name == name
 			case *ast.EnumDef:
-				declared = d.Public && d.Name == name
+				declared = d.Visibility == ast.Public && d.Name == name
 			case *ast.TypeDef:
-				declared = d.Public && d.Name == name
+				declared = d.Visibility == ast.Public && d.Name == name
 			case *ast.InterfaceDef:
-				declared = d.Public && d.Name == name
+				declared = d.Visibility == ast.Public && d.Name == name
 			}
 			if declared {
 				if found != "" && found != mod.Name {

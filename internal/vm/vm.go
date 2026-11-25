@@ -141,6 +141,10 @@ type Machine struct {
 	// caseLimit is how long each test case RunCases runs may take, or zero
 	// for no limit. See caselimit.go.
 	caseLimit time.Duration
+	// noteGo says each call into Go is noted on the calling task's record
+	// (rt.EnterGo): on the view a test case under a virtual clock runs on.
+	// See caselimit.go.
+	noteGo bool
 	// dbg is the debugger this machine reports to, or nil. A machine with
 	// one compiles its functions with statement hooks (debug.go).
 	dbg *Debugger
@@ -1150,7 +1154,7 @@ func (m *Machine) crossOver(fr *frame, n *ir.Call, name string, args []any) (any
 		return nil, err
 	}
 	if fn != nil {
-		return callAdapter(fn, fr.runtime, args)
+		return callAdapter(m.noteGo, fr, n.Pos(), fn, args)
 	}
 	return nil, fmt.Errorf("vm: %s: %s is a host function, and this machine binds no "+
 		"implementation for it", fr.fn.Name(), hostadapt.DisplayName(name))

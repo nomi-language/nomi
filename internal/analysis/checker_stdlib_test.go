@@ -1339,14 +1339,67 @@ end
 }
 
 // Break at top level — INVALID.
+// A top-level function whose own body breaks is checked at each use, so
+// one nothing calls but iterations is sound at any visibility. The checker
+// rejects it where a caller reaches it without a use: the runtime, which
+// calls `main`, `boot` and an `export fn` at any visibility, and no caller
+// at all for a private function, whose uses are all in its file. An
+// internal or `pub` one with no use here may be passed as a callback by
+// another file. A break in an impl's function is never caught, at any
+// visibility.
 func TestCheckerBreakAtTopLevel(t *testing.T) {
-	_, errs := checkSourceWithStdlib(`
-fn main()
-    break 0
-end
-`)
-	if len(errs) == 0 {
-		t.Fatal("expected compile error for break at top level")
+	const noCallSite = "uses break/continue but has no iter-callback call site"
+	const stray = "'break' can only be used inside an iter-callback"
+	stop := func(vis string) string {
+		return vis + "fn stop() -> Int\n    break 0\nend\n"
+	}
+	member := func(vis string) string {
+		return "struct Point\n    x: Int\nend\n\nimpl Point\n    " + vis +
+			"fn stop(p: Point) -> Int\n        if p.x > 0 then break p.x\n        p.x\n    end\nend\n"
+	}
+	entry := func(head string) string {
+		return head + "\n    break 0\nend\n"
+	}
+	boot := func(vis string) string {
+		return "struct App\n    port: Int\nend\n\n" + vis +
+			"fn boot() -> Result<App, String>\n    if True then break Ok(App{port: 1})\n    Ok(App{port: 2})\nend\n"
+	}
+	cases := []struct {
+		name, src, want string
+	}{
+		{"private", stop("private "), "'stop' " + noCallSite},
+		{"internal", stop(""), ""},
+		{"pub", stop("pub "), ""},
+		{"internal passed to an iteration", "fn stop(x: Int) -> Int\n    if x > 2 then break x\n    x\nend\n\n" +
+			"fn first_small() -> List<Int>\n    [1, 2, 3, 4] |> Iter.map(stop) |> Iter.to_list()\nend\n", ""},
+		{"private passed to an iteration", "private fn stop(x: Int) -> Int\n    if x > 2 then break x\n    x\nend\n\n" +
+			"fn first_small() -> List<Int>\n    [1, 2, 3, 4] |> Iter.map(stop) |> Iter.to_list()\nend\n", ""},
+		{"private main", entry("private fn main()"), "'main' " + noCallSite},
+		{"internal main", entry("fn main()"), "'main' " + noCallSite},
+		{"pub main", entry("pub fn main()"), "'main' " + noCallSite},
+		{"internal boot", boot(""), "'boot' " + noCallSite},
+		{"pub boot", boot("pub "), "'boot' " + noCallSite},
+		{"export fn", entry("export fn stop() -> Int"), "'stop' " + noCallSite},
+		{"private member", member("private "), stray},
+		{"internal member", member(""), stray},
+		{"pub member", member("pub "), stray},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, errs := checkSourceWithStdlib(tc.src)
+			if tc.want == "" {
+				if len(errs) > 0 {
+					t.Fatalf("the checker rejects this, which it should accept: %v", errs)
+				}
+				return
+			}
+			for _, e := range errs {
+				if strings.HasPrefix(e.Message, tc.want) {
+					return
+				}
+			}
+			t.Fatalf("want %q, got %v", tc.want, errs)
+		})
 	}
 }
 

@@ -127,7 +127,7 @@ struct Logger
 end
 
 impl Logger
-  pub fn log(logger: Logger, m: String)
+  fn log(logger: Logger, m: String)
     io.print(logger.prefix ++ m)
   end
 end

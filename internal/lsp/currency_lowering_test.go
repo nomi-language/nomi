@@ -8,7 +8,7 @@ import (
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
-// A custom currency literal the module's nomi.toml does not list is an
+// A custom currency literal the package's nomi.toml does not list is an
 // error among the lowering diagnostics, as `nomi check` reports it; a
 // `Currency.custom` call with literal arguments that is no error is a
 // warning naming the literal form.
@@ -21,14 +21,14 @@ func TestLoweringDiagnostics_CustomCurrencies(t *testing.T) {
 		"    io.print(Debug.inspect(Currency.custom(\"PTS\", 0)))\nend\n"
 	dir := writeProject(t, map[string]string{
 		"main.nomi": src,
-		"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[money]\ncustom_currencies = [\"PTS:0\"]\n",
+		"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[money]\ncustom_currencies = [\"PTS:0\"]\n",
 	})
 	diags := loweringDiagnostics(filepath.Join(dir, "main.nomi"), src, nil)
 	if len(diags) != 2 {
 		t.Fatalf("lowering diagnostics %+v; want two", diags)
 	}
 	lit, call := diags[0], diags[1]
-	if want := "typed literal Currency\"PST:0\": `PST:0` is a custom currency this module does not list: add it to [money].custom_currencies in nomi.toml\nhelp: did you mean `PTS:0`? nomi.toml lists it"; lit.Message != want {
+	if want := "typed literal Currency\"PST:0\": `PST:0` is a custom currency this package does not list: add it to [money].custom_currencies in nomi.toml\nhelp: did you mean `PTS:0`? nomi.toml lists it"; lit.Message != want {
 		t.Errorf("literal message = %q, want %q", lit.Message, want)
 	}
 	if lit.Code == nil || lit.Code.Value != "invalid-literal" || lit.Severity == nil || *lit.Severity != protocol.DiagnosticSeverityError {

@@ -21,7 +21,8 @@ import (
 // So this file registers each impl block once per instance, under the
 // template's substitution frame, so Describe's entry for `Wrapped<Point>` in
 // `implsByIface` is a real entry and every consultation that reads the map
-// gets the user's own impl.
+// gets the user's own impl. A block of a generic interface is registered
+// when the instance's impls are first asked for (impltables.go).
 //
 // # A third file and not an extension of either neighbour
 //
@@ -230,9 +231,11 @@ func implWhereNamesTemplateParams(ib *ast.ImplBlock, tpl *genericTemplate) bool 
 	return true
 }
 
-// registerInstanceImpls registers each of tpl's impl blocks whose `where`
-// bound the instance meets (instanceMeetsWhere) against the instance def,
-// under the substitution frame, and queues each to be built.
+// registerInstanceImpls registers each of tpl's impl blocks against the
+// instance def (registerInstanceBlock): now, under the substitution frame,
+// when the instance meets its `where` bound (instanceMeetsWhere), queuing
+// each to be built; or, for a block of a generic interface, when the
+// instance's impls are first asked for (impltables.go).
 //
 // Reports the reason the instance cannot be admitted, so genericInstance can
 // decline and not build a def only some of whose impls are registered, which
@@ -251,9 +254,6 @@ func (g *gen) registerInstanceImpls(tpl *genericTemplate, d *typeDef, args []kin
 		tpl.registerSiblingInstances(d)
 		return "", ""
 	}
-	recv := named(d)
-	g.pushGenericSubst(substImpl, tpl, args, d.genericTypes)
-	defer g.popGenericSubst()
 	for _, it := range tpl.impls {
 		if it.why != "" {
 			return it.why, it.whyDetail
@@ -261,25 +261,9 @@ func (g *gen) registerInstanceImpls(tpl *genericTemplate, d *typeDef, args []kin
 		if !implBinderNamesTemplateParams(it.decl, tpl) {
 			return "generic impl block", typeText(it.decl.Receiver)
 		}
-		if !g.instanceMeetsWhere(it.decl, tpl, d) {
-			// No checked program calls a function of a block at an
-			// instance outside its `where` bound.
-			continue
+		if why, detail := g.registerInstanceBlock(instBlock{tpl: tpl, decl: it.decl, recv: named(d), args: args, inst: d}); why != "" {
+			return why, detail
 		}
-		id := g.registerImplAt(it.decl, recv)
-		id.typeScope = tpl.scope
-		if !id.lowerable {
-			return id.why, id.whyDetail
-		}
-		// The frame is carried on the queue entry, not left to be re-derived at
-		// build time. flushGenericImpls runs at the END of the module walk, long
-		// after this frame has been popped, and the BODY is where `T` has to
-		// resolve — `T.hello(value.value)`, `Describe.describe(b.value)`. An
-		// entry without its frame builds a body in which every type parameter is
-		// an unresolved name again, which is the refusal this mechanism exists
-		// to dissolve, arriving one phase later.
-		g.genericImplQueue = append(g.genericImplQueue,
-			&genericImplInst{impl: id, tpl: tpl, args: args, recv: d})
 	}
 	tpl.registerSiblingInstances(d)
 	return "", ""
@@ -532,38 +516,4 @@ func (g *gen) implRecvTypedArgs(og *gen, ref ast.Node, ib *ast.ImplBlock, n int)
 		out[i] = k
 	}
 	return out, types, true
-}
-
-// implsOf is every impl block registered for the receiver k: the module's own
-// blocks in source order, and for a generic instance the blocks registered
-// against it per instance (registerInstanceImpls), which implOrder does not
-// hold.
-func (g *gen) implsOf(k kind) []*implDef {
-	if k.def == nil || k.def.genericOf == nil {
-		return g.implOrder
-	}
-	var out []*implDef
-	for _, it := range k.def.genericOf.impls {
-		found := false
-		for _, byRecv := range g.implsByIface {
-			if d := byRecv[k]; d != nil && d.decl == it.decl {
-				out = append(out, d)
-				found = true
-				break
-			}
-		}
-		if found {
-			continue
-		}
-		// One of the instance's impls of a generic interface at several
-		// type arguments (instimpl.go).
-		for _, byRecv := range g.instImpls {
-			for _, d := range byRecv[k] {
-				if d.decl == it.decl {
-					out = append(out, d)
-				}
-			}
-		}
-	}
-	return out
 }

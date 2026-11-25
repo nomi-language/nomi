@@ -61,9 +61,9 @@ func (g *gen) registerSiblingTemplateImpl(d *implDef, ib *ast.ImplBlock, tpl *ge
 }
 
 // registerSiblingInstanceImpl registers ib for the owner's instance inst, at
-// this gen's mirror of it, and queues its body. An instance this gen cannot
-// name, or a block that declines at it, registers nothing, and a call through
-// it declines at the call.
+// this gen's mirror of it (registerInstanceBlock). An instance this gen
+// cannot name, or a block that declines at it, registers nothing, and a call
+// through it declines at the call.
 func (g *gen) registerSiblingInstanceImpl(tpl *genericTemplate, ib *ast.ImplBlock, inst *typeDef) {
 	key := siblingInstKey{decl: ib, inst: inst}
 	if g.siblingInstDone[key] {
@@ -73,9 +73,6 @@ func (g *gen) registerSiblingInstanceImpl(tpl *genericTemplate, ib *ast.ImplBloc
 		g.siblingInstDone = map[siblingInstKey]bool{}
 	}
 	g.siblingInstDone[key] = true
-	if !g.instanceMeetsWhere(ib, tpl, inst) {
-		return
-	}
 	recv, ok := g.importGenericInstance(inst)
 	if !ok {
 		return
@@ -88,13 +85,7 @@ func (g *gen) registerSiblingInstanceImpl(tpl *genericTemplate, ib *ast.ImplBloc
 		}
 		args[i] = k
 	}
-	g.pushGenericSubst(substImpl, tpl, args, inst.genericTypes)
-	id := g.registerImplAt(ib, recv)
-	g.popGenericSubst()
-	if !id.lowerable {
-		return
-	}
-	g.genericImplQueue = append(g.genericImplQueue, &genericImplInst{impl: id, tpl: tpl, args: args, recv: inst})
+	g.registerInstanceBlock(instBlock{tpl: tpl, decl: ib, recv: recv, args: args, inst: inst})
 }
 
 // registerSiblingInstances is the owner's half: inst's impls are registered
@@ -124,13 +115,11 @@ func (g *gen) instanceImplAnywhere(src *typeDef, iface, method string) (*gen, *i
 		if at == nil {
 			continue
 		}
-		recv := named(at)
-		for name, byRecv := range gg.implsByIface {
+		for name, d := range gg.implsAtRecv(named(at)) {
 			if iface != "" && name != iface {
 				continue
 			}
-			d := byRecv[recv]
-			if d == nil || (method != "" && !d.supplies(method)) {
+			if method != "" && !d.supplies(method) {
 				continue
 			}
 			if found != nil && found != d {

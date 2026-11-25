@@ -91,11 +91,11 @@ func (g *gen) recordedImplItem(decl ast.Node, block *ast.ImplBlock, recv kind) (
 		if og == nil {
 			continue
 		}
-		if len(og.implItemsByDecl[og.ownDecl(decl)]) == 0 {
-			continue
-		}
 		at, inst := g.instanceIn(og, recv)
-		if !inst && isGenericInstance(recv) {
+		if !inst && (isGenericInstance(recv) || len(og.implItemsOf(decl)) == 0) {
+			// Only a generic instance has blocks registered when they are
+			// asked for (impltables.go), so og's items of decl are all
+			// filed for any other receiver.
 			continue
 		}
 		if og != g && !inst && recv.tag != tagNamed {
@@ -105,7 +105,7 @@ func (g *gen) recordedImplItem(decl ast.Node, block *ast.ImplBlock, recv kind) (
 				at = there
 			}
 		}
-		if it := og.registeredItem(decl, block, func(r kind) bool {
+		if it := og.registeredItem(decl, block, at, func(r kind) bool {
 			return r == at || og != g && !inst && sameOperReceiver(r, recv, named)
 		}); it != nil {
 			return og, it
@@ -115,9 +115,10 @@ func (g *gen) recordedImplItem(decl ast.Node, block *ast.ImplBlock, recv kind) (
 }
 
 // registeredItem is this gen's item of decl (ownDecl), of block when it is
-// not nil, whose receiver at answers.
-func (g *gen) registeredItem(decl ast.Node, block *ast.ImplBlock, at func(kind) bool) *implItem {
-	for _, it := range g.implItemsByDecl[g.ownDecl(decl)] {
+// not nil, whose receiver at answers, with the blocks pending on recv
+// registered first (implItemsAt).
+func (g *gen) registeredItem(decl ast.Node, block *ast.ImplBlock, recv kind, at func(kind) bool) *implItem {
+	for _, it := range g.implItemsAt(decl, block, recv) {
 		if it.impl == nil || block != nil && (it.impl.decl == nil || !sameImplBlock(it.impl.decl, block)) {
 			continue
 		}
@@ -184,25 +185,33 @@ func isGenericInstance(k kind) bool {
 func (g *gen) recordedOwnerItem(t *ast.Call, decl ast.Node, block *ast.ImplBlock) (*gen, *implItem) {
 	for _, og := range g.recordGens() {
 		var filed []*implItem
-		for _, it := range og.implItemsByDecl[og.ownDecl(decl)] {
+		for _, it := range og.implItemsOf(decl) {
 			if it.impl != nil && (block == nil || it.impl.decl != nil && sameImplBlock(it.impl.decl, block)) {
 				filed = append(filed, it)
 			}
 		}
+		var tpl *genericTemplate
+		var name string
 		if len(filed) == 0 {
-			continue
+			// A block of a generic interface no instance has registered
+			// yet (impltables.go).
+			if tpl, name = og.pendingTemplate(decl, block); tpl == nil {
+				continue
+			}
+		} else if def := filed[0].impl.recv.def; filed[0].impl.owner == "" && def != nil && def.genericOf != nil {
+			tpl, name = def.genericOf, filed[0].name
 		}
-		it := filed[0]
-		if def := it.impl.recv.def; it.impl.owner == "" && def != nil && def.genericOf != nil {
-			k, ok := g.templateCallInstance(og, t, def.genericOf, it.name)
+		if tpl != nil {
+			k, ok := g.templateCallInstance(og, t, tpl, name)
 			if !ok {
 				return nil, nil
 			}
 			if og != g {
-				return og, og.registeredItem(decl, block, func(r kind) bool { return r == k })
+				return og, og.registeredItem(decl, block, k, func(r kind) bool { return r == k })
 			}
 			return g.recordedImplItem(decl, block, k)
 		}
+		it := filed[0]
 		if len(filed) != 1 {
 			return nil, nil
 		}
@@ -347,11 +356,11 @@ func (bl *irScalarBuilder) recordedImplPlan(t *ast.Call, args irQualArgs, key st
 func (bl *irScalarBuilder) recordedWithheldPlan(t *ast.Call, args irQualArgs, recvs []kind, decl ast.Node, block *ast.ImplBlock, key string) *irQualPlan {
 	g := bl.g
 	var name string
+	var vis ast.Visibility
 	var holds func(og *gen, ib *ast.ImplBlock) bool
-	private := false
 	switch fn := decl.(type) {
 	case *ast.FuncDef:
-		name, private = fn.Name, !fn.Public
+		name, vis = fn.Name, fn.Visibility
 		holds = func(og *gen, ib *ast.ImplBlock) bool { return blockWrites(ib, og.ownFunc(fn)) }
 	case *ast.InterfaceMethod:
 		if block == nil {
@@ -370,7 +379,7 @@ func (bl *irScalarBuilder) recordedWithheldPlan(t *ast.Call, args irQualArgs, re
 			return nil
 		}
 		if og != g {
-			if fileOwnFunc(d, !private) {
+			if og.fileOwnFunc(d, vis) {
 				return nil
 			}
 			return bl.siblingMethodPlan(t, args, og, d, name)
@@ -571,7 +580,7 @@ func (bl *irScalarBuilder) operatorCall(t *ast.Binary) (call *ast.Call, done fun
 // gen's tables, is lk: the one declaration for a type a file declares, the
 // one kind for a scalar or a std host type such as Decimal, whose kinds are
 // process-wide (`impl Multiply<Rate, Decimal> for Decimal` in another
-// module, which the orphan rule admits through `Rate`).
+// package, which the orphan rule admits through `Rate`).
 func sameOperReceiver(recv, lk kind, named bool) bool {
 	if recv == lk {
 		return true

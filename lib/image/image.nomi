@@ -368,3 +368,51 @@ impl Image
         encoded(image, "encode_png", [])
     end
 end
+
+// The tests that build an Image from its pixels or read them are here,
+// since only this file reaches inside the opaque Image.
+test "a PNG round trip keeps every pixel"
+    pictures = [
+        (
+            "gray",
+            Image{
+                width:  2,
+                height: 1,
+                pixels: Bytes.from_list([7, 7, 7, 255, 200, 200, 200, 255]),
+                format: None,
+            },
+        ),
+        (
+            "with alpha",
+            Image{
+                width:  2,
+                height: 1,
+                pixels: Bytes.from_list([255, 0, 0, 128, 0, 0, 255, 0]),
+                format: None,
+            },
+        ),
+    ]
+
+    pictures
+    |> subtests (description, picture), description
+        back = decode(Image.encode_png(picture))!
+        assert (back.width, back.height) == (picture.width, picture.height)
+        assert back.pixels == picture.pixels
+    end
+end
+
+test "a JPEG writes each pixel as its color over black"
+    // 8 by 8 white, opaque in its left half and transparent in its right.
+    white: List<Byte> = [255, 255, 255, 255]
+    clear: List<Byte> = [255, 255, 255, 0]
+
+    pixels =
+        0..64
+        |> Iter.flat_map(fn i -> if i % 8 < 4 then white else clear)
+        |> Iter.to_list()
+        |> Bytes.from_list()
+
+    back = decode(Image.encode_jpeg(Image{width: 8, height: 8, pixels:, format: None}))!
+    assert Bytes.uint8_at(back.pixels, 0)! > 240
+    assert Bytes.uint8_at(back.pixels, 7 * 4)! < 16
+end

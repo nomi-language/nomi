@@ -299,10 +299,10 @@ func (e *phraseExpansion) fallsBack(locale, source string) bool {
 	return false
 }
 
-// relativePath is p from the module root, for a hint.
+// relativePath is p from the package root, for a hint.
 func (e *phraseExpansion) relativePath(p string) string { return relativeToRoot(e.root, p) }
 
-// relativeToRoot is p from the module root, for a hint.
+// relativeToRoot is p from the package root, for a hint.
 func relativeToRoot(root, p string) string {
 	if rel, err := filepath.Rel(root, p); err == nil && !strings.HasPrefix(rel, "..") {
 		return filepath.ToSlash(rel)

@@ -263,7 +263,7 @@ func (g *gen) sharedEnumDeclared(decl *ast.EnumDef) *typeDef {
 // names; `Opaque` is rejected because an opaque enum's `case` is a use-site rule
 // this does not reproduce.
 func (s *namedPayloadSpec) matchesDecl(decl *ast.EnumDef) bool {
-	if decl == nil || decl.Name != s.nomi || decl.Opaque || !decl.Public {
+	if decl == nil || decl.Name != s.nomi || decl.Opaque || decl.Visibility != ast.Public {
 		return false
 	}
 	if len(decl.TypeParams) != 0 || len(decl.Variants) != len(s.variants) {

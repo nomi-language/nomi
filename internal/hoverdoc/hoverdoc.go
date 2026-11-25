@@ -483,7 +483,7 @@ func RenderWithAnalysis(sym *analysis.Symbol, fa *analysis.FileAnalysis) string 
 		result += "\n\n" + role
 	}
 	if real.Opaque {
-		result += "\n\n*opaque — construction surface is private to its defining module*"
+		result += "\n\n*opaque — construction surface is private to its file*"
 	}
 	// For an interface method (the contract rendering — generic / existential
 	// receivers, where no concrete impl was statically resolved), surface which
@@ -1187,9 +1187,9 @@ func isStructOrEnumDecl(sym *analysis.Symbol) bool {
 func renderStructDef(n *ast.StructDef) string {
 	// Opaque structs hide their construction surface — render the
 	// declaration head only (no field body), the same abstraction the
-	// `*opaque*` note describes. Applies everywhere (the renderer is not
-	// module-aware); an author editing the defining module sees the fields
-	// in the source buffer regardless.
+	// `*opaque*` note describes. Applies everywhere (the renderer does not
+	// know which file asks); an author editing the type's file sees the
+	// fields in the source buffer regardless.
 	if n.Opaque {
 		return "struct " + n.Name + renderTypeParams(n.TypeParams) + renderWhereClauses(n.WhereClauses)
 	}

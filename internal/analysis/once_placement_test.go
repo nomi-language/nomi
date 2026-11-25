@@ -47,7 +47,7 @@ end
 func TestOnceInAnInherentImpl_IsAccepted(t *testing.T) {
 	errs := checkWithBuilderErrors(`import std::io
 
-struct Money
+pub struct Money
   cents: Int
 end
 

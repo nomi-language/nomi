@@ -50,7 +50,7 @@ func openLoweringDoc(t *testing.T, src string) (*Server, string, string, chan []
 	t.Helper()
 	dir := writeProject(t, map[string]string{
 		"main.nomi": src,
-		"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+		"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n",
 	})
 	path := filepath.Join(dir, "main.nomi")
 	uri := fileuri.FromPath(path)
@@ -168,7 +168,7 @@ func TestLoweringDiagnostics_BlockImportedProjectFile(t *testing.T) {
 	dir := writeProject(t, map[string]string{
 		"main.nomi":   src,
 		"shapes.nomi": "pub fn area(r: Int) -> Int\n    r * 3\nend\n",
-		"nomi.toml":   "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+		"nomi.toml":   "[package]\nname = \"app\"\nentry_points = [\"main\"]\n",
 	})
 	if d := loweringDiagnostics(filepath.Join(dir, "main.nomi"), src, nil); len(d) != 0 {
 		t.Fatalf("lowering diagnostics %+v; want none", d)
@@ -184,7 +184,7 @@ func TestLoweringDiagnostics_AStdModuleLoweredWithTheProgram(t *testing.T) {
 	src := "import\n    std::io\n    std::uuid.Uuid\nend\n\nfn main()\n    id = Uuid.nil()\n    io.print(\"${id} ${Uuid.version(id)}\")\nend\n"
 	dir := writeProject(t, map[string]string{
 		"main.nomi": src,
-		"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+		"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n",
 	})
 	path := filepath.Join(dir, "main.nomi")
 	if d := loweringDiagnostics(path, src, nil); len(d) != 0 {
@@ -224,7 +224,7 @@ func TestLoweringDiagnostics_InvalidLiteralWithoutSlots(t *testing.T) {
 	} {
 		dir := writeProject(t, map[string]string{
 			"main.nomi": tc.src,
-			"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+			"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n",
 		})
 		diags := loweringDiagnostics(filepath.Join(dir, "main.nomi"), tc.src, nil)
 		if len(diags) != 1 {

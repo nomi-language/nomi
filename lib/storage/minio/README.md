@@ -1,7 +1,7 @@
 # minio
 
 Tests of [`lib/storage/s3`](../s3) against a real S3-protocol server. It is
-not a module to depend on.
+not a package to depend on.
 
 `nomi test` in this directory starts a throwaway MinIO server
 (`minio server`) on a free local port over a temporary directory, creates a

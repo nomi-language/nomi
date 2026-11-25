@@ -10,6 +10,7 @@ package irbuild
 // the builder retains the same graph either way; this test is where that shows.
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/nomi-language/nomi/hostadapt"
@@ -315,7 +316,26 @@ func vmNeverParam(fn *ir.Func) bool {
 // edges is not derived and the function is fed a leaf, which fails at the read
 // rather than passing quietly.
 func vmArgShapes(mod *ir.Module, f *ir.Func, links ...*ir.Module) [][]any {
-	shapes := []any{
+	shapes := vmSearchLeaves()
+	sh := &vmShaper{mod: mod, links: links, projs: map[*ir.Func]map[ir.Temp][]*ir.Proj{},
+		fwd: map[*ir.Func]map[ir.Temp][]vmFwd{}}
+	out := make([][]any, 0, len(shapes))
+	for _, shape := range shapes {
+		leaf := &probeLeaf{v: vmLeafValue(shape)}
+		args := make([]any, 0, len(f.Params()))
+		for _, p := range f.Params() {
+			args = append(args, sh.argFor(f, p.Temp, leaf, 0))
+		}
+		out = append(out, vmOperands(args))
+	}
+	return out
+}
+
+// vmSearchLeaves are the leaves a probe tries, in the order it tries them,
+// for a parameter whose shape the graph does not state. A handle leaf is a
+// vmBuildLeaf, which vmLeafValue builds where the probe runs.
+func vmSearchLeaves() []any {
+	leaves := []any{
 		int64(1),
 		"s",
 		true,
@@ -331,23 +351,11 @@ func vmArgShapes(mod *ir.Module, f *ir.Func, links ...*ir.Module) [][]any {
 	// the handle Regex.compile answers, through the same extern table the
 	// machine calls.
 	if re := vmRegexHandle(); re != nil {
-		shapes = append(shapes, re)
+		leaves = append(leaves, re)
 	}
-	shapes = append(shapes, vmCalendarValues()...)
-	shapes = append(shapes, vmChannelHalves()...)
-	shapes = append(shapes, vmHandleLeaves()...)
-	sh := &vmShaper{mod: mod, links: links, projs: map[*ir.Func]map[ir.Temp][]*ir.Proj{},
-		fwd: map[*ir.Func]map[ir.Temp][]vmFwd{}}
-	out := make([][]any, 0, len(shapes))
-	for _, shape := range shapes {
-		leaf := &probeLeaf{v: shape}
-		args := make([]any, 0, len(f.Params()))
-		for _, p := range f.Params() {
-			args = append(args, sh.argFor(f, p.Temp, leaf, 0))
-		}
-		out = append(out, vmOperands(args))
-	}
-	return out
+	leaves = append(leaves, vmCalendarValues()...)
+	leaves = append(leaves, vmChannelHalves()...)
+	return append(leaves, vmHandleLeaves()...)
 }
 
 // vmParamAliases maps the destination of every `RefLocal` that names a
@@ -1127,19 +1135,23 @@ func (w *vmProbeWatch) entered(fn *ir.Func) bool {
 
 // vmProbe runs one member: a boot the way a program or a test group starts
 // it, on a boot frame where Supervisor.new is legal, and any other function on
-// each synthesized argument vector until one runs. w sees the machine.
-func vmProbe(e vmProbeEntry, w *vmProbeWatch) vmProbeResult {
-	if isBoot, entered, err := vmStartBoot(e.mod, e.links, e.fn, w); isBoot {
+// each synthesized argument vector until one runs. w sees the machine, and
+// ctx's end stops the probe (vmInBubble).
+func vmProbe(ctx context.Context, e vmProbeEntry, w *vmProbeWatch) vmProbeResult {
+	if isBoot, entered, err := vmStartBoot(ctx, e.mod, e.links, e.fn, w); isBoot {
 		return vmProbeResult{ran: vmRan(entered, err), err: err}
 	}
 	// Made-up arguments can send a loop that the program's own callers
 	// bound around forever (all-your-base's digits_of in base 1), so each
 	// call has a step budget. A spinning goroutine never blocks, so the
 	// bubble's virtual clock cannot end it.
-	m := vmProgram(e.mod, e.links).WithLimits(vm.Limits{Steps: vmProbeSteps})
+	m := vmProgram(ctx, e.mod, e.links).WithLimits(vm.Limits{Steps: vmProbeSteps})
 	w.watch(m, e.fn)
 	var lastErr error
 	for _, args := range vmArgShapes(e.mod, e.fn, e.links...) {
+		if ctx.Err() != nil {
+			break
+		}
 		entered, err := vmCall(m, e.fn, args)
 		if vmRan(entered, err) {
 			return vmProbeResult{ran: true}
@@ -1196,7 +1208,7 @@ func TestIRRetainedPopulationRuns(t *testing.T) {
 			unimplemented = append(unimplemented, fmt.Sprintf("%s:%s (%s)", e.rel, fn.Name(), strings.Join(missing, ", ")))
 		}
 		w := &vmProbeWatch{}
-		res, answered, bubbleErr := vmInBubble(func() vmProbeResult { return vmProbe(e, w) })
+		res, answered, bubbleErr := vmInBubble(func(ctx context.Context) vmProbeResult { return vmProbe(ctx, e, w) })
 		if !answered {
 			// Waiting on a channel nothing in isolation answers is the
 			// body's answer, when the machine entered it.
@@ -1315,8 +1327,8 @@ func vmShapeOf(in ir.Instr) string {
 // published. A test file with no program boot boots its first `group` boot
 // instead, which is the app that group's cases call the file's functions in.
 // An unretained boot, or one that answers `Err`, leaves the unbooted machine.
-func vmProgram(mod *ir.Module, links []*ir.Module) *vm.Machine {
-	m := vm.NewProgram(mod, links, io.Discard).WithHosts(testHosts).WithEntryCounts()
+func vmProgram(ctx context.Context, mod *ir.Module, links []*ir.Module) *vm.Machine {
+	m := vm.NewProgram(mod, links, io.Discard).WithHosts(testHosts).WithEntryCounts().StopOn(ctx)
 	if mod.Boot() == nil {
 		// A test file's module, or an entry file a test file imports (whose
 		// boot the test file's group `boot` line calls): boot the first
@@ -1340,12 +1352,12 @@ func vmProgram(mod *ir.Module, links []*ir.Module) *vm.Machine {
 }
 
 // vmStartBoot starts fn when it is a boot a program or a retained test case
-// starts, on a counting machine w watches, and reports whether it was one,
-// whether the machine entered fn's body and how the start ended. A boot no
-// retained case starts has no Startup to call it with, and is probed as any
-// other function.
-func vmStartBoot(mod *ir.Module, links []*ir.Module, fn *ir.Func, w *vmProbeWatch) (isBoot, entered bool, err error) {
-	m := vm.NewProgram(mod, links, io.Discard).WithHosts(testHosts).WithEntryCounts()
+// starts, on a counting machine w watches that ctx's end stops, and reports
+// whether it was one, whether the machine entered fn's body and how the start
+// ended. A boot no retained case starts has no Startup to call it with, and is
+// probed as any other function.
+func vmStartBoot(ctx context.Context, mod *ir.Module, links []*ir.Module, fn *ir.Func, w *vmProbeWatch) (isBoot, entered bool, err error) {
+	m := vm.NewProgram(mod, links, io.Discard).WithHosts(testHosts).WithEntryCounts().StopOn(ctx)
 	if fn.Sym() == mod.Boot() {
 		w.watch(m, fn)
 		_, err := m.Boot()
@@ -1482,6 +1494,12 @@ const vmBlockedText = "gave no answer within the probe's virtual-time bound"
 // blocked.
 const vmProbeBound = 24 * time.Hour
 
+// vmProbeRealBound is how much real time a probe's bubble may take before
+// rt.RunBubbled gives up on it (vmInBubble). Far longer than the slowest
+// probe takes (a one-nanosecond `timer.every` loop that runs until its step
+// budget is spent, about 13 seconds on a fast machine).
+const vmProbeRealBound = 5 * time.Minute
+
 // vmBlockedError is the failure of a probe of fn that vmInBubble reports
 // unanswered.
 func vmBlockedError(fn *ir.Func, bubbleErr error) error {
@@ -1510,22 +1528,48 @@ func vmBlockedError(fn *ir.Func, bubbleErr error) error {
 // other argument vector changes what the body waits for.
 //
 // The root rather than synctest's own deadlock report ends a blocked probe
-// because the bubble's cleanup must still run: rt.ResetSupervisors, as for a
-// test case, drains the supervisors a boot started and empties rt's
-// supervisor registry. A registry left holding one bubble's supervisors is
-// unusable from the next bubble.
-func vmInBubble[T any](probe func() T) (v T, answered bool, bubbleErr error) {
+// because the bubble's cleanup must still run: rt.RunBubbled, as for a test
+// case, drains the supervisors a boot started inside the bubble and empties
+// rt's supervisor registry once the bubble has ended. A registry left holding
+// one bubble's supervisors is unusable from the next bubble.
+//
+// A probe the root gives up on is stopped: its context, which the probe's
+// machine runs over (vm.Machine.StopOn), is cancelled, so a wait wakes and
+// unwinds through its deferred calls and a computing body stops at its next
+// step. The root waits for it to end, for vmProbeBound again, so it leaves
+// nothing running; a probe that still does not end is left to synctest's
+// report. Its answer is not taken.
+//
+// A probe waiting outside the program (a socket, a process) holds the
+// virtual clock still, so the root never gives up on it. RunBubbled gives up
+// on the bubble vmProbeRealBound of real time after it started: the probe
+// answers rt.ErrCaseStillRunning, and every probe after it in the binary
+// answers rt.ErrCaseNotRun without starting, since a bubble beside the stuck
+// one could close one of its channels. The test that made it fails, and so
+// does each later one that probes.
+func vmInBubble[T any](probe func(ctx context.Context) T) (v T, answered bool, bubbleErr error) {
 	got := make(chan T, 1)
-	bubbleErr = vclock.RunCase(func() error {
+	stop := make(chan struct{})
+	timer := time.AfterFunc(vmProbeRealBound, func() { close(stop) })
+	defer timer.Stop()
+	bubbleErr = rt.RunBubbled(vclock.RunCase, func() error {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 		done := make(chan T, 1)
-		go func() { done <- probe() }()
+		go func() { done <- probe(ctx) }()
 		select {
 		case v := <-done:
 			got <- v
+			return nil
+		case <-time.After(vmProbeBound):
+		}
+		cancel()
+		select {
+		case <-done:
 		case <-time.After(vmProbeBound):
 		}
 		return nil
-	}, rt.ResetSupervisors)
+	}, stop)
 	select {
 	case v = <-got:
 		return v, true, bubbleErr
@@ -1591,11 +1635,31 @@ func vmFirstWords(s string, n int) string {
 // typed per parameter (vmLeafForType), because it shares signatures with a
 // Context.
 //
-// Built per call rather than once: the supervisor joins rt's supervisor
-// registry, and a probe in a virtual-time bubble (vmInBubble) must hold one
-// its own bubble created and drains.
+// Each is a vmBuildLeaf, built where the probe runs: the supervisor joins
+// rt's supervisor registry, and a probe in a virtual-time bubble
+// (vmInBubble) must hold one its own bubble created and drains.
 func vmHandleLeaves() []any {
-	return []any{vm.IdleSupervisor(), vmEmptyMap(), rt.ReaderFromText(""), rt.IOStdout(), rt.File{}, rt.ContextRoot()}
+	return []any{
+		vmBuildLeaf(vm.IdleSupervisor),
+		vmBuildLeaf(vmEmptyMap),
+		vmBuildLeaf(func() any { return rt.ReaderFromText("") }),
+		vmBuildLeaf(func() any { return rt.IOStdout() }),
+		vmBuildLeaf(func() any { return rt.File{} }),
+		vmBuildLeaf(func() any { return rt.ContextRoot() }),
+	}
+}
+
+// vmBuildLeaf is a search leaf built for each argument vector that uses it
+// (vmLeafValue), inside the probe's bubble.
+type vmBuildLeaf func() any
+
+// vmLeafValue is the value of a search leaf: a vmBuildLeaf built now, any
+// other leaf itself.
+func vmLeafValue(leaf any) any {
+	if build, ok := leaf.(vmBuildLeaf); ok {
+		return build()
+	}
+	return leaf
 }
 
 // vmChannelHalves are a closed channel's Sender and Receiver, handles no

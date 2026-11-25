@@ -255,7 +255,7 @@ func TestEqualHash_OpaqueAndHandles(t *testing.T) {
 	if !Equal(a, b) || Equal(a, HostHandle{"Regex", new(int)}) || Equal(a, HostHandle{"Other", x}) {
 		t.Error("handle identity")
 	}
-	if RowText(a) != "<Regex>" {
+	if RowText(a) != "Regex" {
 		t.Errorf("handle row %q", RowText(a))
 	}
 }

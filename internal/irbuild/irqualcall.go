@@ -716,7 +716,7 @@ func (bl *irScalarBuilder) qualPreResolve(t *ast.Call, obj *ast.Ident, isType bo
 		return
 	}
 	f := g.siblingFuncAt(to, field)
-	if f == nil || !f.lowerable() || f.private && !g.partnerTestOf(to) {
+	if f == nil || !f.lowerable() || !g.sees(to, f.vis) {
 		return
 	}
 	for _, p := range f.params {
@@ -1041,7 +1041,7 @@ func (g *gen) slottedOperands(t *ast.Call, args irQualArgs, params []kind, decl 
 }
 
 // qualFilePlan resolves `owner.method(args)` where owner is a FILE: a sibling
-// file of this Nomi module, or a stdlib file's API object.
+// file of this package, or a stdlib file's API object.
 //
 // SIBLING BEFORE STDLIB, which is `qualifiedCall`'s own order and its own
 // reason — "`io` is a stdlib file and never resolves here".

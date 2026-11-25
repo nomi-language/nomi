@@ -105,7 +105,7 @@ func TestEntryEnforcement_EntryWithoutMainRejected(t *testing.T) {
 }
 
 // TestEntryEnforcement_EntryFileChecked — the entry file itself must
-// also be enforced. If the entry's module-relative path is NOT in
+// also be enforced. If the entry's package-relative path is NOT in
 // entry_points, fn main in it must be flagged; if it IS declared but
 // lacks fn main, that's also flagged.
 func TestEntryEnforcement_EntryFileChecked(t *testing.T) {
@@ -235,7 +235,7 @@ func TestEntryEnforcement_EntryTopLevelHelpersAllowed(t *testing.T) {
 
 // TestEntryEnforcement_EmptyEntryModRelSkipsEntryCheck — when the
 // caller passes an empty entryModRel (the runtime doesn't yet know the
-// entry's module-relative path), only sibling files are checked. The
+// entry's package-relative path), only sibling files are checked. The
 // entry's main placement isn't enforced because we can't determine
 // whether it's a declared entry. This matches single-file mode's
 // existing behavior.

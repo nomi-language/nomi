@@ -44,7 +44,8 @@ type Closure interface {
 }
 
 // HostHandle is an opaque Go value behind a Nomi `host type` whose Go type rt
-// does not know (a registered extern type). It reads as `<Name>`. Two
+// does not know (a registered extern type). With no written `impl Debug` it
+// reads as its bare type name, `Name`, in a row and under Debug. Two
 // handles are equal only when their type names match and their Go values
 // are: by their keys when both are HostKeyed (std/regex's Regex), else
 // identical, pointer identity for pointers, `==` for comparable

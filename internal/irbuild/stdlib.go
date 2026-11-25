@@ -1497,9 +1497,9 @@ func stdLoweringOrder(names []string, lib *std.StdLib) []string {
 //
 // Read off the analyzed tree rather than off a manifest, so it cannot go stale
 // when a std file gains an import. A `go` extern entry names a Go package and
-// is not a Nomi module, so it is skipped.
+// is not a module, so it is skipped.
 //
-// The stdlib is ONE Nomi module, so a sibling is named BARE — `import iter` and
+// The stdlib is ONE package, so a sibling is named BARE — `import iter` and
 // `import option.Option.{self, None}` — and only the FIRST segment is the module.
 // A second segment is a drill-through owner (`Option`), never a path step, so
 // this takes the head and ignores the rest. Reading a two-segment `std/<name>`

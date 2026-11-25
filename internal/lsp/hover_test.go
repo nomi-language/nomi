@@ -293,7 +293,7 @@ func TestHover_StructOpaqueHidesFields(t *testing.T) {
 		t.Fatal("symbol not found")
 	}
 	result := renderHover(sym)
-	expected := "```nomi\nstruct Widget\n```\n\n*opaque — construction surface is private to its defining module*\n\nA widget."
+	expected := "```nomi\nstruct Widget\n```\n\n*opaque — construction surface is private to its file*\n\nA widget."
 	if result != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", result, expected)
 	}
@@ -306,7 +306,7 @@ func TestHover_StructOpaqueWithTypeParams(t *testing.T) {
 		t.Fatal("symbol not found")
 	}
 	result := renderHover(sym)
-	expected := "```nomi\nstruct Wrap<T>\n```\n\n*opaque — construction surface is private to its defining module*"
+	expected := "```nomi\nstruct Wrap<T>\n```\n\n*opaque — construction surface is private to its file*"
 	if result != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", result, expected)
 	}
@@ -407,7 +407,7 @@ func TestHover_EnumOpaqueHidesVariants(t *testing.T) {
 		t.Fatal("symbol not found")
 	}
 	result := renderHover(sym)
-	expected := "```nomi\nenum Token\n```\n\n*opaque — construction surface is private to its defining module*"
+	expected := "```nomi\nenum Token\n```\n\n*opaque — construction surface is private to its file*"
 	if result != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", result, expected)
 	}

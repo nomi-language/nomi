@@ -19,7 +19,7 @@ type NounInfo struct {
 	Decl *ast.KeywordDecl
 	// Name is the qualified name, `shop.book`.
 	Name string
-	// Root is the module root; empty for a file in no module.
+	// Root is the package root; empty for a file in no package.
 	Root string
 	// SourceLocale is the locale of the declaration's own text, Source,
 	// which is the noun's nominative there.
@@ -106,10 +106,10 @@ func (n *NounInfo) Locale(locale string) (NounLocale, bool) {
 	return NounLocale{}, false
 }
 
-// CatalogGenders are the genders the nouns of a module's catalogs in one
+// CatalogGenders are the genders the nouns of a package's catalogs in one
 // locale's directory give, each once, in the order the catalogs and their
 // entries are written: what a selector on a noun's gender needs an arm
-// for, as far as one module's catalogs tell. read reads a catalog (an
+// for, as far as one package's catalogs tell. read reads a catalog (an
 // editor's buffer or the disk); nil reads the disk.
 func CatalogGenders(place CatalogPlace, read func(string) (string, bool)) []string {
 	if read == nil {
@@ -140,10 +140,10 @@ func CatalogGenders(place CatalogPlace, read func(string) (string, bool)) []stri
 	return out
 }
 
-// CatalogCases are the cases the phrases of a module's catalogs in one
+// CatalogCases are the cases the phrases of a package's catalogs in one
 // locale's directory ask a noun for with `:nomi:noun`, the nominative
 // first, each once: the forms each noun's entry there needs, as far as one
-// module's catalogs tell. read is as CatalogGenders's.
+// package's catalogs tell. read is as CatalogGenders's.
 func CatalogCases(place CatalogPlace, read func(string) (string, bool)) []string {
 	if read == nil {
 		read = DiskInputs

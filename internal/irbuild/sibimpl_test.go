@@ -6,10 +6,10 @@ import (
 
 // The visibility fence, asserted on the INDEX rather than on a program.
 //
-// A non-`pub` inherent impl function is unreachable across a file boundary by
+// A `private` inherent impl function is unreachable across a file boundary by
 // the ANALYZER's rule, not by the builder's caution: on a two-file program,
-// `Widget.hidden(w)` from a sibling is "type 'Widget' has no member 'hidden'",
-// a front-end error, so no such call can ever reach the builder. That makes a
+// `Widget.hidden(w)` from a sibling is "`Widget.hidden` is private to
+// `widget.nomi`", a front-end error, so no such call can ever reach the builder. That makes a
 // call-site test impossible and the fence itself invisible, so the refusal is
 // pinned where it is observable: on the entry the index builds for `Status.bare`, which main.nomi
 // deliberately never calls.

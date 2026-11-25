@@ -259,7 +259,7 @@ func DiskFiles() FileSystem { return backendFiles{stdio.Default()} }
 func DiskFilesAt(dir string) FileSystem { return backendFiles{stdio.OSAt(dir)} }
 
 // TestDir is the working directory `nomi test` gives the test file at
-// path: its module root, the nearest directory at or above it holding a
+// path: its package root, the nearest directory at or above it holding a
 // nomi.toml, or the file's own directory when there is none. A test that
 // reads its module's files by a relative path reads the same files wherever
 // `nomi test` runs.
@@ -311,16 +311,12 @@ func fsError(op, path string, err error) *rt.IOError {
 	return &e
 }
 
-func fsFailer(path string) func(string, error) rt.IOError {
-	return func(op string, err error) rt.IOError { return stdio.Classify(op, path, err) }
-}
-
 func (e embedded) Open(p string) (rt.ReadSource, *rt.IOError) {
 	r, err := e.fs.Open(p)
 	if err != nil {
 		return rt.ReadSource{}, fsError("open", p, err)
 	}
-	return rt.ReadSource{Name: p, R: r, Close: r.Close, Fail: fsFailer(p)}, nil
+	return rt.ReadSource{Name: p, R: r, Close: r.Close}, nil
 }
 
 func (e embedded) Create(p string, mode stdio.WriteMode) (rt.WriteSink, *rt.IOError) {
@@ -328,7 +324,7 @@ func (e embedded) Create(p string, mode stdio.WriteMode) (rt.WriteSink, *rt.IOEr
 	if err != nil {
 		return rt.WriteSink{}, fsError("open", p, err)
 	}
-	sink := rt.WriteSink{Name: p, W: w, Close: w.Close, Fail: fsFailer(p)}
+	sink := rt.WriteSink{Name: p, W: w, Close: w.Close}
 	if a, ok := w.(interface{ Abort() }); ok {
 		sink.Abort = a.Abort
 	}
@@ -340,7 +336,7 @@ func (e embedded) OpenFile(p string, access stdio.Access) (rt.FileSource, *rt.IO
 	if err != nil {
 		return rt.FileSource{}, fsError("open", p, err)
 	}
-	src := rt.FileSource{Name: p, F: f, Size: f.Size, Writable: access != stdio.AccessRead, Close: f.Close, Fail: fsFailer(p)}
+	src := rt.FileSource{Name: p, F: f, Size: f.Size, Writable: access != stdio.AccessRead, Close: f.Close}
 	src.Sync = func(bool) error { return unsupportedHere("File.sync") }
 	if s, ok := f.(interface{ Sync() error }); ok {
 		src.Sync = func(bool) error { return s.Sync() }

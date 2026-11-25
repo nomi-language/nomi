@@ -68,7 +68,7 @@ func TestInterfaceValueAdvice_KeptProgramWritesIt(t *testing.T) {
 	cache := t.TempDir()
 	entry := filepath.Join(dir, "main.nomi")
 	named := filepath.Join(dir, "named.nomi")
-	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[module]\nname = \"advice\"\nentry_points = [\"main\"]\n")
+	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[package]\nname = \"advice\"\nentry_points = [\"main\"]\n")
 	mustWrite(t, entry, `import
     named.{Box, label}
     std::io

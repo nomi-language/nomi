@@ -38,7 +38,7 @@ import (
 	"github.com/nomi-language/nomi/internal/highlight"
 	"github.com/nomi-language/nomi/internal/hoverdoc"
 	"github.com/nomi-language/nomi/internal/semtokens"
-	"github.com/nomi-language/nomi/internal/tourmodules"
+	"github.com/nomi-language/nomi/internal/tourpackages"
 	"github.com/nomi-language/nomi/std"
 	"github.com/nomi-language/nomi/vmhost"
 )
@@ -77,8 +77,8 @@ func run(this js.Value, args []js.Value) (res any) {
 	}
 	// A block that imports a module the tour links (`import sqlite`) gets
 	// the module's files attached, as a project that names modules
-	// (tourmodules.Source).
-	src := tourmodules.Source(args[0].String())
+	// (tourpackages.Source).
+	src := tourpackages.Source(args[0].String())
 
 	// Multi-file convention: `// FILE: <name>` markers split the source
 	// into files (an optional `// FILE: nomi.toml` manifest, catalogs,
@@ -127,7 +127,7 @@ func run(this js.Value, args []js.Value) (res any) {
 // block that imports a module the tour links (vmhost.ToolMarked), and
 // returns `{ output, error, source, files }`: what the tool printed, its
 // failure, the block's source with each of its files the tool changed put
-// in, and those files by path (a ```nomi-run tool:<module>/<name> block,
+// in, and those files by path (a ```nomi-run tool:<package>/<name> block,
 // whose run follows with the source). A file the tool wrote among the
 // attached modules' is left out.
 func tool(this js.Value, args []js.Value) (res any) {
@@ -141,7 +141,7 @@ func tool(this js.Value, args []js.Value) (res any) {
 		return result("", "source, module and tool name required")
 	}
 	src := args[0].String()
-	attached := tourmodules.Source(src)
+	attached := tourpackages.Source(src)
 	written, err := vmhost.ToolMarked(attached, projectDir, args[1].String(), args[2].String(), &buf, vmhost.WithErrorOutput(&buf))
 	if err != nil {
 		if vmhost.LoadFailed(err) {
@@ -268,7 +268,7 @@ func semTokensSrc(this js.Value, args []js.Value) (res any) {
 	}
 	src := args[0].String()
 	var toks []semtokens.Token
-	if tourmodules.Source(src) != src {
+	if tourpackages.Source(src) != src {
 		// A block that imports a module the tour links is analyzed as the
 		// project nomiRun loads, so the module's names resolve.
 		toks = programOf(src).SemanticTokensIn(attachedEntry, reachedOf(src))
@@ -302,7 +302,7 @@ func hoverSrc(this js.Value, args []js.Value) (res any) {
 		return ""
 	}
 	src := args[0].String()
-	if tourmodules.Source(src) != src {
+	if tourpackages.Source(src) != src {
 		return programOf(src).HoverIn(attachedEntry, args[1].Int(), args[2].Int(), reachedOf(src))
 	}
 	fa, nodes := highlight.AnalyzeNodes(src, std.Shared())
@@ -357,12 +357,12 @@ var lastProgram struct {
 func programOf(src string) *highlight.Program {
 	if lastProgram.prog == nil || lastProgram.source != src {
 		lastProgram.source = src
-		lastProgram.prog = highlight.AnalyzeProgram(tourmodules.Source(src), projectDir, std.Shared())
+		lastProgram.prog = highlight.AnalyzeProgram(tourpackages.Source(src), projectDir, std.Shared())
 	}
 	return lastProgram.prog
 }
 
-// attachedEntry is a single-file block's file once tourmodules.Source has
+// attachedEntry is a single-file block's file once tourpackages.Source has
 // attached the modules it imports.
 const attachedEntry = "main.nomi"
 

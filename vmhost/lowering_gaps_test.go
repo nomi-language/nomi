@@ -89,32 +89,39 @@ end
 `,
 	},
 	{
-		name: "gapImplAtALargerReceiver",
-		fix: "the builder: registering an instance of a generic type registers each of its impl blocks at once, " +
-			"and resolving the interface `Deeper<Box<Box<T>>>` at `Box<Int>` builds `Box<Box<Int>>`, whose block names " +
-			"`Box<Box<Box<Int>>>`, until the instance bounds refuse the chain (typeInstCap); a block whose interface " +
-			"arguments name its receiver's template at a larger argument must be registered for an instance only when " +
-			"something asks for that instance's impls",
+		name: "gapBlocksNameEachOthersLargerInstance",
+		fix: "the builder: registering an instance of a generic type resolves the signatures of its blocks' functions, " +
+			"and `fn wrap(b: Box<T>) -> Wrap<Box<T>>` in `impl Box<T>` builds `Wrap<Box<Int>>`, whose block's " +
+			"`fn box(w: Wrap<T>) -> Box<Wrap<T>>` builds `Box<Wrap<Box<Int>>>`, until the instance bounds refuse the " +
+			"chain (typeInstCap); expansiveImplItem withholds only a function that names its own block's type at a " +
+			"larger argument, so a function that names another template's larger instance must be withheld too, or " +
+			"its block registered only when something asks for the instance's impls",
 		reason: "a struct literal: Box",
 		noSkip: true,
 		src: `import std::io
-
-interface Deeper<T>
-    fn deeper(value: self) -> T
-end
 
 struct Box<T>
     t: T
 end
 
-impl Deeper<Box<Box<T>>> for Box<T>
-    fn deeper(b: Box<T>) -> Box<Box<T>>
-        Box{t: Box{t: b.t}}
+struct Wrap<T>
+    w: T
+end
+
+impl Box<T>
+    fn wrap(b: Box<T>) -> Wrap<Box<T>>
+        Wrap{w: b}
+    end
+end
+
+impl Wrap<T>
+    fn box(w: Wrap<T>) -> Box<Wrap<T>>
+        Box{t: w}
     end
 end
 
 fn main()
-    io.print(Deeper.deeper(Box{t: 1}).t.t)
+    io.print(Box.wrap(Box{t: 1}).w.t)
 end
 `,
 	},

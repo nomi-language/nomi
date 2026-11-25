@@ -46,7 +46,7 @@ type onceDef struct {
 	nomi string
 	k    kind
 	decl *ast.OnceBinding
-	pub  bool
+	vis  ast.Visibility
 	// why is the reason this binding was refused, empty when it lowered. A
 	// reference to a refused once does NOT re-report it: the gap is already in
 	// the tally at the declaration, and echoing it per use is the derived-count
@@ -118,7 +118,7 @@ func (g *gen) declareOnce(ob *ast.OnceBinding, owner string) {
 	d := &onceDef{
 		nomi: name,
 		decl: ob,
-		pub:  ob.Public,
+		vis:  ob.Visibility,
 	}
 	switch {
 	case ob.Value == nil:
@@ -204,14 +204,13 @@ func (g *gen) onceDecl(ob *ast.OnceBinding) {
 // question and the same kind translation. Two spellings of one reference must
 // not be able to answer differently.
 func (g *gen) refSiblingOnce(at ast.Node, to int, d *onceDef) (kind, bool) {
-	// Not a `once` at all, or a private one read from a file that is not its
-	// own or its partner test (spec §14 *Visibility*), as for a private
-	// function (siblingPrivate). The latter falls through to the caller's
-	// own refusal rather than getting a key of its own, because the analyzer
-	// rejects that read first ("'secret' is private and cannot be
-	// imported"), so a privacy key here would report a gap nothing can
-	// reach.
-	if d == nil || (!d.pub && to != g.fileUnit && g.namesFrom != to+1 && !g.partnerTestOf(to)) {
+	// Not a `once` at all, or a private one read from a file that does not
+	// see it (spec §14 *Visibility*, gen.sees), as for a private function
+	// (siblingPrivate). The latter falls through to the caller's own
+	// refusal rather than getting a key of its own, because the analyzer
+	// rejects that read first ("`secret` is private to `config.nomi`"), so a
+	// privacy key here would report a gap nothing can reach.
+	if d == nil || (!g.sees(to, d.vis) && g.namesFrom != to+1) {
 		return kindInvalid, false
 	}
 	unit := g.files.units[to]

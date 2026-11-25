@@ -60,31 +60,25 @@ func stdModuleTestCases(nodes []ast.Node) []testCaseDecl {
 // case bodies, and Result.IRModules adds the cached stdlib and the instances
 // the cases reached.
 //
-// nodes and fa are the module's checked declarations. Nil takes the cached
-// lowering's own; the tour passes a re-analyzed copy of the module's source
-// with one `test` appended (vmhost.StdlibReference), whose other
-// declarations are the same Nomi as the cache's. hooks observe the cases'
-// declines.
-func GenerateStdlibTestIR(module string, nodes []ast.Node, fa *analysis.FileAnalysis, hooks DeclineHooks) (*Program, *Result, error) {
+// The module is the one embedded in the binary, its declarations the
+// cached lowering's; GenerateEditedStdlibTestIR lowers an edited one. hooks
+// observe the cases' declines.
+func GenerateStdlibTestIR(module string, hooks DeclineHooks) (*Program, *Result, error) {
 	ensureStdModule(module)
 	if isProgramStd(module) {
-		return generateProgramStdTestIR(module, nodes, fa, hooks)
+		return generateProgramStdTestIR(module, nil, nil, hooks)
 	}
 	std := stdlibLowering()
 	v := std.views[module]
 	if v == nil {
 		return nil, nil, fmt.Errorf("irbuild: std/%s is not a lowered stdlib module", module)
 	}
-	if nodes == nil {
-		tests, err := sharedStdTestDecls(module)
-		if err != nil {
-			return nil, nil, err
-		}
-		nodes, fa = append(slices.Clip(v.nodes), tests...), v.fa
-	} else {
-		analysis.MarkTailCalls(nodes)
+	tests, err := sharedStdTestDecls(module)
+	if err != nil {
+		return nil, nil, err
 	}
-	return generateStdlibTestIR(std, v, nodes, nodes, fa, std.irModules, nil, false, newDeclineCensus(hooks))
+	nodes := append(slices.Clip(v.nodes), tests...)
+	return generateStdlibTestIR(std, v, nodes, nodes, v.fa, std.irModules, nil, false, newDeclineCensus(hooks))
 }
 
 // GenerateStdlibReferenceIR lowers test, one case appended to the embedded

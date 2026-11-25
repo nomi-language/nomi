@@ -86,7 +86,7 @@ var OS Backend = &disk{ops: hostOS{}}
 
 // OSAt is the operating system's whole file system with relative paths
 // under dir, an absolute directory, instead of the process's working
-// directory: what `nomi test` gives a test file (its module root).
+// directory: what `nomi test` gives a test file (its package root).
 func OSAt(dir string) Backend { return &disk{ops: hostOS{}, cwd: dir} }
 
 // defaultBackend is a native build's file system: the operating system's.
@@ -132,7 +132,7 @@ func (d *disk) Open(p string) (rt.ReadSource, *rt.IOError) {
 		_ = f.Close()
 		return rt.ReadSource{}, errOf(rt.TagIOIsADirectory, p)
 	}
-	return rt.ReadSource{Name: p, R: f, Close: f.Close, Fail: failer(p)}, nil
+	return rt.ReadSource{Name: p, R: f, Close: f.Close}, nil
 }
 
 func (d *disk) Create(p string, mode WriteMode) (rt.WriteSink, *rt.IOError) {
@@ -156,7 +156,7 @@ func (d *disk) Create(p string, mode WriteMode) (rt.WriteSink, *rt.IOError) {
 	if err != nil {
 		return rt.WriteSink{}, d.writeFailure("open", p, err)
 	}
-	return rt.WriteSink{Name: p, W: f, Close: f.Close, Fail: failer(p)}, nil
+	return rt.WriteSink{Name: p, W: f, Close: f.Close}, nil
 }
 
 // createAtomically writes a temporary file in p's directory and renames it
@@ -209,7 +209,7 @@ func (d *disk) createAtomically(p, native string) (rt.WriteSink, *rt.IOError) {
 		_ = f.Close()
 		_ = d.ops.Remove(tmp)
 	}
-	return rt.WriteSink{Name: p, W: f, Close: commit, Abort: abort, Fail: failer(p)}, nil
+	return rt.WriteSink{Name: p, W: f, Close: commit, Abort: abort}, nil
 }
 
 func (d *disk) OpenFile(p string, access Access) (rt.FileSource, *rt.IOError) {
@@ -248,7 +248,7 @@ func (d *disk) OpenFile(p string, access Access) (rt.FileSource, *rt.IOError) {
 		release()
 		return f.Close()
 	}
-	return rt.FileSource{Name: p, F: f, Size: size, Writable: writable, Close: closeFile, Fail: failer(p), Sync: sync, Lock: lock}, nil
+	return rt.FileSource{Name: p, F: f, Size: size, Writable: writable, Close: closeFile, Sync: sync, Lock: lock}, nil
 }
 
 // SyncDir opens the directory and syncs it, so the entries made, renamed
@@ -609,11 +609,6 @@ func kindOf(t fs.FileMode) Kind {
 	return KindOther
 }
 
-// failer classifies a read's or a write's failure on path.
-func failer(path string) func(string, error) rt.IOError {
-	return func(op string, err error) rt.IOError { return *classify(op, path, err) }
-}
-
 // classify is the package's classify for a failure on d, with one answer
 // settled by looking: Windows reports a missing directory above p and a
 // file where a directory above p should be with the same code,
@@ -642,7 +637,7 @@ func (d *disk) notDirectoryAt(p string) bool {
 		switch {
 		case err == nil:
 			return !info.IsDir()
-		case !notExist(err):
+		case !rt.IsNotExist(err):
 			return true
 		}
 	}
@@ -669,5 +664,5 @@ func (d *disk) missing(p string) bool {
 		return false
 	}
 	_, err := d.ops.Stat(n)
-	return notExist(err)
+	return rt.IsNotExist(err)
 }

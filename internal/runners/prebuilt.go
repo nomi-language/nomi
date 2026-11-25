@@ -89,8 +89,8 @@ import (
 // empty for every other build. It names the release a cross-target runner is
 // downloaded from, which the VCS stamp cannot: a commit is not a tag. When it
 // is a release's semantic version, it is also the release a module's
-// [module].nomi is held to and the version `nomi add` and `nomi update` take
-// the first-party lib/ modules at (cmd/nomi's release, modcache.Release).
+// [package].nomi is held to and the version `nomi add` and `nomi update` take
+// the first-party lib/ modules at (cmd/nomi's release, pkgcache.Release).
 var ReleaseVersion string
 
 // releaseBaseURLEnv overrides where releases are downloaded from. Tests point

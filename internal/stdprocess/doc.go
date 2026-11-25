@@ -22,7 +22,7 @@
 // it; os.Process sends nothing to a process its wait has reaped. A child
 // starts under its frame's context, so cancellation or a passed deadline
 // kills it and the wait unwinds. A relative `dir` resolves against the
-// program's working directory, which `nomi test` sets to the module root
+// program's working directory, which `nomi test` sets to the package root
 // without changing the process's.
 //
 // # Signals and groups
@@ -34,7 +34,8 @@
 // Windows). Windows sends only SIGKILL, to the child alone
 // (signal_windows.go); every other signal, and every group signal, is
 // Unsupported there. A signal to a child that has ended answers `Other`
-// with code ESRCH. `Child.stop` is Nomi in std/process over `signal`,
+// with code ESRCH, on Windows too, where Go answers a kill after the
+// child's wait with EINVAL (signal_windows.go). `Child.stop` is Nomi in std/process over `signal`,
 // `wait`, `kill` and a channel's `receive_within`: it sends SIGTERM, waits
 // for the child on a task up to the grace, and past it kills, so it has no
 // kill path of its own. `child_id` is the child's pid; `id` is this

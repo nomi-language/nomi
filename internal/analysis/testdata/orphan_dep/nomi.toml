@@ -1,2 +1,2 @@
-[module]
+[package]
 name = "orphan_dep"

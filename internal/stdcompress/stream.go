@@ -53,15 +53,15 @@ func (o *sinkOutput) Write(p []byte) (int, error) {
 }
 
 // ioFailure is the io.Error for err, a failure of operation on the stream
-// named name: the wrapped stream's own, Corrupt or Truncated for a stream
-// that is not valid, else Other.
+// named name: the wrapped stream's own, Corrupt or Truncated for a read of
+// a stream that is not valid, else as rt.IOErrorOf sorts it.
 func ioFailure(err error, operation, name string, format int64, start []byte) rt.IOError {
 	var f rt.IOFailure
 	if errors.As(err, &f) {
 		return f.E
 	}
 	if operation != "read" {
-		return rt.IOError{Tag: rt.TagIOOther, Operation: operation, Path: name, Code: rt.ErrnoName(err)}
+		return rt.IOErrorOf(operation, name, err)
 	}
 	kind, found, reason := failure(err, format, start)
 	if kind == kindTruncated {

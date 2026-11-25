@@ -414,32 +414,43 @@ func TestTypeInstCap_TheInstancePastTheBoundIsRefused(t *testing.T) {
 	}
 }
 
-// An impl of a generic interface at a larger instance of its receiver names
-// a larger instance at each instance it is registered for, so registering
-// one builds a chain that only the bounds stop (typeInstCap,
-// typeInstSizeCap). The checker accepts each shape here: a chain that grows
-// by one type at each step, one that doubles through a tuple, and one that
-// doubles through a type of two parameters. Each is refused with the
-// bounds' reason within a budget of genericInstance calls that panics past
-// it. Before each argument was projected once, the growing chain took about
-// 2^32 calls in a test binary, where every frame's checker types are
-// projected (verifySubst); the doubling ones took as many in any build
-// before typeInstSizeCap.
-func TestTypeInstCap_AnImplAtALargerReceiverIsRefusedInFewSteps(t *testing.T) {
-	const iface = "interface Deeper<T>\n    fn deeper(value: self) -> T\nend\n\n"
+// Two generic types whose impl blocks each name a larger instance of the
+// other (`fn wrap(b: Box<T>) -> Wrap<Box<T>>` in `impl Box<T>`, `fn box(w:
+// Wrap<T>) -> Box<Wrap<T>>` in `impl Wrap<T>`) build a chain when an
+// instance's blocks are registered, since neither function names its own
+// block's type at a larger argument (expansiveImplItem), and only the
+// bounds stop it (typeInstCap, typeInstSizeCap). The checker accepts each
+// shape here: a chain that grows by one type at each step, one that doubles
+// through a tuple, and one that doubles through types of two parameters.
+// Each is refused with the bounds' reason within a budget of
+// genericInstance calls that panics past it. Before each argument was
+// projected once, a growing chain took about 2^32 calls in a test binary,
+// where every frame's checker types are projected (verifySubst); the
+// doubling ones took as many in any build before typeInstSizeCap.
+func TestTypeInstCap_BlocksThatNameEachOthersLargerInstanceAreRefusedInFewSteps(t *testing.T) {
 	cases := []struct {
 		name, src, tpl string
 		args           []analysis.Type
 	}{
 		{
 			name: "GrowsByOne",
-			src: iface + `struct Box<T>
+			src: `struct Box<T>
     t: T
 end
 
-impl Deeper<Box<Box<T>>> for Box<T>
-    fn deeper(b: Box<T>) -> Box<Box<T>>
-        Box{t: Box{t: b.t}}
+struct Wrap<T>
+    w: T
+end
+
+impl Box<T>
+    fn wrap(b: Box<T>) -> Wrap<Box<T>>
+        Wrap{w: b}
+    end
+end
+
+impl Wrap<T>
+    fn box(w: Wrap<T>) -> Box<Wrap<T>>
+        Box{t: w}
     end
 end
 `,
@@ -448,13 +459,23 @@ end
 		},
 		{
 			name: "DoublesThroughATuple",
-			src: iface + `struct Box<T>
+			src: `struct Box<T>
     t: T
 end
 
-impl Deeper<Box<(T, T)>> for Box<T>
-    fn deeper(b: Box<T>) -> Box<(T, T)>
-        Box{t: (b.t, b.t)}
+struct Wrap<T>
+    w: T
+end
+
+impl Box<T>
+    fn wrap(b: Box<T>) -> Wrap<(T, T)>
+        Wrap{w: (b.t, b.t)}
+    end
+end
+
+impl Wrap<T>
+    fn box(w: Wrap<T>) -> Box<(T, T)>
+        Box{t: (w.w, w.w)}
     end
 end
 `,
@@ -463,14 +484,25 @@ end
 		},
 		{
 			name: "DoublesThroughTwoParameters",
-			src: iface + `struct P<A, B>
+			src: `struct P<A, B>
     a: A
     b: B
 end
 
-impl Deeper<P<P<A, B>, P<A, B>>> for P<A, B>
-    fn deeper(p: P<A, B>) -> P<P<A, B>, P<A, B>>
-        P{a: p, b: p}
+struct Q<A, B>
+    a: A
+    b: B
+end
+
+impl P<A, B>
+    fn q(p: P<A, B>) -> Q<P<A, B>, P<A, B>>
+        Q{a: p, b: p}
+    end
+end
+
+impl Q<A, B>
+    fn p(q: Q<A, B>) -> P<Q<A, B>, Q<A, B>>
+        P{a: q, b: q}
     end
 end
 `,

@@ -89,7 +89,7 @@ func (s *Server) textDocumentCodeAction(_ *glsp.Context, params *protocol.CodeAc
 		actions = append(actions, buildAddImportActions(snap.Content, snap.Nodes, snap.Analysis, uri, params.Context.Diagnostics)...)
 		actions = append(actions, s.buildFillActions(snap.Content, snap.Nodes, snap.Analysis, uri, params.Context.Diagnostics)...)
 		actions = append(actions, buildUselessReturnActions(snap.Content, uri, snap.Analysis.TypeErrors, params.Context.Diagnostics)...)
-		actions = append(actions, buildParseFixActions(snap.Content, uri, nil, append(append([]parser.ParseError(nil), snap.Errors...), typeErrorFixes(snap.Analysis.TypeErrors)...), params.Context.Diagnostics)...)
+		actions = append(actions, buildParseFixActions(snap.Content, uri, s.contentForURI, append(append([]parser.ParseError(nil), snap.Errors...), typeErrorFixes(snap.Analysis.TypeErrors)...), params.Context.Diagnostics)...)
 		actions = append(actions, buildParseFixActions(snap.Content, uri, nil, typeErrorFixes(snapInterfaceValueHints(snap, nil)), params.Context.Diagnostics)...)
 		actions = append(actions, buildParseFixActions(snap.Content, uri, nil, typeErrorFixes(analysis.FileHints(snap.Analysis, snap.Nodes)), params.Context.Diagnostics)...)
 		actions = append(actions, buildParseFixActions(snap.Content, uri, nil, typeErrorFixes(analysis.DollarWarnings(snap.Analysis, snap.Nodes)), params.Context.Diagnostics)...)

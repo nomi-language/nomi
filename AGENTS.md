@@ -13,11 +13,12 @@ The canonical references:
 | [`docs/spec.md`](docs/spec.md) | The spec: what the language does. A feature there without a `Status: not yet implemented` callout works. |
 | [`docs/style.md`](docs/style.md) | How to write Nomi well (idiom, not semantics). |
 | [`docs/cheatsheet.md`](docs/cheatsheet.md) | The rules most often written wrong, with checked examples: the short form for a reader or a model. |
-| [`docs/tooling.md`](docs/tooling.md) | The `nomi` command and its flags, `nomi.toml`, modules and dependencies, the test runner, `nomi fmt`'s layout, builds, environment variables, editors and the debugger. |
+| [`docs/tooling.md`](docs/tooling.md) | The `nomi` command and its flags, `nomi.toml`, packages and dependencies, the test runner, `nomi fmt`'s layout, builds, environment variables, editors and the debugger. |
 | Package docs (`doc.go`) | How the implementation is built and why: each package's doc comment holds its design, the invariants it shares with other packages, and pointers to the harnesses that hold it. Read it (`go doc ./internal/<pkg>`, or the file) before working in a package. |
 | [`docs/feature-status.md`](docs/feature-status.md) | What is not built yet: aspirational spec sections, gaps in shipped features, tooling capabilities, known defects. |
 | [`docs/roadmap.md`](docs/roadmap.md) | Open big-ticket work and its order. Done items leave it. |
-| [`docs/install.md`](docs/install.md) | Installing from source; published as the Tooling section's first page. |
+| [`docs/install.md`](docs/install.md) | Installing from a release or from source; published as the Tooling section's first page. |
+| [`docs/releasing.md`](docs/releasing.md) | The maintainer's checklist for cutting a release. |
 
 ## Pre-release: no compatibility
 
@@ -39,15 +40,16 @@ The repository root is the compiler's Go module,
 | `vmhost/` | The public embedding API. |
 | `vmrunner/` | What `nomi-vm` and a built executable run. An embedder runs compiled programs with it. |
 | `hostadapt/` | Support package for host tables: std's generated adapters and an embedder's own functions. |
-| `internal/` | Everything else. Syntax: `lexer`, `parser`, `ast`, `token`, `strlit`. `analysis` (resolution and the type checker), `frontend` (the whole front end as one call), `dap` (`nomi dap`), `editors` (`nomi editor`: each editor's Nomi support, written from the files the packages in `editors/` and `tree-sitter-nomi/` embed), `mcp` (`nomi mcp`, the compiler as Model Context Protocol tools), `irbuild` (IR builder), `ir` (IR, lint, image encoding), `vm` (bytecode VM), `lsp`, `format`, `runners` (finding, unpacking, downloading, building and caching the runners `nomi build` appends to), `modcache` and `modfetch` (dependencies), `artifactcache` (what the compiler builds once and reads back: the std bundle), `std*` (Go-backed stdlib adapters), `websocket` (the WebSocket protocol under std/websocket), `mf2` (MessageFormat 2) and `catalog` (phrase catalogs), and the tooling behind them. |
+| `internal/` | Everything else. Syntax: `lexer`, `parser`, `ast`, `token`, `strlit`. `analysis` (resolution and the type checker), `frontend` (the whole front end as one call), `dap` (`nomi dap`), `editors` (`nomi editor`: each editor's Nomi support, written from the files the packages in `editors/` and `tree-sitter-nomi/` embed), `mcp` (`nomi mcp`, the compiler as Model Context Protocol tools), `irbuild` (IR builder), `ir` (IR, lint, image encoding), `vm` (bytecode VM), `lsp`, `format`, `runners` (finding, unpacking, downloading, building and caching the runners `nomi build` appends to), `pkgcache` and `pkgfetch` (dependencies), `artifactcache` (what the compiler builds once and reads back: the std bundle), `std*` (Go-backed stdlib adapters), `websocket` (the WebSocket protocol under std/websocket), `mf2` (MessageFormat 2) and `catalog` (phrase catalogs), and the tooling behind them. |
 | `std/` | The standard library's `.nomi` sources, embedded into the binaries. A module that helps test another is nested in that module's directory: `std/fs/testing.nomi` is `std::fs::testing`. |
-| `lib/` | First-party Nomi modules outside std, each a directory with its own `nomi.toml`, versioned with the compiler by the repository's one release tag and naming its neighbors by `dir` (internal/modcache package doc): `lib/sql/sqlite` (the SQLite driver: SQLite compiled to WebAssembly in the module, run by std::wasm, its file layer in Nomi over std::fs), `lib/sql/postgres` (the Postgres driver, in Nomi over std::net and std::tls), `lib/sql/migrate` (migrations), `lib/sql/sqlkit` (checked SQL), `lib/sql/examples/shop`, `lib/markdown` (Markdown to std/html's `Html`, in Nomi), `lib/image` (decoding, resizing and encoding JPEG, PNG and WebP: C codecs compiled to WebAssembly in the module, run by std::wasm), `lib/jobs/postgres` (std/jobs's queue in a Postgres table), `lib/jobs/examples/notify`, `lib/storage/s3` (std/storage's backend for S3-protocol servers), `lib/storage/minio` (its tests against a MinIO server). They hold no Go, so the compiler's Go module contains their files and builds none of them. |
+| `lib/` | First-party packages outside std, each a directory with its own `nomi.toml`, all of them members of one workspace (`lib/nomi-workspace.toml`, so `nomi check`, `nomi test` and `nomi fmt -l` in `lib/` cover every one), versioned with the compiler by the repository's one release tag and naming its neighbors by `dir` (internal/pkgcache package doc): `lib/sql/sqlite` (the SQLite driver: SQLite compiled to WebAssembly in the package, run by std::wasm, its file layer in Nomi over std::fs), `lib/sql/postgres` (the Postgres driver, in Nomi over std::net and std::tls), `lib/sql/migrate` (migrations), `lib/sql/sqlkit` (checked SQL), `lib/sql/examples/shop`, `lib/markdown` (Markdown to std/html's `Html`, in Nomi), `lib/image` (decoding, resizing and encoding JPEG, PNG and WebP: C codecs compiled to WebAssembly in the package, run by std::wasm), `lib/jobs/postgres` (std/jobs's queue in a Postgres table), `lib/jobs/examples/notify`, `lib/storage/s3` (std/storage's backend for S3-protocol servers), `lib/storage/minio` (its tests against a MinIO server). They hold no Go, so the compiler's Go module contains their files and builds none of them. |
 | `rt/` | The runtime library, `github.com/nomi-language/nomi/rt`. The VM runs over it and built executables link it. It may import only the standard library and `github.com/rivo/uniseg` (`TestRuntimeImportsOnlyItsAllowlist`). |
 | `docs/` | The spec, style guide, cheat sheet, tooling reference, feature status, roadmap and install guide. |
 | `tour/` | The Astro Starlight site at nomi-lang.org: the tour and the generated stdlib reference. |
 | `tests/` | The test corpus. |
 | `testdata/expectations/` | Golden files. |
 | `benchmarks/` | Engine benchmark programs. |
+| `packaging/` | Package manager files: `packaging/homebrew/nomi.rb`, the template of the formula `scripts/homebrew-formula.sh` renders for the tap repository `nomi-language/homebrew-nomi`. |
 | `tree-sitter-nomi/` | The tree-sitter grammar, source of truth for editor parsing. The generated `src/` and `tree-sitter-nomi.wasm` are committed. Published read-only to github.com/nomi-language/tree-sitter-nomi by `scripts/publish-grammar.sh`, which leaves out `embed.go`, the Go package that carries the C and the wasm into `nomi` for `nomi editor install`. |
 | `editors/zed/` | Zed extension (highlighting, LSP launch, the `nomi dap` debug adapter and a locator for the run and test tasks; `cargo test --manifest-path editors/zed/Cargo.toml` tests the locator). |
 | `editors/helix/` | Helix language config and runtime queries. |
@@ -55,7 +57,7 @@ The repository root is the compiler's Go module,
 | `editors/nvim/` | Neovim 0.11+ plugin: filetype, LSP config, generated queries, test runner, neotest adapter, nvim-dap adapter. |
 | `editors/vscode/` | VS Code extension (TypeScript): language configuration, a TextMate grammar derived from the bat syntax, the `nomi lsp` client, run and test commands, the `nomi` debugger. |
 | `editors/bat/` | `bat`/syntect syntax definition. |
-| `scripts/` | Tour wasm build, release and its tags, grammar publish, full check, publish to `main`, the js/wasm test runner, the tree-sitter wrapper, git hooks, and editor sync scripts. |
+| `scripts/` | Tour wasm build, release and its tags, the install script `curl` pipes to `sh` (`install.sh`, which the tour build copies to the site root), the Homebrew formula's renderer, grammar publish, full check, publish to `main`, the js/wasm test runner, the tree-sitter wrapper, git hooks, and editor sync scripts. |
 
 ## Architecture in brief
 
@@ -97,7 +99,7 @@ the same in the background. Details:
   rendering and tasks. Neither links the front end. Details:
   [VM](internal/vm/doc.go), [rt](rt/doc.go),
   [debugging and `nomi dap`](internal/dap/doc.go).
-- **Stdlib.** `std/` is one embedded module. Each process builds it from
+- **Stdlib.** `std/` is one embedded package. Each process builds it from
   its modules' interfaces, only the modules its programs reach, and checks
   a module's bodies only when something lowers one (`std.Shared`,
   `StdLib.Ensure`, `StdLib.Bodies`; `std.All` builds every module);
@@ -106,7 +108,7 @@ the same in the background. Details:
   decoded from artifacts the binary embeds or caches. A
   `host fn` is a VM intrinsic or an
   adapter generated from `internal/stdlibbindings`. `lib/` holds first-party
-  modules outside std. Details:
+  packages outside std, one workspace. Details:
   [stdlib](std/shared.go),
   [the std bundle](internal/irbuild/doc.go),
   [the stdlib from its interfaces](std/shared.go),
@@ -130,15 +132,15 @@ the same in the background. Details:
   `internal/collation` is a UCA collator over it. Details:
   [locale data](internal/cldrgen/doc.go),
   [collation](internal/collation/doc.go).
-- **Embedding and modules.** `vmhost` is the public Go API that the CLI,
+- **Embedding and packages.** `vmhost` is the public Go API that the CLI,
   REPL and tour wasm use, and through which a Go program hosts Nomi and
   answers its `host fn` declarations from host tables. Nomi source binds
-  no Go code. `internal/modcache` and `internal/modfetch` find the
+  no Go code. `internal/pkgcache` and `internal/pkgfetch` find the
   dependencies each `nomi.toml` names, fetch each repository's tag from
-  its host (or through git) into Nomi's module cache and lock them in
+  its host (or through git) into Nomi's package cache and lock them in
   `nomi.lock`, with no `go` command and no go.mod. Details:
   [embedding](vmhost/doc.go),
-  [modules](internal/modcache/doc.go).
+  [packages](internal/pkgcache/doc.go).
 - **`nomi build` and the REPL.** `nomi build` appends a pruned IR image to
   `nomi-vm` or the wasip1 reactor, or writes a browser folder or a `.nomic`.
   `internal/runners` takes the runner a release `nomi` carries for its own
@@ -219,7 +221,7 @@ and `TestTestCommand_VMStdlib` run `nomi test tests` and `nomi test std` and
 require no failed or blocked case, and as many passing cases as
 `corpus.expect` and `stdlib.expect` declare. A case is a test, or each row of
 the `subtests` tables a test runs (`rt.CountCases`), so a test of nine rows
-counts nine. The modules under `lib/` hold no Go, so `go test ./...`
+counts nine. The packages under `lib/` hold no Go, so `go test ./...`
 finds no package there; `TestLibModules` (`cmd/nomi`) runs their Nomi
 tests.
 
@@ -816,7 +818,7 @@ the doctest:
   path): data files the example only names. The doctest fails a marked file
   the run reads, an unmarked data file it never reads, and a glob that
   matches nothing.
-- **`tool:<module>/<name>`** (repeatable): runs `nomi tool <module> <name>`
+- **`tool:<package>/<name>`** (repeatable): runs `nomi tool <package> <name>`
   in the block's project before each run, as a reader runs `sqlkit generate`
   before `nomi run`.
 - **`lesson`**: a First Steps task (`tour/src/content/docs/learn/`). One file
@@ -844,20 +846,20 @@ Nomi source or `nomi.toml` is a data file the block starts with. A file
 that is not text is a section marked `// FILE: <path> (base64)`, whose
 lines hold its bytes in standard base64; the editor shows its tab as one
 read-only line with its size, and `read-only:` and the data-file rules
-apply to it as to any data file. The generated sections of a tour module
+apply to it as to any data file. The generated sections of a linked package
 carry the files its `embed` declarations name this way. A
 `nomi.toml` section in a directory under the block's root, or a root
 `nomi.toml` with a `[dependencies]` table, makes the block a project of
-modules; with no root `nomi.toml` and a `nomi.toml` in two or more
+packages; with no root `nomi.toml` and a `nomi.toml` in two or more
 top-level directories, it is a block of sibling projects. A block's entry is its first
 file with a `fn main`, else its first Nomi file that declares tests, else
-its first Nomi file. After editing a `lib/` module the tour links
-(`tourmodules.Modules`), run `go generate ./internal/tourmodules`;
-`TestGeneratedFileIsCurrent` (`internal/tourmodules/tourmodulesgen`) fails until you
-do. A block that imports a linked module runs with the module's files
-attached, in `TestTourDoctests` as on the page. How blocks of modules,
-sibling projects and the linked modules run is in the
-[`internal/tourmodules` package doc](internal/tourmodules/doc.go); the live editor's
+its first Nomi file. After editing a `lib/` package the tour links
+(`tourpackages.Packages`), run `go generate ./internal/tourpackages`;
+`TestGeneratedFileIsCurrent` (`internal/tourpackages/tourpackagesgen`) fails until you
+do. A block that imports a linked package runs with the package's files
+attached, in `TestTourDoctests` as on the page. How blocks of packages,
+sibling projects and the linked packages run is in the
+[`internal/tourpackages` package doc](internal/tourpackages/doc.go); the live editor's
 layout is in [`tour/README.md`](tour/README.md).
 
 The stdlib reference (`src/content/docs/reference/`, gitignored) is generated
@@ -1000,8 +1002,8 @@ Rules enforced by something in the repository:
   command read or kept nothing.
 - The build cache of runners (`internal/runners`) refuses the real user
   cache under `go test`; set
-  `NOMI_RUNNER_CACHE_ROOT`. The module cache refuses the real user
-  cache under `go test`; set `NOMI_MODULE_CACHE`.
+  `NOMI_RUNNER_CACHE_ROOT`. The package cache refuses the real user
+  cache under `go test`; set `NOMI_PACKAGE_CACHE`.
 - The tree-sitter CLI reads a global parser-directories config that may point
   at another checkout; `scripts/tree-sitter.sh` runs it from this checkout's
   `tree-sitter-nomi/`.

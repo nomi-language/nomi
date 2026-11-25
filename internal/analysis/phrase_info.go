@@ -40,7 +40,7 @@ type PhraseInfo struct {
 	Decl *ast.KeywordDecl
 	// Name is the qualified name, `cart.cart_items`.
 	Name string
-	// Root is the module root; empty for a file in no module.
+	// Root is the package root; empty for a file in no package.
 	Root string
 	// SourceLocale is the locale of the declaration's own text, Source.
 	SourceLocale string
@@ -169,10 +169,10 @@ func PhraseRules(tag string, source bool) mf2.Locale { return pluralLocale(tag, 
 // LanguageName is the English name of tag's language: `pl` is Polish.
 func LanguageName(tag string) string { return languageName(tag) }
 
-// CatalogPlace is where a catalog file sits: its module's root and
+// CatalogPlace is where a catalog file sits: its package's root and
 // manifest, the locale whose directory holds it, and the Nomi file whose
 // translations it holds. ok is false for a TOML file that is no catalog:
-// one outside every module's catalog directory, or in no locale `[i18n]`
+// one outside every package's catalog directory, or in no locale `[i18n]`
 // lists.
 type CatalogPlace struct {
 	Root     string

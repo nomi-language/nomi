@@ -14,7 +14,7 @@ import (
 // case where the walk is the programmer's.
 //
 // The receiver is not erased: `Iter.to_list(tree)` has a receiver whose static
-// kind is `Tree`, and `g.implsByIface[stdIfaceImplKey(stdIter)][Tree]` names exactly one impl
+// kind is `Tree`, and `g.implAt(stdIfaceImplKey(stdIter), Tree)` names exactly one impl
 // block. So the `each_while` to call is chosen at build time, and the view
 // (an `ir.Iter` over `ir.IterOverUserImpl`, userView in iriterbody.go) holds
 // an `ir.RefFunc` to it as an operand. The VM walks the view through
@@ -47,7 +47,7 @@ import (
 //
 // The checker records which impl block a written source's view walks
 // (analysis.IterView.Impl), and userIterImplByBlock finds where that block
-// is lowered: this file's (`g.implsByIface`), or another file's, a generic
+// is lowered: this file's (`g.implAt`), or another file's, a generic
 // instance's where any file registered it. A source with no expression the
 // checker typed (an instance of a type parameter bounded by Iter, a
 // `flat_map` callback's result) finds its impl by its kind
@@ -88,7 +88,7 @@ func (g *gen) userIterImplOf(recv kind) (userIterImpl, bool) {
 		// Set or a Range from being captured here.
 		return userIterImpl{}, false
 	}
-	if d := g.implsByIface[stdIfaceImplKey(stdIter)][recv]; d != nil {
+	if d := g.implAt(stdIfaceImplKey(stdIter), recv); d != nil {
 		return userIterImpl{owner: g, d: d}, true
 	}
 	if g.files == nil || g.reg == nil || g.fileUnit < 0 {
@@ -211,7 +211,7 @@ func (g *gen) userIterImplByBlock(recv kind, block *ast.ImplBlock) (userIterImpl
 	if recv.tag != tagNamed || recv.def == nil || block == nil {
 		return userIterImpl{}, false
 	}
-	if d := g.implsByIface[stdIfaceImplKey(stdIter)][recv]; d != nil && d.decl == block {
+	if d := g.implAt(stdIfaceImplKey(stdIter), recv); d != nil && d.decl == block {
 		return userIterImpl{owner: g, d: d}, true
 	}
 	if g.reg == nil {

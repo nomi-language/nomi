@@ -10,9 +10,9 @@ import (
 // stdModuleDoc is what a module name's hover says about std module name:
 // the first paragraph of its `//#` comments, the paragraph its reference
 // page opens with, and a link to that page. "" for a module std does not
-// hold, and for an internal one, which has no page.
+// hold, and for one that declares nothing public, which has no page.
 func stdModuleDoc(name string) string {
-	if _, internal := analysis.InternalStdModule(name); internal {
+	if !analysis.IsPublicStdModule(name) {
 		return ""
 	}
 	src, ok := std.ReadFile(name)
@@ -37,7 +37,7 @@ func stdModuleDoc(name string) string {
 		}
 		para = append(para, text)
 	}
-	link := "More in the [reference](https://nomi-lang.org/reference/" + name + "/)"
+	link := "More in the [reference](" + analysis.StdReferenceURL(name) + ")"
 	if len(para) == 0 {
 		return link
 	}

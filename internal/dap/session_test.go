@@ -180,8 +180,11 @@ func TestSession_ALineWithNoTestFailsTheLaunch(t *testing.T) {
 	h.check("launch_errors")
 }
 
-// A breakpoint in a task: the task is its own thread, and the main thread,
-// blocked awaiting it, shows where.
+// A breakpoint in a task: the task is its own thread, listed beside main,
+// with its own stack. Where main is at that instant (inside Task.spawn,
+// stopped at its next statement, or inside Task.await) is the scheduler's
+// choice, so the session does not ask for main's stack;
+// TestSession_PauseWhileEveryThreadIsBlocked shows main inside Task.await.
 func TestSession_ATaskIsAThread(t *testing.T) {
 	h := newHarness(t)
 	h.start(false, runConfig("task.nomi"))
@@ -191,7 +194,6 @@ func TestSession_ATaskIsAThread(t *testing.T) {
 	h.request("threads", nil)
 	frames := h.stack(thread)
 	h.locals(frames[0])
-	h.stack(1)
 	h.do("continue", thread)
 	h.wait("terminated")
 	h.disconnect()

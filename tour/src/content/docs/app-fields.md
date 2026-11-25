@@ -327,7 +327,7 @@ function fails after that line, through a `?`, a `return` of `Err` or
 `None`, or a trap:
 
 ```nomi
-pub fn open(path: String) -> Result<SqliteStore, sql.Error>
+fn open(path: String) -> Result<SqliteStore, sql.Error>
     conn = sqlite.open(path)?
     defer on error sql.close_quietly(conn)
     _ = Conn.exec(conn, Sql"CREATE TABLE IF NOT EXISTS notes (body TEXT)")?
@@ -617,7 +617,7 @@ end
 
 Here `test_support.startup()` builds the inputs this group needs. If
 `server.nomi` declares
-`pub fn boot(startup: Startup = Startup{}) -> Result<App, String>`, a group
+`fn boot(startup: Startup = Startup{}) -> Result<App, String>`, a group
 that needs no input writes `boot server.boot()`.
 
 ### A boot that fails

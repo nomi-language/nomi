@@ -21,8 +21,11 @@ import (
 // deliberately not what this uses: `sync.Once.Do` re-entered on the same
 // goroutine deadlocks. A cyclic `once` is a diagnosable Nomi error, and
 // hanging is the one answer worse than a wrong one — a test run would hang
-// with it. So the cell keeps sync.Once's mutex-plus-atomic shape and adds the
-// cycle test in front of the lock.
+// with it. So the cell keeps sync.Once's lock-plus-atomic shape and adds the
+// cycle test in front of the lock. The lock is held only to decide who
+// forces: a second forcer waits on the cell's waiter list, a wait object
+// (wait.go), so a task waiting for a `once` another task forces is one the
+// task registry knows waits (package doc, "Deadlock").
 //
 // # Caching is on the cell, never written back to the binding's storage
 //
@@ -90,8 +93,8 @@ type forcing struct {
 // with it so that stop unwinds the forcer the way it would unwind any other
 // work (a task settles Cancelled, the main line reports its deadline), rather
 // than landing on raiseCanceled's producer-bug arm, which a frame built
-// without them would reach. `park` travels for the same reason: a supervised task
-// blocked inside an RHS is still working. The unwind leaves the cell unforced,
+// without them would reach. `task` travels for the same reason: the RHS runs
+// as the forcer's task, so a wait inside it blocks that task's record. The unwind leaves the cell unforced,
 // exactly as a faulting RHS does, so the next access runs the RHS again.
 //
 // The forcer's `app` deliberately does not travel: a cached value must not
@@ -103,7 +106,7 @@ type forcing struct {
 // value the RHS makes keeps no fields (KeptFields), for the same reason.
 func (fr *Frame) forcingOnce(cell *onceID) *Frame {
 	return &Frame{ctx: fr.ctx, forcing: &forcing{cell: cell, next: fr.forcing},
-		app: fr.booted, booted: fr.booted, inTask: fr.inTask, underDeadline: fr.underDeadline, host: fr.host, stop: fr.stop, park: fr.park, capture: fr.capture,
+		app: fr.booted, booted: fr.booted, inTask: fr.inTask, underDeadline: fr.underDeadline, host: fr.host, stop: fr.stop, task: fr.task, capture: fr.capture,
 		files: fr.files, processes: fr.processes, network: fr.network, debug: fr.debug}
 }
 
@@ -115,10 +118,14 @@ func CyclicOnceText(name string) string {
 // OnceCell is one `once` binding's storage. The VM makes one cell per
 // binding and reads it only through Get.
 type OnceCell[T any] struct {
-	id   onceID
-	mu   sync.Mutex
-	done atomic.Bool
-	v    T
+	id onceID
+	mu sync.Mutex
+	// forcing says a lineage runs the RHS; another forcer waits on waiters
+	// until it ends, with or without a value.
+	forcing bool
+	waiters waitq
+	done    atomic.Bool
+	v       T
 }
 
 // NewOnceCell builds an unforced cell. name is the Nomi binding's own name and
@@ -127,36 +134,79 @@ func NewOnceCell[T any](name string) *OnceCell[T] {
 	return &OnceCell[T]{id: onceID{name: name}}
 }
 
-// Get returns the binding's value, forcing rhs on the first access.
+// Get returns the binding's value, forcing rhs on the first access; site is
+// the read, where a forcer waits while another forces the cell.
 //
 // Split so the resolved path is a load and a return with nothing else in it —
 // that is every access after the first, and it is what Go's inliner can see
 // through.
-func (c *OnceCell[T]) Get(fr *Frame, rhs func(fr *Frame) T) T {
+func (c *OnceCell[T]) Get(fr *Frame, site Site, rhs func(fr *Frame) T) T {
 	if c.done.Load() {
 		return c.v
 	}
-	return c.force(fr, rhs)
+	return c.force(fr, site, rhs)
 }
 
-func (c *OnceCell[T]) force(fr *Frame, rhs func(fr *Frame) T) T {
-	// Ahead of the lock, so a re-entrant force reports the cycle instead of
-	// deadlocking on the mutex the outer force is holding.
+func (c *OnceCell[T]) force(fr *Frame, site Site, rhs func(fr *Frame) T) T {
+	// Ahead of the wait, so a re-entrant force reports the cycle instead of
+	// waiting for the outer force, which waits for it.
 	for n := fr.forcing; n != nil; n = n.next {
 		if n.cell == &c.id {
 			Trap(CyclicOnceText(c.id.name))
 		}
 	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.done.Load() {
-		// Another goroutine resolved it while this one waited.
-		return c.v
+	for {
+		c.mu.Lock()
+		if c.done.Load() {
+			// Another lineage resolved it while this one waited.
+			c.mu.Unlock()
+			return c.v
+		}
+		if !c.forcing {
+			c.forcing = true
+			c.mu.Unlock()
+			break
+		}
+		// Another lineage forces it: wait for that force to end, so
+		// concurrent forcers observe the one cached value — spec §6
+		// *`once` Bindings*: "side effects happen exactly once". A force
+		// that fails leaves the cell unforced, and a waiter forces it next.
+		c.waitForce(fr, site)
 	}
-	// Held across the RHS so concurrent forcers wait and observe the one
-	// cached value: spec §6 *`once` Bindings*: "side effects happen exactly once".
+	defer c.endForce()
 	v := rhs(fr.forcingOnce(&c.id))
 	c.v = v
 	c.done.Store(true)
 	return v
+}
+
+// waitForce waits at site for the force in progress to end. Called with
+// c.mu held; it lets it go. The wait is not cancellable, as a force in
+// progress is not.
+func (c *OnceCell[T]) waitForce(fr *Frame, site Site) {
+	p := parkerOf(fr)
+	defer p.close()
+	e := &p.ents[0]
+	e.reset(p, 0)
+	c.waiters.push(e)
+	w := wait{kind: waitOnce, site: site}
+	p.block(w)
+	c.mu.Unlock()
+	if p.sleep(w) == wonDeadlock {
+		c.mu.Lock()
+		c.waiters.remove(e)
+		c.mu.Unlock()
+		p.deadlocked()
+	}
+}
+
+// endForce ends a force, with a value or without, waking every lineage
+// waiting for it.
+func (c *OnceCell[T]) endForce() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.forcing = false
+	for e := c.waiters.claim(); e != nil; e = c.waiters.claim() {
+		e.p.release()
+	}
 }

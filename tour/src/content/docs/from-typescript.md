@@ -42,8 +42,8 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `{ kind: "circle"; r: number } \| ..` | `enum Shape` with a variant per line, such as `Circle {radius: Float}`, then `end` |
 | `Record<string, number>` | `Map<String, Int>`, written `{"a" => 1}` |
 | `xs.filter(f).map(g)` | `xs \|> Iter.filter(f) \|> Iter.map(g) \|> Iter.to_list()` |
-| `export function` | `pub fn`. A declaration is private to its file unless it is marked `pub` |
-| `import { find } from "./db/posts"` | `import db::posts.{find}`, with the path from the module's directory, or `import db::posts` and then `posts.find(1)` |
+| `export function`, or no `export` | `pub fn` for other packages, `private fn` for one file. An unmarked `fn` is seen by every file of its package, with nothing written |
+| `import { find } from "./db/posts"` | `import db::posts.{find}`, with the path from the package's directory, or `import db::posts` and then `posts.find(1)` |
 | `describe` / `it` | `test "name"` ... `end` beside the code |
 | Express's `app.get("/users/:id", ..)`, with `req.params.id` a string | `Route.to_with("GET /users/{id}", show)` with `fn show(Request, user: {id: Int}) -> Response`. The handler gets `user.id` already parsed, `/users/ann` gets a 404, and the pattern is checked when the program is. See [HTTP](/http/#handlers-and-routes) and [Frontends](/frontends/). |
 

@@ -112,7 +112,7 @@ func TestCompletion_NamedArgumentsOfImportedFunctions(t *testing.T) {
 		"main.nomi": "fn main() end\n",
 	})
 	s := NewServer()
-	s.docs.SetWorkspaceRoot(dir)
+	s.docs.SetEditorFolder(dir)
 	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
 
 	items := completeIn(t, s, uri, "import net\n\nfn main()\n    x = net.dial(\"h\", ‸)\nend\n").Items

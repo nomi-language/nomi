@@ -91,7 +91,7 @@ func TestDiscoverProject_LoadsManifest(t *testing.T) {
 		return full
 	}
 
-	mustWrite("nomi.toml", `[module]
+	mustWrite("nomi.toml", `[package]
 name = "todo"
 entry_points = ["main"]
 `)

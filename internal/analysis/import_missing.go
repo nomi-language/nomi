@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/ast"
-	"github.com/nomi-language/nomi/internal/modcache"
+	"github.com/nomi-language/nomi/internal/pkgcache"
 	"github.com/nomi-language/nomi/internal/suggest"
 )
 
@@ -43,15 +43,15 @@ func (b *builder) reportMissingModule(n *ast.ImportStmt, segs []ast.Node, miss *
 
 	var msg, hint string
 	if len(miss.path) == 0 {
-		msg, hint = b.moduleRootImport(n, name, miss)
+		msg, hint = b.packageRootImport(n, name, miss)
 		b.file.TypeErrors = append(b.file.TypeErrors, importPathError(n, segs, msg).WithHint(hint))
 		return
 	}
-	if miss.dir != nil && miss.dir.Module {
+	if miss.dir != nil && miss.dir.Package {
 		dir := "./" + strings.Join(miss.path, "/")
 		b.file.TypeErrors = append(b.file.TypeErrors, importPathError(n, segs,
-			fmt.Sprintf("`%s` is another module's directory: it holds a nomi.toml", name)).
-			WithHint(fmt.Sprintf("a module is reached by its own name: run `nomi add %s` and import it by that name", dir)))
+			fmt.Sprintf("`%s` is another package's directory: it holds a nomi.toml", name)).
+			WithHint(fmt.Sprintf("a package is reached by its own name: run `nomi add %s` and import it by that name", dir)))
 		return
 	}
 	leaf := miss.path[len(miss.path)-1]
@@ -68,7 +68,7 @@ func (b *builder) reportMissingModule(n *ast.ImportStmt, segs []ast.Node, miss *
 		dir := filepath.Join(append([]string{miss.root}, miss.path[:len(miss.path)-1]...)...)
 		switch {
 		case miss.dep != "":
-			msg = fmt.Sprintf("no module `%s`: module `%s` has no file %s", name, miss.dep,
+			msg = fmt.Sprintf("no module `%s`: package `%s` has no file %s", name, miss.dep,
 				filepath.ToSlash(filepath.Join(append(miss.path[:len(miss.path)-1:len(miss.path)-1], file)...)))
 		case miss.root == "":
 			msg = fmt.Sprintf("no module `%s`: no file %s", name, file)
@@ -79,9 +79,9 @@ func (b *builder) reportMissingModule(n *ast.ImportStmt, segs []ast.Node, miss *
 			hint = missingModuleHint(dir, leaf, written)
 		}
 		// The import's head may name no dependency of the project, or
-		// one whose directory is not a Nomi module.
+		// one whose directory is not a package.
 		if miss.dep == "" && b.projectRoot != "" {
-			problem, modHint, unlisted := modcache.ImportProblem(b.projectRoot, written[0])
+			problem, modHint, unlisted := pkgcache.ImportProblem(b.projectRoot, written[0])
 			switch {
 			case problem != "" && !unlisted:
 				msg, hint = fmt.Sprintf("no module `%s`: %s", written[0], problem), modHint
@@ -93,7 +93,7 @@ func (b *builder) reportMissingModule(n *ast.ImportStmt, segs []ast.Node, miss *
 		// downloaded yet: the language server never downloads, so it says
 		// how to.
 		if miss.dep == "" && b.projectRoot != "" {
-			if fetch := modcache.MissingHint(b.projectRoot); fetch != "" {
+			if fetch := pkgcache.MissingHint(b.projectRoot); fetch != "" {
 				hint = fetch
 			}
 		}
@@ -129,18 +129,18 @@ func importPathError(n *ast.ImportStmt, segs []ast.Node, msg string) TypeError {
 	return e
 }
 
-// moduleRootImport is the error and hint for an import whose file part is a
-// module's short name alone (`import std`, `import std.io`). A module is a
+// packageRootImport is the error and hint for an import whose file part is a
+// package's short name alone (`import std`, `import std.io`). A package is a
 // directory, so there is no file to import. When the import selects a name
-// that is a file in that module, the hint spells the file import: `std.io`
+// that is a file in that package, the hint spells the file import: `std.io`
 // is `std::io`.
-func (b *builder) moduleRootImport(n *ast.ImportStmt, name string, miss *importMiss) (string, string) {
-	msg := fmt.Sprintf("`%s` is a module, not a file; an import names a file in it", name)
+func (b *builder) packageRootImport(n *ast.ImportStmt, name string, miss *importMiss) (string, string) {
+	msg := fmt.Sprintf("`%s` is a package, not a file; an import names a file in it", name)
 	if len(n.Names) == 0 {
 		return msg, fmt.Sprintf("import a file in it, such as `%s::%s`", name, b.exampleFile(miss))
 	}
 	selected := ast.ImportNodeName(n.Names[0])
-	if b.moduleHasFile(miss, selected) {
+	if b.packageHasFile(miss, selected) {
 		spelled := name + ast.PathSeparator + selected
 		if !n.Braced && len(n.Names) == 1 && len(n.Aliases) == 1 && n.Aliases[0] != nil {
 			spelled += " as " + ast.ImportNodeName(n.Aliases[0])
@@ -150,9 +150,9 @@ func (b *builder) moduleRootImport(n *ast.ImportStmt, name string, miss *importM
 	return msg, fmt.Sprintf("import a file in it, such as `%s::%s`", name, b.exampleFile(miss))
 }
 
-// moduleHasFile reports whether file.nomi is at the root of the module miss
+// packageHasFile reports whether file.nomi is at the root of the package miss
 // names.
-func (b *builder) moduleHasFile(miss *importMiss, file string) bool {
+func (b *builder) packageHasFile(miss *importMiss, file string) bool {
 	if miss.std {
 		for _, name := range b.stdlibModuleNames() {
 			if name == file {

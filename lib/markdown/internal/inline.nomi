@@ -17,7 +17,7 @@ import
 end
 
 /// An inline node. Text and code positions are into the block's text.
-pub enum Inline
+enum Inline
     /// Text from `start` to `stop`, then a line break: `soft` for a line
     /// feed, `hard` for `<br>`.
     Text {start: Int, stop: Int, soft: Bool, hard: Bool}
@@ -41,7 +41,7 @@ end
 
 /// A node, its neighbours and, for a node that holds others, its first and
 /// last child; a delimiter also has its neighbours on the delimiter list.
-pub struct INode
+struct INode
     kind:  Inline
     prev:  Int = -1
     next:  Int = -1
@@ -52,7 +52,7 @@ pub struct INode
 end
 
 /// The inline phase's state.
-pub struct Ist
+struct Ist
     lines:  Lines
     buf:    Bytes
     c:      Cursor
@@ -91,7 +91,7 @@ pub struct Ist
 end
 
 /// The inline nodes of a block whose text is `lines`.
-pub fn parse(lines: Lines, refs: Map<String, Ref>, check_box: Bool) -> Ist
+fn parse(lines: Lines, refs: Map<String, Ref>, check_box: Bool) -> Ist
     st = Ist{lines:, buf: lines.buf, c: Cursor{}, refs:, nodes: Vector[], check_box:}
     st = line_loop(st)
     st = process_delimiters(st, -1)
@@ -99,7 +99,7 @@ pub fn parse(lines: Lines, refs: Map<String, Ref>, check_box: Bool) -> Ist
 end
 
 /// The node `id`.
-pub fn get(st: Ist, id: Int) -> INode
+fn get(st: Ist, id: Int) -> INode
     Vector.get(st.nodes, id)!
 end
 

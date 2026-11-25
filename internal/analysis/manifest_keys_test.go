@@ -12,18 +12,22 @@ import (
 // nearest known name when one is close.
 func TestManifest_UnknownKeysAreErrors(t *testing.T) {
 	cases := []struct{ name, toml, want string }{
-		{"a misspelled key", "[module]\nname = \"app\"\nnme = 1\n",
-			"m.toml:3: [module] has no key `nme`; did you mean `name`?"},
-		{"a misspelled table", "[module]\nname = \"app\"\n\n[i18m]\nlocales = [\"en\"]\n",
+		{"a misspelled key", "[package]\nname = \"app\"\nnme = 1\n",
+			"m.toml:3: [package] has no key `nme`; did you mean `name`?"},
+		{"a misspelled table", "[package]\nname = \"app\"\n\n[i18m]\nlocales = [\"en\"]\n",
 			"m.toml:4: nomi.toml has no [i18m] table; did you mean [i18n]?"},
-		{"a table far from every other", "[module]\nname = \"app\"\n[bogus]\nx = 1\n",
-			"m.toml:3: nomi.toml has no [bogus] table; its tables are [dependencies], [effects], [i18n], [indirect], [module], [money]"},
-		{"a key outside every table", "top = 1\n[module]\nname = \"app\"\n",
-			"m.toml:1: nomi.toml has no top-level key `top`; every key is in a table ([dependencies], [effects], [i18n], [indirect], [module], [money])"},
-		{"a key far from every other", "[module]\nname = \"app\"\nwhatever = true\n",
-			"m.toml:3: [module] has no key `whatever`; its keys are `name`, `nomi`, `entry_points`"},
-		{"a dotted key", "[module]\nname = \"app\"\ni18n.localez = [\"en\"]\n",
-			"m.toml:3: [module] has no key `i18n`; its keys are `name`, `nomi`, `entry_points`"},
+		{"a table far from every other", "[package]\nname = \"app\"\n[bogus]\nx = 1\n",
+			"m.toml:3: nomi.toml has no [bogus] table; its tables are [dependencies], [effects], [i18n], [money], [package]"},
+		{"a [module] table, which is no table of nomi.toml's", "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+			"m.toml:1: nomi.toml has no [module] table; its tables are [dependencies], [effects], [i18n], [money], [package]"},
+		{"an [indirect] table, which is no table of nomi.toml's", "[package]\nname = \"app\"\n\n[indirect]\n\"example.com/strutil\" = \"v1.1.0\"\n",
+			"m.toml:4: nomi.toml has no [indirect] table; its tables are [dependencies], [effects], [i18n], [money], [package]"},
+		{"a key outside every table", "top = 1\n[package]\nname = \"app\"\n",
+			"m.toml:1: nomi.toml has no top-level key `top`; every key is in a table ([dependencies], [effects], [i18n], [money], [package])"},
+		{"a key far from every other", "[package]\nname = \"app\"\nwhatever = true\n",
+			"m.toml:3: [package] has no key `whatever`; its keys are `name`, `nomi`, `entry_points`"},
+		{"a dotted key", "[package]\nname = \"app\"\ni18n.localez = [\"en\"]\n",
+			"m.toml:3: [package] has no key `i18n`; its keys are `name`, `nomi`, `entry_points`"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -36,12 +40,34 @@ func TestManifest_UnknownKeysAreErrors(t *testing.T) {
 			}
 		})
 	}
+	// A project's nomi.toml may also hold its tools' tables, each named for
+	// the package or a key of its [dependencies]: the list names those the
+	// manifest names, or says what names one when it names none.
+	projectCases := []struct{ name, toml, want string }{
+		{"a [module] table, in a manifest that names no package", "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+			":1: nomi.toml has no [module] table; its tables are [dependencies], [effects], [i18n], [money], [package], and its tools' tables, each named for the package or a dependency"},
+		{"a table far from every other, with dependencies", "[package]\nname = \"app\"\n\n[dependencies]\nsqlkit = { dir = \"../sqlkit\" }\nkit = { dir = \"../kit\" }\n\n[bogus]\nx = 1\n",
+			":8: nomi.toml has no [bogus] table; its tables are [dependencies], [effects], [i18n], [money], [package], and its tools' tables [app], [kit] and [sqlkit]"},
+	}
+	for _, c := range projectCases {
+		t.Run(c.name, func(t *testing.T) {
+			dir := t.TempDir()
+			m, err := ParseManifestIn(dir, []byte(c.toml))
+			want := filepath.Join(dir, "nomi.toml") + c.want
+			if err == nil {
+				t.Fatalf("the manifest is accepted (%+v); want %q", m, want)
+			}
+			if err.Error() != want {
+				t.Errorf("error:\n%s\nwant:\n%s", err, want)
+			}
+		})
+	}
 }
 
 // [effects.self] and [effects.deps] read into Effects; with
 // neither there are no lists and nothing is held.
 func TestManifest_Effects(t *testing.T) {
-	m, err := ParseManifestData([]byte(`[module]
+	m, err := ParseManifestData([]byte(`[package]
 name = "app"
 
 [effects.self]
@@ -53,7 +79,7 @@ entries_required = true
 std = ["std::fs", "std::http"]
 std_in_tests = ["std::instant"]
 
-[effects.deps.modules]
+[effects.deps.packages]
 "pricing" = []
 "pg" = ["std::fs"]
 `), "m.toml")
@@ -72,7 +98,7 @@ std_in_tests = ["std::instant"]
 		{"Self.StdInTests", c.Self.StdInTests, []string{"std::process"}},
 		{"Deps.Std", c.Deps.Std, []string{"std::fs", "std::http"}},
 		{"Deps.StdInTests", c.Deps.StdInTests, []string{"std::instant"}},
-		{"pg's entry", c.Deps.Modules["pg"], []string{"std::fs"}},
+		{"pg's entry", c.Deps.Packages["pg"], []string{"std::fs"}},
 	} {
 		if !slices.Equal(l.got, l.want) {
 			t.Errorf("%s: %v, want %v", l.name, l.got, l.want)
@@ -81,7 +107,7 @@ std_in_tests = ["std::instant"]
 	if !c.Deps.EntriesRequired {
 		t.Error("EntriesRequired is false; the table sets it")
 	}
-	if got := c.Deps.Modules["pricing"]; got == nil || len(got) != 0 {
+	if got := c.Deps.Packages["pricing"]; got == nil || len(got) != 0 {
 		t.Errorf("pricing's list: %#v, want an empty list", got)
 	}
 
@@ -89,45 +115,45 @@ std_in_tests = ["std::instant"]
 		{"no table", ""},
 		{"an empty [effects]", "[effects]\n"},
 	} {
-		m, err = ParseManifestData([]byte("[module]\nname = \"app\"\n"+tc.toml), "m.toml")
+		m, err = ParseManifestData([]byte("[package]\nname = \"app\"\n"+tc.toml), "m.toml")
 		if err != nil || m.Effects != nil {
 			t.Errorf("%s: %+v, %v; want no Effects", tc.name, m.Effects, err)
 		}
 	}
 	// Each table alone holds only what it names, and an empty one holds
 	// that code to nothing: no std call, and no ceiling for deps.
-	m, err = ParseManifestData([]byte("[module]\nname = \"app\"\n[effects.self]\n"), "m.toml")
+	m, err = ParseManifestData([]byte("[package]\nname = \"app\"\n[effects.self]\n"), "m.toml")
 	if err != nil || m.Effects == nil || m.Effects.Self == nil || m.Effects.Deps != nil ||
 		len(m.Effects.Self.Std) != 0 {
 		t.Errorf("self alone: %+v, %v; want an empty self and no deps", m.Effects, err)
 	}
-	m, err = ParseManifestData([]byte("[module]\nname = \"app\"\n[effects.deps]\n"), "m.toml")
+	m, err = ParseManifestData([]byte("[package]\nname = \"app\"\n[effects.deps]\n"), "m.toml")
 	if err != nil || m.Effects == nil || m.Effects.Self != nil || m.Effects.Deps == nil ||
 		m.Effects.Deps.Std != nil || m.Effects.Deps.EntriesRequired {
 		t.Errorf("deps alone: %+v, %v; want an empty deps with no ceiling and no self", m.Effects, err)
 	}
-	m, err = ParseManifestData([]byte("[module]\nname = \"app\"\n[effects.deps]\nstd = []\n"), "m.toml")
+	m, err = ParseManifestData([]byte("[package]\nname = \"app\"\n[effects.deps]\nstd = []\n"), "m.toml")
 	if err != nil || m.Effects.Deps.Std == nil || len(m.Effects.Deps.Std) != 0 {
 		t.Errorf("deps with std = []: %+v, %v; want a ceiling that allows nothing", m.Effects, err)
 	}
-	m, err = ParseManifestData([]byte("[module]\nname = \"app\"\n[effects.deps.modules]\n\"pg\" = []\n"), "m.toml")
-	if err != nil || m.Effects == nil || m.Effects.Deps == nil || m.Effects.Deps.Modules["pg"] == nil {
-		t.Errorf("deps.modules alone: %+v, %v; want a deps table with the entry", m.Effects, err)
+	m, err = ParseManifestData([]byte("[package]\nname = \"app\"\n[effects.deps.packages]\n\"pg\" = []\n"), "m.toml")
+	if err != nil || m.Effects == nil || m.Effects.Deps == nil || m.Effects.Deps.Packages["pg"] == nil {
+		t.Errorf("deps.packages alone: %+v, %v; want a deps table with the entry", m.Effects, err)
 	}
 	// [effects.self.modules] is under [effects.self]: alone it
 	// gives a self with no std, and its entries; an empty one is a table
 	// with no entries, and self without it has none at all.
-	m, err = ParseManifestData([]byte("[module]\nname = \"app\"\n[effects.self.modules]\n\"pricing\" = []\n\"reports::daily\" = [\"std::fs\"]\n"), "m.toml")
+	m, err = ParseManifestData([]byte("[package]\nname = \"app\"\n[effects.self.modules]\n\"pricing\" = []\n\"reports::daily\" = [\"std::fs\"]\n"), "m.toml")
 	if err != nil || m.Effects == nil || m.Effects.Self == nil || m.Effects.Deps != nil || len(m.Effects.Self.Std) != 0 ||
 		m.Effects.Self.Modules["pricing"] == nil || len(m.Effects.Self.Modules["pricing"]) != 0 ||
 		fmt.Sprint(m.Effects.Self.Modules["reports::daily"]) != "[std::fs]" {
 		t.Errorf("self.modules alone: %+v, %v; want a self table with the two entries", m.Effects, err)
 	}
-	m, err = ParseManifestData([]byte("[module]\nname = \"app\"\n[effects.self]\nentries_required = true\n\n[effects.self.modules]\n"), "m.toml")
+	m, err = ParseManifestData([]byte("[package]\nname = \"app\"\n[effects.self]\nentries_required = true\n\n[effects.self.modules]\n"), "m.toml")
 	if err != nil || m.Effects.Self.Modules == nil || len(m.Effects.Self.Modules) != 0 || !m.Effects.Self.EntriesRequired {
 		t.Errorf("an empty self.modules with entries_required: %+v, %v; want the table with no entries, and entries_required", m.Effects.Self, err)
 	}
-	m, err = ParseManifestData([]byte("[module]\nname = \"app\"\n[effects.self]\nstd = []\n"), "m.toml")
+	m, err = ParseManifestData([]byte("[package]\nname = \"app\"\n[effects.self]\nstd = []\n"), "m.toml")
 	if err != nil || m.Effects.Self.Modules != nil || m.Effects.Self.EntriesRequired {
 		t.Errorf("self with no table of entries: %+v, %v; want no entries and no entries_required", m.Effects.Self, err)
 	}
@@ -136,9 +162,9 @@ std_in_tests = ["std::instant"]
 // capsAbout is what the unknown-key error says each key of an effect
 // table holds.
 const (
-	capsAbout = "it holds two tables: [effects.self] is the effects this module's own code may have, and [effects.deps] the effects the code of the modules it depends on may have"
-	selfAbout = "`std` lists the effects this module's own code may have, by std module, and `std_in_tests` those its tests may also have, `entries_required` makes every module of the project have an entry, and [effects.self.modules] holds an entry for each of its modules"
-	depsAbout = "`std` and `std_in_tests` list the most effects any dependency may have, `entries_required` makes every dependency have an entry, and [effects.deps.modules] holds an entry for each dependency"
+	capsAbout = "it holds two tables: [effects.self] is the effects this package's own code may have, and [effects.deps] the effects the code of the packages it depends on may have"
+	selfAbout = "`std` lists the effects this package's own code may have, by std module, and `std_in_tests` those its tests may also have, `entries_required` makes every module of the project have an entry, and [effects.self.modules] holds an entry for each of its modules"
+	depsAbout = "`std` and `std_in_tests` list the most effects any dependency may have, `entries_required` makes every dependency have an entry, and [effects.deps.packages] holds an entry for each dependency"
 )
 
 // An entry of a std list that is not a std module's name in form, a host
@@ -158,14 +184,14 @@ func TestManifest_EffectEntryForms(t *testing.T) {
 			"m.toml:5: [effects.deps] std: \"std::fs/host\" is not a std module; write one as an import does, such as \"std::fs\""},
 		{"a go: name in self's std", "[effects.self]\nstd = [\"go:github.com/jackc/pgx/v5\"]\n",
 			"m.toml:5: [effects.self] std: \"go:github.com/jackc/pgx/v5\" is not a std module; write one as an import does, such as \"std::fs\""},
-		{"a go: name in a module's entry", "[effects.deps.modules]\n\"a\" = [\"go:strings\"]\n",
-			"m.toml:5: [effects.deps.modules] \"a\": \"go:strings\" is not a std module; write one as an import does, such as \"std::fs\""},
+		{"a go: name in a module's entry", "[effects.deps.packages]\n\"a\" = [\"go:strings\"]\n",
+			"m.toml:5: [effects.deps.packages] \"a\": \"go:strings\" is not a std module; write one as an import does, such as \"std::fs\""},
 		{"a name twice in an entry of the project's own", "[effects.self.modules]\n\"pricing\" = [\"std::fs\", \"std::fs\"]\n",
 			"m.toml:5: [effects.self.modules] \"pricing\" lists std::fs twice"},
 		{"an empty key in the project's entries", "[effects.self.modules]\n\"\" = []\n",
 			"m.toml:5: [effects.self.modules] has an empty key; write a module as the project's own code imports it, such as \"pricing\""},
-		{"an empty key in the dependencies' entries", "[effects.deps.modules]\n\"\" = []\n",
-			"m.toml:5: [effects.deps.modules] has an empty key; write a dependency's name as [dependencies] names it"},
+		{"an empty key in the dependencies' entries", "[effects.deps.packages]\n\"\" = []\n",
+			"m.toml:5: [effects.deps.packages] has an empty key; write a dependency's name as [dependencies] names it"},
 		{"twice", "[effects.self]\nstd = [\"std::io\", \"std::io\"]\n",
 			"m.toml:5: [effects.self] std lists std::io twice"},
 		{"go in self", "[effects.self]\nstd = []\ngo = true\n",
@@ -205,7 +231,7 @@ func TestManifest_EffectEntryForms(t *testing.T) {
 		"[effects.modules]\n\"a\" = []\n", "m.toml:4: [effects] has no key `modules`; " + capsAbout})
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			m, err := ParseManifestData([]byte("[module]\nname = \"app\"\n\n"+c.table), "m.toml")
+			m, err := ParseManifestData([]byte("[package]\nname = \"app\"\n\n"+c.table), "m.toml")
 			if err == nil {
 				t.Fatalf("the manifest is accepted (%+v); want %q", m.Effects, c.want)
 			}
@@ -219,14 +245,14 @@ func TestManifest_EffectEntryForms(t *testing.T) {
 // A top-level table named for the module itself, or by the key its
 // [dependencies] gives a module it needs, belongs to that module's tools,
 // which `nomi tool` runs under that name; any other is an error, the
-// dependency's own [module].name among them.
+// dependency's own [package].name among them.
 func TestManifest_ARequiredModulesTableIsItsTools(t *testing.T) {
 	root := t.TempDir()
 	app := filepath.Join(root, "app")
 	kit := filepath.Join(root, "kit")
 	for path, text := range map[string]string{
-		filepath.Join(app, "nomi.toml"): "[module]\nname = \"app\"\n\n[dependencies]\ntools = { dir = \"../kit\" }\n\n[tools.database.main]\ndialect = \"sqlite\"\n\n[app]\nanything = 1\n",
-		filepath.Join(kit, "nomi.toml"): "[module]\nname = \"kit\"\n",
+		filepath.Join(app, "nomi.toml"): "[package]\nname = \"app\"\n\n[dependencies]\ntools = { dir = \"../kit\" }\n\n[tools.database.main]\ndialect = \"sqlite\"\n\n[app]\nanything = 1\n",
+		filepath.Join(kit, "nomi.toml"): "[package]\nname = \"kit\"\n",
 	} {
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 			t.Fatal(err)
@@ -239,10 +265,10 @@ func TestManifest_ARequiredModulesTableIsItsTools(t *testing.T) {
 		t.Fatalf("a required module's table is refused: %v", err)
 	}
 	for _, c := range []struct{ manifest, want string }{
-		{"[module]\nname = \"app\"\n\n[dependencies]\ntools = { dir = \"../kit\" }\n\n[kit.database.main]\ndialect = \"sqlite\"\n",
-			":7: nomi.toml has no [kit] table; its tables are [dependencies], [effects], [i18n], [indirect], [module], [money]"},
-		{"[module]\nname = \"app\"\n\n[kitt.database.main]\ndialect = \"sqlite\"\n",
-			":4: nomi.toml has no [kitt] table; its tables are [dependencies], [effects], [i18n], [indirect], [module], [money]"},
+		{"[package]\nname = \"app\"\n\n[dependencies]\ntools = { dir = \"../kit\" }\n\n[kit.database.main]\ndialect = \"sqlite\"\n",
+			":7: nomi.toml has no [kit] table; its tables are [dependencies], [effects], [i18n], [money], [package], and its tools' tables [app] and [tools]"},
+		{"[package]\nname = \"app\"\n\n[kitt.database.main]\ndialect = \"sqlite\"\n",
+			":4: nomi.toml has no [kitt] table; its tables are [dependencies], [effects], [i18n], [money], [package], and its tools' tables [app]"},
 	} {
 		writeManifestFile(t, app, "nomi.toml", c.manifest)
 		_, err := LoadManifest(app)

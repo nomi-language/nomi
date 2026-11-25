@@ -22,7 +22,9 @@ var rejectedWords = map[string]bool{
 // Every word the parser recognizes by lexeme to start a construct is in
 // lexer.ContextualWords, which the language server's keyword hover and
 // the spec's keyword list are held to, and every listed word is one the
-// parser recognizes.
+// parser recognizes. The parser's files are read, and the lexer's, which
+// answer for both where a word is a modifier (lexer.IsVisibilityModifier)
+// and where a body opens (lexer.IsComplete).
 func TestContextualWordsAreListed(t *testing.T) {
 	listed := map[string]bool{}
 	for _, w := range lexer.ContextualWords() {
@@ -32,6 +34,11 @@ func TestContextualWordsAreListed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	lexerFiles, err := filepath.Glob(filepath.Join("..", "lexer", "*.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	files = append(files, lexerFiles...)
 	compared := regexp.MustCompile(`Lexeme [!=]= "([a-z_]+)"|peekIsContextual\("([a-z_]+)"\)|case ("phrase", "noun", "embed"):`)
 	quoted := regexp.MustCompile(`"([a-z_]+)"`)
 	seen := map[string]bool{}

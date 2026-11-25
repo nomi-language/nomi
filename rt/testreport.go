@@ -722,10 +722,16 @@ type Test struct {
 	// binary; a field is per case, which is what the language rule is —
 	// `clock` is per group.
 	//
-	// The second parameter is the in-bubble cleanup: runTest passes
-	// ResetSupervisors, the per-case supervisor drain. It is a parameter
-	// because the drain has to happen inside the bubble to spend virtual time.
+	// The second parameter is the in-bubble cleanup: runTest passes the end
+	// of the case's supervisors, through RunBubbled, which drops the registry
+	// once the bubble has ended. It is a parameter because the drain has to
+	// happen inside the bubble to spend virtual time.
 	Bubble func(body func() error, cleanup func()) error
+	// Stop, for a bubbled case, closes when the case's time runs out
+	// (RunBubbled), or is nil for a case with no time limit. A case on the
+	// real clock needs none: its limit cancels its frame, which std's waits
+	// outside the program (input, sockets, processes) observe.
+	Stop <-chan struct{}
 	// Live, when set, receives the case's output as it is written, beside
 	// the output RunTestCases answers (Capture.Stream).
 	Live io.Writer
@@ -789,12 +795,19 @@ func RunTestsLabelled(ctx context.Context, w io.Writer, label func(string) strin
 // with `dbg` coloured as the report colours its lines. A case that fails
 // keeps the output it wrote before failing. rows is how many `subtests` rows
 // each case ran (EnterSubtests), which CountCases reads.
+//
+// Once a case in the process was still waiting outside the program when its
+// time ran out (RunBubbled), no case starts: each answers ErrCaseNotRun.
 func RunTestCases(ctx context.Context, tests []Test) (failures []error, outputs []string, rows []int) {
 	fr := NewFrame(ctx)
 	failures = make([]error, len(tests))
 	outputs = make([]string, len(tests))
 	rows = make([]int, len(tests))
 	for i, t := range tests {
+		if stuckCase.Load() != nil {
+			failures[i] = ErrCaseNotRun
+			continue
+		}
 		outputs[i], rows[i], failures[i] = runTest(fr, t)
 	}
 	return failures, outputs, rows
@@ -820,12 +833,17 @@ func RunTestCases(ctx context.Context, tests []Test) (failures []error, outputs 
 // dereferences the zero-value testing.T's nil internals and kills the process
 // (layer 2's reason). A readable failure beats a segfault, and neither is a
 // state a correct program reaches.
+//
+// The case is a main line of the task registry (MainLine): a deadlock among
+// its tasks fails it at once with the report.
 func runTest(fr *Frame, t Test) (output string, rows int, err error) {
 	fr, c := EnterTestCapture(NewFrame(fr.ctx))
 	if t.Live != nil {
 		c.Stream(t.Live)
 	}
+	end := MainLine(fr, "the test")
 	err = runTestCase(fr, t)
+	end()
 	return c.Close().Output, c.subtestRows(), err
 }
 
@@ -844,7 +862,13 @@ func runTestCase(fr *Frame, t Test) error {
 	// supervisor still holding a goroutine when the bubble closes is a hard
 	// error — synctest reports "main bubble goroutine has exited but blocked
 	// goroutines remain".
-	return t.Bubble(func() error { return runTestBody(fr, t) }, ResetSupervisors)
+	err := RunBubbled(t.Bubble, func() error { return runTestBody(fr, t) }, t.Stop)
+	if errors.Is(err, ErrCaseStillRunning) {
+		// Where its tasks wait outside the program, as their machine noted
+		// it: the case's report names each.
+		return &CaseStillRunning{InGo: tasks.inGo(fr.task)}
+	}
+	return err
 }
 
 // runTestBody converts a Nomi fault into the test's error: the case fails, its text is reported, and the run continues

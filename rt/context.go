@@ -47,7 +47,7 @@ import (
 // Two checkable facts decide it:
 //
 //  1. rt is a consumer of Context, not only its provider. `EnterDeadline` needs
-//     `contextEffectiveDeadline`, and rt imports no adapter. std/calendar's rt types have no rt-side reader, which is
+//     `chainBound`, and rt imports no adapter. std/calendar's rt types have no rt-side reader, which is
 //     why its implementation can live in an adapter.
 //  2. The host boundary refuses Context as a value by decision, so an
 //     embedder cannot smuggle a ctx through it. An adapter's mechanism is the
@@ -74,10 +74,9 @@ import (
 // derivation to serve one entry.
 //
 // One node type for both a deadline link and a value link, and it is what keeps
-// `ContextWithFloor`'s splice correct with no changes:
-// `contextEffectiveDeadline` skips a node whose `set` is false, so a value node
-// is invisible to the deadline walk, and the floor still pushes one `set` node
-// above the whole of `next`. Two chains would have needed the splice to know
+// `ContextWithFloor`'s splice correct with no changes: `chainBound` skips a
+// node with noDeadline, so a value node is invisible to the deadline walk, and
+// the floor still pushes its deadline nodes above the whole of `next`. Two chains would have needed the splice to know
 // which one it was splicing.
 //
 // # The zero value is the root
@@ -99,20 +98,20 @@ type Context struct{ node *contextNode }
 // contextNode is one link in the chain: a deadline, a value binding, or (for
 // the root's absence) neither.
 //
-// `set` rather than a `*int64` or a sentinel: nanoseconds since the epoch uses
-// the full int64 range, so no value of the field can mean "absent", and a
-// pointer would put a second allocation on every deriver.
+// `clock` rather than a `*int64` or a sentinel says whether the link bounds a
+// deadline: `ends` uses the full int64 range, so no value of it can mean
+// "absent", and a pointer would put a second allocation on every deriver.
 //
 // `tid` needs no such flag, because nil is unreachable for a real binding: the
 // VM passes an interned `*TypeID` at every `with_value` call. So `tid !=
-// nil` is "this node binds a value", the same way `set` is "this node bounds a
-// deadline", and the two are independent — a value node leaves `set` false and
-// is therefore invisible to contextEffectiveDeadline.
+// nil` is "this node binds a value", the same way a clock is "this node bounds
+// a deadline", and the two are independent: a value node has noDeadline and
+// is therefore invisible to chainBound.
 type contextNode struct {
-	// deadline is nanoseconds since the Unix epoch, meaningful only when set.
-	deadline int64
-	set      bool
-	parent   *contextNode
+	// ends is when the link's deadline ends, on the clock `clock` names.
+	ends   int64
+	clock  deadlineClock
+	parent *contextNode
 	// tid is the identity of the Nomi type this node binds a value for, or nil
 	// when the node binds none. Compared by address and never by its contents.
 	tid *TypeID
@@ -122,10 +121,40 @@ type contextNode struct {
 	val any
 }
 
+// deadlineClock is the clock a link's deadline is kept on, or noDeadline for
+// a link that bounds none.
+//
+// # Two requests, two clocks
+//
+// `with_timeout(c, d)` asks for `d` of elapsed time. It is kept on the
+// monotonic clock (Monotonic), which only moves forward at the rate of real
+// time, so setting the system clock, by NTP, a suspended laptop or a user,
+// neither fires it early nor holds it late. `with_deadline(c, at)` asks for a
+// moment on the wall clock. It is kept as that Instant and measured against
+// the wall clock each time something asks, so a step of the wall clock moves
+// it, as it moves the moment it names.
+//
+// Which of two links on different clocks ends first depends on the clocks'
+// readings, so a chain is reduced to its earliest link on each clock
+// (chainBound), and a reading decides between those two only when something
+// asks (deadlineBound.inForce). Every reader goes through inForce: the Instant
+// `Context.deadline` reports, the time left, and the Go context a `with` line
+// derives (EnterDeadline).
+type deadlineClock uint8
+
+const (
+	noDeadline deadlineClock = iota
+	// elapsedClock is a timeout's: ends is a Monotonic reading.
+	elapsedClock
+	// wallClock is a named deadline's: ends is an Instant.
+	wallClock
+)
+
 // ContextRoot is `Context.root()`: no deadline, no parent.
 func ContextRoot() Context { return Context{} }
 
-// ContextWithDeadline is `Context.with_deadline(c, at)`.
+// ContextWithDeadline is `Context.with_deadline(c, at)`: a deadline when the
+// wall clock reads `at`, kept on the wall clock (deadlineClock).
 //
 // It pushes a node rather than computing min(parent, at) eagerly. The
 // documented rule is "if the parent has a tighter deadline already, the parent's
@@ -134,27 +163,26 @@ func ContextRoot() Context { return Context{} }
 // widening derivation, because the parent's node would already have been
 // collapsed away.
 func ContextWithDeadline(c Context, at Instant) Context {
-	return Context{node: &contextNode{deadline: int64(at), set: true, parent: c.node}}
+	return Context{node: &contextNode{ends: int64(at), clock: wallClock, parent: c.node}}
 }
 
-// ContextWithTimeout is `Context.with_timeout(c, dur)`: a deadline at
-// `now() + dur`, pushed for ContextWithDeadline's reason.
-//
-// The sum saturates at an Instant's range: a timeout that ends past the
-// latest Instant (the year 2262) ends there, which std/context documents as
-// a deadline no program reaches, and one that ends before the earliest has
-// passed. dur itself arrived saturated at int64 (hostadapt.DurationNanos),
-// so an unsaturated sum would wrap and end a long timeout at once.
+// ContextWithTimeout is `Context.with_timeout(c, dur)`: a deadline `dur` of
+// elapsed time from now, kept on the monotonic clock (deadlineClock), pushed
+// for ContextWithDeadline's reason.
 func ContextWithTimeout(c Context, dur Duration) Context {
-	now := time.Now().UnixNano()
-	deadline := now + int64(dur)
-	switch {
-	case dur > 0 && deadline < now:
-		deadline = math.MaxInt64
-	case dur < 0 && deadline > now:
-		deadline = math.MinInt64
-	}
-	return Context{node: &contextNode{deadline: deadline, set: true, parent: c.node}}
+	return contextWithTimeout(c, dur, MonotonicNow())
+}
+
+// contextWithTimeout is ContextWithTimeout at the monotonic reading now.
+//
+// The sum saturates: a timeout that ends past the latest reading ends there,
+// about 292 years after the process started, past the latest Instant, which
+// std/context documents as a deadline no program reaches. dur itself arrived
+// saturated at int64 (hostadapt.DurationNanos), so an unsaturated sum would
+// wrap and end a long timeout at once.
+func contextWithTimeout(c Context, dur Duration, now Monotonic) Context {
+	ends := addSaturating(int64(now), int64(dur))
+	return Context{node: &contextNode{ends: ends, clock: elapsedClock, parent: c.node}}
 }
 
 // ContextWithValue is `Context.with_value(c, value)`: a child context binding
@@ -225,9 +253,11 @@ func ContextValue[T any](c Context, ty Type[T]) Option[T] {
 // feature.
 //
 // A splice onto the existing chain rather than a new field anywhere, and that is
-// what makes it small: `contextEffectiveDeadline` already walks the whole chain
-// and takes the earliest link, so pushing `prev`'s effective deadline as a node
-// above `next` makes every later reader compute the floor with no changes. There
+// what makes it small: chainBound already walks the whole chain and takes the
+// earliest link on each clock, so pushing `prev`'s earliest link on each clock
+// as nodes above `next` makes every later reader compute the floor with no
+// changes. Both are pushed, not only the one in force now, because which of
+// the two ends first depends on the clocks' readings (deadlineClock). There
 // is nothing to cancel and no blocking operation to teach, which matters because
 // missing one is invisible — a blocking call that consulted the unfloored
 // deadline would simply wait too long.
@@ -241,11 +271,15 @@ func ContextValue[T any](c Context, ty Type[T]) Option[T] {
 // unset node, so a program that never had a bound does not acquire an empty link
 // per rebind.
 func ContextWithFloor(prev, next Context) Context {
-	ns, ok := contextEffectiveDeadline(prev)
-	if !ok {
-		return next
+	b := chainBound(prev)
+	node := next.node
+	if b.hasElapsed {
+		node = &contextNode{ends: b.elapsed, clock: elapsedClock, parent: node}
 	}
-	return Context{node: &contextNode{deadline: ns, set: true, parent: next.node}}
+	if b.hasWall {
+		node = &contextNode{ends: b.wall, clock: wallClock, parent: node}
+	}
+	return Context{node: node}
 }
 
 // ContextWithoutDeadline is the chain with every deadline link dropped and
@@ -265,8 +299,8 @@ func ContextWithoutDeadline(c Context) Context {
 
 // withoutDeadlineNode rebuilds one chain without its deadline links.
 //
-// A pure deadline link is dropped rather than rebuilt with `set` false: the
-// node would then carry nothing, and `contextEffectiveDeadline` and
+// A pure deadline link is dropped rather than rebuilt with noDeadline: the
+// node would then carry nothing, and chainBound and
 // `contextLookupValue` would both walk past it. Keeping it would grow the chain
 // on every detach for no observable.
 //
@@ -282,60 +316,129 @@ func withoutDeadlineNode(n *contextNode) *contextNode {
 		// Nothing but a deadline. Its parent chain replaces it.
 		return parent
 	}
-	if !n.set && parent == n.parent {
+	if n.clock == noDeadline && parent == n.parent {
 		return n
 	}
 	return &contextNode{parent: parent, tid: n.tid, val: n.val}
 }
 
-// contextEffectiveDeadline is the earliest deadline on this node or any
-// ancestor, which is where "the parent's deadline wins if tighter" is actually
-// decided.
-func contextEffectiveDeadline(c Context) (int64, bool) {
-	var earliest int64
-	found := false
-	for n := c.node; n != nil; n = n.parent {
-		if !n.set {
-			continue
-		}
-		if !found || n.deadline < earliest {
-			earliest, found = n.deadline, true
-		}
-	}
-	return earliest, found
+// deadlineBound is the deadline a chain is under: its earliest link on each
+// clock. chainBound decides it without reading either clock, and inForce
+// decides at a reading which of the two ends first.
+type deadlineBound struct {
+	elapsed, wall       int64
+	hasElapsed, hasWall bool
 }
 
-// ContextDeadline is `Context.deadline(c) -> Option<Instant>`.
+// chainBound is the earliest deadline on this node or any ancestor, per
+// clock, which is where "the parent's deadline wins if tighter" is decided.
+func chainBound(c Context) deadlineBound {
+	var b deadlineBound
+	for n := c.node; n != nil; n = n.parent {
+		switch n.clock {
+		case elapsedClock:
+			if !b.hasElapsed || n.ends < b.elapsed {
+				b.elapsed, b.hasElapsed = n.ends, true
+			}
+		case wallClock:
+			if !b.hasWall || n.ends < b.wall {
+				b.wall, b.hasWall = n.ends, true
+			}
+		}
+	}
+	return b
+}
+
+// set reports whether the chain has a deadline at all.
+func (b deadlineBound) set() bool { return b.hasElapsed || b.hasWall }
+
+// clockReading is one reading of both clocks: the wall clock as an Instant
+// and the monotonic clock as a Monotonic.
+type clockReading struct {
+	wall Instant
+	mono Monotonic
+}
+
+// readingOf is the reading a Go time carries. Under `clock Clock.Virtual`
+// time.Now carries no monotonic reading, so mono is the bubble's clock minus
+// the origin, as MonotonicNow says, and both clocks are the bubble's.
+func readingOf(t time.Time) clockReading {
+	return clockReading{wall: Instant(t.UnixNano()), mono: Monotonic(t.Sub(monotonicOrigin))}
+}
+
+// inForce is the deadline in force at the reading now: the time left until
+// it ends, negative once it has passed, and the Instant it ends at.
+//
+// A timeout's time left is its end minus the monotonic reading, and the
+// Instant it ends at is the wall clock's reading plus that time. A named
+// deadline's Instant is the one it names, and its time left is that minus the
+// wall clock's reading. The one with less time left is in force; on a tie the
+// named one, whose Instant is exact.
+func (b deadlineBound) inForce(now clockReading) (left Duration, at Instant) {
+	if b.hasWall {
+		left, at = Duration(subSaturating(b.wall, int64(now.wall))), Instant(b.wall)
+	}
+	if b.hasElapsed {
+		l := Duration(subSaturating(b.elapsed, int64(now.mono)))
+		if !b.hasWall || l < left {
+			left, at = l, Instant(addSaturating(int64(now.wall), int64(l)))
+		}
+	}
+	return left, at
+}
+
+// ContextDeadline is `Context.deadline(c) -> Option<Instant>`: the Instant the
+// deadline in force ends at, read now (deadlineBound.inForce).
 func ContextDeadline(c Context) Option[Instant] {
-	ns, ok := contextEffectiveDeadline(c)
-	if !ok {
+	b := chainBound(c)
+	if !b.set() {
 		return None[Instant]()
 	}
-	return Some(Instant(ns))
+	_, at := b.inForce(readingOf(time.Now()))
+	return Some(at)
 }
 
 // ContextDeadlineRemaining is `Context.deadline_remaining(c) -> Option<Duration>`.
 //
 // Clamped at zero, because std/context documents `Some(0)` as "the deadline has
 // passed" and a negative Duration would render as `-5s` through
-// DurationToString — a different string, not a different number.
+// DurationToString, a different string, not a different number.
 func ContextDeadlineRemaining(c Context) Option[Duration] {
-	ns, ok := contextEffectiveDeadline(c)
-	if !ok {
+	b := chainBound(c)
+	if !b.set() {
 		return None[Duration]()
 	}
-	// Compared before subtracting: a deadline saturated at the earliest
-	// Instant minus now would wrap past int64.
-	now := time.Now().UnixNano()
-	if ns <= now {
-		return Some(Duration(0))
+	left, _ := b.inForce(readingOf(time.Now()))
+	return Some(max(left, 0))
+}
+
+// addSaturating is a + b, held at the int64 range instead of wrapping.
+func addSaturating(a, b int64) int64 {
+	sum := a + b
+	switch {
+	case b > 0 && sum < a:
+		return math.MaxInt64
+	case b < 0 && sum > a:
+		return math.MinInt64
 	}
-	return Some(Duration(ns - now))
+	return sum
+}
+
+// subSaturating is a - b, held at the int64 range instead of wrapping.
+func subSaturating(a, b int64) int64 {
+	diff := a - b
+	switch {
+	case b < 0 && diff < a:
+		return math.MaxInt64
+	case b > 0 && diff > a:
+		return math.MinInt64
+	}
+	return diff
 }
 
 // ContextInspect renders a Context, and it renders the contents away on purpose.
 //
-// The reason: a Context's deadline is a wall-clock instant, so rendering it
+// The reason: a Context's deadline is read against the clock, so rendering it
 // would make every `${ctx}` in a test output time-dependent. A program that
 // wants the deadline asks `Context.deadline` for it.
 func ContextInspect(c Context) string { return "<context>" }

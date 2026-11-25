@@ -20,7 +20,7 @@ func TestDocumentLinks(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	write("nomi.toml", "[module]\nname = \"app\"\n")
+	write("nomi.toml", "[package]\nname = \"app\"\n")
 	write("models/users.nomi", "pub struct User\n    name: String\nend\n")
 	write("game.nomi", "pub struct Game\n    turn: Int\nend\n")
 	src := `import
@@ -37,7 +37,7 @@ import std::io as console
 	write("main.nomi", src)
 	uri := pathToURI(filepath.Join(dir, "main.nomi"))
 	s := NewServer()
-	s.docs.SetWorkspaceRoot(dir)
+	s.docs.SetEditorFolder(dir)
 	s.docs.Open(uri, src)
 	links, err := s.textDocumentDocumentLink(nil, &protocol.DocumentLinkParams{TextDocument: protocol.TextDocumentIdentifier{URI: protocol.DocumentUri(uri)}})
 	if err != nil {

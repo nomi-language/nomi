@@ -1,8 +1,6 @@
 package analysis
 
 import (
-	"maps"
-	"slices"
 	"strings"
 	"sync/atomic"
 
@@ -57,20 +55,19 @@ func FindMissingImports(fa *FileAnalysis, nodes []ast.Node) []MissingImport {
 	if fa == nil || len(fa.Program().StdlibModuleScopes) == 0 {
 		return nil
 	}
-	typeIndex := buildStdlibTypeIndex(fa)
 	seen := make(map[Pos]bool)
 	var out []MissingImport
 	for _, node := range nodes {
 		WalkNodes(node, func(n ast.Node) {
 			switch v := n.(type) {
 			case *ast.TypeIdent: // expression-level type ref (`Set.insert`)
-				addTypeSuggestions(fa, typeIndex, v.Name, Pos{Line: v.Line, Col: v.Col}, seen, &out)
+				addTypeSuggestions(fa, v.Name, Pos{Line: v.Line, Col: v.Col}, seen, &out)
 			case *ast.SimpleType: // annotation `s: Set`
-				addTypeSuggestions(fa, typeIndex, v.Name, Pos{Line: v.Line, Col: v.Col}, seen, &out)
+				addTypeSuggestions(fa, v.Name, Pos{Line: v.Line, Col: v.Col}, seen, &out)
 			case *ast.GenericType: // annotation `s: Set<Int>` (the base name)
-				addTypeSuggestions(fa, typeIndex, v.Name, Pos{Line: v.Line, Col: v.Col}, seen, &out)
+				addTypeSuggestions(fa, v.Name, Pos{Line: v.Line, Col: v.Col}, seen, &out)
 			case *ast.TaggedString: // typed literal tag (``Regex`a+` ``); the node sits at the quote
-				addTypeSuggestions(fa, typeIndex, v.Tag, Pos{Line: v.Line, Col: max(v.Col-len(v.Tag), 1)}, seen, &out)
+				addTypeSuggestions(fa, v.Tag, Pos{Line: v.Line, Col: max(v.Col-len(v.Tag), 1)}, seen, &out)
 			case *ast.FieldAccess: // expression-level file API ref (`io.inspect`)
 				if obj, ok := ast.QualifierIdent(v.Object); ok {
 					addNamespaceSuggestion(fa, obj.Name, Pos{Line: obj.Line, Col: obj.Col}, seen, &out)
@@ -88,82 +85,31 @@ func addNamespaceSuggestion(fa *FileAnalysis, name string, pos Pos, seen map[Pos
 	if fa.References[pos] != nil || fa.Definitions[pos] != nil {
 		return
 	}
-	if exports := stdExports(); exports != nil {
-		if !exports.modules[name] {
-			return
-		}
-	} else if fa.Program().StdlibModuleScopes[name] == nil {
-		return
-	}
-	if _, internal := internalStdModules[name]; internal {
+	if !IsPublicStdModule(name) {
 		return
 	}
 	seen[pos] = true
 	*out = append(*out, MissingImport{Qualifier: name, ModulePath: "std/" + name, Pos: pos})
 }
 
-func addTypeSuggestions(fa *FileAnalysis, typeIndex map[string][]string, name string, pos Pos, seen map[Pos]bool, out *[]MissingImport) {
+// addTypeSuggestions offers, for name, a type the file names without
+// binding it, the import of each public std module that exports a type of
+// that name (stdTypeModules): the modules the "import `std::http.Method`"
+// help of an unbound name names.
+func addTypeSuggestions(fa *FileAnalysis, name string, pos Pos, seen map[Pos]bool, out *[]MissingImport) {
 	if seen[pos] || IsSynthesizedLine(pos.Line) {
 		return
 	}
 	if fa.References[pos] != nil || fa.Definitions[pos] != nil { // resolved, or a definition
 		return
 	}
-	mods := typeIndex[name]
+	mods := stdTypeModules(name)
 	if len(mods) == 0 {
 		return
 	}
 	seen[pos] = true
-	for _, modPath := range mods { // one suggestion per candidate module
-		*out = append(*out, MissingImport{Qualifier: name, ModulePath: modPath, Member: name, Pos: pos})
-	}
-}
-
-// buildStdlibTypeIndex maps each stdlib-exported type/module owner name to
-// the module(s) that OWN it. The `Public && Resolved == nil` filter is load-bearing: a module's
-// scope also holds every prelude/imported name visible inside it (those carry
-// Resolved != nil), so without it the index would claim e.g. `Map` is exported
-// by every module that imports it. Restricting to owner-like kinds keeps impl
-// methods and variant constructors out.
-//
-// With std's exports installed (SetStdExports) the index is theirs, every
-// public module's, whichever modules this process built: the same modules
-// the "import `std::http.Method`" help of an unbound name names.
-func buildStdlibTypeIndex(fa *FileAnalysis) map[string][]string {
-	idx := map[string][]string{}
-	if exports := stdExports(); exports != nil {
-		for name, modules := range exports.types {
-			for _, m := range modules {
-				idx[name] = append(idx[name], "std/"+m)
-			}
-		}
-		return idx
-	}
-	seen := map[*Scope]bool{}
-	// In module order, so a name several modules export lists them, and
-	// offers their imports, in the same order on every run.
-	scopes := fa.Program().StdlibModuleScopes
-	for _, short := range slices.Sorted(maps.Keys(scopes)) {
-		indexStdlibScopeTypes(idx, scopes[short], "std/"+short, seen)
-	}
-	return idx
-}
-
-func indexStdlibScopeTypes(idx map[string][]string, scope *Scope, modulePath string, seen map[*Scope]bool) {
-	if scope == nil {
-		return
-	}
-	if seen[scope] {
-		return
-	}
-	seen[scope] = true
-	for name, sym := range scope.Symbols {
-		if sym == nil || sym.Resolved != nil || !sym.Public {
-			continue
-		}
-		if isTypeKind(sym.Kind) {
-			idx[name] = append(idx[name], modulePath)
-		}
+	for _, m := range mods { // one suggestion per candidate module
+		*out = append(*out, MissingImport{Qualifier: name, ModulePath: "std/" + m, Member: name, Pos: pos})
 	}
 }
 

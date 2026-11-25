@@ -10,8 +10,8 @@ import (
 // and a `type` over a refinement, implements `TryFrom` of its base through
 // the `try_from` its rule supplies (refinement_synthesis.go, tryFromImpl).
 // That function builds a value of the type, so for an opaque type it is
-// construction, private to the defining file and its partner test
-// (opaqueOutside), as its call form is. Outside them the impl does not
+// construction, private to the defining file (opaqueOutside), as its call
+// form is. Outside it the impl does not
 // count toward a bound (spec §4 *Opaque distinct types*).
 //
 // The checker decides it where it decides that a type implements an
@@ -50,14 +50,21 @@ func constructionImpl(ib *ast.ImplBlock) bool {
 // compiler provides for building recv, and recv is an opaque type this file
 // may not build: an impl that counts toward no bound here.
 func (c *checker) hidesConstruction(info *ImplTypeArgs, recv Type) bool {
-	return info != nil && constructionImpl(info.Block) && c.opaqueOutside(recv) != ""
+	if info == nil || !constructionImpl(info.Block) {
+		return false
+	}
+	name, _ := c.opaqueOutside(recv)
+	return name != ""
 }
 
 // implementsOnlyByConstruction reports whether recv has impls of the
 // interface iface (declared by origin) and each is one this file may not
 // count (hidesConstruction), so recv does not implement iface here.
 func (c *checker) implementsOnlyByConstruction(recv Type, iface, origin string) bool {
-	if c == nil || c.fa == nil || c.opaqueOutside(recv) == "" {
+	if c == nil || c.fa == nil {
+		return false
+	}
+	if name, _ := c.opaqueOutside(recv); name == "" {
 		return false
 	}
 	blocks := c.fa.implBlocksOf(recv, iface, origin)
@@ -77,13 +84,13 @@ func (c *checker) implementsOnlyByConstruction(recv Type, iface, origin string) 
 // the impls the compiler provides for building concrete would meet it
 // (implementsOnlyByConstruction), and false for any other concrete.
 func (c *checker) withConstructionReason(e TypeError, concrete Type, iface *InterfaceType) (TypeError, bool) {
-	name := c.opaqueOutside(concrete)
+	name, home := c.opaqueOutside(concrete)
 	if name == "" || c.fa == nil {
 		return e, false
 	}
 	for _, b := range c.fa.implBlocksOf(concrete, iface.Name, iface.Origin) {
 		if c.hidesConstruction(b, concrete) {
-			help := fmt.Sprintf("'%s' is opaque, and its construction is private to its defining module: the `try_from` its rule provides builds a value, so its `%s` impl counts only there; use an exported constructor function", name, iface.Name)
+			help := fmt.Sprintf("'%s' is opaque, and its construction is private to %s: the `try_from` its rule provides builds a value, so its `%s` impl counts only there; use an exported constructor function", name, home, iface.Name)
 			return e.WithHint(help).coded(OpaqueConstructionCode, name), true
 		}
 	}

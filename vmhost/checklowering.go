@@ -157,8 +157,9 @@ func checkLoweringAnalyzed(ctx context.Context, path, src string, a *analyzedlow
 // it (frontend.Checker.ValidateHosts).
 //
 // Every file the front end would read must hold the text a was built
-// from: nomi.toml as analysis.ReadManifest reads it (an editor's text when
-// one is open), each other project file, and, when a file imports the
+// from: nomi.toml and the files that select its packages' versions, as
+// analysis.ManifestTexts reads them (an editor's text when one is open),
+// each other project file, and, when a file imports the
 // entry back, the entry itself, which the front end reads from disk for
 // that import.
 func analyzedProgram(path, src string, a *analyzedlowering.Analyzed, fc frontend.Config) *irbuild.Program {
@@ -176,7 +177,7 @@ func analyzedProgram(path, src string, a *analyzedlowering.Analyzed, fc frontend
 	if a.ReachesEntry && !onDisk(abs, src) {
 		return nil
 	}
-	if data, err := analysis.ReadManifest(a.Root); string(data) != a.Manifest || err != nil && !errors.Is(err, fs.ErrNotExist) {
+	if analysis.ManifestTexts(a.Root) != a.Manifest {
 		return nil
 	}
 	modules := map[string][]ast.Node{"": a.Nodes}

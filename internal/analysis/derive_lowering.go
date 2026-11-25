@@ -231,6 +231,11 @@ func conformanceText(conf *ast.ImplConformance) string {
 	return strings.Join(parts, ", ")
 }
 
+// DeriveOutsideTypesFileCode is the code of the error for a `derive` written
+// in a file other than the one that declares its type (spec §12 *Derive*).
+// Args are the type's name.
+const DeriveOutsideTypesFileCode = "derive-outside-types-file"
+
 func lowerTopLevelDerive(conf *ast.ImplConformance, nodes []ast.Node, index int, decls map[string]ast.Node, seen map[string]map[string]bool, errs *[]TypeError) []ast.Node {
 	addErr := func(line, col int, format string, args ...interface{}) {
 		*errs = append(*errs, TypeError{Line: line, Col: col, Message: fmt.Sprintf(format, args...)})
@@ -247,7 +252,8 @@ func lowerTopLevelDerive(conf *ast.ImplConformance, nodes []ast.Node, index int,
 		return nil
 	}
 	if decl == nil {
-		addErr(conf.Line, conf.Col, "`derive ... for %s` must be written in the file that declares `%s`, or in that file's partner test file (its name with `_test` before `.nomi`)", conf.Receiver.TypeString(), recvName)
+		*errs = append(*errs, TypeError{Line: conf.Line, Col: conf.Col, Code: DeriveOutsideTypesFileCode, Args: []string{recvName},
+			Message: fmt.Sprintf("`derive ... for %s` must be written in the file that declares `%s`", conf.Receiver.TypeString(), recvName)})
 		return nil
 	}
 

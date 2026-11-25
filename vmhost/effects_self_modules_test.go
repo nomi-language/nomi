@@ -14,7 +14,7 @@ import (
 // its nomi.toml after [effects.self] with std.
 func selfModulesFiles(std, tables string) map[string]string {
 	return map[string]string{
-		"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = " + std + "\n" + tables,
+		"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = " + std + "\n" + tables,
 		"main.nomi": `import
     std::io
     pricing
@@ -160,7 +160,7 @@ func selfListProblems(t *testing.T, entry string, files map[string]string) (stri
 func TestEffectLists_AnUnknownSelfModule(t *testing.T) {
 	files := selfModulesFiles(`["std::io", "std::http"]`, "\n[effects.self.modules]\n\"pricng\" = []\n\"net::fetch\" = [\"std::http\"]\n\"unused\" = []\n\"plugin::calc\" = []\n")
 	files["unused.nomi"] = "pub fn nothing() -> Int\n    1\nend\n"
-	files["plugin/nomi.toml"] = "[module]\nname = \"plugin\"\n"
+	files["plugin/nomi.toml"] = "[package]\nname = \"plugin\"\n"
 	files["plugin/calc.nomi"] = "pub fn one() -> Int\n    1\nend\n"
 	got, _ := selfListProblems(t, "main.nomi", files)
 	want := "nomi.toml:12: [effects.self.modules] names plugin::calc, which is no module of this project\n" +
@@ -219,11 +219,11 @@ func TestEffectLists_SelfEntriesRequired(t *testing.T) {
 // the dependency's nomi.toml.
 func TestEffectDiagnostic_ADependencyOverItsOwnModuleEntry(t *testing.T) {
 	own := "\n[effects.self]\nstd = [\"std::fs\"]\n\n[effects.self.modules]\n\"rules\" = []\n"
-	deps := "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.deps]\nstd = [\"std::io\", \"std::fs\"]\n"
+	deps := "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.deps]\nstd = [\"std::io\", \"std::fs\"]\n"
 	got, ds := effectDiagnostics(t, "app/main.nomi", dependencyFiles(deps, own))
-	want := "pricing/rules.nomi:4:5: pricing's `rules` has the effect std::fs, and its entry under the module's own [effects.self.modules] allows it no effects\n" +
+	want := "pricing/rules.nomi:4:5: pricing's `rules` has the effect std::fs, and its entry under the package's own [effects.self.modules] allows it no effects\n" +
 		"pricing/rules.nomi:4:5: help: reached from `main`; `main` calls `load`\n" +
-		"pricing/rules.nomi:4:5: help: pricing declares fewer effects than its code has, and the fix is in that module: add \"std::fs\" to \"rules\" under [effects.self.modules] in pricing/nomi.toml, or remove the call" +
+		"pricing/rules.nomi:4:5: help: pricing declares fewer effects than its code has, and the fix is in that package: add \"std::fs\" to \"rules\" under [effects.self.modules] in pricing/nomi.toml, or remove the call" +
 		"\napp/main.nomi:7:14: note: your code has the effect std::fs in pricing here: `main` calls `load`"
 	if got != want {
 		t.Errorf("diagnostics:\n%s\nwant:\n%s", got, want)

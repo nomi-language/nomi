@@ -127,14 +127,16 @@ func enterKeptFields(caller *Frame, kept *AppFields) (*Frame, func()) {
 		return &child, nil
 	}
 	next := kept.activeContext()
-	prev, prevHas := contextEffectiveDeadline(caller.app.activeContext())
-	if prevHas {
+	prev := chainBound(caller.app.activeContext())
+	if prev.set() {
 		floored := ContextWithFloor(caller.app.activeContext(), next)
 		child.app = kept.withContext(&floored)
 		next = floored
 	}
-	ns, has := contextEffectiveDeadline(next)
-	if !has || (prevHas && ns >= prev) || child.ctx == nil {
+	// A floored chain's bound is no looser than prev's on either clock, so an
+	// equal one is the bound the caller's waits are already under.
+	b := chainBound(next)
+	if !b.set() || b == prev || child.ctx == nil {
 		return &child, nil
 	}
 	return EnterDeadline(&child, next)

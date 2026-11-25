@@ -3,14 +3,14 @@ import { test } from "node:test";
 import { catalogDir, catalogFilters, tomlFilters } from "../../src/catalogs";
 
 test("a module with locales has its catalogs under `locales` unless [i18n] names another directory", () => {
-  assert.equal(catalogDir('[module]\nname = "shop"\n\n[i18n]\nlocales = ["en", "pl"]\n'), "locales");
+  assert.equal(catalogDir('[package]\nname = "shop"\n\n[i18n]\nlocales = ["en", "pl"]\n'), "locales");
   assert.equal(catalogDir('[i18n]\nlocales = ["en", "pl"]\ncatalogs = "text/catalogs/"  # moved\n'), "text/catalogs");
   assert.equal(catalogDir("[i18n]\ncatalogs = './tr'\nlocales = ['en']\n"), "tr");
 });
 
 test("a module with no locales has no catalogs", () => {
-  assert.equal(catalogDir('[module]\nname = "app"\n'), undefined);
-  assert.equal(catalogDir('[module]\nlocales = ["en"]\n'), undefined);
+  assert.equal(catalogDir('[package]\nname = "app"\n'), undefined);
+  assert.equal(catalogDir('[package]\nlocales = ["en"]\n'), undefined);
   assert.equal(catalogDir('[i18n]\ncatalogs = "locales"\n'), undefined);
 });
 
@@ -18,7 +18,7 @@ test("the client attaches to each module's catalogs, and to no other TOML file",
   const filters = catalogFilters([
     { dir: "/w/shop", text: '[i18n]\nlocales = ["en", "pl"]\n' },
     { dir: "/w/admin", text: '[i18n]\nlocales = ["en"]\ncatalogs = "i18n"\n' },
-    { dir: "/w/tool", text: '[module]\nname = "tool"\n' },
+    { dir: "/w/tool", text: '[package]\nname = "tool"\n' },
     { dir: "C:\\w\\web", text: '[i18n]\nlocales = ["en"]\n' },
   ]);
   assert.deepEqual(filters, [
@@ -28,9 +28,10 @@ test("the client attaches to each module's catalogs, and to no other TOML file",
   ]);
 });
 
-test("the client attaches to every nomi.toml and each module's catalogs", () => {
+test("the client attaches to every nomi.toml, every nomi-workspace.toml and each module's catalogs", () => {
   assert.deepEqual(tomlFilters([{ dir: "/w/shop", text: '[i18n]\nlocales = ["en"]\n' }]), [
     { scheme: "file", pattern: "**/nomi.toml" },
+    { scheme: "file", pattern: "**/nomi-workspace.toml" },
     { scheme: "file", pattern: "/w/shop/locales/**/*.toml" },
   ]);
 });

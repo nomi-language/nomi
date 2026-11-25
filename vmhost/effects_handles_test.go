@@ -6,15 +6,15 @@ import (
 )
 
 // handleFiles is an app that makes a value and hands it to a dependency,
-// keep, whose entry under [effects.deps.modules] allows nothing: main is
+// keep, whose entry under [effects.deps.packages] allows nothing: main is
 // the app's code, and keep.nomi the dependency's. The app's own list
 // allows std.
 func handleFiles(std, main, keep string) map[string]string {
 	return map[string]string{
-		"app/nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[dependencies]\nkeep = { dir = \"../keep\" }\n\n" +
-			"[effects.self]\nstd = " + std + "\n\n[effects.deps.modules]\n\"keep\" = []\n",
+		"app/nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[dependencies]\nkeep = { dir = \"../keep\" }\n\n" +
+			"[effects.self]\nstd = " + std + "\n\n[effects.deps.packages]\n\"keep\" = []\n",
 		"app/main.nomi":  main,
-		"keep/nomi.toml": "[module]\nname = \"keep\"\n",
+		"keep/nomi.toml": "[package]\nname = \"keep\"\n",
 		"keep/keep.nomi": keep,
 	}
 }
@@ -52,7 +52,7 @@ end
 `
 	checkedRootsPass(t, "app/main.nomi", handleFiles(`["std::io", "std::storage"]`, main, keepSaves))
 	got, _ := effectDiagnostics(t, "app/main.nomi", handleFiles(`["std::io"]`, main, keepSaves))
-	want := "app/main.nomi:8:24: this module's own code has the effect std::storage, and [effects.self] allows it only std::io\n" +
+	want := "app/main.nomi:8:24: this package's own code has the effect std::storage, and [effects.self] allows it only std::io\n" +
 		"app/main.nomi:8:24: help: reached from `main`\n" +
 		"app/main.nomi:8:24: help: add \"std::storage\" to std under [effects.self] in nomi.toml, or remove the call"
 	if got != want {
@@ -100,9 +100,9 @@ fn main()
 end
 `
 	got, _ := effectDiagnostics(t, "app/main.nomi", handleFiles(`["std::io"]`, main, keep))
-	want := "keep/keep.nomi:20:14: keep has the effect std::fs, and its entry under [effects.deps.modules] allows it no effects\n" +
+	want := "keep/keep.nomi:20:14: keep has the effect std::fs, and its entry under [effects.deps.packages] allows it no effects\n" +
 		"keep/keep.nomi:20:14: help: reached from `main`; `main` calls `save`; `save` calls `put` through an interface, and any implementation of it counts, including `Sink.put for Disk`\n" +
-		"keep/keep.nomi:20:14: help: add \"std::fs\" to \"keep\" under [effects.deps.modules] in nomi.toml, or remove the call\n" +
+		"keep/keep.nomi:20:14: help: add \"std::fs\" to \"keep\" under [effects.deps.packages] in nomi.toml, or remove the call\n" +
 		"app/main.nomi:7:14: note: your code has the effect std::fs in keep here: `main` calls `save`"
 	if got != want {
 		t.Errorf("diagnostics:\n%s\nwant:\n%s", got, want)
@@ -142,9 +142,9 @@ end
 	std := `["std::io", "std::http"]`
 	checkedRootsPass(t, "app/main.nomi", handleFiles(std, main, status("client")))
 	got, _ := effectDiagnostics(t, "app/main.nomi", handleFiles(std, main, strings.Replace(status("Client.new()"), "(client: Client,", "(_client: Client,", 1)))
-	want := "keep/keep.nomi:7:21: keep has the effect std::http, and its entry under [effects.deps.modules] allows it no effects\n" +
+	want := "keep/keep.nomi:7:21: keep has the effect std::http, and its entry under [effects.deps.packages] allows it no effects\n" +
 		"keep/keep.nomi:7:21: help: reached from `main`; `main` calls `status`\n" +
-		"keep/keep.nomi:7:21: help: add \"std::http\" to \"keep\" under [effects.deps.modules] in nomi.toml, or remove the call\n" +
+		"keep/keep.nomi:7:21: help: add \"std::http\" to \"keep\" under [effects.deps.packages] in nomi.toml, or remove the call\n" +
 		"app/main.nomi:9:14: note: your code has the effect std::http in keep here: `main` calls `status`"
 	if got != want {
 		t.Errorf("diagnostics:\n%s\nwant:\n%s", got, want)

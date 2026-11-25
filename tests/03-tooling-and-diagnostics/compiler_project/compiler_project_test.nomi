@@ -24,7 +24,7 @@ test "compiler can check diagnostics across an in-memory project"
                   w.name
                 end
 
-                fn secret(w: Widget) -> String
+                private fn secret(w: Widget) -> String
                   "secret " + w.name
                 end
 
@@ -36,7 +36,7 @@ test "compiler can check diagnostics across an in-memory project"
     })
 
     assert Iter.count(diagnostics) == 1
-    assert test_helpers.has_diagnostic(diagnostics, "'secret' is private and cannot be imported")
+    assert test_helpers.has_diagnostic(diagnostics, "`secret` is private to `api.nomi`")
 end
 
 test "compiler project checks manifest entry points"
@@ -44,7 +44,7 @@ test "compiler project checks manifest entry points"
         entry_point: "main",
         manifest: Some(
             """
-            [module]
+            [package]
             name = "demo"
             entry_points = ["other"]
             """

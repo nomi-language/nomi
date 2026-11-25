@@ -552,7 +552,7 @@ end
 	if !ok {
 		t.Fatalf("expected *ast.TypeDef, got %T", nodes[0])
 	}
-	if td.Name != "NonZeroInt" || !td.Public || !td.Opaque {
+	if td.Name != "NonZeroInt" || td.Visibility != ast.Public || !td.Opaque {
 		t.Errorf("type def header = %+v", td)
 	}
 	if td.InnerTypeExpr == nil || td.InnerTypeExpr.TypeString() != "Int" {

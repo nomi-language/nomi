@@ -79,7 +79,7 @@ func newManager(root string) *analysis.DocumentManager {
 	lib := std.Shared()
 	dm := analysis.NewDocumentManager()
 	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
-	dm.SetWorkspaceRoot(root)
+	dm.SetEditorFolder(root)
 	return dm
 }
 

@@ -249,7 +249,7 @@ pub fn make_literal() -> Secret
     Secret({token: "t", ttl: 30})
 end
 `
-	const priv = "constructor of opaque type 'Secret' is private to its defining module — use an exported constructor function"
+	const priv = "constructor of opaque type 'Secret' is private to `secret.nomi` — use an exported constructor function"
 
 	t.Run("inside the declaring file, record form is accepted", func(t *testing.T) {
 		// THE POSITIVE. `make` and `make_literal` both construct in the

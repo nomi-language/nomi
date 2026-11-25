@@ -261,7 +261,10 @@ func selfPatternParam(p ast.Param) bool {
 // construction surface this file cannot see.
 func (c *checker) opaqueHere(recvTy Type) (*DistinctType, bool) {
 	dt, ok := resolveTypeVar(recvTy).(*DistinctType)
-	if !ok || c.opaqueOutside(dt) == "" {
+	if !ok {
+		return nil, false
+	}
+	if name, _ := c.opaqueOutside(dt); name == "" {
 		return nil, false
 	}
 	return dt, true

@@ -19,8 +19,8 @@ func TestReplVM_ARedefinedImplReplacesTheEarlierOne(t *testing.T) {
 	replExpect(t, "struct P\n  x: Int\nend\n"+
 		"impl Display for P\n  fn to_string(p: P) -> String\n    \"one ${p.x}\"\n  end\nend\n\"${P{x: 1}}\"\n"+
 		"impl Display for P\n  fn to_string(p: P) -> String\n    \"two ${p.x}\"\n  end\nend\n\"${P{x: 2}}\"\n"+
-		"impl P\n  pub fn get(p: P) -> Int\n    p.x\n  end\nend\nP.get(P{x: 3})\n"+
-		"impl P\n  pub fn get(p: P) -> Int\n    p.x * 10\n  end\nend\nP.get(P{x: 3})\n"+
+		"impl P\n  fn get(p: P) -> Int\n    p.x\n  end\nend\nP.get(P{x: 3})\n"+
+		"impl P\n  fn get(p: P) -> Int\n    p.x * 10\n  end\nend\nP.get(P{x: 3})\n"+
 		"interface Shape\n  fn area(s: self) -> Int\nend\n"+
 		"impl Shape for P\n  fn area(p: P) -> Int\n    p.x * p.x\n  end\nend\n"+
 		"fn total(s: Shape) -> Int\n  Shape.area(s)\nend\ntotal(P{x: 4})\n",
@@ -69,9 +69,9 @@ func TestReplVM_ARedefinedImplReachesEarlierFunctions(t *testing.T) {
 		"impl Display for P\n  fn to_string(p: P) -> String\n    \"one ${p.x}\"\n  end\nend\n"+
 		"fn show(p: P) -> String\n  \"${p}\"\nend\nshow(P{x: 1})\n"+
 		"impl Display for P\n  fn to_string(p: P) -> String\n    \"two ${p.x}\"\n  end\nend\nshow(P{x: 1})\n"+
-		"impl P\n  pub fn get(p: P) -> Int\n    p.x\n  end\nend\n"+
+		"impl P\n  fn get(p: P) -> Int\n    p.x\n  end\nend\n"+
 		"fn use_get(p: P) -> Int\n  P.get(p)\nend\nuse_get(P{x: 3})\n"+
-		"impl P\n  pub fn get(p: P) -> Int\n    p.x * 10\n  end\nend\nuse_get(P{x: 3})\n"+
+		"impl P\n  fn get(p: P) -> Int\n    p.x * 10\n  end\nend\nuse_get(P{x: 3})\n"+
 		"interface Shape\n  fn area(s: self) -> Int\nend\n"+
 		"impl Shape for P\n  fn area(p: P) -> Int\n    p.x\n  end\nend\n"+
 		"fn total(s: Shape) -> Int\n  Shape.area(s) + 1\nend\ntotal(P{x: 4})\n"+
@@ -88,10 +88,10 @@ func TestReplVM_ARedefinedImplReachesEarlierFunctions(t *testing.T) {
 // code twice was compiled to before the redefinition.
 func TestReplVM_ARedefinedFunctionCompiledIntoAnEarlierOneIsReplaced(t *testing.T) {
 	replExpect(t, "struct P\n  x: Int\nend\n"+
-		"impl P\n  pub fn get(p: P) -> Int\n    p.x\n  end\nend\n"+
+		"impl P\n  fn get(p: P) -> Int\n    p.x\n  end\nend\n"+
 		"fn use_get(p: P) -> Int\n  P.get(p) + 1\nend\n"+
 		"fn twice(p: P) -> Int\n  use_get(p) * 2\nend\ng = twice\ng(P{x: 3})\n"+
-		"impl P\n  pub fn get(p: P) -> Int\n    p.x * 10\n  end\nend\ng(P{x: 3})\nuse_get(P{x: 3})\n",
+		"impl P\n  fn get(p: P) -> Int\n    p.x * 10\n  end\nend\ng(P{x: 3})\nuse_get(P{x: 3})\n",
 		"8\n62\n31\n")
 }
 
@@ -122,7 +122,9 @@ func TestReplVM_ALaterDeriveReplacesTheTypesImpl(t *testing.T) {
 // A rendering an earlier input compiled while a type's Debug was its shape
 // renders through the Debug impl a later input writes for the type, and
 // through the derive that replaces it, wherever the value sits: alone, in
-// a List, as another struct's field, in an Option, and under a `dbg`.
+// a List, as another struct's field, in an Option, and under a `dbg`. The
+// `dbg` names the line of traced's input it was typed on, though traced's
+// file imports R above it.
 func TestReplVM_ALaterDebugImplReachesEarlierRenderings(t *testing.T) {
 	replExpect(t, "struct R\n  x: Int\nend\nstruct S\n  r: R\nend\n"+
 		"fn show(r: R) -> String\n  Debug.inspect(r)\nend\n"+
@@ -132,7 +134,7 @@ func TestReplVM_ALaterDebugImplReachesEarlierRenderings(t *testing.T) {
 		"impl Debug for R\n  fn inspect(r: R) -> String\n    \"custom ${r.x}\"\n  end\nend\n"+
 		"show(R{x: 2})\nparts([R{x: 3}], S{r: R{x: 4}}, Some(R{x: 5}))\n_ = traced(R{x: 6})\n"+
 		"derive Debug for R\nshow(R{x: 7})\nparts([R{x: 8}], S{r: R{x: 9}}, Some(R{x: 10}))\n",
-		"\"R{x: 1}\"\n\"custom 2\"\n\"[custom 3] S{r: custom 4} Some(custom 5)\"\ndbg line 4: r = custom 6\n"+
+		"\"R{x: 1}\"\n\"custom 2\"\n\"[custom 3] S{r: custom 4} Some(custom 5)\"\ndbg line 2: r = custom 6\n"+
 			"\"R{x: 7}\"\n\"[R{x: 8}] S{r: R{x: 9}} Some(R{x: 10})\"\n")
 }
 
@@ -141,7 +143,8 @@ func TestReplVM_ALaterDebugImplReachesEarlierRenderings(t *testing.T) {
 // one compiled before any impl and one compiled while the written impl was
 // in force, which names its body, alone, in a List, as a field, in an
 // Option and under a `dbg`. A written impl after the derive is the type's
-// Debug again for both.
+// Debug again for both. The `dbg` names the line of traced's input it was
+// typed on, though traced's file imports R above it.
 func TestReplVM_ADeriveAfterAWrittenDebugReachesEarlierRenderings(t *testing.T) {
 	parts := "\"${Debug.inspect(r)} ${Debug.inspect([r])} ${Debug.inspect(S{r:})} ${Debug.inspect(Some(r))}\""
 	replExpect(t, "struct R\n  x: Int\nend\nstruct S\n  r: R\nend\n"+
@@ -153,9 +156,9 @@ func TestReplVM_ADeriveAfterAWrittenDebugReachesEarlierRenderings(t *testing.T) 
 		"derive Debug for R\nearly(R{x: 2})\nlater(R{x: 2})\n_ = traced(R{x: 2})\n"+
 		"impl Debug for R\n  fn inspect(r: R) -> String\n    \"two ${r.x}\"\n  end\nend\n"+
 		"early(R{x: 3})\nlater(R{x: 3})\n_ = traced(R{x: 3})\n",
-		"\"one 1 [one 1] S{r: one 1} Some(one 1)\"\n\"one 1 [one 1] S{r: one 1} Some(one 1)\"\ndbg line 4: r = one 1\n"+
-			"\"R{x: 2} [R{x: 2}] S{r: R{x: 2}} Some(R{x: 2})\"\n\"R{x: 2} [R{x: 2}] S{r: R{x: 2}} Some(R{x: 2})\"\ndbg line 4: r = R{x: 2}\n"+
-			"\"two 3 [two 3] S{r: two 3} Some(two 3)\"\n\"two 3 [two 3] S{r: two 3} Some(two 3)\"\ndbg line 4: r = two 3\n")
+		"\"one 1 [one 1] S{r: one 1} Some(one 1)\"\n\"one 1 [one 1] S{r: one 1} Some(one 1)\"\ndbg line 2: r = one 1\n"+
+			"\"R{x: 2} [R{x: 2}] S{r: R{x: 2}} Some(R{x: 2})\"\n\"R{x: 2} [R{x: 2}] S{r: R{x: 2}} Some(R{x: 2})\"\ndbg line 2: r = R{x: 2}\n"+
+			"\"two 3 [two 3] S{r: two 3} Some(two 3)\"\n\"two 3 [two 3] S{r: two 3} Some(two 3)\"\ndbg line 2: r = two 3\n")
 }
 
 // A derive that replaces a written Display writes no function, and the

@@ -3695,7 +3695,7 @@ end
 // ---------------------------------------------------------------------------
 
 func TestVisibility_PublicFnReturnsPrivateType(t *testing.T) {
-	src := `struct Secret
+	src := `private struct Secret
     value: String
 end
 pub fn leak() -> Secret
@@ -3706,7 +3706,7 @@ end`
 }
 
 func TestVisibility_PublicFnTakesPrivateParam(t *testing.T) {
-	src := `struct Secret
+	src := `private struct Secret
     value: String
 end
 pub fn use_secret(_s: Secret) -> Int
@@ -3717,7 +3717,7 @@ end`
 }
 
 func TestVisibility_PublicStructHasPrivateFieldType(t *testing.T) {
-	src := `struct Secret
+	src := `private struct Secret
     value: String
 end
 pub struct Container
@@ -3728,7 +3728,7 @@ end`
 }
 
 func TestVisibility_PublicEnumEmbedsPrivate(t *testing.T) {
-	src := `struct Secret
+	src := `private struct Secret
     value: String
 end
 pub enum Wrapper
@@ -3740,7 +3740,7 @@ end`
 }
 
 func TestVisibility_PublicEnumPositionalVariantPrivateData(t *testing.T) {
-	src := `struct Secret
+	src := `private struct Secret
     value: String
 end
 pub enum Wrapper
@@ -3752,7 +3752,7 @@ end`
 }
 
 func TestVisibility_PublicEnumStructVariantPrivateField(t *testing.T) {
-	src := `struct Secret
+	src := `private struct Secret
     value: String
 end
 pub enum Wrapper
@@ -3764,7 +3764,7 @@ end`
 }
 
 func TestVisibility_PublicInterfaceMethodPrivateReturn(t *testing.T) {
-	src := `struct Secret
+	src := `private struct Secret
     value: String
 end
 pub interface Reader
@@ -3775,7 +3775,7 @@ end`
 }
 
 func TestVisibility_PublicInterfaceMethodPrivateParam(t *testing.T) {
-	src := `struct Secret
+	src := `private struct Secret
     value: String
 end
 pub interface Sink
@@ -3786,7 +3786,7 @@ end`
 }
 
 func TestVisibility_PublicTypeAliasReferencesPrivate(t *testing.T) {
-	src := `struct Secret
+	src := `private struct Secret
     value: String
 end
 pub typealias S Secret`
@@ -3827,13 +3827,13 @@ end`
 }
 
 // Inline-pub variants of the visibility-consistency checks above. The
-// check reads `n.Public` from each AST node (set by the parser for
-// inline `pub`) and `sym.Public` from the type-symbol map (set by the
+// check reads `n.Visibility` from each AST node (set by the parser for
+// inline `pub`) and `sym.Visibility` from the type-symbol map (set by the
 // builder via the dual-source rule). With no `export` block in sight,
 // the same diagnostics must still fire.
 
 func TestVisibility_InlinePubFnReturnsPrivateType(t *testing.T) {
-	src := `struct Secret
+	src := `private struct Secret
     value: String
 end
 pub fn leak() -> Secret
@@ -3844,7 +3844,7 @@ end`
 }
 
 func TestVisibility_InlinePubFnTakesPrivateParam(t *testing.T) {
-	src := `struct Secret
+	src := `private struct Secret
     value: String
 end
 pub fn use_secret(_s: Secret) -> Int
@@ -3855,7 +3855,7 @@ end`
 }
 
 func TestVisibility_InlinePubStructHasPrivateFieldType(t *testing.T) {
-	src := `struct Secret
+	src := `private struct Secret
     value: String
 end
 pub struct Container
@@ -3866,7 +3866,7 @@ end`
 }
 
 func TestVisibility_InlinePubInterfaceMethodPrivateReturn(t *testing.T) {
-	src := `struct Secret
+	src := `private struct Secret
     value: String
 end
 pub interface Reader
@@ -3877,7 +3877,7 @@ end`
 }
 
 func TestVisibility_InlinePubTypeAliasReferencesPrivate(t *testing.T) {
-	src := `struct Secret
+	src := `private struct Secret
     value: String
 end
 pub typealias S Secret`
@@ -3905,7 +3905,7 @@ end`
 // type leaks the private type into the public surface, just like a
 // public function returning a private type.
 func TestVisibility_PubOnceWithPrivateType(t *testing.T) {
-	src := `struct Secret
+	src := `private struct Secret
     value: String
 end
 pub once x: Secret = Secret{value: "x"}`
@@ -4649,10 +4649,10 @@ func TestArity_FileQualifiedUserFunctionIsAtTheCall(t *testing.T) {
 func TestPrivateImportIsAtTheName(t *testing.T) {
 	src := "import other.{h}\n\nfn main()\n  _ = h()\nend\n"
 	_, errs := checkSourceWithModules(t, src, map[string]string{
-		"other": "fn h() -> Int\n  1\nend\n",
+		"other": "private fn h() -> Int\n  1\nend\n",
 	})
 	for _, e := range errs {
-		if e.Message == "'h' is private and cannot be imported" {
+		if e.Code == PrivateDeclarationCode {
 			if got := fmt.Sprintf("%d:%d-%d:%d", e.Line, e.Col, e.EndLine, e.EndCol); got != "1:15-1:16" {
 				t.Errorf("span = %s, want 1:15-1:16", got)
 			}
@@ -4738,7 +4738,7 @@ end`,
 func TestVisibility_NestedPrivateInGenericArg(t *testing.T) {
 	// `fn lookup() -> List<Secret>` — secret is buried inside a List
 	// type-argument but the leak is just as real.
-	src := `struct Secret
+	src := `private struct Secret
     value: String
 end
 pub fn lookup() -> List<Secret>

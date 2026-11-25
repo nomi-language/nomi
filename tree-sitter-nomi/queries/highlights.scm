@@ -594,6 +594,7 @@
 ; === Keywords ===
 
 (pub) @keyword
+(private_keyword) @keyword
 (export) @keyword
 "opaque" @keyword
 "once" @keyword

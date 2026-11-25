@@ -33,7 +33,7 @@ fn main()
     io.print(shown(3))
 end
 // FILE: nomi.toml
-[module]
+[package]
 name = "app"
 entry_points = ["main"]
 `
@@ -91,7 +91,7 @@ impl Box<T>
     end
 end
 // FILE: nomi.toml
-[module]
+[package]
 name = "app"
 entry_points = ["main"]
 `
@@ -130,7 +130,7 @@ end
 // FILE: ids.nomi
 pub type Id Int
 // FILE: nomi.toml
-[module]
+[package]
 name = "app"
 entry_points = ["main"]
 `

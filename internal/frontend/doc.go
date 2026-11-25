@@ -123,8 +123,8 @@
 // package's and stdcompiler's virtual files, a DocumentManager program's
 // texts and a check against interfaces' file set say so for what they
 // hold), and the builder asks the disk (DiskDirectory) for any other miss.
-// A directory holding a `nomi.toml` is another module's. `import std`, and a
-// module's or dependency's name alone with no file of that name, are their
+// A directory holding a `nomi.toml` is another package's. `import std`, and a
+// package's or dependency's name alone with no file of that name, are their
 // roots.
 //
 // defineDirectoryImport binds a SymbolDirectory whose DirectoryBinding holds
@@ -175,11 +175,12 @@
 //
 // An expansion gets two hidden imports (`phrase$`, `phrase_format$`) no
 // source can name. They are the only way into std's internals: std/phrase's
-// private constructors and the internal modules std/phrase/format and
-// std/money/format. A program that names one is told it is internal, docgen
-// does not document them, and no diagnostic names a hidden alias (the
-// registry's `phrase$.Noun` is never a "did you mean", SuggestDotted). This
-// is why the IR builder lowers calls to a std module's private functions.
+// internal constructors and std/phrase/format's and std/money/format's
+// functions, none of them `pub`. A program that names one is told it is
+// internal to package `std`, docgen does not document them, and no
+// diagnostic names a hidden alias (the registry's `phrase$.Noun` is never a
+// "did you mean", SuggestDotted). This is why the IR builder lowers calls
+// from a program to a std module's internal functions.
 //
 // A name a file does not bind that a public std module exports as a type,
 // or that names a public std module, gets help that names its import
@@ -190,9 +191,13 @@
 // in a process with no artifact, the sources the first such diagnostic
 // parses once. A
 // name two or three modules export lists each import; four or more get none
-// (`Wide` in TestStdImportHints). Internal modules and the prelude are
-// never named. The language server's "Add import" fix (FindMissingImports)
-// reads the same index (TestCodeAction_AddImport_IsTheImportTheHelpNames).
+// (`Wide` in TestStdImportHints). A module that declares nothing public
+// (std's plumbing) and the prelude are never named: whether std offers a
+// module is analysis.IsPublicStdModule, which the did-you-mean of a module
+// path, the listing of `std`, the language server's completion and the
+// reference's pages ask too. The language server's "Add import" fix
+// (FindMissingImports) reads the same index
+// (TestCodeAction_AddImport_IsTheImportTheHelpNames).
 // A phrase parameter whose type names nothing gets that error alone:
 // checkPhrase skips the text and wrapping checks, which would repeat it.
 //

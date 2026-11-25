@@ -35,6 +35,10 @@ func TestSystem_FactsAreGosOwn(t *testing.T) {
 	if heap <= 0 || obtained < heap {
 		t.Errorf("memory is heap %d, obtained %d: want a heap and at least as much obtained", heap, obtained)
 	}
+	// A test binary is built from source, so it is no release.
+	if got := NomiRelease(); got.Tag != rt.TagNone {
+		t.Errorf("nomi_release is %+v in a test binary, want None", got)
+	}
 }
 
 // data_dir follows the rules Go's UserCacheDir follows for its own

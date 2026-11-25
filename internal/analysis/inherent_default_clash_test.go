@@ -53,11 +53,11 @@ impl Ord2 for Odd
 end
 
 impl Odd
-    pub fn least(_a: Odd, b: Odd) -> Odd
+    fn least(_a: Odd, b: Odd) -> Odd
         b
     end
 
-    pub fn most(a: Odd, _b: Odd) -> Odd
+    fn most(a: Odd, _b: Odd) -> Odd
         a
     end
 end
@@ -72,8 +72,8 @@ end
 		line, col int
 		msg       string
 	}{
-		{24, 12, "`Odd.least` shadows the default `least` that `Ord2` gives `Odd`, and Nomi does not overload, so a call `Odd.least(...)` would name both; to override the default, write `fn least` in `impl Ord2 for Odd` instead"},
-		{28, 12, "`Odd.most` shadows the default `most` that `Ord2` gives `Odd`, and Nomi does not overload, so a call `Odd.most(...)` would name both; `Ord2`'s `most` is final and cannot be overridden, so give this function another name"},
+		{24, 8, "`Odd.least` shadows the default `least` that `Ord2` gives `Odd`, and Nomi does not overload, so a call `Odd.least(...)` would name both; to override the default, write `fn least` in `impl Ord2 for Odd` instead"},
+		{28, 8, "`Odd.most` shadows the default `most` that `Ord2` gives `Odd`, and Nomi does not overload, so a call `Odd.most(...)` would name both; `Ord2`'s `most` is final and cannot be overridden, so give this function another name"},
 	}
 	if len(got) != len(want) {
 		t.Fatalf("got %d default-clash diagnostics, want %d: %v (all errors: %v)", len(got), len(want), got, entryErrors(fa))
@@ -167,7 +167,7 @@ impl Odd
 end
 
 impl Even
-    pub fn least(a: Even, _b: Even) -> Even
+    fn least(a: Even, _b: Even) -> Even
         a
     end
 end

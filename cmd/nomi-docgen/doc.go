@@ -101,7 +101,8 @@
 // internal/osreach counts. A new crossing of a class the browser lacks must
 // call osreach.Note where it reaches the operating system, or its prompt
 // stays live and vmhost's TestTourWasmAnswersTheReferenceEditors fails on
-// it.
+// it. It calls Note before any platform's refusal, so a prompt is marked
+// the same whichever system generates the reference.
 //
 // reference.expect (TestReferenceInteractiveTestsOnTheVM) records each
 // prompt the page does not run with `[not run in the browser: <classes>]`

@@ -31,7 +31,7 @@ func stdNamesSource() ([]byte, error) {
 	b.WriteString("// stdNames is every std name a list may hold, sorted (UnknownStdName).\n")
 	var names []string
 	for _, m := range std.Shared().ModuleNames() {
-		if _, internal := analysis.InternalStdModule(m); internal || m == "prelude" {
+		if !analysis.IsPublicStdModule(m) {
 			continue
 		}
 		names = append(names, "std::"+strings.ReplaceAll(m, "/", "::"))

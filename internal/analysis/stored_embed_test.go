@@ -21,7 +21,7 @@ func TestOpenFromRecordReadsEmbeddedFiles(t *testing.T) {
 	t.Setenv(artifactcache.RootEnv, t.TempDir())
 	dir := t.TempDir()
 	files := map[string]string{
-		"nomi.toml":    "[module]\nname = \"site\"\nentry_points = [\"main\"]\n",
+		"nomi.toml":    "[package]\nname = \"site\"\nentry_points = [\"main\"]\n",
 		"main.nomi":    "import\n    std::embed.Files\n    std::io\n    assets\nend\n\nfn main()\n    io.print(Files.paths(assets.static))\nend\n",
 		"assets.nomi":  "import std::embed.Files\n\n/// The static files.\npub embed static `static`\n",
 		"static/a.txt": "a\n",
@@ -46,7 +46,7 @@ func TestOpenFromRecordReadsEmbeddedFiles(t *testing.T) {
 	writeRecord := func() {
 		t.Helper()
 		writer := newManager()
-		writer.SetWorkspaceRoot(dir)
+		writer.SetEditorFolder(dir)
 		writer.Open(uri("main"), files["main.nomi"])
 		writer.AnalyzeLatest(context.Background(), uri("main"))
 		writer.NoteLoweredClean(uri("main"), files["main.nomi"], nil)
@@ -56,7 +56,7 @@ func TestOpenFromRecordReadsEmbeddedFiles(t *testing.T) {
 	}
 	open := func() *analysis.DocumentManager {
 		dm := newManager()
-		dm.SetWorkspaceRoot(dir)
+		dm.SetEditorFolder(dir)
 		for _, key := range keys {
 			dm.Open(uri(key), files[key+".nomi"])
 			dm.AnalyzeLatest(context.Background(), uri(key))

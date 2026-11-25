@@ -12,7 +12,7 @@
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise. N is the case count vmcmd.Tester.File answers, each `subtests` row a case.
 records 746
-declared-cases 4248
+declared-cases 4254
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -3288,6 +3288,22 @@ H 2ef8bcf68d32e33827f81e4f19893abe68936b761259546a96a9fa3609fc3d78
 T --- stderr ---
 T nomi run: <root>/tests/14-modules-and-packaging/cross_file_modules/models.nomi declares no `fn main`, so there is no program to run
 T
+C 14-modules-and-packaging/derives_for_tests/todos.nomi
+E 1
+N 0
+H f651a31442ce0036de89a034cee4ec01dbaa719f9348a8ef98d84e212164cbb5
+T --- stderr ---
+T nomi run: <root>/tests/14-modules-and-packaging/derives_for_tests/todos.nomi declares no `fn main`, so there is no program to run
+T
+C 14-modules-and-packaging/derives_for_tests/todos_test.nomi
+E 0
+N 3
+H f61ae6efae9308668adee7ce1df555810ea1252a845805ed6efbfbac702c1af6
+T ok <root>/tests/14-modules-and-packaging/derives_for_tests/todos_test.nomi :: a test file decodes the type with the impl its file derives
+T ok <root>/tests/14-modules-and-packaging/derives_for_tests/todos_test.nomi :: the derived impls compare a decoded value
+T ok <root>/tests/14-modules-and-packaging/derives_for_tests/todos_test.nomi :: a missing field names its type as todos.nomi writes it
+T test result: ok. 3 passed, 0 failed
+T
 C 14-modules-and-packaging/directory_imports/db/notifications.nomi
 E 1
 N 0
@@ -3494,36 +3510,12 @@ H 33ec1bff8d3f7269ce7e6f18fa738171f17570162d885cf053e40571fe20d016
 T --- stderr ---
 T nomi run: <root>/tests/14-modules-and-packaging/module_qualified_literals/shapes.nomi declares no `fn main`, so there is no program to run
 T
-C 14-modules-and-packaging/partner_test_derive/todos.nomi
-E 1
-N 0
-H 3fe7165bacedcdac0304a2af36e5a2faedac296124867ba40ccb435b78f3827a
-T --- stderr ---
-T nomi run: <root>/tests/14-modules-and-packaging/partner_test_derive/todos.nomi declares no `fn main`, so there is no program to run
-T
-C 14-modules-and-packaging/partner_test_derive/todos_test.nomi
+C 14-modules-and-packaging/private_tested_in_its_file/shapes.nomi
 E 0
-N 3
-H aea3f19a43f90d9cf50a5dc1e9d984506d8af3c43cf54a14e3dc594e1ae8976c
-T ok <root>/tests/14-modules-and-packaging/partner_test_derive/todos_test.nomi :: a derive in the partner test decodes the private type
-T ok <root>/tests/14-modules-and-packaging/partner_test_derive/todos_test.nomi :: the derived impls compare a decoded value
-T ok <root>/tests/14-modules-and-packaging/partner_test_derive/todos_test.nomi :: a missing field names its type as todos.nomi writes it
-T test result: ok. 3 passed, 0 failed
-T
-C 14-modules-and-packaging/partner_test_file/shapes.nomi
-E 1
-N 0
-H 943e0947bf79bae950d176ddb54a2a493a31fff8b90a9763552925975f30a1b1
-T --- stderr ---
-T nomi run: <root>/tests/14-modules-and-packaging/partner_test_file/shapes.nomi declares no `fn main`, so there is no program to run
-T
-C 14-modules-and-packaging/partner_test_file/shapes_test.nomi
-E 0
-N 2
-H d747f0344aa06f6914daa6d01c4e4435663396cc43db65a480f88475d21518c8
-T ok <root>/tests/14-modules-and-packaging/partner_test_file/shapes_test.nomi :: the partner test file reads private declarations
-T ok <root>/tests/14-modules-and-packaging/partner_test_file/shapes_test.nomi :: a file-qualified private function is reachable too
-T test result: ok. 2 passed, 0 failed
+N 1
+H c822dbc2d8210522413d767a0998849699382da7383a2df7b0ce5103b4ee8d6e
+T ok <root>/tests/14-modules-and-packaging/private_tested_in_its_file/shapes.nomi :: a test in the file reads its private declarations
+T test result: ok. 1 passed, 0 failed
 T
 C 14-modules-and-packaging/re_export_facade/facade.nomi
 E 1
@@ -4286,6 +4278,19 @@ T ok <root>/tests/16-concurrency/task_stream_test.nomi :: Task.stream / a consum
 T ok <root>/tests/16-concurrency/task_stream_test.nomi :: Task.stream / a consumer that stops after the source ends cancels the rest too
 T ok <root>/tests/16-concurrency/task_stream_test.nomi :: Task.stream / a task that traps ends the walk with its fault
 T test result: ok. 6 passed, 0 failed
+T
+C 16-concurrency/task_stream_unordered_test.nomi
+E 0
+N 7
+H 887c6a2db6b4c75f79a4b92c8e5def304025faa0908b045be2383200ec33496e
+T ok <root>/tests/16-concurrency/task_stream_unordered_test.nomi :: Task.stream with ordered: False / results come in the order the calls finish
+T ok <root>/tests/16-concurrency/task_stream_unordered_test.nomi :: Task.stream with ordered: False / a quick call never waits behind a slow one, and at most max_running run
+T ok <root>/tests/16-concurrency/task_stream_unordered_test.nomi :: Task.stream with ordered: False / a trailing capture is the function
+T ok <root>/tests/16-concurrency/task_stream_unordered_test.nomi :: Task.stream with ordered: False / a slow consumer holds the source back
+T ok <root>/tests/16-concurrency/task_stream_unordered_test.nomi :: Task.stream with ordered: False / a consumer that stops early cancels the tasks still running
+T ok <root>/tests/16-concurrency/task_stream_unordered_test.nomi :: Task.stream with ordered: False / a task that traps ends the walk when it traps
+T ok <root>/tests/16-concurrency/task_stream_unordered_test.nomi :: Task.stream with ordered: False / without ordered, results come in the source's order
+T test result: ok. 7 passed, 0 failed
 T
 C 17-typed-literals/fragments_test.nomi
 E 0

@@ -10,12 +10,71 @@ import (
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/pkgcache"
 )
 
 // The programs a path names: the files `nomi check` and `nomi effects`
 // check as programs (CheckedFiles), and those `nomi test` runs
 // (TestFiles). The language server reads the same set to answer what a
-// project's programs reach in its nomi.toml.
+// project's programs reach in its nomi.toml. A workspace's root names its
+// members (WorkspaceMembers, WorkspaceFiles).
+
+// WorkspaceMembers answers the members of the workspace whose root is dir
+// (pkgcache.WorkspaceAt), in the workspace's order, each as dir joined with
+// its directory from the root, so a relative dir gives relative members;
+// nil when dir holds no nomi-workspace.toml. It is what `nomi check`,
+// `test`, `fmt` and `effects` visit at a workspace's root.
+func WorkspaceMembers(dir string) ([]string, error) {
+	_, members, err := workspaceAt(dir)
+	return members, err
+}
+
+// workspaceAt is the workspace whose root is dir and its members as
+// WorkspaceMembers answers them, or nil and nil.
+func workspaceAt(dir string) (*pkgcache.Workspace, []string, error) {
+	ws, err := pkgcache.WorkspaceAt(dir)
+	if err != nil || ws == nil {
+		return nil, nil, err
+	}
+	members := make([]string, len(ws.Members))
+	for i, m := range ws.Members {
+		rel, err := filepath.Rel(ws.Root, m)
+		if err != nil {
+			return nil, nil, err
+		}
+		members[i] = filepath.Join(dir, rel)
+	}
+	return ws, members, nil
+}
+
+// WorkspaceFiles answers, when dir is a workspace's root, the files list
+// answers for each of its members (WorkspaceMembers), in that order, each
+// once, without those of a package the workspace excludes, which may sit
+// below a member; ok is false when dir is no workspace's root.
+func WorkspaceFiles(dir string, list func(member string) ([]string, error)) (files []string, ok bool, err error) {
+	ws, members, err := workspaceAt(dir)
+	if err != nil || ws == nil {
+		return nil, false, err
+	}
+	seen := map[string]bool{}
+	for _, m := range members {
+		listed, err := list(m)
+		if err != nil {
+			return nil, true, err
+		}
+		for _, f := range listed {
+			abs, err := filepath.Abs(f)
+			if err != nil {
+				return nil, true, err
+			}
+			if !seen[abs] && !ws.Excludes(filepath.Dir(abs)) {
+				seen[abs] = true
+				files = append(files, f)
+			}
+		}
+	}
+	return files, true, nil
+}
 
 // StartsWithShebang reports whether path is a regular file whose first two
 // bytes are `#!`.
@@ -36,7 +95,8 @@ func StartsWithShebang(path string) bool {
 
 // CheckedFiles answers the files `nomi check root` checks as programs,
 // and, for a directory without entry points, the files it checks only through
-// those programs, each with the programs that load it (ProgramRoots).
+// those programs, each with the programs that load it (ProgramRoots). At a
+// workspace's root they are each member's (WorkspaceFiles).
 func CheckedFiles(root string) (files []string, through map[string][]string, singleFile bool, err error) {
 	info, err := os.Stat(root)
 	if err != nil {
@@ -51,6 +111,17 @@ func CheckedFiles(root string) (files []string, through map[string][]string, sin
 			return nil, nil, false, err
 		}
 		return []string{abs}, nil, true, nil
+	}
+	through = map[string][]string{}
+	files, ok, err := WorkspaceFiles(root, func(member string) ([]string, error) {
+		files, by, _, err := CheckedFiles(member)
+		for helper, importers := range by {
+			through[helper] = append(through[helper], importers...)
+		}
+		return files, err
+	})
+	if ok || err != nil {
+		return files, through, false, err
 	}
 	if mfst, err := analysis.LoadManifest(root); err == nil && len(mfst.Entries(root)) > 0 {
 		entries := mfst.Entries(root)
@@ -191,9 +262,10 @@ func ProgramRoots(files []string) (roots []string, through map[string][]string) 
 	return roots, through
 }
 
-// TestFiles is the files `nomi test root` runs, sorted: root itself when
-// it is a file, else each `_test.nomi` file under it and each other file
-// that declares tests.
+// TestFiles is the files `nomi test root` runs: root itself when it is a
+// file, each member's at a workspace's root (WorkspaceFiles), else each
+// `_test.nomi` file under it and each other file that declares tests,
+// sorted.
 func TestFiles(root string) ([]string, error) {
 	info, err := os.Stat(root)
 	if err != nil {
@@ -208,6 +280,9 @@ func TestFiles(root string) ([]string, error) {
 			return nil, err
 		}
 		return []string{abs}, nil
+	}
+	if files, ok, err := WorkspaceFiles(root, TestFiles); ok || err != nil {
+		return files, err
 	}
 
 	var files []string

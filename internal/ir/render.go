@@ -17,14 +17,14 @@ package ir
 //	a Decimal        Row `1.50d`       Display `1.50`   Debug `1.50d`
 //	a String         Row `"f.txt"`     Display `f.txt`  Debug `"f.txt"`
 //	a struct         Row SORTED fields          Debug DECLARATION order
-//	a host value     Row `<Handle>`             Debug `Handle`, with no
-//	                                            written `impl Debug`
+//	a function       Row `<func: double>`       Debug `<function>`
 //	a hand impl      Row HONOURS a user's       Debug HONOURS it
 //	                 (Module.ImplementRowDebug)
 //	a derived impl   Row IGNORES it             Debug HONOURS it
 //
 // A row's leaves are Debug's: a Decimal and a Dynamic read as their written
-// `impl Debug` renders them, at any depth (spec §17 *Failure reports*).
+// `impl Debug` renders them, and a host value with none as its bare type
+// name, `Handle`, at any depth (spec §17 *Failure reports*).
 // Getting any of these wrong produces a silent wrong string: a passing
 // assertion renders no operand, so only a deliberately failing fixture sees
 // one.

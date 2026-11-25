@@ -7,13 +7,13 @@ import (
 	"testing"
 )
 
-// A block that names modules is its files: the entry is the root module's file
-// with `fn main`, never a file of the module under csvdata/, and Write lays
+// A block that names packages is its files: the entry is the root package's file
+// with `fn main`, never a file of the package under csvdata/, and Write lays
 // the files out as the block marks them.
-func TestFromMarkedSourceKeepsAProjectOfModulesAsItsFiles(t *testing.T) {
+func TestFromMarkedSourceKeepsAProjectOfPackagesAsItsFiles(t *testing.T) {
 	src := "// FILE: tables.nomi\nimport csvdata\n\n// FILE: csvdata/main.nomi\nfn main() end\n\n" +
-		"// FILE: csvdata/nomi.toml\n[module]\nname = \"csvdata\"\n\n// FILE: main.nomi\nfn main() end\n\n" +
-		"// FILE: data/prices.csv\nsku,cents\n\n\n// FILE: nomi.toml\n[module]\nname = \"shop\"\n\n[dependencies]\ncsvdata = { dir = \"./csvdata\" }\n"
+		"// FILE: csvdata/nomi.toml\n[package]\nname = \"csvdata\"\n\n// FILE: main.nomi\nfn main() end\n\n" +
+		"// FILE: data/prices.csv\nsku,cents\n\n\n// FILE: nomi.toml\n[package]\nname = \"shop\"\n\n[dependencies]\ncsvdata = { dir = \"./csvdata\" }\n"
 	p, err := FromMarkedSource(src)
 	if err != nil {
 		t.Fatal(err)
@@ -29,16 +29,16 @@ func TestFromMarkedSourceKeepsAProjectOfModulesAsItsFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(filepath.Join(root, "csvdata", "nomi.toml"))
-	if err != nil || string(data) != "[module]\nname = \"csvdata\"\n" {
+	if err != nil || string(data) != "[package]\nname = \"csvdata\"\n" {
 		t.Errorf("csvdata/nomi.toml holds %q (%v)", data, err)
 	}
 	// With no `fn main`, the entry is the first root file the block marks,
 	// the tab it opens on, not the first by name.
-	tests, err := FromMarkedSource("// FILE: shop_test.nomi\ntest \"x\" end\n\n// FILE: queries.nomi\n\n// FILE: nomi.toml\n[module]\nname = \"shop\"\n\n[dependencies]\n")
+	tests, err := FromMarkedSource("// FILE: shop_test.nomi\ntest \"x\" end\n\n// FILE: queries.nomi\n\n// FILE: nomi.toml\n[package]\nname = \"shop\"\n\n[dependencies]\n")
 	if err != nil || tests.EntryName != "shop_test.nomi" {
 		t.Errorf("a block of tests enters at %q (%v)", tests.EntryName, err)
 	}
-	if _, err := FromMarkedSource("// FILE: nomi.toml\n[module]\nname = \"a\"\n\n[dependencies]\n// FILE: ../x.nomi\n"); err == nil {
+	if _, err := FromMarkedSource("// FILE: nomi.toml\n[package]\nname = \"a\"\n\n[dependencies]\n// FILE: ../x.nomi\n"); err == nil {
 		t.Error("a section outside the project is accepted")
 	}
 }
@@ -57,7 +57,7 @@ fn main()
 end
 
 // FILE: nomi.toml
-[module]
+[package]
 name = "demo"
 entry_points = ["main"]
 `)
@@ -127,7 +127,7 @@ end
 // included; any other kind of file is a data file the program reads at run
 // time.
 func TestFromMarkedSourceKeepsCatalogsByPath(t *testing.T) {
-	src := "// FILE: main.nomi\nfn main() end\n\n// FILE: locales/pl/cart.toml\n[cart_count]\n\n// FILE: nomi.toml\n[module]\nname = \"shop\"\n\n[i18n]\nlocales = [\"en\", \"pl\"]\n"
+	src := "// FILE: main.nomi\nfn main() end\n\n// FILE: locales/pl/cart.toml\n[cart_count]\n\n// FILE: nomi.toml\n[package]\nname = \"shop\"\n\n[i18n]\nlocales = [\"en\", \"pl\"]\n"
 	p, err := FromMarkedSource(src)
 	if err != nil {
 		t.Fatal(err)
@@ -151,11 +151,11 @@ func TestFromMarkedSourceKeepsCatalogsByPath(t *testing.T) {
 func TestFromMarkedSourcePicksTheFirstFilesProjectOfSiblings(t *testing.T) {
 	src := "// FILE: app/app_test.nomi\nimport shared\n\ntest \"t\"\n    assert shared.one() == 1\nend\n\n" +
 		"// FILE: app/more_test.nomi\ntest \"u\"\n    assert True\nend\n\n" +
-		"// FILE: app/nomi.toml\n[module]\nname = \"app\"\n\n" +
+		"// FILE: app/nomi.toml\n[package]\nname = \"app\"\n\n" +
 		"// FILE: shared/shared.nomi\npub fn one() -> Int\n    1\nend\n\n" +
 		"// FILE: shared/tools/gen.nomi\nfn main() end\n\n" +
 		"// FILE: shared/shared_test.nomi\ntest \"v\"\n    assert True\nend\n\n" +
-		"// FILE: shared/nomi.toml\n[module]\nname = \"shared\"\n"
+		"// FILE: shared/nomi.toml\n[package]\nname = \"shared\"\n"
 	p, err := FromMarkedSource(src)
 	if err != nil {
 		t.Fatal(err)
@@ -170,8 +170,8 @@ func TestFromMarkedSourcePicksTheFirstFilesProjectOfSiblings(t *testing.T) {
 		t.Error("the project's nomi.toml is a data file")
 	}
 
-	// One nomi.toml under the root is a module of the root's, not a sibling.
-	nested, err := FromMarkedSource("// FILE: main.nomi\nfn main() end\n\n// FILE: lib/nomi.toml\n[module]\nname = \"lib\"\n")
+	// One nomi.toml under the root is a package of the root's, not a sibling.
+	nested, err := FromMarkedSource("// FILE: main.nomi\nfn main() end\n\n// FILE: lib/nomi.toml\n[package]\nname = \"lib\"\n")
 	if err != nil {
 		t.Fatal(err)
 	}

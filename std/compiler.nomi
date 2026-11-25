@@ -157,7 +157,7 @@ pub host fn hover(source: String) -> Result<Hover, String>
 //!     entry_point: "main",
 //!     manifest: Option.Some(
 //!         """
-//!         [module]
+//!         [package]
 //!         name = "demo"
 //!         entry_points = ["main"]
 //!         """
@@ -192,7 +192,7 @@ pub host fn hover(source: String) -> Result<Hover, String>
 //!
 //! assert [unread] = compiler.check_project(Project{
 //!     entry_point: "main",
-//!     manifest:    Option.Some("[module"),
+//!     manifest:    Option.Some("[package"),
 //!     files:       {"main" => "fn main()\n  Unit\nend\n"},
 //! })
 //!

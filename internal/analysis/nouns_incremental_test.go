@@ -14,7 +14,7 @@ func nounsProject(tb testing.TB) incrementalProject {
 	dir := tb.TempDir()
 	book := ".input {$count :integer} .match $count one {{book}} * {{books}}"
 	files := map[string]string{
-		"nomi.toml": "[module]\nname = \"shop\"\nentry_points = [\"main\"]\n\n[i18n]\nlocales = [\"en\", \"pl\"]\n",
+		"nomi.toml": "[package]\nname = \"shop\"\nentry_points = [\"main\"]\n\n[i18n]\nlocales = [\"en\", \"pl\"]\n",
 		"locales/pl/shop.toml": "[book]\nsource = '''" + book + "'''\ngender = \"feminine\"\n" +
 			"nominative = '''.input {$count :integer} .match $count one {{książka}} few {{książki}} many {{książek}} * {{książki}}'''\n" +
 			"genitive = '''.input {$count :integer} .match $count one {{książki}} few {{książek}} many {{książek}} * {{książki}}'''\n\n" +

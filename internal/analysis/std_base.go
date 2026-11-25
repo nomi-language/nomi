@@ -52,8 +52,8 @@ type StdBase struct {
 	implBlockGroups map[string][]implBlockAt
 	// enumDecls is PopulateEnumDecls' table with each declaration's file key.
 	enumDecls map[string][]keyedSymbol
-	// declModules is declaringModuleIndex over the stdlib's files.
-	declModules map[string][]string
+	// declPackages is declaringPackageIndex over the stdlib's files.
+	declPackages map[string][]string
 	// demands is the union of the stdlib files' own ImplManifests, each
 	// bucket deduplicated in file-key order, and pairs their (type,
 	// interface) pairs.
@@ -113,7 +113,7 @@ func BuildStdBase(byName map[string]*FileAnalysis) *StdBase {
 	}
 	b.names = b.lookupNames()
 	b.implBlockGroups = stdImplBlockGroups(blocks)
-	b.declModules = declaringModuleIndex(b.files, "", nil)
+	b.declPackages = declaringPackageIndex(b.files, "", nil)
 	b.demands, b.pairs, b.wanted = stdDemands(b.filesInKeyOrder())
 	for _, fa := range b.files {
 		fa.program.formsBase.Store(b)
@@ -742,12 +742,12 @@ func orphanRuleNames(index map[string]map[string][]*ast.FuncDef, receivers map[*
 	return names
 }
 
-// declaringModules answers declaringModuleIndex's entries for names: the
+// declaringPackages answers declaringPackageIndex's entries for names: the
 // stdlib's modules from the base, then the build's own files'.
-func (s *programShare) declaringModules(names map[string]bool, entryModuleName string, crossModuleSegments map[string]bool) map[string][]string {
+func (s *programShare) declaringPackages(names map[string]bool, entryPackageName string, crossPackageSegments map[string]bool) map[string][]string {
 	idx := make(map[string][]string, len(names))
 	for name := range names {
-		if mods := s.base.declModules[name]; mods != nil {
+		if mods := s.base.declPackages[name]; mods != nil {
 			idx[name] = slices.Clone(mods)
 		}
 	}
@@ -756,7 +756,7 @@ func (s *programShare) declaringModules(names map[string]bool, entryModuleName s
 		if fa == nil || fa.ModuleScope == nil {
 			continue
 		}
-		writeDeclsFromScope(fa.ModuleScope, moduleNameFromKey(key, entryModuleName, crossModuleSegments), idx, seen)
+		writeDeclsFromScope(fa.ModuleScope, packageNameFromKey(key, entryPackageName, crossPackageSegments), idx, seen)
 	}
 	return idx
 }

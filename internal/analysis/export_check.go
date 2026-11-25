@@ -19,6 +19,12 @@ var (
 	fromJSONIface = &InterfaceType{Name: "FromJson", Origin: "std/json"}
 )
 
+// ImplementsToJSON reports whether t implements std::json's ToJson, by an
+// impl any file of fa's program writes (ImplementsInterface).
+func ImplementsToJSON(fa *FileAnalysis, t Type) bool {
+	return ImplementsInterface(fa, t, toJSONIface)
+}
+
 // checkExport reports an exported function whose signature cannot cross as
 // JSON: a generic one, a parameter or result whose type is not concrete, a
 // parameter whose type does not implement FromJson (the host's JSON is

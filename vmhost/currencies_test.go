@@ -12,7 +12,7 @@ import (
 )
 
 // pointsToml is a module that lists two custom currencies.
-const pointsToml = "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[money]\ncustom_currencies = [\"PTS:0\", \"BTC:8\"]\n"
+const pointsToml = "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[money]\ncustom_currencies = [\"PTS:0\", \"BTC:8\"]\n"
 
 // currencyProgram prints each of exprs, each a Currency.
 func currencyProgram(exprs ...string) string {
@@ -62,13 +62,13 @@ func TestCurrencyLiteral_ListedIsAccepted(t *testing.T) {
 func TestCurrencyLiteral_UnlistedIsACompileError(t *testing.T) {
 	for _, c := range []struct{ lit, want, hint string }{
 		{"Currency\"PST:0\"",
-			"typed literal Currency\"PST:0\": `PST:0` is a custom currency this module does not list: add it to [money].custom_currencies in nomi.toml",
+			"typed literal Currency\"PST:0\": `PST:0` is a custom currency this package does not list: add it to [money].custom_currencies in nomi.toml",
 			"did you mean `PTS:0`? nomi.toml lists it"},
 		{"Money\"5 PTS:2\".currency",
-			"typed literal Money\"5 PTS:2\": `PTS:2` is a custom currency this module does not list: add it to [money].custom_currencies in nomi.toml",
+			"typed literal Money\"5 PTS:2\": `PTS:2` is a custom currency this package does not list: add it to [money].custom_currencies in nomi.toml",
 			"did you mean `PTS:0`? nomi.toml lists it"},
 		{"Currency\"GEMS:0\"",
-			"typed literal Currency\"GEMS:0\": `GEMS:0` is a custom currency this module does not list: add it to [money].custom_currencies in nomi.toml",
+			"typed literal Currency\"GEMS:0\": `GEMS:0` is a custom currency this package does not list: add it to [money].custom_currencies in nomi.toml",
 			""},
 	} {
 		_, err := loadManifest(t, currencyProgram(c.lit), pointsToml)
@@ -95,10 +95,10 @@ func TestCurrencyLiteral_UnlistedIsACompileError(t *testing.T) {
 func TestCurrencyLiteral_NoListAndNoModule(t *testing.T) {
 	src := currencyProgram("Currency\"PTS:0\"")
 	for _, toml := range []string{
-		"[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
-		"[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[money]\ncustom_currencies = []\n",
+		"[package]\nname = \"app\"\nentry_points = [\"main\"]\n",
+		"[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[money]\ncustom_currencies = []\n",
 	} {
-		if _, err := loadManifest(t, src, toml); err == nil || !strings.Contains(err.Error(), "`PTS:0` is a custom currency this module does not list") {
+		if _, err := loadManifest(t, src, toml); err == nil || !strings.Contains(err.Error(), "`PTS:0` is a custom currency this package does not list") {
 			t.Errorf("under %q: %v; want the literal unlisted", toml, err)
 		}
 	}
@@ -147,7 +147,7 @@ func TestCurrencyCustomCall_LiteralArgumentsUnlistedIsACompileError(t *testing.T
 		t.Fatal("the program loads; want the call unlisted")
 	}
 	d := oneDiagnostic(t, err)
-	want := "Currency.custom(\"PST\", 0): `PST:0` is a custom currency this module does not list: add it to [money].custom_currencies in nomi.toml"
+	want := "Currency.custom(\"PST\", 0): `PST:0` is a custom currency this package does not list: add it to [money].custom_currencies in nomi.toml"
 	if d.Message != want || d.Line != 7 || d.Col != 28 || d.Code != UnlistedCurrencyCode {
 		t.Errorf("diagnostic at %d:%d (%s): %q\nwant at 7:28: %q", d.Line, d.Col, d.Code, d.Message, want)
 	}
@@ -220,7 +220,7 @@ fn main()
     io.print(Debug.inspect(shop.gems))
 end
 // FILE: app/nomi.toml
-[module]
+[package]
 name = "app"
 entry_points = ["main"]
 
@@ -234,7 +234,7 @@ import std::currency.Currency
 
 pub once gems = Currency"GEMS:2"
 // FILE: gems/nomi.toml
-[module]
+[package]
 name = "gems"
 
 [money]
@@ -274,7 +274,7 @@ func TestCurrencyLiteral_TheListIsPerModule(t *testing.T) {
 	}
 	d := oneDiagnostic(t, err)
 	// Both paths are the system's; Windows spells them with `\`.
-	if !strings.HasSuffix(filepath.ToSlash(d.Path), "gems/shop.nomi") || !strings.Contains(d.Message, "`PTS:0` is a custom currency this module does not list: add it to [money].custom_currencies in ") ||
+	if !strings.HasSuffix(filepath.ToSlash(d.Path), "gems/shop.nomi") || !strings.Contains(d.Message, "`PTS:0` is a custom currency this package does not list: add it to [money].custom_currencies in ") ||
 		!strings.HasSuffix(filepath.ToSlash(d.Message), "gems/nomi.toml") {
 		t.Errorf("diagnostic in %s: %q; want the library's, naming its nomi.toml", d.Path, d.Message)
 	}

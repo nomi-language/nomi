@@ -66,12 +66,14 @@ import (
 //     input K that the input's text names and that is in scope. A type's
 //     earlier inputs with an inherent impl of it are imported whole, since
 //     its members are found through them;
-//   - for each session value the input names, `host fn
-//     nomi_repl_get_<id>() -> T` and `once <name>: T =
-//     nomi_repl_get_<id>()`, which the session answers from its store;
-//   - the input's own declarations, each made `pub` (a generated `pub` line
-//     above it) so a later input can import it, and its onces, as `pub
-//     once <name>: T = nomi_repl_once_<id>(fn -> { <initializer> })`. The
+//   - for each session value the input names, `private host fn
+//     nomi_repl_get_<id>() -> T` and `private once <name>: T =
+//     nomi_repl_get_<id>()`, which the session answers from its store. The
+//     declarations the session writes are `private`, the file's own, so T
+//     may be a private type;
+//   - the input's own declarations as the user wrote them, and its onces, as
+//     `once <name>: T = nomi_repl_once_<id>(fn -> { <initializer> })` with
+//     the modifier the user wrote. The
 //     session calls init on the first force in the whole session and
 //     answers the stored value after that, so an initializer runs at most
 //     once, on first use, whichever input forces it;
@@ -282,8 +284,6 @@ type replDecl struct {
 	// line there, once its input ran.
 	file     string
 	fileLine int
-	// pub says the file declares it with a `pub` line above it.
-	pub bool
 	// same marks a type redeclared with the declaration in force: the
 	// input does not declare it again.
 	same bool
@@ -303,6 +303,9 @@ type replOnce struct {
 	name string
 	text string
 	line int
+	// vis is the modifier the user wrote on it, which the generated
+	// declaration that holds its initializer writes again.
+	vis ast.Visibility
 	// rhsLine and rhsCol are where the initializer starts in text.
 	rhsLine, rhsCol int
 	refs            []*replEntity
@@ -447,7 +450,7 @@ func parseReplInput(input string) (*replInput, error) {
 			if !ok {
 				return nil, fmt.Errorf("repl: cannot find the initializer of once %s", o.Name)
 			}
-			in.onces = append(in.onces, &replOnce{name: o.Name, text: text, line: start, rhsLine: rhsLine, rhsCol: rhsCol})
+			in.onces = append(in.onces, &replOnce{name: o.Name, text: text, line: start, vis: o.Visibility, rhsLine: rhsLine, rhsCol: rhsCol})
 			in.fnNames[o.Name] = true
 			continue
 		}
@@ -542,7 +545,7 @@ func replIdentifier(s string) bool {
 // replDeclOf is n as a declaration, keyed by what it declares.
 func replDeclOf(n ast.Node, text string) (*replDecl, bool) {
 	flat := strings.Join(strings.Fields(text), " ")
-	d := &replDecl{text: text, flat: flat, pub: replNeedsPub(n)}
+	d := &replDecl{text: text, flat: flat}
 	switch t := n.(type) {
 	case *ast.FuncDef:
 		d.key, d.fnName = "fn "+t.Name, t.Name
@@ -607,21 +610,6 @@ func replImplHeader(text string) string {
 	head, _, _ := strings.Cut(text, "\n")
 	head = strings.Join(strings.Fields(head), " ")
 	return strings.TrimSpace(strings.TrimSuffix(head, " end"))
-}
-
-// replNeedsPub reports whether n is a declaration a later file imports
-// that is not written `pub`.
-func replNeedsPub(n ast.Node) bool {
-	v := reflect.ValueOf(n)
-	if v.Kind() != reflect.Pointer || v.IsNil() || v.Elem().Kind() != reflect.Struct {
-		return false
-	}
-	switch n.(type) {
-	case *ast.ImplBlock, *ast.ImplConformance:
-		return false
-	}
-	f := v.Elem().FieldByName("Public")
-	return f.IsValid() && f.Kind() == reflect.Bool && !f.Bool()
 }
 
 // replTypeWords is the type-position words of text: every capitalized
@@ -805,11 +793,23 @@ func (plan *replPlan) scopeNames() []string {
 // replSource is a file's text and, for each of its lines, where the line
 // came from: its line in the current input, replEarlier for an earlier
 // input's declaration, or replGenerated; and what declared it.
+//
+// above is how many of the file's lines are above the input's first: the
+// input is one declaration or statement, since the prompt ends an input at
+// its first complete line, so its text sits in the file in one piece, each
+// line at its line in the input plus above. The lowering takes above off
+// every position it holds (vmhost.Session.LoadFile), so a `dbg`, a `todo`,
+// a failed assertion and a trap name the line the user typed, and a
+// diagnostic's line is mapped back through origin, which says the same.
+// earlierAbove answers it for an earlier input's file.
 type replSource struct {
-	key    string
-	b      strings.Builder
-	origin []int
-	owner  []replOwner
+	key          string
+	b            strings.Builder
+	origin       []int
+	owner        []replOwner
+	above        int
+	placed       bool
+	earlierAbove func(key string) int
 }
 
 // replOwner is the declaration a file line belongs to: the current input's
@@ -830,6 +830,9 @@ const (
 // replGenerated), owned by owner.
 func (s *replSource) add(text string, line int, owner replOwner) {
 	owner.start = len(s.origin) + 1
+	if line > 0 && !s.placed {
+		s.above, s.placed = owner.start-line, true
+	}
 	for i, l := range strings.Split(text, "\n") {
 		s.b.WriteString(l)
 		s.b.WriteByte('\n')
@@ -849,7 +852,7 @@ func (s *replSource) gen(text string) { s.add(text, replGenerated, replOwner{}) 
 func (s *replSource) explain(err error) string {
 	var ds vmhost.Diagnostics
 	if !errors.As(err, &ds) {
-		return s.explainText(err.Error())
+		return s.explainText(err.Error(), false)
 	}
 	lines := make([]string, len(ds))
 	for i, d := range ds {
@@ -867,10 +870,14 @@ func (s *replSource) explain(err error) string {
 			}
 		}
 	}
-	return s.explainText(strings.Join(lines, "\n"))
+	return s.explainText(strings.Join(lines, "\n"), false)
 }
 
-func (s *replSource) explainText(text string) string {
+// explainText rewrites the positions in text, a report of an error, to the
+// lines the user typed. lowered says the positions are the lowering's,
+// which are those lines already (replSource.above); a diagnostic's and a
+// decline's are lines of the files.
+func (s *replSource) explainText(text string, lowered bool) string {
 	// A diagnostic about a probe repeats one about the input's own binding.
 	lines := strings.Split(text, "\n")
 	kept := lines[:0]
@@ -882,14 +889,21 @@ func (s *replSource) explainText(text string) string {
 	text = replVersionedName.ReplaceAllString(strings.Join(kept, "\n"), "")
 	// Two types of one name from different inputs: each by its input.
 	text = replQualified.ReplaceAllString(text, "$2 (input $1)")
-	// A position in an earlier input's file is that file's line.
+	// A position in an earlier input's file is a line of that input.
 	text = replFileRef.ReplaceAllStringFunc(text, func(ref string) string {
 		m := replFileRef.FindStringSubmatch(ref)
 		if m[1] == replFilePath(s.key) {
 			return "repl.nomi:" + m[2]
 		}
-		return "repl.nomi:" + m[2] + " (an earlier input's declaration)"
+		line := m[2]
+		if n, err := strconv.Atoi(line); err == nil && !lowered && s.earlierAbove != nil {
+			line = strconv.Itoa(max(n-s.earlierAbove(strings.TrimSuffix(m[1], ".nomi")), 1))
+		}
+		return "repl.nomi:" + line + " (an earlier input's declaration)"
 	})
+	if lowered {
+		return text
+	}
 	return replLineRef.ReplaceAllStringFunc(text, func(ref string) string {
 		m := replLineRef.FindStringSubmatch(ref)
 		if m[3] != "" {
@@ -925,7 +939,7 @@ var replVersionedName = regexp.MustCompile(`\bnomi_repl_\d+_`)
 
 // file is the source of in's file under plan.
 func (s *replSession) file(in *replInput, plan *replPlan) *replSource {
-	src := &replSource{key: plan.key}
+	src := &replSource{key: plan.key, earlierAbove: s.vm.LinesAbove}
 	// Imports first: a file holds them before anything else.
 	if plan.show && in.lastIsExpr {
 		src.gen(fmt.Sprintf("import std::io as %s", replValueImport))
@@ -985,32 +999,31 @@ func (s *replSession) file(in *replInput, plan *replPlan) *replSource {
 	for _, e := range values {
 		plan.values[e.name] = e
 		get := vmhost.SessionGetName(e.vid)
-		src.gen(fmt.Sprintf("host fn %s() -> %s", get, plan.spell(e.typ)))
-		src.gen(fmt.Sprintf("once %s: %s = %s()", e.name, plan.spell(e.typ), get))
+		src.gen(fmt.Sprintf("private host fn %s() -> %s", get, plan.spell(e.typ)))
+		src.gen(fmt.Sprintf("private once %s: %s = %s()", e.name, plan.spell(e.typ), get))
 	}
 	for _, st := range plan.stores {
-		src.gen(fmt.Sprintf("host fn %s(value: %s) -> Unit", vmhost.SessionPutName(st.id), plan.spell(st.typ)))
+		src.gen(fmt.Sprintf("private host fn %s(value: %s) -> Unit", vmhost.SessionPutName(st.id), plan.spell(st.typ)))
 	}
 	for i, d := range in.decls {
 		if d.isImport || d.same {
 			continue
 		}
-		if d.pub {
-			src.gen("pub")
-		}
 		src.add(d.text, d.line, replOwner{decl: i + 1})
 	}
 	for i, o := range in.onces {
 		if plan.probe || o.typ == "" {
-			src.gen("pub")
 			src.add(o.text, o.line, replOwner{once: i + 1})
 			continue
 		}
 		force := vmhost.SessionOnceName(o.ent.vid)
 		typ := plan.spell(o.typ)
-		src.gen(fmt.Sprintf("host fn %s(init: () -> %s) -> %s", force, typ, typ))
-		src.gen("pub")
-		src.add(fmt.Sprintf("once %s: %s = %s(fn ->", o.name, typ, force), replGenerated, replOwner{once: i + 1})
+		src.gen(fmt.Sprintf("private host fn %s(init: () -> %s) -> %s", force, typ, typ))
+		header := fmt.Sprintf("once %s: %s = %s(fn ->", o.name, typ, force)
+		if kw := o.vis.Keyword(); kw != "" {
+			header = kw + " " + header
+		}
+		src.add(header, replGenerated, replOwner{once: i + 1})
 		src.add(o.rhs(), o.line+o.rhsLine-1, replOwner{once: i + 1})
 		src.gen("end)")
 	}
@@ -1019,10 +1032,12 @@ func (s *replSession) file(in *replInput, plan *replPlan) *replSource {
 		if i == len(in.stmts)-1 && in.lastIsExpr {
 			switch {
 			case plan.probe:
-				src.add(fmt.Sprintf("%s = %s", replValueName, st.text), st.line, replOwner{})
+				src.gen(replValueName + " =")
+				src.add(st.text, st.line, replOwner{})
 				src.gen(fmt.Sprintf("_ = %s", replValueName))
 			case plan.show:
-				src.add(fmt.Sprintf("%s = %s", replValueName, st.text), st.line, replOwner{})
+				src.gen(replValueName + " =")
+				src.add(st.text, st.line, replOwner{})
 				src.gen(fmt.Sprintf("%s.inspect(%s)", replValueImport, replValueName))
 			default:
 				src.add(st.text, st.line, replOwner{})
@@ -1155,10 +1170,11 @@ func (s *replSession) imports(in *replInput, plan *replPlan) (map[string][]strin
 	return named, whole, values
 }
 
-// rhs is o's initializer: its text from after the `=`.
+// rhs is o's initializer: its text from after the `=`, each line at the
+// columns it was typed at, so a position in it is one the user typed.
 func (o *replOnce) rhs() string {
 	lines := strings.Split(o.text, "\n")[o.rhsLine-1:]
-	lines[0] = lines[0][o.rhsCol-1:]
+	lines[0] = strings.Repeat(" ", o.rhsCol-1) + lines[0][o.rhsCol-1:]
 	return strings.Join(lines, "\n")
 }
 
@@ -1423,7 +1439,7 @@ func (s *replSession) eval(input string, out, errOut io.Writer) {
 
 	load := func() (*vmhost.Program, error) {
 		src = s.file(in, plan)
-		p, err := s.vm.LoadFile(key, src.b.String())
+		p, err := s.vm.LoadFile(key, src.b.String(), src.above)
 		if err != nil {
 			s.vm.Discard(key)
 		}
@@ -1501,12 +1517,13 @@ func (s *replSession) eval(input string, out, errOut io.Writer) {
 	}
 	if err := s.vm.Run(context.Background(), p); err != nil {
 		var report bytes.Buffer
-		if blocked, ok := vmhost.IsBlocked(err); ok {
-			blocked.Write(&report, "<repl>")
+		b, blocked := vmhost.IsBlocked(err)
+		if blocked {
+			b.Write(&report, "<repl>")
 		} else {
 			vmhost.WriteFailure(&report, err)
 		}
-		io.WriteString(errOut, src.explainText(report.String()))
+		io.WriteString(errOut, src.explainText(report.String(), !blocked))
 		return
 	}
 	ran = true

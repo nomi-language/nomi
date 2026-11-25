@@ -38,7 +38,7 @@ import (
 // BuildProjectWithCache rather than BuildProjectFromEntry because a tour
 // snippet HAS NO PATH. The entry-path variant exists to populate
 // FileAnalysis.FilePath for the internal/-access and entry-placement checks,
-// which derive a module-relative path from it; inventing a path to satisfy
+// which derive a package-relative path from it; inventing a path to satisfy
 // them would make those checks judge a file that does not exist. This is the
 // same reason document.go's header gives for the LSP per-document path.
 //

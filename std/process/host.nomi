@@ -17,10 +17,10 @@ import
 end
 
 /// A program `start` started, or the fake's stand-in for one.
-pub host type Child
+host type Child
 
 /// The fake `std::process::testing.run` responds to starts with.
-pub host type Fake
+host type Fake
 
 /// Starts `program` with `args`, its environment extended by `env` (made
 /// of `env` alone when `clear_env`), in `dir` (the working directory when
@@ -28,7 +28,7 @@ pub host type Fake
 /// program's 1, `input` 2, piped 3), and `stdout` and `stderr` the modes
 /// of its output and error (null 0, the program's 1, captured 2, piped 3).
 /// `new_group` starts it as the leader of a process group of its own.
-pub host fn start(
+host fn start(
     program:   String,
     args:      List<String>,
     env:       Map<String, String>,
@@ -42,41 +42,41 @@ pub host fn start(
 ) -> Result<Child, Error>
 
 /// The writer to a piped standard input.
-pub host fn child_stdin(child: Child) -> Writer
+host fn child_stdin(child: Child) -> Writer
 
 /// The reader over a piped standard output.
-pub host fn child_stdout(child: Child) -> Reader
+host fn child_stdout(child: Child) -> Reader
 
 /// The reader over a piped standard error.
-pub host fn child_stderr(child: Child) -> Reader
+host fn child_stderr(child: Child) -> Reader
 
 /// Closes a piped standard input and waits: `[0, code]` when the child
 /// exited, `[1, signal]` when a signal ended it.
-pub host fn wait(child: Child) -> Result<List<Int>, Error>
+host fn wait(child: Child) -> Result<List<Int>, Error>
 
 /// What a finished child wrote to a captured standard output (1) or error
 /// (2).
-pub host fn captured(child: Child, stream: Int64) -> Bytes
+host fn captured(child: Child, stream: Int64) -> Bytes
 
 /// Ends the child if it is still running, and reaps it.
-pub host fn kill(child: Child) -> Unit
+host fn kill(child: Child) -> Unit
 
 /// This process's id.
-pub host fn id() -> PositiveInt
+host fn id() -> PositiveInt
 
 /// The child's process id.
-pub host fn child_id(child: Child) -> PositiveInt
+host fn child_id(child: Child) -> PositiveInt
 
 /// Sends the signal POSIX names `name` (`SIGTERM`) to the child, or to the
 /// group it leads when `group` is set.
-pub host fn signal(child: Child, name: String, group: Bool) -> Result<Unit, Error>
+host fn signal(child: Child, name: String, group: Bool) -> Result<Unit, Error>
 
 /// A fake with no answers.
-pub host fn new_fake() -> Fake
+host fn new_fake() -> Fake
 
 /// A start of `program` with `args` (with any arguments when `any_args`)
 /// exits with `code` after writing `stdout` and `stderr`.
-pub host fn fake_answer(
+host fn fake_answer(
     fake:     Fake,
     program:  String,
     args:     List<String>,
@@ -88,7 +88,7 @@ pub host fn fake_answer(
 
 /// A start of `program` with `args` (any when `any_args`) fails with
 /// `error`.
-pub host fn fake_refuse(
+host fn fake_refuse(
     fake:     Fake,
     program:  String,
     args:     List<String>,
@@ -97,23 +97,23 @@ pub host fn fake_refuse(
 ) -> Unit
 
 /// How many starts the fake responded to.
-pub host fn fake_calls(fake: Fake) -> Int
+host fn fake_calls(fake: Fake) -> Int
 
 /// The program and then the arguments of the call at position `i`.
-pub host fn fake_command(fake: Fake, i: Int) -> List<String>
+host fn fake_command(fake: Fake, i: Int) -> List<String>
 
 /// The directory the call at position `i` asked for, or "".
-pub host fn fake_dir(fake: Fake, i: Int) -> String
+host fn fake_dir(fake: Fake, i: Int) -> String
 
 /// The environment the call at position `i` added.
-pub host fn fake_env(fake: Fake, i: Int) -> Map<String, String>
+host fn fake_env(fake: Fake, i: Int) -> Map<String, String>
 
 /// What the call at position `i` was given on its standard input.
-pub host fn fake_input(fake: Fake, i: Int) -> Bytes
+host fn fake_input(fake: Fake, i: Int) -> Bytes
 
 /// Runs `body` with `fake` responding to every std::process call in it, its
 /// tasks' included, and returns what it returned.
-pub fn run_in<T>(fake: Fake, body: () -> T) -> T
+fn run_in<T>(fake: Fake, body: () -> T) -> T
     run_on(fake, body, fn value -> value)
 end
 

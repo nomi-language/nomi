@@ -236,13 +236,13 @@ fn listener_closed_raw(h: ListenHandle) -> Bool
 end
 
 // Whether a `wait` is waiting on the server now; for this module's tests.
-fn listener_waiting_raw(h: ListenHandle) -> Bool
-    Cell.read(h.state).waiting
+fn listener_waiting(listener: Listener) -> Bool
+    Cell.read(listener.handle.state).waiting
 end
 
 // How many notifications `wait` has returned; for this module's tests.
-fn listener_received_raw(h: ListenHandle) -> Int
-    Cell.read(h.state).received
+fn listener_received(listener: Listener) -> Int
+    Cell.read(listener.handle.state).received
 end
 
 // How often a send blocked on a full channel looks again at whether its

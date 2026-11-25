@@ -14,7 +14,7 @@ import (
 	"github.com/nomi-language/nomi/internal/effects"
 	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/ir"
-	"github.com/nomi-language/nomi/internal/modcache"
+	"github.com/nomi-language/nomi/internal/pkgcache"
 	"github.com/nomi-language/nomi/internal/stdlibadapters"
 	"github.com/nomi-language/nomi/internal/stdlibbindings"
 	"github.com/nomi-language/nomi/internal/vm"
@@ -57,10 +57,10 @@ import (
 //     and its key. The entry boot that
 //     takes a Startup reads the environment and the arguments: `std::startup`
 //     at the boot.
-//   - A call is charged to the module whose file holds it (moduleOf): the
+//   - A call is charged to the package whose file holds it (packageOf): the
 //     program for its own files, a dependency, by its name in the program, for
 //     the files under the nearest nomi.toml above them; and within that
-//     module to the file, by its import path (importOf). A callback the
+//     package to the file, by its import path (importOf). A callback the
 //     program passes into std or a dependency is the program's, and the
 //     instance of a dependency's generic function stays in the
 //     dependency's file.
@@ -80,8 +80,8 @@ import (
 // import path (importOf), a std list. A call in a dependency's files is
 // held by [effects.deps]: by its std, a ceiling when the table sets one,
 // and by the project's entry for that module under
-// [effects.deps.modules], a std list. It is held too to the
-// [effects.self] in the dependency's own nomi.toml (moduleAt): its std
+// [effects.deps.packages], a std list. It is held too to the
+// [effects.self] in the dependency's own nomi.toml (packageAt): its std
 // and its entry for the file's module. A call over more than one list is
 // reported once, over the first of the module's own list, the entry and
 // the table the entry is under. A host's list (WithEffects) holds the
@@ -308,8 +308,7 @@ func (p *Program) reachRoots(r Roots) ([]*ir.Func, []*ir.Symbol, vm.EdgeKind) {
 // at the top of a file or in an inherent impl, and each function of an
 // interface's impl for a type they can build, a `pub` type that is not
 // `opaque` or a `pub` interface, which they implement. None in a test file, whose test cases
-// reach its code, and only impls in an `internal/` directory, whose
-// functions and types no other module names. Each instance of a generic
+// reach its code. Each instance of a generic
 // function is among them, and so is its abstract body (irbuild's
 // abstract.go), one of abstract, which stands for every instance any
 // caller makes. The walk from them also starts from the bodies a value of
@@ -339,16 +338,11 @@ func (p *Program) publicFuncs(abstract []*ir.Module) []*ir.Func {
 // publicAt answers, for a function declared at a line and column of one of
 // files, whether another module can call it (publicFuncs' rule).
 func (p *Program) publicAt(files []string) func(file string, line, col int) bool {
-	type own struct {
-		nodes []ast.Node
-		// published is false for a file in an internal/ directory, and own
-		// is nil for a test file.
-		published bool
-	}
-	held := map[string]*own{}
+	// held is each file's nodes, and nil for a test file.
+	held := map[string][]ast.Node{}
 	var order []string
 	for _, file := range files {
-		if _, seen := held[file]; seen || file == "" || p.moduleOf(file) != "" {
+		if _, seen := held[file]; seen || file == "" || p.packageOf(file) != "" {
 			continue
 		}
 		if _, isStd := std.ImageName(file); isStd {
@@ -359,42 +353,38 @@ func (p *Program) publicAt(files []string) func(file string, line, col int) bool
 			held[file] = nil
 			continue
 		}
-		held[file] = &own{nodes: p.syntaxOf(file), published: !slices.Contains(parts[:len(parts)-1], "internal")}
+		held[file] = p.syntaxOf(file)
 		order = append(order, file)
 	}
 	// built is the types another module can build a value of.
 	built := map[string]bool{}
 	for _, file := range order {
-		if !held[file].published {
-			continue
-		}
-		for _, n := range held[file].nodes {
+		for _, n := range held[file] {
 			switch d := n.(type) {
 			case *ast.StructDef:
-				built[d.Name] = built[d.Name] || d.Public && !d.Opaque
+				built[d.Name] = built[d.Name] || d.Visibility == ast.Public && !d.Opaque
 			case *ast.EnumDef:
-				built[d.Name] = built[d.Name] || d.Public && !d.Opaque
+				built[d.Name] = built[d.Name] || d.Visibility == ast.Public && !d.Opaque
 			case *ast.TypeDef:
-				built[d.Name] = built[d.Name] || d.Public && !d.Opaque
+				built[d.Name] = built[d.Name] || d.Visibility == ast.Public && !d.Opaque
 			case *ast.InterfaceDef:
 				// Another module implements a `pub` interface and holds its
 				// values, so an impl for the interface type runs for them.
-				built[d.Name] = built[d.Name] || d.Public
+				built[d.Name] = built[d.Name] || d.Visibility == ast.Public
 			}
 		}
 	}
 	public := map[*ast.FuncDef]bool{}
 	for _, file := range order {
-		o := held[file]
-		for _, n := range o.nodes {
+		for _, n := range held[file] {
 			switch d := n.(type) {
 			case *ast.FuncDef:
-				public[d] = o.published && d.Public
+				public[d] = d.Visibility == ast.Public
 			case *ast.ImplBlock:
 				impl := d.Interface != nil && built[analysis.TypeExprBaseName(d.Receiver)]
 				for _, item := range d.Items {
 					if fd, ok := item.(*ast.FuncDef); ok {
-						public[fd] = impl || o.published && fd.Public && d.Interface == nil
+						public[fd] = impl || fd.Visibility == ast.Public && d.Interface == nil
 					}
 				}
 			}
@@ -566,9 +556,9 @@ type EffectCall struct {
 	// crosses through http's host functions). An embedder's own `host fn`
 	// is `host:` and its key.
 	Name string
-	// Module is the module charged for the call, the one whose file holds
-	// it: a dependency's name in the program (requiredModule.path), or "" for the program's own files.
-	Module string
+	// Package is the package charged for the call, the one whose file holds
+	// it: a dependency's name in the program (requiredPackage.path), or "" for the program's own files.
+	Package string
 	// Import is the file that holds the call as the code of its own Nomi
 	// module imports it (importOf): `pricing`, `reports::daily`. It is the
 	// key of the file's entry under [effects.self.modules].
@@ -647,12 +637,12 @@ func (p *Program) walk(r Roots) Walk {
 		file := c.At.File()
 		module, ok := modules[file]
 		if !ok {
-			module = [2]string{p.moduleOf(file), p.importOf(file)}
+			module = [2]string{p.packageOf(file), p.importOf(file)}
 			modules[file] = module
 		}
 		out[i] = EffectCall{
 			Name:     p.effectName(c),
-			Module:   module[0],
+			Package:  module[0],
 			Import:   module[1],
 			Site:     fmt.Sprintf("%s:%d:%d", p.imageName(file), c.At.Line(), c.At.Col()),
 			Callee:   hostadapt.DisplayName(c.Callee),
@@ -681,8 +671,8 @@ const (
 	// OverSelfEntry is the entry of one of the project's own modules
 	// under [effects.self.modules], whose key is NotAllowed.Entry.
 	OverSelfEntry EffectList = "self.modules"
-	// OverEntry is the module's entry under [effects.deps.modules].
-	OverEntry EffectList = "deps.modules"
+	// OverEntry is the module's entry under [effects.deps.packages].
+	OverEntry EffectList = "deps.packages"
 	// OverDeclared is the [effects.self] in the module's own
 	// nomi.toml, which it declares for its own files: its std, its entry
 	// for the file's module under its [effects.self.modules]
@@ -694,8 +684,8 @@ const (
 // effects tables, or the host's lists, do not allow.
 type NotAllowed struct {
 	EffectCall
-	// List is the list that does not allow the call. The module it holds
-	// is Module, the one whose file holds the call: the project for
+	// List is the list that does not allow the call. The package it holds
+	// is Package, the one whose file holds the call: the project for
 	// OverSelf and OverSelfEntry, a dependency for the others.
 	List EffectList
 	// Entry is, for a call over an entry under an [effects.self.modules]
@@ -740,8 +730,8 @@ type NotAllowed struct {
 //
 //   - Deps: its name is in Std when it is set, with StdInTests when r
 //     names tests;
-//   - the project's entry for the module under Deps.Modules;
-//   - the module's own [effects.self], when its nomi.toml has one: its
+//   - the project's entry for the package under Deps.Packages;
+//   - the package's own [effects.self], when its nomi.toml has one: its
 //     name is in its std and in its entry for the file's module under its
 //     own [effects.self.modules]. The rest of its tables are for its own
 //     builds.
@@ -806,7 +796,7 @@ func standingsOf(calls []EffectCall, tests bool, lists *Effects, declared map[st
 		// its ceiling, whether that ceiling holds the call, and its entries,
 		// keyed by key. [effects.self] holds the project's own files, its
 		// entries keyed by the file's module as the project imports it;
-		// [effects.deps] a dependency's, its entries keyed by the module's
+		// [effects.deps] a dependency's, its entries keyed by the package's
 		// name, and its ceiling only when it sets one.
 		var (
 			ceiling                []string
@@ -817,16 +807,16 @@ func standingsOf(calls []EffectCall, tests bool, lists *Effects, declared map[st
 			own                    *analysis.SelfEffects
 		)
 		switch {
-		case c.Module == "" && lists.Self != nil:
+		case c.Package == "" && lists.Self != nil:
 			self := lists.Self
 			ceiling, ceilingHolds = self.StdFor(tests), true
 			entries, key, table, ceilingList, entryList = self.Modules, c.Import, selfTable, OverSelf, OverSelfEntry
-		case c.Module != "" && lists.Deps != nil:
+		case c.Package != "" && lists.Deps != nil:
 			d := lists.Deps
 			ceiling = d.StdFor(tests)
 			ceilingHolds = ceiling != nil
-			entries, key, table, ceilingList, entryList = d.Modules, c.Module, depsTable, OverDeps, OverEntry
-			own = declared[c.Module]
+			entries, key, table, ceilingList, entryList = d.Packages, c.Package, depsTable, OverDeps, OverEntry
+			own = declared[c.Package]
 		default:
 			out = append(out, s)
 			continue
@@ -913,9 +903,9 @@ type Walk struct {
 // their import paths, and is nil for nil own.
 func tightestLists(walks []Walk, deps, own []string) *Effects {
 	self := &analysis.SelfEffects{Std: []string{}}
-	d := &analysis.DepsEffects{Std: []string{}, Modules: map[string][]string{}}
+	d := &analysis.DepsEffects{Std: []string{}, Packages: map[string][]string{}}
 	for _, m := range deps {
-		d.Modules[m] = []string{}
+		d.Packages[m] = []string{}
 	}
 	if own != nil {
 		self.Modules = map[string][]string{}
@@ -939,7 +929,7 @@ func tightestLists(walks []Walk, deps, own []string) *Effects {
 		for _, c := range w.Calls {
 			switch {
 			case !effects.Listed(c.Name):
-			case c.Module == "":
+			case c.Package == "":
 				if w.Tests {
 					add(&self.StdInTests, c.Name)
 				} else {
@@ -952,7 +942,7 @@ func tightestLists(walks []Walk, deps, own []string) *Effects {
 				} else {
 					add(&d.Std, c.Name)
 				}
-				addTo(d.Modules, c.Module, c.Name)
+				addTo(d.Packages, c.Package, c.Name)
 			}
 		}
 	}
@@ -961,7 +951,7 @@ func tightestLists(walks []Walk, deps, own []string) *Effects {
 	for _, list := range [][]string{self.Std, self.StdInTests, d.Std, d.StdInTests} {
 		slices.Sort(list)
 	}
-	for _, entries := range []map[string][]string{self.Modules, d.Modules} {
+	for _, entries := range []map[string][]string{self.Modules, d.Packages} {
 		for _, entry := range entries {
 			slices.Sort(entry)
 		}
@@ -971,15 +961,15 @@ func tightestLists(walks []Walk, deps, own []string) *Effects {
 
 // declaredLists is the own [effects.self] of each module whose files
 // hold one of calls and whose own nomi.toml has one, by its name in the program
-// (moduleAt).
+// (packageAt).
 func (p *Program) declaredLists(calls []EffectCall) map[string]*analysis.SelfEffects {
 	out := map[string]*analysis.SelfEffects{}
 	for _, c := range calls {
-		if _, done := out[c.Module]; done || c.Module == "" {
+		if _, done := out[c.Package]; done || c.Package == "" {
 			continue
 		}
-		if m := p.moduleAt(c.at.File()); m != nil && m.declares() {
-			out[c.Module] = m.manifest.Effects.Self
+		if m := p.packageAt(c.at.File()); m != nil && m.declares() {
+			out[c.Package] = m.manifest.Effects.Self
 		}
 	}
 	return out
@@ -996,25 +986,25 @@ func (p *Program) effectName(c vm.EffectCall) string {
 	return effects.Name(c.Std, hostadapt.DisplayName(c.Crossing))
 }
 
-// moduleOf is the module whose file path is: "" for the program's own
+// packageOf is the package whose file path is: "" for the program's own
 // files (an in-memory one among them) and the standard library's, else the
-// name in the program of the dependency moduleAt finds.
-func (p *Program) moduleOf(path string) string {
-	if m := p.moduleAt(path); m != nil {
+// name in the program of the dependency packageAt finds.
+func (p *Program) packageOf(path string) string {
+	if m := p.packageAt(path); m != nil {
 		return m.path
 	}
 	return ""
 }
 
-// importOf is the file at path as the code of its own Nomi module imports it
-// (spec §14 *Files and modules*): its path from the module's root, the
-// project's (imageName) or a dependency's (moduleAt), without `.nomi`,
+// importOf is the file at path as the code of its own package imports it
+// (spec §14 *Modules and packages*): its path from the package's root, the
+// project's (imageName) or a dependency's (packageAt), without `.nomi`,
 // with `::` between directories: `pricing`, `reports::daily`,
 // `pricing_test`. A file the program holds in memory is named by its path
 // as given.
 func (p *Program) importOf(path string) string {
 	name := p.imageName(path)
-	if m := p.moduleAt(path); m != nil {
+	if m := p.packageAt(path); m != nil {
 		if rel, err := filepath.Rel(m.root, path); err == nil {
 			name = filepath.ToSlash(rel)
 		}
@@ -1025,11 +1015,11 @@ func (p *Program) importOf(path string) string {
 // ownModules is each module of the project whose files the program holds,
 // by its import path (importOf), sorted: what entries_required under
 // [effects.self] asks an entry of. A program reopened from the
-// artifact cache holds only its entry, as requiredModules says.
+// artifact cache holds only its entry, as requiredPackages says.
 func (p *Program) ownModules() []string {
 	var out []string
 	for _, file := range p.prog.Modules {
-		if _, isStd := std.ImageName(file.Path); isStd || file.Path == "" || p.moduleAt(file.Path) != nil {
+		if _, isStd := std.ImageName(file.Path); isStd || file.Path == "" || p.packageAt(file.Path) != nil {
 			continue
 		}
 		if name := p.importOf(file.Path); !slices.Contains(out, name) {
@@ -1042,13 +1032,14 @@ func (p *Program) ownModules() []string {
 
 // projectModules is each module of the project, by its import path, sorted:
 // each .nomi file under its root outside another module's directory
-// (analysis.WorkspaceNomiFiles), with the modules the program holds
+// (analysis.EditorFolderNomiFiles, the files a scan of root as an editor
+// folder covers), with the modules the program holds
 // (ownModules), which a program held in memory has alone. A key under
 // [effects.self.modules] names one of them.
 func (p *Program) projectModules() []string {
 	out := p.ownModules()
 	if root := p.prog.Root; root != "" {
-		for _, file := range analysis.WorkspaceNomiFiles(root) {
+		for _, file := range analysis.EditorFolderNomiFiles(root) {
 			if dir, ok := manifestDirAbove(filepath.Dir(file)); !ok || !sameDir(dir, root) {
 				continue
 			}
@@ -1061,12 +1052,12 @@ func (p *Program) projectModules() []string {
 	return out
 }
 
-// projectModule is the name of the project whose own files [effects.self]
-// holds, as `nomi effects` reports it: its nomi.toml's `[module].name`;
+// projectPackage is the name of the project whose own files [effects.self]
+// holds, as `nomi effects` reports it: its nomi.toml's `[package].name`;
 // without one, its entry's module name, which is the name LoadSource is
 // given (`LoadSource("rule", ...)` is `rule`) and a lone file's name
 // without `.nomi`.
-func (p *Program) projectModule() string {
+func (p *Program) projectPackage() string {
 	p.projectOnce.Do(func() {
 		if m := programManifest(p.prog.Root, p.cfg.manifest); m != nil && m.Name != "" {
 			p.project = m.Name
@@ -1078,12 +1069,12 @@ func (p *Program) projectModule() string {
 	return p.project
 }
 
-// requiredModule is a module other than the project whose files a program
+// requiredPackage is a package other than the project whose files a program
 // holds: a dependency.
-type requiredModule struct {
-	// path is its name in the program (modcache.Dep.Name): the name the
+type requiredPackage struct {
+	// path is its name in the program (pkgcache.Dep.Name): the name the
 	// project's nomi.toml gives it, which keys its entry under
-	// [effects.deps.modules]; its `[module].name` when the module graph does not hold its directory,
+	// [effects.deps.packages]; its `[package].name` when the package graph does not hold its directory,
 	// or its directory when it has neither.
 	path string
 	// root is its directory, the one holding its nomi.toml.
@@ -1095,15 +1086,15 @@ type requiredModule struct {
 
 // declares reports whether m's own nomi.toml has an [effects.self]
 // table, which declares m's own code by its std.
-func (m *requiredModule) declares() bool {
+func (m *requiredPackage) declares() bool {
 	return m.manifest != nil && m.manifest.Effects != nil && m.manifest.Effects.Self != nil
 }
 
-// moduleAt is the dependency the file at path is in, the one whose
+// packageAt is the dependency the file at path is in, the one whose
 // nomi.toml is the nearest above it, or nil for the program's own files (an
 // in-memory one among them) and the standard library's. Each dependency is
 // worked out once.
-func (p *Program) moduleAt(path string) *requiredModule {
+func (p *Program) packageAt(path string) *requiredPackage {
 	if _, isStd := std.ImageName(path); isStd || !filepath.IsAbs(path) {
 		return nil
 	}
@@ -1116,39 +1107,39 @@ func (p *Program) moduleAt(path string) *requiredModule {
 	if m, done := p.modules[root]; done {
 		return m
 	}
-	m := &requiredModule{path: root, root: root}
+	m := &requiredPackage{path: root, root: root}
 	m.manifest, _ = analysis.LoadManifest(root)
 	if m.manifest != nil {
 		m.path = m.manifest.Name
 	}
-	if g, err := modcache.Load(p.prog.Root); err == nil && g != nil {
+	if g, err := pkgcache.Load(p.prog.Root); err == nil && g != nil {
 		if d, ok := g.At(root); ok {
 			m.path = d.Name
 		}
 	}
 	if p.modules == nil {
-		p.modules = map[string]*requiredModule{}
+		p.modules = map[string]*requiredPackage{}
 	}
 	p.modules[root] = m
 	return m
 }
 
-// requiredModules is each module other than the project whose Nomi files
-// the program holds, by its name in the program: the modules the program's
+// requiredPackages is each package other than the project whose Nomi files
+// the program holds, by its name in the program: the packages the program's
 // code comes from, whether or not the program reaches their code. A
 // program reopened from the artifact cache holds only its entry, and so
 // none; a program is kept only when its lists pass, and the record names
 // each dependency's tree, its nomi.toml among them.
-func (p *Program) requiredModules() []*requiredModule {
-	seen := map[*requiredModule]bool{}
-	var out []*requiredModule
+func (p *Program) requiredPackages() []*requiredPackage {
+	seen := map[*requiredPackage]bool{}
+	var out []*requiredPackage
 	for _, file := range p.prog.Modules {
-		if m := p.moduleAt(file.Path); m != nil && !seen[m] {
+		if m := p.packageAt(file.Path); m != nil && !seen[m] {
 			seen[m] = true
 			out = append(out, m)
 		}
 	}
-	slices.SortFunc(out, func(a, b *requiredModule) int { return strings.Compare(a.path, b.path) })
+	slices.SortFunc(out, func(a, b *requiredPackage) int { return strings.Compare(a.path, b.path) })
 	return out
 }
 

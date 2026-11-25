@@ -112,8 +112,8 @@ func rootLabel(t vmhost.CallTree) string {
 // plain call (vm.StepNote).
 func funcLabel(s vmhost.TreeStep) string {
 	var notes []string
-	if s.Func.Module != "" {
-		notes = append(notes, s.Func.Module)
+	if s.Func.Package != "" {
+		notes = append(notes, s.Func.Package)
 	}
 	if note := vm.StepNote(s.Edge); note != "" {
 		notes = append(notes, note)

@@ -83,7 +83,7 @@ end
 		if strings.Count(text, "error: orphan impl: `Debug`") != 2 || strings.Contains(text, "mine\n") {
 			t.Fatalf("nomi %s: want an orphan impl error for each impl and no run, got:\n%s", sub, text)
 		}
-		if !strings.Contains(text, fmt.Sprintf("cannot be implemented in module %q", dir)) {
+		if !strings.Contains(text, fmt.Sprintf("cannot be implemented in package %q", dir)) {
 			t.Fatalf("nomi %s: want the file's directory named as its module, got:\n%s", sub, text)
 		}
 	}

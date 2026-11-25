@@ -23,7 +23,10 @@ import (
 // that holds erased an instance no earlier file did, or boxes an enum,
 // adds it to the session's sets for the files after it, since nothing
 // before it is lowered again; and its declines are its own, reported as
-// any program's are.
+// any program's are. A session file's Module.LinesAbove, the lines the
+// session wrote above what its user typed, comes off every position its
+// gen lowers, the instances an earlier file's gen makes for a later one
+// included (gen.ownPos).
 
 // SessionObjects are what a session's earlier files lowered, which the
 // next file is lowered against.

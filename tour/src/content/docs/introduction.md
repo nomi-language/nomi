@@ -40,7 +40,7 @@ start with [First Steps](/learn/values/).
 Nomi is very early. This site is the main place to try the language while the
 design is still being worked out. Expressions, types, pattern matching,
 imports, interfaces, derives, tests, collections and control flow are the most
-used and tested parts. Concurrency and module management are newer.
+used and tested parts. Concurrency and package management are newer.
 :::
 
 ## Running Nomi
@@ -80,9 +80,9 @@ Lua and Python do. Each function becomes bytecode the first time it runs:
 The compiler and runtime are written in Go. You don't need Go to write, run
 or ship Nomi.
 
-- A module is a directory tree with a manifest, `nomi.toml`, versioned and
-  used as one unit. Inside a module you import a file, and `pub` controls
-  what other files can see.
+- A package is a directory tree with a manifest, `nomi.toml`, versioned and
+  used as one unit. Inside a package you import a module, one file, and
+  `pub` marks what other packages can use.
 - A library that needs native code, such as the
   [SQLite driver](/databases/), carries it as WebAssembly and runs it
   through [std::wasm](/reference/wasm/).

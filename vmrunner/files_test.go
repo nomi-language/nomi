@@ -46,7 +46,7 @@ func builtProgram(t *testing.T, src string, bigSize int) (path string, off, n, c
 			t.Fatal(err)
 		}
 	}
-	write("nomi.toml", []byte("[module]\nname = \"app\"\nentry_points = [\"main\"]\n"))
+	write("nomi.toml", []byte("[package]\nname = \"app\"\nentry_points = [\"main\"]\n"))
 	write("main.nomi", []byte(src))
 	write("small.txt", []byte(smallText))
 	big := make([]byte, bigSize)

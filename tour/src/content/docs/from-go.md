@@ -42,7 +42,7 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 |---|---|
 | `[]int{1, 2}`, `map[string]int{"a": 1}` | `[1, 2]`, `{"a" => 1}` |
 | `Point{X: 1}` | `Point{x: 1}` |
-| An exported name starts with a capital | `pub` |
+| A capital exports a name, and a lower-case one stays in its package's directory | `pub` exports it. An unmarked name is seen by every file of its package, in every directory, so no `internal/` directory is needed; `private` keeps one to its file |
 | A `[]Dog` is no `[]Speaker`; copy it in a loop | A `List<Dog>` passes where a `List<Speaker>` is expected, with nothing copied |
 | `select` | `Channel.select([..])` |
 | `fmt.Sprintf("%d items", n)` | `"${n} items"` |

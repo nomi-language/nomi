@@ -3998,7 +3998,7 @@ func TestFormat_TripleStringSingleArgWrapperInStructField(t *testing.T) {
 		"    p = Project{\n" +
 		"        manifest: Some(\n" +
 		"            \"\"\"\n" +
-		"                [module]\n" +
+		"                [package]\n" +
 		"                name = \"demo\"\n" +
 		"                \"\"\",\n" +
 		"        ),\n" +
@@ -4008,7 +4008,7 @@ func TestFormat_TripleStringSingleArgWrapperInStructField(t *testing.T) {
 		"    p = Project{\n" +
 		"        manifest: Some(\n" +
 		"            \"\"\"\n" +
-		"            [module]\n" +
+		"            [package]\n" +
 		"            name = \"demo\"\n" +
 		"            \"\"\"\n" +
 		"        ),\n" +

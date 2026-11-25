@@ -19,7 +19,7 @@ func writeManifestFile(t *testing.T, dir, name, body string) {
 func TestLoadManifest_FullManifest(t *testing.T) {
 	dir := t.TempDir()
 	writeManifestFile(t, dir, "nomi.toml", `
-[module]
+[package]
 name = "todo"
 entry_points = ["main", "tools/seed"]
 `)
@@ -37,7 +37,7 @@ entry_points = ["main", "tools/seed"]
 
 func TestLoadManifest_LibraryOnly(t *testing.T) {
 	dir := t.TempDir()
-	writeManifestFile(t, dir, "nomi.toml", `[module]
+	writeManifestFile(t, dir, "nomi.toml", `[package]
 name = "stringkit"
 `)
 	m, err := LoadManifest(dir)
@@ -76,7 +76,7 @@ name = "todo"
 
 func TestLoadManifest_MissingName(t *testing.T) {
 	dir := t.TempDir()
-	writeManifestFile(t, dir, "nomi.toml", `[module]
+	writeManifestFile(t, dir, "nomi.toml", `[package]
 entry_points = ["main"]
 `)
 	if _, err := LoadManifest(dir); err == nil {
@@ -86,7 +86,7 @@ entry_points = ["main"]
 
 func TestLoadManifest_DuplicateEntries(t *testing.T) {
 	dir := t.TempDir()
-	writeManifestFile(t, dir, "nomi.toml", `[module]
+	writeManifestFile(t, dir, "nomi.toml", `[package]
 name = "todo"
 entry_points = ["main", "main"]
 `)
@@ -97,7 +97,7 @@ entry_points = ["main", "main"]
 
 func TestLoadManifest_WhitespaceOnlyName(t *testing.T) {
 	dir := t.TempDir()
-	writeManifestFile(t, dir, "nomi.toml", `[module]
+	writeManifestFile(t, dir, "nomi.toml", `[package]
 name = "   "
 `)
 	if _, err := LoadManifest(dir); err == nil {
@@ -107,7 +107,7 @@ name = "   "
 
 func TestLoadManifest_RejectsReservedStdName(t *testing.T) {
 	dir := t.TempDir()
-	writeManifestFile(t, dir, "nomi.toml", `[module]
+	writeManifestFile(t, dir, "nomi.toml", `[package]
 name = "std"
 entry_points = ["main"]
 `)
@@ -123,7 +123,7 @@ entry_points = ["main"]
 func TestLoadManifest_AllowsStdNameForConfiguredStdlib(t *testing.T) {
 	dir := t.TempDir()
 	writeManifestFile(t, dir, "prelude.nomi", "")
-	writeManifestFile(t, dir, "nomi.toml", `[module]
+	writeManifestFile(t, dir, "nomi.toml", `[package]
 name = "std"
 entry_points = []
 `)
@@ -139,7 +139,7 @@ entry_points = []
 }
 
 func TestParseManifestData_RejectsReservedStdName(t *testing.T) {
-	_, err := ParseManifestData([]byte(`[module]
+	_, err := ParseManifestData([]byte(`[package]
 name = "std"
 entry_points = []
 `), "<virtual nomi.toml>")
@@ -149,14 +149,14 @@ entry_points = []
 }
 
 func TestParseManifestData_I18nLocales(t *testing.T) {
-	m, err := ParseManifestData([]byte("[module]\nname = \"app\"\n\n[i18n]\nlocales = [\"de\", \"PL\", \"pt-br\", \"iw\"]\n"), "nomi.toml")
+	m, err := ParseManifestData([]byte("[package]\nname = \"app\"\n\n[i18n]\nlocales = [\"de\", \"PL\", \"pt-br\", \"iw\"]\n"), "nomi.toml")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if want := []string{"de", "pl", "pt-BR", "he"}; !reflect.DeepEqual(m.Locales, want) {
 		t.Errorf("locales = %v, want %v (canonical, in the manifest's order)", m.Locales, want)
 	}
-	m, err = ParseManifestData([]byte("[module]\nname = \"app\"\n"), "nomi.toml")
+	m, err = ParseManifestData([]byte("[package]\nname = \"app\"\n"), "nomi.toml")
 	if err != nil || m.Locales != nil {
 		t.Errorf("a manifest with no [i18n] lists %v (%v); want nil, which carries every locale", m.Locales, err)
 	}
@@ -169,14 +169,14 @@ func TestParseManifestData_I18nLocales(t *testing.T) {
 		`locales = ["qaa"]`:         "has no data for qaa or a parent of it",
 		`locales = ["en", "xx-YY"]`: `"xx-YY" is not a locale tag`,
 	} {
-		_, err := ParseManifestData([]byte("[module]\nname = \"app\"\n\n[i18n]\n"+body+"\n"), "nomi.toml")
+		_, err := ParseManifestData([]byte("[package]\nname = \"app\"\n\n[i18n]\n"+body+"\n"), "nomi.toml")
 		if err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("%s: error %v, want one containing %q", body, err, want)
 		}
 	}
 	// A regional locale CLDR has no section of its own for still has data
 	// through its parent.
-	if _, err := ParseManifestData([]byte("[module]\nname = \"app\"\n\n[i18n]\nlocales = [\"de-US\"]\n"), "nomi.toml"); err != nil {
+	if _, err := ParseManifestData([]byte("[package]\nname = \"app\"\n\n[i18n]\nlocales = [\"de-US\"]\n"), "nomi.toml"); err != nil {
 		t.Errorf("de-US: %v", err)
 	}
 }
@@ -184,14 +184,14 @@ func TestParseManifestData_I18nLocales(t *testing.T) {
 // [i18n]'s message settings: their defaults, canonical tags, the carried
 // locales, and each refusal.
 func TestParseManifestData_I18nMessageSettings(t *testing.T) {
-	m, err := ParseManifestData([]byte("[module]\nname = \"app\"\n\n[i18n]\nlocales = [\"pl\"]\n"), "nomi.toml")
+	m, err := ParseManifestData([]byte("[package]\nname = \"app\"\n\n[i18n]\nlocales = [\"pl\"]\n"), "nomi.toml")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if m.Source() != "en" || m.CatalogDir() != "locales" || m.PartialLocales != nil {
 		t.Errorf("defaults: source %q, catalogs %q, partial %v", m.Source(), m.CatalogDir(), m.PartialLocales)
 	}
-	m, err = ParseManifestData([]byte("[module]\nname = \"app\"\n\n[i18n]\nsource_locale = \"PL\"\nlocales = [\"pl\", \"en\"]\npartial_locales = [\"DE\"]\ncatalogs = \"i18n/./catalogs\"\n"), "nomi.toml")
+	m, err = ParseManifestData([]byte("[package]\nname = \"app\"\n\n[i18n]\nsource_locale = \"PL\"\nlocales = [\"pl\", \"en\"]\npartial_locales = [\"DE\"]\ncatalogs = \"i18n/./catalogs\"\n"), "nomi.toml")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -206,17 +206,17 @@ func TestParseManifestData_I18nMessageSettings(t *testing.T) {
 	if got := m.WebLocales(); !reflect.DeepEqual(got, []string{"pl"}) {
 		t.Errorf("web locales %v, want the source locale", got)
 	}
-	m, err = ParseManifestData([]byte("[module]\nname = \"app\"\n\n[i18n]\nlocales = [\"en\", \"pl\"]\npartial_locales = [\"de\"]\nweb_embedded = [\"PL\", \"de\"]\n"), "nomi.toml")
+	m, err = ParseManifestData([]byte("[package]\nname = \"app\"\n\n[i18n]\nlocales = [\"en\", \"pl\"]\npartial_locales = [\"de\"]\nweb_embedded = [\"PL\", \"de\"]\n"), "nomi.toml")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got := m.WebLocales(); !reflect.DeepEqual(got, []string{"pl", "de"}) {
 		t.Errorf("web locales %v, want pl and de", got)
 	}
-	if m, err = ParseManifestData([]byte("[module]\nname = \"app\"\n\n[i18n]\nlocales = [\"en\"]\nweb_embedded = []\n"), "nomi.toml"); err != nil || m.WebLocales() == nil || len(m.WebLocales()) != 0 {
+	if m, err = ParseManifestData([]byte("[package]\nname = \"app\"\n\n[i18n]\nlocales = [\"en\"]\nweb_embedded = []\n"), "nomi.toml"); err != nil || m.WebLocales() == nil || len(m.WebLocales()) != 0 {
 		t.Errorf("an empty web_embedded: %v, %v", m.WebLocales(), err)
 	}
-	if m, _ = ParseManifestData([]byte("[module]\nname = \"app\"\n"), "nomi.toml"); m.WebLocales() != nil {
+	if m, _ = ParseManifestData([]byte("[package]\nname = \"app\"\n"), "nomi.toml"); m.WebLocales() != nil {
 		t.Errorf("no [i18n]: web locales %v, want none to split", m.WebLocales())
 	}
 	for body, want := range map[string]string{
@@ -224,14 +224,14 @@ func TestParseManifestData_I18nMessageSettings(t *testing.T) {
 		`partial_locales = ["de"]`:                         "[i18n] partial_locales needs locales",
 		"locales = [\"de\"]\npartial_locales = [\"de\"]":   "lists de in both locales and partial_locales",
 		"locales = [\"de\"]\npartial_locales = [\"x_y\"]":  `[i18n] partial_locales: "x_y" is not a locale tag`,
-		"locales = [\"de\"]\ncatalogs = \"../outside\"":    `[i18n] catalogs "../outside" is not a directory under the module root`,
-		"locales = [\"de\"]\ncatalogs = \"/abs/catalogs\"": `[i18n] catalogs "/abs/catalogs" is not a directory under the module root`,
-		"locales = [\"de\"]\ncatalogs = \"C:/catalogs\"":   `[i18n] catalogs "C:/catalogs" is not a directory under the module root`,
+		"locales = [\"de\"]\ncatalogs = \"../outside\"":    `[i18n] catalogs "../outside" is not a directory under the package root`,
+		"locales = [\"de\"]\ncatalogs = \"/abs/catalogs\"": `[i18n] catalogs "/abs/catalogs" is not a directory under the package root`,
+		"locales = [\"de\"]\ncatalogs = \"C:/catalogs\"":   `[i18n] catalogs "C:/catalogs" is not a directory under the package root`,
 		`web_embedded = ["en"]`:                            "[i18n] web_embedded needs locales",
 		"locales = [\"de\"]\nweb_embedded = [\"fr\"]":      "[i18n] web_embedded lists fr, which neither locales nor partial_locales lists",
 		"locales = [\"de\"]\nweb_embedded = [\"d_e\"]":     `[i18n] web_embedded: "d_e" is not a locale tag`,
 	} {
-		_, err := ParseManifestData([]byte("[module]\nname = \"app\"\n\n[i18n]\n"+body+"\n"), "nomi.toml")
+		_, err := ParseManifestData([]byte("[package]\nname = \"app\"\n\n[i18n]\n"+body+"\n"), "nomi.toml")
 		if err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("%s: error %v, want one containing %q", body, err, want)
 		}
@@ -240,7 +240,7 @@ func TestParseManifestData_I18nMessageSettings(t *testing.T) {
 
 func TestLoadManifest_EmptyEntryPointString(t *testing.T) {
 	dir := t.TempDir()
-	writeManifestFile(t, dir, "nomi.toml", `[module]
+	writeManifestFile(t, dir, "nomi.toml", `[package]
 name = "todo"
 entry_points = ["main", ""]
 `)

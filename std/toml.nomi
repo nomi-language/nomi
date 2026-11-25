@@ -260,11 +260,11 @@ impl Toml
     /// Returns the literal TOML text.
     //! assert Toml.text(
     //!     Toml"""
-    //!     [module]
+    //!     [package]
     //!     name = "demo"
     //!     """
     //! ) == """
-    //!     [module]
+    //!     [package]
     //!     name = "demo"
     //!     """
     //!

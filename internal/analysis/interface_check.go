@@ -93,9 +93,11 @@ type SourceProgram struct {
 	// Session marks a REPL session's program, typed a file at a time
 	// (frontend.Checker.SessionSource): an inherent impl may extend a type
 	// another of its files declares, as an input could extend a type an
-	// earlier input declared when the inputs were one file, and the
-	// entry's own boot adds its application type to AppTypeNames, since
-	// each new file is the entry while it is checked.
+	// earlier input declared when the inputs were one file, the entry's
+	// own boot adds its application type to AppTypeNames, since each new
+	// file is the entry while it is checked, and the session's files are
+	// one file for `private` and the insides of opaque types
+	// (FileDecls.Session).
 	Session bool
 	// ScopeNames are the names a session's next file has in scope though
 	// it imports only the ones its text names: every function, value,
@@ -134,7 +136,7 @@ type ProgramInterfaces struct {
 	diags map[string][]TypeError
 	// manifestName and index classify an import as discovery does.
 	manifestName string
-	index        ModuleIndex
+	index        PackageIndex
 	// paths holds each project file's path by key, and headers each file's
 	// impl headers once worked out (implHeaders).
 	paths   map[string]string
@@ -158,7 +160,7 @@ func NewProgramInterfaces(sp *SourceProgram) *ProgramInterfaces {
 		pi.manifestName = sp.Manifest.Name
 	}
 	if sp.Root != "" {
-		pi.index, _ = BuildModuleIndex(sp.Root)
+		pi.index, _ = BuildPackageIndex(sp.Root)
 	}
 	ifaces := map[string]*FileInterface{}
 	for key, fa := range sp.Files {
@@ -236,7 +238,7 @@ func NewStoredInterfaces(sp *SourceProgram, files map[string]StoredInterface) *P
 		pi.manifestName = sp.Manifest.Name
 	}
 	if sp.Root != "" {
-		pi.index, _ = BuildModuleIndex(sp.Root)
+		pi.index, _ = BuildPackageIndex(sp.Root)
 	}
 	for key, f := range files {
 		pi.encoded[key] = f.Encoded
@@ -324,10 +326,10 @@ func (pi *ProgramInterfaces) Keys() []string {
 
 // projectKeys answers the module keys of the program's files that paths,
 // the imports of the file keyed from, name, as discovery classifies an
-// import (ModuleIndex.target), in order and without repeats.
+// import (PackageIndex.target), in order and without repeats.
 func (pi *ProgramInterfaces) projectKeys(from string, paths [][]string) []string {
 	var keys []string
-	in := pi.index.moduleOfKey(from)
+	in := pi.index.packageOfKey(from)
 	for _, mp := range paths {
 		if len(mp) == 0 {
 			continue
@@ -954,12 +956,7 @@ func (pi *ProgramInterfaces) buildAll(key string, closure map[string]bool, relev
 	}
 
 	if key == sp.Entry {
-		entry, partnerErrs := LowerPartnerDerives(pi.source(key), key, func(k string) ([]ast.Node, bool) {
-			nodes, err := loader(sp.Root, strings.Split(k, "/"))
-			return nodes, err == nil
-		})
-		prog, frontEnd := sp.PrepareEntry(entry)
-		frontEnd = append(partnerErrs, frontEnd...)
+		prog, frontEnd := sp.PrepareEntry(pi.source(key))
 		fa, siblings, siblingNodes := buildProjectWithCache(prog, sp.Primitives, sp.Modules, sp.StdlibFAs, sp.Root, sp.EntryPath, key, sp.PlaceEntry, loader, sp.VirtualManifest, in)
 		reuse.carryOnces(fa)
 		files, fileNodes := projectFilesOf(siblings, siblingNodes, key)

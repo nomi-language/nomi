@@ -2,7 +2,9 @@ package stdcompress
 
 import (
 	"context"
+	"io"
 	"runtime"
+	"syscall"
 	"testing"
 	"time"
 
@@ -231,6 +233,23 @@ func TestReader_AnAbandonedReaderLeavesNothingRunning(t *testing.T) {
 	for i, s := range sources {
 		if res := rt.ReaderRead(frame(), s, rt.SmallInt(1)); res.Tag != rt.TagOk {
 			t.Fatalf("source %d after its reader was dropped: %+v, want it open", i, res)
+		}
+	}
+}
+
+// A write's or a close's failure that is not the wrapped stream's is sorted
+// by rt's one table: each of these was Other.
+func TestIOFailure_AWriteFailureIsSortedByTheTable(t *testing.T) {
+	for _, c := range []struct {
+		err  error
+		want rt.IOError
+	}{
+		{io.ErrClosedPipe, rt.IOError{Tag: rt.TagIOClosed}},
+		{syscall.EPIPE, rt.IOError{Tag: rt.TagIOBrokenPipe}},
+		{syscall.ENOSPC, rt.IOError{Tag: rt.TagIONoSpace, Path: "<gzip>"}},
+	} {
+		if got := ioFailure(c.err, "write", "<gzip>", formatGzip, nil); got != c.want {
+			t.Errorf("write failing with %v: %+v, want %+v", c.err, got, c.want)
 		}
 	}
 }

@@ -108,7 +108,7 @@ func TestQualifiedOwnerFuncValue_Runs(t *testing.T) {
 			dir := t.TempDir()
 			main := "import\n    std::io\n    " + tc.imp + "\nend\n\nfn main()\n" + tc.body + "end\n"
 			for name, src := range map[string]string{
-				"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+				"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n",
 				"leaf.nomi": qualifiedValueLeaf,
 				"main.nomi": main,
 			} {

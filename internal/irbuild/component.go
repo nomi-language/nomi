@@ -49,8 +49,8 @@ func componentOwners(p *Program) []int {
 // An import's edge is read two ways: from its path as written, matched
 // against the program's file keys (importTargets), and from what the checker
 // bound it to (resolvedImportEdges). The second is the one that holds for
-// every spelling: a file of module `r3` importing `r3::value.Value` names the
-// file keyed `value` through its module's own name, which no key matches.
+// every spelling: a file of package `r3` importing `r3::value.Value` names the
+// file keyed `value` through its package's own name, which no key matches.
 func nomiImportGraph(p *Program) [][]bool {
 	n := len(p.Modules)
 	byKey := make(map[string]int, n)

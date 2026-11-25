@@ -44,8 +44,8 @@ end
 		}
 	}
 	s := NewServer()
-	s.docs.SetWorkspaceRoot(tmp)
-	s.docs.IndexWorkspace(context.Background())
+	s.docs.SetEditorFolder(tmp)
+	s.docs.IndexEditorFolder(context.Background())
 
 	pubs := map[string][]protocol.Diagnostic{}
 	notify := func(method string, params any) {

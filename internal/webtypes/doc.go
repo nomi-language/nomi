@@ -17,18 +17,43 @@
 //	Date, Time, NaiveDateTime        string
 //	List, Vector, Set<T>             T[]
 //	Map<String, V>                   Record<string, V>
-//	Option<T>                         T | null
+//	Option<T>                        T | null
+//	a Presence<T> field              an optional property of T (name?: T)
+//	Presence<T> outside a field      T | null
 //	a tuple payload                  [A, B]
 //	Unit (a result)                  void
 //	a derived struct                 an interface of its fields, by their JSON keys
 //	a derived enum                   a union: "Bare" | { Payload: ... }
 //	a derived distinct type          its inner type
-//	a generic declaration            a generic interface or type
+//	a generic declaration            a generic interface or type; a field of a
+//	                                 type parameter is optional when a reached
+//	                                 instantiation puts a Presence there
+//
+// A type that derives FromJson and has no ToJson (the program records no
+// impl, in any file, through analysis.ImplementsToJSON) is what a frontend
+// sends, so its declaration is the JSON its FromJson reads. It differs only
+// in which properties are optional, a question one place answers
+// (Writer.fields): a key the derived FromJson fills when it is missing, an
+// Option field's (None) and a defaulted field's, is optional there, where
+// ToJson always writes it. A Presence field is optional in every
+// declaration, since ToJson leaves out an Absent field's key and FromJson
+// reads a missing one as Absent.
+//
+// A generic declaration is written once for all its instantiations, so a
+// field whose type is a type parameter (`value: T`) is optional when any
+// instantiation the roots reach puts a Presence at that parameter, since
+// ToJson leaves the key out for Absent. A parameter passed on as another
+// declaration's type argument carries that on: the first pass records each
+// Presence argument and each parameter-to-parameter flow (Writer.noteArgs),
+// and Seal closes the one over the other. In a declaration only FromJson
+// reads, such a field stays required: every instantiation's FromJson takes
+// the key, and a Presence reads the null its ToJson writes for Absent.
 //
 // A declared type is written once, under its Nomi name, and referred to by
-// that name. A type whose ToJson is written by hand is declared `unknown`:
-// the declarations cannot know what its impl writes. So is any type with
-// no JSON encoding at all, such as a Map with non-String keys.
+// that name. A type whose ToJson is written by hand, in any file of the
+// program, is declared `unknown`: the declarations cannot know what its
+// impl writes. So is any type with no JSON encoding at all, such as a Map
+// with non-String keys.
 //
 // # Reading the checked program
 //
@@ -46,8 +71,9 @@
 //
 // # Two passes
 //
-// The first pass visits the roots (the named files' public types, or the
-// exported functions' signatures) and records each declaration reached, in
+// The first pass visits the roots (the named files' types the checker
+// records as public or internal, not private, or the exported functions'
+// signatures) and records each declaration reached, private ones included, in
 // order. Seal names them: a Nomi name taken by two declarations, or a
 // reserved one (Record, and nomi.d.ts's own types, by Reserve), is
 // qualified by the fewest trailing path elements of each file that tell

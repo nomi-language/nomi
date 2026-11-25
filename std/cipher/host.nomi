@@ -13,17 +13,11 @@ end
 
 /// `plaintext` sealed under `key` and `nonce` with `associated`: the
 /// ciphertext, then the tag.
-pub host fn seal(
-    engine:     Int64,
-    key:        Bytes,
-    nonce:      Bytes,
-    plaintext:  Bytes,
-    associated: Bytes,
-) -> Bytes
+host fn seal(engine: Int64, key: Bytes, nonce: Bytes, plaintext: Bytes, associated: Bytes) -> Bytes
 
 /// The plaintext `sealed` (ciphertext, then tag) holds under `key`, `nonce`
 /// and `associated`, or `None` when its tag does not verify.
-pub host fn open(
+host fn open(
     engine:     Int64,
     key:        Bytes,
     nonce:      Bytes,
@@ -32,4 +26,4 @@ pub host fn open(
 ) -> Option<Bytes>
 
 /// `data` XORed with the AES-CTR keystream of `key` from `counter`.
-pub host fn aes_ctr(key: Bytes, counter: Bytes, data: Bytes) -> Bytes
+host fn aes_ctr(key: Bytes, counter: Bytes, data: Bytes) -> Bytes

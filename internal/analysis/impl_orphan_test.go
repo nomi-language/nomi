@@ -7,7 +7,7 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// allModule returns an implModuleOf func that maps every FuncDef to
+// allModule returns an implPackageOf func that maps every FuncDef to
 // the given module name — the common case for these tests, where one
 // impl lives in one module.
 func allModule(mod string) func(*ast.FuncDef) string {
@@ -20,9 +20,9 @@ func TestDetectOrphanImpls_AllowsLocalIface(t *testing.T) {
 	index := map[string]map[string][]*ast.FuncDef{
 		"greeter": {"greet": {fn}},
 	}
-	declModule := singleDeclModules(map[string]string{"greeter": "myapp", "Dog": "myapp"})
+	declPackage := singleDeclPackages(map[string]string{"greeter": "myapp", "Dog": "myapp"})
 
-	if errs := detectOrphanImpls(index, declModule, allModule("myapp"), nil, nil, nil); len(errs) != 0 {
+	if errs := detectOrphanImpls(index, declPackage, allModule("myapp"), nil, nil, nil); len(errs) != 0 {
 		t.Fatalf("expected no errors, got: %+v", errs)
 	}
 }
@@ -33,9 +33,9 @@ func TestDetectOrphanImpls_AllowsLocalTypeForeignIface(t *testing.T) {
 	index := map[string]map[string][]*ast.FuncDef{
 		"Display": {"to_string": {fn}},
 	}
-	declModule := singleDeclModules(map[string]string{"Display": "std", "Dog": "myapp"})
+	declPackage := singleDeclPackages(map[string]string{"Display": "std", "Dog": "myapp"})
 
-	if errs := detectOrphanImpls(index, declModule, allModule("myapp"), nil, nil, nil); len(errs) != 0 {
+	if errs := detectOrphanImpls(index, declPackage, allModule("myapp"), nil, nil, nil); len(errs) != 0 {
 		t.Fatalf("expected no errors, got: %+v", errs)
 	}
 }
@@ -46,9 +46,9 @@ func TestDetectOrphanImpls_AllowsForeignTypeLocalIface(t *testing.T) {
 	index := map[string]map[string][]*ast.FuncDef{
 		"Speakable": {"speak": {fn}},
 	}
-	declModule := singleDeclModules(map[string]string{"Speakable": "myapp", "Int": "std"})
+	declPackage := singleDeclPackages(map[string]string{"Speakable": "myapp", "Int": "std"})
 
-	if errs := detectOrphanImpls(index, declModule, allModule("myapp"), nil, nil, nil); len(errs) != 0 {
+	if errs := detectOrphanImpls(index, declPackage, allModule("myapp"), nil, nil, nil); len(errs) != 0 {
 		t.Fatalf("expected no errors, got: %+v", errs)
 	}
 }
@@ -60,9 +60,9 @@ func TestDetectOrphanImpls_RejectsForeignIfaceAndForeignType(t *testing.T) {
 	index := map[string]map[string][]*ast.FuncDef{
 		"Display": {"to_string": {fn}},
 	}
-	declModule := singleDeclModules(map[string]string{"Display": "std", "Pad": "stringkit"})
+	declPackage := singleDeclPackages(map[string]string{"Display": "std", "Pad": "stringkit"})
 
-	errs := detectOrphanImpls(index, declModule, allModule("tools"), nil, nil, nil)
+	errs := detectOrphanImpls(index, declPackage, allModule("tools"), nil, nil, nil)
 	if len(errs) != 1 {
 		t.Fatalf("expected 1 orphan error, got %d: %+v", len(errs), errs)
 	}
@@ -75,15 +75,15 @@ func TestDetectOrphanImpls_RejectsForeignIfaceAndForeignType(t *testing.T) {
 }
 
 func TestDetectOrphanImpls_SkipsUnresolvedNames(t *testing.T) {
-	// Iface unknown (not in declModule) AND T unknown → orphan check
+	// Iface unknown (not in declPackage) AND T unknown → orphan check
 	// skips; analyzer's other passes report the unknown-name diagnostic.
 	fn := implFuncDef("to_string", "MysteryIface", "MysteryType")
 	index := map[string]map[string][]*ast.FuncDef{
 		"MysteryIface": {"to_string": {fn}},
 	}
-	declModule := singleDeclModules(map[string]string{}) // both unresolved
+	declPackage := singleDeclPackages(map[string]string{}) // both unresolved
 
-	if errs := detectOrphanImpls(index, declModule, allModule("tools"), nil, nil, nil); len(errs) != 0 {
+	if errs := detectOrphanImpls(index, declPackage, allModule("tools"), nil, nil, nil); len(errs) != 0 {
 		t.Fatalf("expected no errors for unresolved names, got: %+v", errs)
 	}
 }
@@ -97,9 +97,9 @@ func TestDetectOrphanImpls_SkipsWhenRecvUnresolved(t *testing.T) {
 	index := map[string]map[string][]*ast.FuncDef{
 		"Display": {"to_string": {fn}},
 	}
-	declModule := singleDeclModules(map[string]string{"Display": "std"}) // recv unresolved
+	declPackage := singleDeclPackages(map[string]string{"Display": "std"}) // recv unresolved
 
-	if errs := detectOrphanImpls(index, declModule, allModule("tools"), nil, nil, nil); len(errs) != 0 {
+	if errs := detectOrphanImpls(index, declPackage, allModule("tools"), nil, nil, nil); len(errs) != 0 {
 		t.Fatalf("expected no errors when receiver is unresolved, got: %+v", errs)
 	}
 }
@@ -115,26 +115,26 @@ func TestDetectOrphanImpls_SkipsWhenIfaceUnresolved(t *testing.T) {
 	index := map[string]map[string][]*ast.FuncDef{
 		"MysteryIface": {"to_string": {fn}},
 	}
-	declModule := singleDeclModules(map[string]string{"Pad": "stringkit"}) // iface unresolved
+	declPackage := singleDeclPackages(map[string]string{"Pad": "stringkit"}) // iface unresolved
 
-	if errs := detectOrphanImpls(index, declModule, allModule("tools"), nil, nil, nil); len(errs) != 0 {
+	if errs := detectOrphanImpls(index, declPackage, allModule("tools"), nil, nil, nil); len(errs) != 0 {
 		t.Fatalf("expected no errors when interface is unresolved, got: %+v", errs)
 	}
 }
 
 func TestDetectOrphanImpls_SkipsUnkeyableImpl(t *testing.T) {
-	// implModuleOf returns "" → conservative skip (can't decide if impl
+	// implPackageOf returns "" → conservative skip (can't decide if impl
 	// is local). Mirrors funcDefReceiverBaseName-""-skip in the
 	// collision check.
 	fn := implFuncDef("to_string", "Display", "Pad")
 	index := map[string]map[string][]*ast.FuncDef{
 		"Display": {"to_string": {fn}},
 	}
-	declModule := singleDeclModules(map[string]string{"Display": "std", "Pad": "stringkit"})
+	declPackage := singleDeclPackages(map[string]string{"Display": "std", "Pad": "stringkit"})
 
 	unkeyable := func(*ast.FuncDef) string { return "" }
-	if errs := detectOrphanImpls(index, declModule, unkeyable, nil, nil, nil); len(errs) != 0 {
-		t.Fatalf("expected no errors when implModuleOf returns \"\", got: %+v", errs)
+	if errs := detectOrphanImpls(index, declPackage, unkeyable, nil, nil, nil); len(errs) != 0 {
+		t.Fatalf("expected no errors when implPackageOf returns \"\", got: %+v", errs)
 	}
 }
 
@@ -146,9 +146,9 @@ func TestDetectOrphanImpls_SkipsUnkeyableReceiver(t *testing.T) {
 	index := map[string]map[string][]*ast.FuncDef{
 		"Display": {"to_string": {fn}},
 	}
-	declModule := singleDeclModules(map[string]string{"Display": "std", "Pad": "stringkit"})
+	declPackage := singleDeclPackages(map[string]string{"Display": "std", "Pad": "stringkit"})
 
-	if errs := detectOrphanImpls(index, declModule, allModule("tools"), nil, nil, nil); len(errs) != 0 {
+	if errs := detectOrphanImpls(index, declPackage, allModule("tools"), nil, nil, nil); len(errs) != 0 {
 		t.Fatalf("expected no errors for receiverless FuncDef, got: %+v", errs)
 	}
 }
@@ -166,14 +166,14 @@ func TestDetectOrphanImpls_MultipleImplsOneOrphan(t *testing.T) {
 	index := map[string]map[string][]*ast.FuncDef{
 		"Display": {"to_string": {good1, good2, orphan}},
 	}
-	declModule := singleDeclModules(map[string]string{
+	declPackage := singleDeclPackages(map[string]string{
 		"Display": "std",
 		"Dog":     "myapp",
 		"Cat":     "myapp",
 		"Pad":     "stringkit",
 	})
 
-	errs := detectOrphanImpls(index, declModule, allModule("myapp"), nil, nil, nil)
+	errs := detectOrphanImpls(index, declPackage, allModule("myapp"), nil, nil, nil)
 	if len(errs) != 1 {
 		t.Fatalf("expected 1 orphan error, got %d: %+v", len(errs), errs)
 	}
@@ -189,22 +189,22 @@ func TestDetectOrphanImpls_MultipleImplsOneOrphan(t *testing.T) {
 // A base name declared by two modules is local to EITHER of them. The
 // single-valued index this replaced had to pick one, so an impl in the
 // module that lost read as an orphan even though it owned the receiver.
-func TestDetectOrphanImpls_NameDeclaredInTwoModulesIsLocalToBoth(t *testing.T) {
+func TestDetectOrphanImpls_NameDeclaredInTwoPackagesIsLocalToBoth(t *testing.T) {
 	dogInApp := implFuncDef("speak", "Speakable", "Dog")
 	index := map[string]map[string][]*ast.FuncDef{
 		"Speakable": {"speak": {dogInApp}},
 	}
-	declModule := map[string][]string{
+	declPackage := map[string][]string{
 		"Speakable": {"std"},
 		// `Dog` is declared by std AND by the project.
 		"Dog": {"std", "myapp"},
 	}
 
-	if errs := detectOrphanImpls(index, declModule, allModule("myapp"), nil, nil, nil); len(errs) != 0 {
+	if errs := detectOrphanImpls(index, declPackage, allModule("myapp"), nil, nil, nil); len(errs) != 0 {
 		t.Fatalf("expected no orphan error for a receiver the impl's module declares, got %+v", errs)
 	}
 	// The same impl in a third module owns neither side, so it is an orphan.
-	if errs := detectOrphanImpls(index, declModule, allModule("other"), nil, nil, nil); len(errs) != 1 {
+	if errs := detectOrphanImpls(index, declPackage, allModule("other"), nil, nil, nil); len(errs) != 1 {
 		t.Fatalf("expected 1 orphan error from a module owning neither side, got %d: %+v", len(errs), errs)
 	}
 }

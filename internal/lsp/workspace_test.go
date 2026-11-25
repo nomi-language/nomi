@@ -14,13 +14,13 @@ import (
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
-// generatedWorkspace writes a workspace of projects projects of perProject
+// generatedFolder writes an editor folder of projects projects of perProject
 // module files each (plus a main.nomi), a testdata directory of 60 files the
 // scan must leave out, and returns its root and the number of files the
 // scan covers. Modules come in chains of ten: module i imports module i-1
 // and calls it unless i is a multiple of ten.
-func generatedWorkspace(t testing.TB, projects, perProject int) (string, int) {
-	files := map[string]string{"nomi.toml": "[module]\nname = \"ws\"\n"}
+func generatedFolder(t testing.TB, projects, perProject int) (string, int) {
+	files := map[string]string{"nomi.toml": "[package]\nname = \"ws\"\n"}
 	module := func(i int) string {
 		var b strings.Builder
 		chained := i%10 > 0
@@ -41,7 +41,7 @@ func generatedWorkspace(t testing.TB, projects, perProject int) (string, int) {
 	covered := 0
 	for p := range projects {
 		dir := fmt.Sprintf("project%d", p)
-		files[dir+"/nomi.toml"] = fmt.Sprintf("[module]\nname = \"p%d\"\n", p)
+		files[dir+"/nomi.toml"] = fmt.Sprintf("[package]\nname = \"p%d\"\n", p)
 		for i := range perProject {
 			files[fmt.Sprintf("%s/mod%d.nomi", dir, i)] = module(i)
 			covered++
@@ -101,21 +101,21 @@ func heapAlloc() uint64 {
 	return m.HeapAlloc
 }
 
-// TestWorkspaceScan_KeepsNoAnalyses scans a generated workspace of 300
+// TestEditorFolderScan_KeepsNoAnalyses scans a generated editor folder of 300
 // files and measures the heap the server retains once the scan and every
 // closed file's diagnostics pass have finished. The server keeps an index
 // entry per file and no analysis; before this design it kept every file's
 // full analysis.
 //
-//	go test ./internal/lsp -run TestWorkspaceScan_KeepsNoAnalyses -v
-func TestWorkspaceScan_KeepsNoAnalyses(t *testing.T) {
-	root, covered := generatedWorkspace(t, 3, 99)
+//	go test ./internal/lsp -run TestEditorFolderScan_KeepsNoAnalyses -v
+func TestEditorFolderScan_KeepsNoAnalyses(t *testing.T) {
+	root, covered := generatedFolder(t, 3, 99)
 	s, published := recordingServer()
-	s.docs.SetWorkspaceRoot(root)
+	s.docs.SetEditorFolder(root)
 
 	before := heapAlloc()
 	start := time.Now()
-	s.scanWorkspace()
+	s.scanEditorFolder()
 	indexed := time.Since(start)
 	waitClosedDiagnostics(t, s, 5*time.Minute)
 	settled := time.Since(start)
@@ -165,8 +165,8 @@ func crossFileProject(t *testing.T) (string, *Server) {
 		"main.nomi": "import a\n\nfn main()\n    a.quad(1)\nend\n",
 	})
 	s := NewServer()
-	s.docs.SetWorkspaceRoot(dir)
-	s.scanWorkspace()
+	s.docs.SetEditorFolder(dir)
+	s.scanEditorFolder()
 	return dir, s
 }
 
@@ -281,8 +281,8 @@ func TestClosedDiagnostics_PublishedAndRepublished(t *testing.T) {
 		"main.nomi": "fn main() end\n",
 	})
 	s, published := recordingServer()
-	s.docs.SetWorkspaceRoot(dir)
-	s.scanWorkspace()
+	s.docs.SetEditorFolder(dir)
+	s.scanEditorFolder()
 	waitClosedDiagnostics(t, s, time.Minute)
 	userURI := fileuri.FromPath(filepath.Join(dir, "user.nomi"))
 	if diags, ok := published()[userURI]; !ok || len(diags) != 0 {
@@ -313,7 +313,7 @@ func TestDidClose_RepublishesDiskThenReopenPublishes(t *testing.T) {
 		"lib.nomi": "pub fn f() -> Int\n    1\nend\n",
 	})
 	s, published := recordingServer()
-	s.docs.SetWorkspaceRoot(dir)
+	s.docs.SetEditorFolder(dir)
 	ctx := &glsp.Context{Notify: s.notify}
 	uri := fileuri.FromPath(filepath.Join(dir, "lib.nomi"))
 	waitFor := func(what string, ok func([]protocol.Diagnostic) bool) {

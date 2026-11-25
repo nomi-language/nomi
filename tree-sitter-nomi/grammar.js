@@ -63,6 +63,12 @@ module.exports = grammar({
     // Anywhere else it is an identifier, so a binding, parameter or field
     // named `host` reads as one in every position.
     $.host_keyword,
+    // The contextual keyword `private`: the modifier before a declaration's
+    // keyword, emitted when a word follows it on its line that is not an
+    // operator, as the Go parser reads it (IsVisibilityModifier). Anywhere
+    // else it is an identifier, so a binding, parameter or field named
+    // `private` reads as one.
+    $.private_keyword,
     // The contextual keyword `subtests` as a pipe stage, after the `|>` of a
     // pipeline that stands as a statement, when a pattern follows it on its
     // line after a space (`rows |> subtests (input, want)`), as the
@@ -290,7 +296,7 @@ module.exports = grammar({
     // parser. The body may carry a tag, which the Go parser reads and the
     // analysis refuses on `phrase` and `noun`.
     keyword_declaration: $ => prec.right(seq(
-      optional($.pub),
+      optional($._visibility),
       field('keyword', $.identifier),
       field('name', $.identifier),
       optional($.parameters),
@@ -304,6 +310,10 @@ module.exports = grammar({
     // `extern`, `once`, `fn`, etc.) rather than a free-standing
     // identifier reachable through `_expression_or_statement`.
     pub: $ => 'pub',
+
+    // A visibility modifier: `pub`, or the contextual keyword `private`
+    // (private_keyword), the one first modifier of a declaration.
+    _visibility: $ => choice($.pub, $.private_keyword),
 
     // `export fn`: a top-level function a host calls by name. A rule of its
     // own for the same reason as `pub`.
@@ -367,7 +377,7 @@ module.exports = grammar({
     //               once name: T = expression  (type annotation optional)
     //               pub once name [: T] = expression  (publicly exported)
     once_binding: $ => seq(
-      optional($.pub),
+      optional($._visibility),
       'once',
       field('name', choice($.identifier, $.type_identifier)),
       optional(seq(':', field('type', $._type))),
@@ -498,7 +508,7 @@ module.exports = grammar({
 
     // Functions
     function_definition: $ => prec.right(seq(
-      optional(choice($.pub, $.export)),
+      optional(choice($._visibility, $.export)),
       optional('impl'),
       'fn',
       choice(
@@ -524,7 +534,7 @@ module.exports = grammar({
 
     // Host declarations
     extern_func_definition: $ => prec(1, seq(
-      optional($.pub),
+      optional($._visibility),
       optional('impl'),
       $.host_keyword,
       'fn',
@@ -550,7 +560,7 @@ module.exports = grammar({
     //   pub host type Int
     // It has no body: its functions go in an `impl` or beside it.
     extern_type_definition: $ => prec.right(1, seq(
-      optional($.pub),
+      optional($._visibility),
       $.host_keyword,
       'type',
       field('name', $.qualified_type_identifier),
@@ -718,7 +728,7 @@ module.exports = grammar({
     // the Go parser only admits TYPE_IDENT / IDENT / LPAREN starts there,
     // A distinct type takes no body (`struct` owns record types).
     type_definition: $ => prec.right(seq(
-      optional($.pub),
+      optional($._visibility),
       optional('opaque'),
       choice('type', 'refine'),
       field('name', $.qualified_type_identifier),
@@ -757,7 +767,7 @@ module.exports = grammar({
     // Struct — nominal record type with named fields, one per line below
     // its header, then `end`.
     struct_definition: $ => seq(
-      optional($.pub),
+      optional($._visibility),
       optional('opaque'),
       'struct',
       field('name', $.qualified_type_identifier),
@@ -780,7 +790,7 @@ module.exports = grammar({
 
     // Enum — sum type. Variants are always one per line; no `|` separators.
     enum_definition: $ => seq(
-      optional($.pub),
+      optional($._visibility),
       optional('opaque'),
       'enum',
       field('name', $.qualified_type_identifier),
@@ -815,7 +825,7 @@ module.exports = grammar({
     // Name A and B` (an intersection, or a bound list in `where T: Name`
     // positions).
     type_alias: $ => prec.right(seq(
-      optional($.pub),
+      optional($._visibility),
       'typealias',
       field('name', $.qualified_type_identifier),
       optional($.type_parameters),
@@ -837,7 +847,7 @@ module.exports = grammar({
     // lex as a plain identifier, so user code with a local named `open`
     // keeps working.
     interface_definition: $ => seq(
-      optional($.pub),
+      optional($._visibility),
       'interface',
       field('name', $.type_identifier),
       optional($.type_parameters),

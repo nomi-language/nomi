@@ -81,7 +81,7 @@ the directory. `fs.create_dir("logs")` makes it.
 <p class="tour-details-label">Fine print</p>
 
 - A relative path is read from the working directory. Under `nomi test` a
-  test file's working directory is its module root, the nearest directory
+  test file's working directory is its package root, the nearest directory
   above it with a `nomi.toml`, so `fs.read_text("data/rates.csv")` reads
   the same file wherever the tests run.
 - `std::fs::testing.run` and `fs.within` replace the file system for the

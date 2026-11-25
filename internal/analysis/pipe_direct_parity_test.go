@@ -270,7 +270,7 @@ end
 		{name: "an opaque enum's variant", imports: "import status.{Status}",
 			direct: `_ = Status.Inactive("r")`,
 			piped:  `_ = "r" |> Status.Inactive()`,
-			errs:   []string{"constructor of opaque type 'Status' is private to its defining module — use an exported constructor function"}},
+			errs:   []string{"constructor of opaque type 'Status' is private to `status.nomi` — use an exported constructor function"}},
 		{name: "an imported function", imports: "import status.{twice}",
 			direct: "_ = twice(2)",
 			piped:  "_ = 2 |> twice()"},

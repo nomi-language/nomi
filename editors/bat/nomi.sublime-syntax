@@ -119,16 +119,20 @@ contexts:
       scope: punctuation.separator.namespace.nomi
     - match: '\bhost\b(?=\s+(fn|type)\b)'
       scope: keyword.declaration.nomi
+    # `private` is a keyword only before a declaration, where a word that is
+    # not an operator follows it on its line; `private = 2` stays a name.
+    - match: '\bprivate\b(?=[ \t]+(?!(?:and|or|in|is|as|not)\b)[a-z_][A-Za-z0-9_]*)'
+      scope: keyword.declaration.nomi
     # A keyword declaration Nomi builds in (`phrase cart_items(...)`,
     # `noun item`): its keyword and its name, at the start of a line.
-    - match: '^(?:(pub)\s+)?(phrase|noun)\s+([a-z_][A-Za-z0-9_]*)'
+    - match: '^(?:(pub|private)\s+)?(phrase|noun)\s+([a-z_][A-Za-z0-9_]*)'
       captures:
         1: keyword.declaration.nomi
         2: keyword.declaration.nomi
         3: entity.name.function.nomi
     # An `embed` declaration (`embed site `static``): its keyword, and its
     # name, a value.
-    - match: '^(?:(pub)\s+)?(embed)\s+([a-z_][A-Za-z0-9_]*)'
+    - match: '^(?:(pub|private)\s+)?(embed)\s+([a-z_][A-Za-z0-9_]*)'
       captures:
         1: keyword.declaration.nomi
         2: keyword.declaration.nomi

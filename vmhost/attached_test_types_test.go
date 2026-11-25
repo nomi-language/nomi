@@ -20,7 +20,7 @@ impl User
     //! Tag(s) = t
     //! io.print(s)
     //! assert t == Tag("hi a")
-    pub fn greet(u: User) -> String
+    fn greet(u: User) -> String
         "hi ${u.name}"
     end
 end

@@ -14,7 +14,7 @@ func treeProject(t *testing.T) string {
 	dir := t.TempDir()
 	app := filepath.Join(dir, "app")
 	mustWrite(t, filepath.Join(app, "nomi.toml"), effectsModule+"\n[effects.self]\nstd = [\"std::io\", \"std::fs\"]\n\n"+
-		"[effects.deps]\nentries_required = true\n\n[effects.deps.modules]\n\"pricing\" = []\n"+"\n[dependencies]\npricing = { dir = \"../pricing\" }\n")
+		"[effects.deps]\nentries_required = true\n\n[effects.deps.packages]\n\"pricing\" = []\n"+"\n[dependencies]\npricing = { dir = \"../pricing\" }\n")
 	mustWrite(t, filepath.Join(app, "main.nomi"), `import
     std::fs
     std::io
@@ -61,7 +61,7 @@ test "doubles"
     assert twice(2) == 4
 end
 `)
-	mustWrite(t, filepath.Join(dir, "pricing", "nomi.toml"), "[module]\nname = \"pricing\"\n")
+	mustWrite(t, filepath.Join(dir, "pricing", "nomi.toml"), "[package]\nname = \"pricing\"\n")
 	mustWrite(t, filepath.Join(dir, "pricing", "rules.nomi"), "import std::fs\n\npub fn load(path: String) -> String\n    fs.read_text(path) |> Result.with_default(\"\")\nend\n")
 	return app
 }

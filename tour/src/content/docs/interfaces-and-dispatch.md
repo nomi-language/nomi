@@ -708,9 +708,9 @@ dbg line 11: Coin.variants() = [Penny, Nickel, Dime, Quarter]
 <div class="tour-details">
 <p class="tour-details-label">Fine print</p>
 
-- A derive sits in the same file as its type, or in that file's partner
-  test, where it exists only while the tests run
-  ([Testing](/testing/)).
+- A derive sits in the same file as its type. A type that tests compare
+  derives `Equatable` there, beside the type, as code that compares it
+  would ([Testing](/testing/)).
 - Each field's type must implement the interface. `derive Hashable for
   Outer` with a field of type `Inner` needs `Inner` to implement `Hashable`
   too.
@@ -747,7 +747,7 @@ Two types with the same name in different files are different types. So a
 `Display` impl for one file's `Date` doesn't clash with a `Display` impl for
 another file's `Date`.
 
-Where an impl may be written is the orphan rule: it must be in the module that
+Where an impl may be written is the orphan rule: it must be in the package that
 declares the interface or the type, with one exception for type arguments.
 [Modules & Imports](/modules-and-imports/#the-orphan-rule) explains it.
 

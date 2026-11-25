@@ -1,4 +1,4 @@
-// The C half of the Nomi module image: stb_image (JPEG and PNG decoding),
+// The C half of the package image: stb_image (JPEG and PNG decoding),
 // libwebp's decoder, stb_image_resize2, stb_image_write (JPEG and PNG
 // encoding) and zlib's deflate compiled to WebAssembly with this file,
 // which gives the module its exports. image.nomi calls them; build.sh

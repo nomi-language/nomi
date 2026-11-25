@@ -200,6 +200,21 @@ func (p Pos) WithStdlib() Pos {
 	return p
 }
 
+// Below is p as a position in the text after its file's first above
+// lines, which the file's author did not write: a REPL session writes
+// imports and declarations above each input, and its author counts the
+// input's first line as line 1. A line among the first above is the
+// text's first line. A synthesized position and one with above 0 are
+// unchanged.
+func (p Pos) Below(above int) Pos {
+	if above <= 0 || p.synth || !p.IsValid() {
+		return p
+	}
+	shift := func(line int32) int32 { return max(line-int32(above), 1) }
+	p.line, p.endLine = shift(p.line), shift(p.endLine)
+	return p
+}
+
 func (p Pos) String() string {
 	if !p.IsValid() {
 		return "<no position>"

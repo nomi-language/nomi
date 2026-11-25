@@ -199,7 +199,7 @@ fn project() -> Project
 end
 
 fn configured(p: Project) -> Project
-  {..p, manifest: Some("[module]\nname = \"demo\"\n")}
+  {..p, manifest: Some("[package]\nname = \"demo\"\n")}
 end
 
 fn has_manifest(p: Project) -> Bool

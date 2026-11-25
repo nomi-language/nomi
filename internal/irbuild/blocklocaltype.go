@@ -212,7 +212,7 @@ func (g *gen) registerBlockLocalDebug(blocks []*ast.Block) []*implDef {
 	for _, b := range blocks {
 		scope := g.blockTypes[b]
 		for _, d := range scope.orderedDefs() {
-			if len(typeDeclTypeParams(d.decl)) > 0 || g.implsByIface[stdIfaceImplKey(stdDebug)][named(d)] != nil {
+			if len(typeDeclTypeParams(d.decl)) > 0 || g.implAt(stdIfaceImplKey(stdDebug), named(d)) != nil {
 				// A generic declaration's synthesized impl is generic, which
 				// registerImpl refuses at module level too.
 				continue

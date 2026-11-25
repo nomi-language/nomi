@@ -27,8 +27,8 @@ var hostRowValues = map[string]struct{ imports, bind string }{
 // an `impl Debug` for in Nomi or as a host fn) reads in a failed
 // assertion's `values:` row and in a subtest's row, at the top and in a
 // tuple, as `Debug.inspect` renders it (spec §17 *Failure reports*): a
-// Regex as the typed literal that builds it, not `<Regex>`, a Decimal as
-// `1.50d` and a Dynamic as the value it holds. A new host type with an
+// Regex as the typed literal that builds it, a Decimal as `1.50d` and a
+// Dynamic as the value it holds. A new host type with an
 // `impl Debug` fails here until hostRowValues can build one.
 func TestStdHostTypeRowsRenderAsDebug(t *testing.T) {
 	written := map[string]bool{}

@@ -23,7 +23,7 @@ import (
 // localesProject is a project in English, Polish and Portuguese, with
 // German partial, whose main formats before and after loading Polish.
 var localesProject = map[string]string{
-	"nomi.toml": "[module]\nname = \"shop\"\nentry_points = [\"main\"]\n\n[i18n]\nlocales = [\"en\", \"pl\", \"pt\"]\npartial_locales = [\"de\"]\n",
+	"nomi.toml": "[package]\nname = \"shop\"\nentry_points = [\"main\"]\n\n[i18n]\nlocales = [\"en\", \"pl\", \"pt\"]\npartial_locales = [\"de\"]\n",
 	"text.nomi": "pub phrase items(count: Int) `\n    .input {$count :integer}\n    .match $count\n    one {{{$count} item}}\n    * {{{$count} items}}\n    `\n",
 	"locales/pl/text.toml": "[items]\nsource = '''\n.input {$count :integer}\n.match $count\none {{{$count} item}}\n* {{{$count} items}}\n'''\n" +
 		"text = '''\n.input {$count :integer}\n.match $count\none {{{$count} rzecz}}\nfew {{{$count} rzeczy}}\nmany {{{$count} rzeczy}}\n* {{{$count} rzeczy}}\n'''\n",

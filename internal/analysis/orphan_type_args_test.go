@@ -12,9 +12,9 @@ import (
 )
 
 // The orphan rule admits an impl of a foreign interface for a foreign
-// receiver when a type the module declares heads a type argument the
+// receiver when a type the package declares heads a type argument the
 // interface's functions take (spec §12, *Orphan rule*). These tests build
-// projects of several modules on disk: app, the entry's module, and the
+// projects of several packages on disk: app, the entry's package, and the
 // libraries its nomi.toml names by sibling directories.
 
 // buildModules writes files (paths relative to a fresh root, the entry at
@@ -50,10 +50,10 @@ func buildModules(t *testing.T, files map[string]string) []analysis.TypeError {
 	return append(errs, analysis.CheckTypes(fa, entry)...)
 }
 
-// appModule is the entry module's manifest, naming the libraries named
+// appModule is the entry package's manifest, naming the libraries named
 // by their directories.
 func appModule(main string, libs ...string) map[string]string {
-	manifest := "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[dependencies]\n"
+	manifest := "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[dependencies]\n"
 	for _, l := range libs {
 		manifest += l + " = { dir = \"../" + l + "\" }\n"
 	}
@@ -63,10 +63,10 @@ func appModule(main string, libs ...string) map[string]string {
 	}
 }
 
-// library adds a library module of one file to files.
+// library adds a library package of one file to files.
 func library(files map[string]string, name, file, text string) map[string]string {
 	files[name+"/"+file+".nomi"] = text
-	files[name+"/nomi.toml"] = "[module]\nname = \"" + name + "\"\n"
+	files[name+"/nomi.toml"] = "[package]\nname = \"" + name + "\"\n"
 	return files
 }
 
@@ -132,8 +132,8 @@ end
 	expectSelectionClean(t, buildModules(t, files))
 }
 
-// The spec's own example: a Contains impl for String at a type the module
-// declares, in a program that is one module.
+// The spec's own example: a Contains impl for String at a type the package
+// declares, in a program that is one package.
 func TestLocalTypeArgument_ContainsForStringAtALocalTag(t *testing.T) {
 	expectSelectionClean(t, buildModules(t, appModule(`pub struct Tag
     name: String
@@ -248,7 +248,7 @@ end
 
 fn main() end
 `),
-			want: []string{"orphan impl: `Multiply`", "`Rate` is declared in this module but does not head the type argument `List<Rate>`"},
+			want: []string{"orphan impl: `Multiply`", "`Rate` is declared in this package but does not head the type argument `List<Rate>`"},
 		},
 		{
 			name: "std's generic impl covers the instantiation",
@@ -301,7 +301,7 @@ end
 
 fn main() end
 `, "fx"), "fx", "rate", fxRate),
-			want: []string{"orphan impl: `Add` (declared in module \"std\") for `Decimal` (declared in module \"std\") cannot be implemented in module \"app\"",
+			want: []string{"orphan impl: `Add` (declared in package \"std\") for `Decimal` (declared in package \"std\") cannot be implemented in package \"app\"",
 				"the interface, the implementing type, or a type heading a type argument"},
 		},
 		{
@@ -315,7 +315,7 @@ end
 
 fn main() end
 `),
-			want: []string{"orphan impl: `Display` (declared in module \"std\") for `Int` (declared in module \"std\")"},
+			want: []string{"orphan impl: `Display` (declared in package \"std\") for `Int` (declared in package \"std\")"},
 		},
 		{
 			name: "a std type argument",
@@ -327,7 +327,7 @@ end
 
 fn main() end
 `),
-			want: []string{"orphan impl: `Contains` (declared in module \"std\") for `String` (declared in module \"std\")"},
+			want: []string{"orphan impl: `Contains` (declared in package \"std\") for `String` (declared in package \"std\")"},
 		},
 	}
 	for _, c := range cases {
@@ -337,7 +337,7 @@ fn main() end
 	}
 }
 
-// A library's result-only impl is an orphan impl of the library's module,
+// A library's result-only impl is an orphan impl of the library's package,
 // reported in the program that uses it.
 func TestLocalTypeArgument_AnOrphanInALibrary(t *testing.T) {
 	files := library(appModule(`import fx::rate.Rate
@@ -355,5 +355,5 @@ impl Multiply<Decimal, Rate> for Decimal
     end
 end
 `)
-	expectRejected(t, buildModules(t, files), "orphan impl: `Multiply`", "cannot be implemented in module \"fx\"", "which only results name")
+	expectRejected(t, buildModules(t, files), "orphan impl: `Multiply`", "cannot be implemented in package \"fx\"", "which only results name")
 }

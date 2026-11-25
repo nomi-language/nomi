@@ -449,17 +449,18 @@ func buildProjectImplIndex(filesByKey map[string]*FileAnalysis, own *implTables,
 			}
 		}
 		addImplBlocks(idx, fa)
-		// Type-promoted exports: only Public impl-block members cross module
-		// boundaries. A non-pub member stays reachable solely via its owning
-		// FA's per-file TypeMethods (in-module-only).
+		// Type-promoted functions: every impl-block member another file may
+		// see, a public or an internal one. A lookup through the index
+		// answers only one its file sees (FileAnalysis.Sees), so an
+		// internal one stays in its module. A private member stays
+		// reachable solely via its owning FA's per-file TypeMethods.
 		for typeName, byMethod := range fa.TypeMethods {
 			for methodName, sym := range byMethod {
 				// Interface impl methods do not spell `pub`: their exported
 				// surface is governed by the public interface contract. Derived
 				// impl methods follow the same rule, so include impl methods in
-				// the project type-method table even though their Symbol.Public
-				// flag is false.
-				if sym == nil || (!sym.Public && !sym.IsImplMethod) {
+				// the project type-method table whatever their own Visibility.
+				if sym == nil || (sym.Visibility == ast.Private && !sym.IsImplMethod) {
 					continue
 				}
 				if idx.TypeMethods[typeName] == nil {
@@ -989,7 +990,7 @@ func PopulateProjectTypeMethodSymbols(idx *ProjectImplIndex, filesByKey map[stri
 		}
 		for typeName, byMethod := range fa.TypeMethods {
 			for methodName, sym := range byMethod {
-				if sym == nil || (!sym.Public && !sym.IsImplMethod) {
+				if sym == nil || (sym.Visibility == ast.Private && !sym.IsImplMethod) {
 					continue
 				}
 				if idx.TypeMethods[typeName] == nil {
@@ -1031,7 +1032,7 @@ func PopulateProjectTypeMethodSymbols(idx *ProjectImplIndex, filesByKey map[stri
 //
 // The universal Debug of an opaque or host type yields to an explicit
 // Debug for the type (ImplPrecedence), as a call reaches the explicit one:
-// a partner test file's or a REPL input's derive, or an `impl Debug` in
+// a REPL input's derive, or an `impl Debug` in
 // another file than the type's.
 //
 // Each group of two or more is one error, at the block a reader can act
@@ -1392,8 +1393,8 @@ func collisionAnchor(group []implBlockAt) int {
 
 // detectOrphanImpls reports a TypeError for every impl whose
 // interface AND receiver-type are BOTH declared outside the impl's
-// own module. The orphan rule requires at least one of (interface,
-// receiver-type) to be local to the implementing module; without
+// own package. The orphan rule requires at least one of (interface,
+// receiver-type) to be local to the implementing package; without
 // that anchor, two different libraries can ship the same
 // (Iface, Type) pair and the analyzer's collision check has no way
 // to catch the conflict at any single user's build.
@@ -1402,14 +1403,14 @@ func collisionAnchor(group []implBlockAt) int {
 //
 //   - index: the interface-method-impl index (Program.IfaceMethodImpls
 //     unioned with stdlib).
-//   - declModule: base-name → declaring short-module-name, as built
-//     by declaringModuleIndex. A missing entry on EITHER side means
+//   - declPackage: base-name → declaring short-package-name, as built
+//     by declaringPackageIndex. A missing entry on EITHER side means
 //     the analyzer couldn't resolve that name; we silently skip
 //     rather than double-fire as "orphan" on already-broken code or
-//     emit a confusing `for X (declared in module "")` message.
-//   - implModuleOf: returns the short-module-name owning a given
+//     emit a confusing `for X (declared in package "")` message.
+//   - implPackageOf: returns the short-package-name owning a given
 //     impl FuncDef. Caller derives this from its files-map + the
-//     same first-segment / entry-module logic declaringModuleIndex
+//     same first-segment / entry-package logic declaringPackageIndex
 //     uses for project files. A "" return means unkeyable —
 //     conservative skip (same posture as funcDefReceiverBaseName == "").
 //   - fileOf: returns the path of the file declaring a given impl
@@ -1422,8 +1423,8 @@ func collisionAnchor(group []implBlockAt) int {
 // property the package ecosystem can rely on.
 func detectOrphanImpls(
 	index map[string]map[string][]*ast.FuncDef,
-	declModule map[string][]string,
-	implModuleOf func(*ast.FuncDef) string,
+	declPackage map[string][]string,
+	implPackageOf func(*ast.FuncDef) string,
 	receivers map[*ast.FuncDef]string,
 	facts *orphanFacts,
 	fileOf func(*ast.FuncDef) string,
@@ -1436,7 +1437,7 @@ func detectOrphanImpls(
 	sort.Strings(ifaceNames)
 
 	for _, iface := range ifaceNames {
-		ifaceMod, ifaceKnown := declaringModuleOf(declModule, iface)
+		ifacePkg, ifaceKnown := declaringPackageOf(declPackage, iface)
 		byMethod := index[iface]
 		methodNames := make([]string, 0, len(byMethod))
 		for m := range byMethod {
@@ -1450,11 +1451,11 @@ func detectOrphanImpls(
 				if recv == "" {
 					continue // unkeyable; collision check skips these too
 				}
-				recvMod, recvKnown := declaringModuleOf(declModule, recv)
+				recvPkg, recvKnown := declaringPackageOf(declPackage, recv)
 				// Plan called for `&&` (skip only when BOTH unresolved).
 				// `||` is the shipped behavior: emitting an orphan error
 				// with one side unresolved would print `(declared in
-				// module "")`, doubling up on the unknown-name diagnostic
+				// package "")`, doubling up on the unknown-name diagnostic
 				// the analyzer's other passes already report at the use
 				// site. Pinned by TestDetectOrphanImpls_SkipsWhenRecvUnresolved
 				// and TestDetectOrphanImpls_SkipsWhenIfaceUnresolved.
@@ -1465,30 +1466,30 @@ func detectOrphanImpls(
 					// that is the impl's own type parameter is declared
 					// nowhere, and claims every type, so only a local
 					// interface admits the impl.
-					recvKnown, recvMod = true, ""
+					recvKnown, recvPkg = true, ""
 				}
 				if !ifaceKnown || !recvKnown {
 					continue
 				}
-				implMod := implModuleOf(fn)
-				if implMod == "" {
+				implPkg := implPackageOf(fn)
+				if implPkg == "" {
 					continue // unkeyable; conservative skip
 				}
 				// Membership, not equality: a name declared in two
-				// modules is local if EITHER declaration is in the
-				// impl.s module. Comparing against one chosen module
+				// packages is local if EITHER declaration is in the
+				// impl.s package. Comparing against one chosen package
 				// made a user.s own type look foreign whenever it
 				// shared a base name with a stdlib one.
-				if declaredInModule(declModule, iface, implMod) || declaredInModule(declModule, recv, implMod) {
+				if declaredInPackage(declPackage, iface, implPkg) || declaredInPackage(declPackage, recv, implPkg) {
 					continue // local on at least one side — rule satisfied
 				}
-				// Neither side is local: a type argument the module
+				// Neither side is local: a type argument the package
 				// declares may still admit the impl (orphan_type_args.go).
-				admitted, reason := facts.verdict(fn, iface, recv, implMod)
+				admitted, reason := facts.verdict(fn, iface, recv, implPkg)
 				if admitted {
 					continue
 				}
-				e := orphanImplError(iface, method, recv, ifaceMod, recvMod, implMod, reason, fn)
+				e := orphanImplError(iface, method, recv, ifacePkg, recvPkg, implPkg, reason, fn)
 				if fileOf != nil {
 					e.File = fileOf(fn)
 				}
@@ -1504,23 +1505,23 @@ func detectOrphanImpls(
 // the offending impl's home file, so the user can see the full
 // triangle that violates the rule.
 //
-// reason, when not empty, says why a type argument the module declares does
+// reason, when not empty, says why a type argument the package declares does
 // not admit the impl either.
-func orphanImplError(iface, method, recv, ifaceMod, recvMod, implMod, reason string, fn *ast.FuncDef) TypeError {
-	why := "the interface, the implementing type, or a type heading a type argument the interface's functions take must be declared in the implementing module"
+func orphanImplError(iface, method, recv, ifacePkg, recvPkg, implPkg, reason string, fn *ast.FuncDef) TypeError {
+	why := "the interface, the implementing type, or a type heading a type argument the interface's functions take must be declared in the implementing package"
 	if reason != "" {
 		why = reason
 	}
-	forRecv := fmt.Sprintf("`%s` (declared in module %q)", recv, recvMod)
-	if recvMod == "" {
+	forRecv := fmt.Sprintf("`%s` (declared in package %q)", recv, recvPkg)
+	if recvPkg == "" {
 		forRecv = fmt.Sprintf("the type parameter `%s`", recv)
 	}
 	return TypeError{
 		Line: fn.Line,
 		Col:  fn.Col,
 		Message: fmt.Sprintf(
-			"orphan impl: `%s` (declared in module %q) for %s cannot be implemented in module %q (function `%s`): %s",
-			iface, ifaceMod, forRecv, implMod, method, why),
+			"orphan impl: `%s` (declared in package %q) for %s cannot be implemented in package %q (function `%s`): %s",
+			iface, ifacePkg, forRecv, implPkg, method, why),
 	}
 }
 

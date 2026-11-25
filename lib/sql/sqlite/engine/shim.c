@@ -1,4 +1,4 @@
-// The C half of the Nomi module sqlite: SQLite's amalgamation compiled
+// The C half of the package sqlite: SQLite's amalgamation compiled
 // to WebAssembly with this file, which gives SQLite its operating system
 // layer and the module its exports. The Nomi driver
 // (internal/engine.nomi) calls the exports; the operating system layer

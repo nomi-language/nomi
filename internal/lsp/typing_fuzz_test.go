@@ -61,7 +61,7 @@ func FuzzLSPSurvivesEdits(f *testing.F) {
 			f.Add(tour[i].text())
 		}
 	}
-	fuzzEditor.ss = newTypingSession(f, "fuzz", map[string]string{"nomi.toml": "[module]\nname = \"app\"\n"}, "seed0.nomi", &fuzzEditor.counts)
+	fuzzEditor.ss = newTypingSession(f, "fuzz", map[string]string{"nomi.toml": "[package]\nname = \"app\"\n"}, "seed0.nomi", &fuzzEditor.counts)
 	f.Cleanup(fuzzEditor.ss.close)
 	f.Fuzz(func(t *testing.T, src string) {
 		if !utf8.ValidString(src) || len(src) > 2*fuzzSeedLimit {

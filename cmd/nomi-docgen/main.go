@@ -88,15 +88,14 @@ func main() {
 }
 
 // referenceCandidates are the std modules a page may be written for,
-// sorted: every module but an internal one (std/money/format), which is
-// std's own plumbing that a program cannot import.
+// sorted: every public one (analysis.IsPublicStdModule). std's plumbing
+// (std/money/format) declares nothing public and has no page.
 func referenceCandidates(lib *std.StdLib) []string {
 	names := make([]string, 0, len(lib.Modules))
 	for name := range lib.Modules {
-		if _, internal := analysis.InternalStdModule(name); internal {
-			continue
+		if analysis.IsPublicStdModule(name) {
+			names = append(names, name)
 		}
-		names = append(names, name)
 	}
 	sort.Strings(names)
 	return names
@@ -215,7 +214,7 @@ func publicAPISymbols(fa *analysis.FileAnalysis, nodes []ast.Node) []apiEntry {
 
 	publicOwners := make(map[string]apiGroupKey)
 	for _, s := range fa.ModuleScope.Symbols {
-		if s.Public && s.Resolved == nil && canOwnPublicMethods(s.Kind) {
+		if s.Visibility == ast.Public && s.Resolved == nil && canOwnPublicMethods(s.Kind) {
 			group := rootGroupFor(s)
 			publicOwners[s.Name] = group
 			if s.Kind == analysis.SymbolInterface {
@@ -242,7 +241,7 @@ func publicAPISymbols(fa *analysis.FileAnalysis, nodes []ast.Node) []apiEntry {
 			continue
 		}
 		for _, s := range byName {
-			if s.Public || s.IsImplMethod {
+			if s.Visibility == ast.Public || s.IsImplMethod {
 				add(s, true, ownerGroup)
 			}
 		}
@@ -265,7 +264,7 @@ func publicAPISymbols(fa *analysis.FileAnalysis, nodes []ast.Node) []apiEntry {
 		}
 		for _, item := range block.Items {
 			s := fa.Definitions[implItemPos(item)]
-			if s == nil || !(s.Public || s.IsImplMethod) {
+			if s == nil || !(s.Visibility == ast.Public || s.IsImplMethod) {
 				continue
 			}
 			if block.Interface != nil {
@@ -631,7 +630,7 @@ func referenceTestContext(moduleName string, fa *analysis.FileAnalysis, entry ap
 func referenceTypeSelectors(scope *analysis.Scope) []string {
 	var selectors []string
 	for _, s := range scope.Symbols {
-		if s == nil || !s.Public || s.Resolved != nil {
+		if s == nil || s.Visibility != ast.Public || s.Resolved != nil {
 			continue
 		}
 		switch s.Kind {
@@ -875,7 +874,7 @@ func headingSlug(label string) string {
 
 func isReferenceSymbol(s *analysis.Symbol, allowTypeOwned bool) bool {
 	return s != nil &&
-		s.Public &&
+		s.Visibility == ast.Public &&
 		s.Resolved == nil &&
 		declKind[s.Kind] &&
 		s.Node != nil &&
@@ -902,7 +901,7 @@ func canOwnPublicMethods(kind analysis.SymbolKind) bool {
 func publicNamespaces(scope *analysis.Scope) []*analysis.Symbol {
 	var out []*analysis.Symbol
 	for _, s := range scope.Symbols {
-		if s == nil || !s.Public || s.Resolved != nil || s.ModuleScope == nil {
+		if s == nil || s.Visibility != ast.Public || s.Resolved != nil || s.ModuleScope == nil {
 			continue
 		}
 		switch s.Kind {

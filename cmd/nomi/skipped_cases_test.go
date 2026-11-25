@@ -133,18 +133,18 @@ type skipProject struct {
 
 // fileLevelSkipProject is a project for the edits that change what a file's
 // kept program is read from beside its own files: an app of two test files,
-// one that calls a dependency (a module of its own, which nomi.toml names
+// one that calls a dependency (a package of its own, which nomi.toml names
 // by its directory) and one that loads a file of the app, with
 // locales in nomi.toml. Each test asserts a value its edit changes, so a
 // file wrongly answered from its passes record fails.
 func fileLevelSkipProject() skipProject {
 	return skipProject{name: "file level", settle: true, files: map[string]string{
-		"app/nomi.toml": "[module]\nname = \"app\"\n\n[i18n]\nsource_locale = \"en\"\nlocales = [\"en\", \"de\"]\n\n[dependencies]\npricing = { dir = \"../pricing\" }\n",
+		"app/nomi.toml": "[package]\nname = \"app\"\n\n[i18n]\nsource_locale = \"en\"\nlocales = [\"en\", \"de\"]\n\n[dependencies]\npricing = { dir = \"../pricing\" }\n",
 		"app/totals_test.nomi": "import pricing::rules\n\ntest \"the rate doubles\"\n    assert rules.rate() * 2 == 6\nend\n\n" +
 			"test \"the rate is small\"\n    assert rules.rate() < 4\nend\n",
 		"app/shapes.nomi":      "pub fn sides() -> Int\n    4\nend\n",
 		"app/shapes_test.nomi": "import shapes\n\ntest \"a square has four sides\"\n    assert shapes.sides() == 4\nend\n",
-		"pricing/nomi.toml":    "[module]\nname = \"pricing\"\n",
+		"pricing/nomi.toml":    "[package]\nname = \"pricing\"\n",
 		"pricing/rules.nomi":   "pub fn rate() -> Int\n    3\nend\n",
 	}}
 }
@@ -829,7 +829,7 @@ func TestTestCommand_ReachingRunsTheTestsThatReachAFunction(t *testing.T) {
 	}
 	dir := t.TempDir()
 	cache := newCacheDir(t)
-	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[module]\nname = \"reach\"\n")
+	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[package]\nname = \"reach\"\n")
 	mustWrite(t, filepath.Join(dir, "shapes.nomi"), "pub fn sides() -> Int\n    4\nend\n\npub fn corners() -> Int\n    sides()\nend\n\npub fn edges() -> Int\n    12\nend\n")
 	mustWrite(t, filepath.Join(dir, "shapes_test.nomi"), "import\n    std::io\n    shapes\nend\n\n"+
 		"test \"sides\"\n    assert shapes.sides() == 4\nend\n\n"+

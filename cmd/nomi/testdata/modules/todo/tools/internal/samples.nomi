@@ -1,9 +1,9 @@
-//# Sample items for the seed tool. This `internal/` directory sits under
-//# `tools/`, so only files under `tools/` may import it; `main.nomi` may not.
+//# Sample items for the seed tool. A file in an `internal/` directory under
+//# `tools/` is a tool's helper, not a tool.
 
 import item.Item
 
 /// A starter list for a new user.
-pub fn items() -> List<Item>
+fn items() -> List<Item>
     [Item.new(1, "read the Nomi tour"), Item.new(2, "write a module"), Item.new(3, "publish it")]
 end

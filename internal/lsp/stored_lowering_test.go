@@ -12,7 +12,7 @@ import (
 
 // storedProjectFiles is a project of three files the entry reaches.
 var storedProjectFiles = map[string]string{
-	"nomi.toml":   "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+	"nomi.toml":   "[package]\nname = \"app\"\nentry_points = [\"main\"]\n",
 	"main.nomi":   "import\n    std::io\n    shapes\nend\n\nfn main()\n    io.print(shapes.describe(shapes.Shape.Circle(2)))\nend\n",
 	"shapes.nomi": "import util\n\n/// A shape.\npub enum Shape\n    Circle(Int)\n    Square(Int)\nend\n\n/// What the shape is.\n//! assert describe(Shape.Square(1)) == \"square 1\"\npub fn describe(s: Shape) -> String\n    case s\n        .Circle(r) -> \"circle ${util.twice(r)}\"\n        .Square(n) -> \"square ${n}\"\n    end\nend\n",
 	"util.nomi":   "/// n twice.\npub fn twice(n: Int) -> Int\n    n * 2\nend\n",

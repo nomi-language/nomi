@@ -3,6 +3,7 @@ package analysis
 import (
 	"fmt"
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/parser"
 	"maps"
 	"regexp"
 	"slices"
@@ -1634,8 +1635,12 @@ func refreshReceiverMembers(fa *FileAnalysis) {
 	}
 }
 
-// CheckTypes walks all function bodies and validates type consistency.
+// CheckTypes walks all function bodies and validates type consistency. It
+// checks nothing of a file whose build its packages stopped (buildStopped).
 func CheckTypes(fa *FileAnalysis, nodes []ast.Node) []TypeError {
+	if buildStopped(fa) {
+		return nil
+	}
 	noteBodyCheck(fa)
 	// Every unannotated `once` of the program gets its type before the first
 	// file is checked (OnceTable).
@@ -1852,12 +1857,13 @@ func (c *checker) checkMainReturn(fn *ast.FuncDef) {
 	c.report(e)
 }
 
-// checkVisibilityConsistency walks public top-level declarations and reports
-// any reference to a private (file-local, non-`pub`) type. Spec §14 *Visibility*:
-// public functions/structs/enums/interfaces/aliases must not expose private
-// types. Primitive types, stdlib types, and types imported from other
-// modules are by definition public — only locally-declared
-// without-`pub` types count as private.
+// checkVisibilityConsistency walks the top-level declarations and reports
+// each type a declaration's signature names that fewer files see than see
+// the declaration (spec §14 *Visibility consistency*): a public
+// declaration may name no internal or private type, and an internal one
+// no private type. A type's level is its declaration's, whether the file
+// declares it or reaches it through an import or a file's qualifier
+// (writtenType, checkPublicTypeOf).
 func (c *checker) checkVisibilityConsistency(nodes []ast.Node) {
 	// Pre-build a name→symbol map of file-local type definitions. We
 	// can't rely on fa.References for this — embedded enum variants
@@ -1890,32 +1896,33 @@ func (c *checker) checkVisibilityConsistency(nodes []ast.Node) {
 			continue
 		}
 		existing, exists := c.fileTypeSymbols[sym.Name]
-		if !exists || (sym.Public && !existing.Public) {
+		if !exists || (sym.Visibility == ast.Public && existing.Visibility != ast.Public) {
 			c.fileTypeSymbols[sym.Name] = sym
 		}
 	}
 	for _, node := range nodes {
 		switch n := node.(type) {
-		case *ast.FuncDef:
-			if !n.Public {
+		case *ast.FuncDef, *ast.ExternFunc:
+			c.checkFunctionExposure(n, nil)
+		case *ast.ImplBlock:
+			// An inherent impl's functions and onces carry their own level;
+			// an interface impl's take the interface's, whose signature the
+			// interface's declaration answers for.
+			if n.Interface != nil || IsSynthesizedLine(n.Line) {
 				continue
 			}
-			for _, p := range n.Params {
-				c.checkPublicParam(p, "function parameter")
+			owner, _, _, _ := c.writtenTypeDecl(n.Receiver)
+			for _, item := range n.Items {
+				c.checkMemberLevel(item, owner)
+				switch it := item.(type) {
+				case *ast.FuncDef, *ast.ExternFunc:
+					c.checkFunctionExposure(it, owner)
+				case *ast.OnceBinding:
+					c.checkOnceExposure(it, owner)
+				}
 			}
-			c.checkPublicTypeExpr(n.ReturnTypeExpr, "function return")
-		case *ast.ExternFunc:
-			if !n.Public {
-				continue
-			}
-			for _, p := range n.Params {
-				c.checkPublicParam(p, "host function parameter")
-			}
-			c.checkPublicTypeExpr(n.ReturnTypeExpr, "host function return")
 		case *ast.StructDef:
-			if !n.Public {
-				continue
-			}
+			level := n.Visibility
 			// Opaque types may have private internals — outside callers
 			// can't reach the representation, so private wrapped types
 			// don't leak. See §14 *Visibility consistency* relaxation.
@@ -1925,71 +1932,167 @@ func (c *checker) checkVisibilityConsistency(nodes []ast.Node) {
 			for _, f := range n.Fields {
 				if f.TypeAnnotation == nil {
 					if sym := c.fa.Definitions[Pos{Line: f.Line, Col: f.Col}]; sym != nil && sym.Kind == SymbolField {
-						c.checkPublicTypeOf(sym.Type, "public struct field", f.Line, f.Col)
+						c.checkPublicTypeOf(sym.Type, exposure{level: level, what: "struct field"}, f.Line, f.Col)
 					}
 					continue
 				}
-				c.checkPublicTypeExpr(f.TypeAnnotation, "public struct field")
+				c.checkPublicTypeExpr(f.TypeAnnotation, exposure{level: level, what: "struct field"})
 			}
 		case *ast.EnumDef:
-			if !n.Public {
-				continue
-			}
+			level := n.Visibility
 			if c.symbolIsOpaque(n.Name) {
 				continue
 			}
 			for _, v := range n.Variants {
-				c.checkPublicTypeExpr(v.EmbeddedTypeExpr, "public enum embed")
-				c.checkPublicTypeExpr(v.DataTypeExpr, "public enum variant data")
+				c.checkPublicTypeExpr(v.EmbeddedTypeExpr, exposure{level: level, what: "enum embed"})
+				c.checkPublicTypeExpr(v.DataTypeExpr, exposure{level: level, what: "enum variant data"})
 				for _, f := range v.Fields {
 					if f.TypeAnnotation == nil {
 						if sym := c.fa.Definitions[Pos{Line: f.Line, Col: f.Col}]; sym != nil && sym.Kind == SymbolField {
-							c.checkPublicTypeOf(sym.Type, "public enum variant field", f.Line, f.Col)
+							c.checkPublicTypeOf(sym.Type, exposure{level: level, what: "enum variant field"}, f.Line, f.Col)
 						}
 						continue
 					}
-					c.checkPublicTypeExpr(f.TypeAnnotation, "public enum variant field")
+					c.checkPublicTypeExpr(f.TypeAnnotation, exposure{level: level, what: "enum variant field"})
 				}
 			}
 		case *ast.InterfaceDef:
-			if !n.Public {
-				continue
-			}
+			level := n.Visibility
 			for _, m := range n.Methods {
 				for _, p := range m.Params {
-					c.checkPublicTypeExpr(p.TypeAnnotation, "public interface function parameter")
+					c.checkPublicTypeExpr(p.TypeAnnotation, exposure{level: level, what: "interface function parameter"})
 				}
-				c.checkPublicTypeExpr(m.ReturnTypeExpr, "public interface function return")
+				c.checkPublicTypeExpr(m.ReturnTypeExpr, exposure{level: level, what: "interface function return"})
 			}
 		case *ast.TypeAlias:
-			if !n.Public {
-				continue
-			}
-			c.checkPublicTypeExpr(n.TargetTypeExpr, "public type alias")
+			level := n.Visibility
+			c.checkPublicTypeExpr(n.TargetTypeExpr, exposure{level: level, what: "type alias"})
 		case *ast.TypeDef:
-			if !n.Public {
-				continue
-			}
+			level := n.Visibility
 			if c.symbolIsOpaque(n.Name) {
 				continue
 			}
-			c.checkPublicTypeExpr(n.InnerTypeExpr, "public distinct type inner")
+			c.checkPublicTypeExpr(n.InnerTypeExpr, exposure{level: level, what: "distinct type inner"})
 			for _, parent := range n.MoreParents {
-				c.checkPublicTypeExpr(parent, "public refinement parent")
+				c.checkPublicTypeExpr(parent, exposure{level: level, what: "refinement parent"})
 			}
 		case *ast.OnceBinding:
-			if !n.Public {
-				continue
-			}
-			if n.TypeAnnotation != nil {
-				c.checkPublicTypeExpr(n.TypeAnnotation, "public once binding")
-				continue
-			}
-			// An unannotated once's type is its value's, which another
-			// file reads as surely as a written one.
-			c.checkPublicInferredType(n)
+			c.checkOnceExposure(n, nil)
 		}
 	}
+}
+
+// checkFunctionExposure is checkVisibilityConsistency for one function, a
+// `fn` or a `host fn`, at the top of a file or in an inherent impl of
+// owner: its parameters and its result, at its own level.
+func (c *checker) checkFunctionExposure(fn ast.Node, owner *Symbol) {
+	switch n := fn.(type) {
+	case *ast.FuncDef:
+		for _, p := range n.Params {
+			c.checkPublicParam(p, exposure{level: n.Visibility, what: "function parameter", bare: true, owner: owner})
+		}
+		c.checkPublicTypeExpr(n.ReturnTypeExpr, exposure{level: n.Visibility, what: "function return", bare: true, owner: owner})
+	case *ast.ExternFunc:
+		for _, p := range n.Params {
+			c.checkPublicParam(p, exposure{level: n.Visibility, what: "host function parameter", bare: true, owner: owner})
+		}
+		c.checkPublicTypeExpr(n.ReturnTypeExpr, exposure{level: n.Visibility, what: "host function return", bare: true, owner: owner})
+	}
+}
+
+// checkOnceExposure is checkVisibilityConsistency for one `once`, at the
+// top of a file or in an inherent impl of owner: its type, written or,
+// unannotated, its value's, which another file reads as surely as a
+// written one.
+func (c *checker) checkOnceExposure(n *ast.OnceBinding, owner *Symbol) {
+	if n.TypeAnnotation != nil {
+		c.checkPublicTypeExpr(n.TypeAnnotation, exposure{level: n.Visibility, what: "once binding", owner: owner})
+		return
+	}
+	c.checkPublicInferredType(n, exposure{level: n.Visibility, what: "once binding", owner: owner})
+}
+
+// MemberMoreVisibleThanTypeCode is the code of the error for a function or
+// `once` of an inherent impl that more files see than see the type it
+// belongs to. Args are the member's name, its level, the type's name and
+// the type's level.
+const MemberMoreVisibleThanTypeCode = "member-more-visible-than-type"
+
+// checkMemberLevel reports item, a function or `once` of an inherent impl
+// of owner, when more files see it than see owner: a public member of an
+// internal or private type, an internal member of a private type. The
+// member is held to its type's level whatever its signature names, so
+// checkVisibilityConsistency does not report owner again where the
+// member's signature names it (exposure.owner). The fix gives the member
+// its type's level; the message also names the edit to the type.
+func (c *checker) checkMemberLevel(item ast.Node, owner *Symbol) {
+	if owner == nil {
+		return
+	}
+	var name, keyword string
+	var level ast.Visibility
+	var line, col int
+	switch it := item.(type) {
+	case *ast.FuncDef:
+		name, keyword, level, line, col = it.Name, "fn", it.Visibility, it.Line, it.Col
+	case *ast.ExternFunc:
+		name, keyword, level, line, col = it.Name, "host fn", it.Visibility, it.Line, it.Col
+	case *ast.OnceBinding:
+		name, keyword, level, line, col = it.Name, "once", it.Visibility, it.Line, it.Col
+	default:
+		return
+	}
+	if visibilityRank(level) <= visibilityRank(owner.Visibility) {
+		return
+	}
+	decl := typeDeclKeyword(owner.Node) + " " + owner.Name
+	member, typeFix := "internal", fmt.Sprintf("drop `private` from `%s`", decl)
+	if level == ast.Public {
+		member, typeFix = "`pub`", fmt.Sprintf("write `pub %s`", decl)
+	}
+	memberFix, title, text := "drop `pub`", "Drop `pub`", keyword+" "
+	if owner.Visibility == ast.Private {
+		written := fmt.Sprintf("private %s %s", keyword, name)
+		memberFix, title, text = "write `"+written+"`", "Write `"+written+"`", "private "+keyword+" "
+	}
+	e := TypeError{Line: line, Col: col, EndLine: line, EndCol: col + len(name),
+		Message: fmt.Sprintf("`%s` is %s, but its type `%s` is %s: %s, or %s", name, member, owner.Name, owner.Visibility, memberFix, typeFix)}.
+		coded(MemberMoreVisibleThanTypeCode, name, level.String(), owner.Name, owner.Visibility.String())
+	// The member's extent starts at its modifier, which stands on the line
+	// of its name, so the fix writes the words before the name again.
+	if sp, ok := spanOf(item); ok && sp.StartLine == line {
+		e.Fix = parser.Replace(title, sp.StartLine, sp.StartCol, line, col, text)
+	}
+	c.report(e)
+}
+
+// typeDeclKeyword is the keyword a type's declaration n is written with,
+// `opaque` included: "struct", "opaque enum", "refine", "host type".
+func typeDeclKeyword(n ast.Node) string {
+	opaque := func(o bool, kw string) string {
+		if o {
+			return "opaque " + kw
+		}
+		return kw
+	}
+	switch d := n.(type) {
+	case *ast.StructDef:
+		return opaque(d.Opaque, "struct")
+	case *ast.EnumDef:
+		return opaque(d.Opaque, "enum")
+	case *ast.TypeDef:
+		if d.Refinement {
+			return "refine"
+		}
+		return opaque(d.Opaque, "type")
+	case *ast.InterfaceDef:
+		return "interface"
+	case *ast.TypeAlias:
+		return "typealias"
+	case *ast.ExternType:
+		return "host type"
+	}
+	return "type"
 }
 
 // symbolIsOpaque returns true if the named top-level symbol in the
@@ -2011,59 +2114,116 @@ func (c *checker) symbolIsOpaque(name string) bool {
 	return sym.Opaque
 }
 
-// checkPublicTypeExpr walks a type expression and reports each reference to
-// a file-local private type. Recurses into composite type forms (generic
-// arguments, function parameters/returns, qualified types) so a `Secret`
-// hiding inside `List<Option<Secret>>` is still caught.
-// checkPublicParam is checkPublicTypeExpr for a public function's
-// parameter, whose type is written or comes from its default.
-func (c *checker) checkPublicParam(p ast.Param, context string) {
+// exposure is a declaration whose signature checkVisibilityConsistency
+// reads: its level, and what part of it a type stands in ("struct
+// field"), which the error names after the level unless bare (a
+// function's parameter or return, named without it). owner is the type
+// whose inherent impl declares it, which checkMemberLevel holds it to, so
+// naming owner exposes nothing.
+type exposure struct {
+	level ast.Visibility
+	what  string
+	bare  bool
+	owner *Symbol
+}
+
+// subject is what the error says exposes the type: "function return",
+// "public struct field", "internal once binding".
+func (e exposure) subject() string {
+	if e.bare {
+		return e.what
+	}
+	return e.level.String() + " " + e.what
+}
+
+// ExposesTypeCode is the code of the error for a declaration whose
+// signature names a type fewer files see than see the declaration. Args
+// are the type's name and its level.
+const ExposesTypeCode = "exposes-type"
+
+// exposes reports the type name at line:col, declared by decl, when fewer
+// files see it than see the declaration e describes: a public declaration
+// exposes an internal or private type, an internal one a private type. A
+// private declaration exposes nothing, and a member its own type nothing.
+func (c *checker) exposes(e exposure, decl *Symbol, name string, line, col int) {
+	if visibilityRank(decl.Visibility) >= visibilityRank(e.level) || e.owner != nil && (decl == e.owner || decl.Node != nil && decl.Node == e.owner.Node) {
+		return
+	}
+	c.report(TypeError{Line: line, Col: col,
+		Message: fmt.Sprintf("%s exposes %s type %s", e.subject(), decl.Visibility, name)}.
+		coded(ExposesTypeCode, name, decl.Visibility.String()))
+}
+
+// visibilityRank orders the levels by how many files see a declaration.
+func visibilityRank(v ast.Visibility) int {
+	switch v {
+	case ast.Public:
+		return 2
+	case ast.Internal:
+		return 1
+	}
+	return 0
+}
+
+// checkPublicParam is checkPublicTypeExpr for a function's parameter, whose
+// type is written or comes from its default.
+func (c *checker) checkPublicParam(p ast.Param, e exposure) {
 	if p.TypeAnnotation != nil || p.Default == nil {
-		c.checkPublicTypeExpr(p.TypeAnnotation, context)
+		c.checkPublicTypeExpr(p.TypeAnnotation, e)
 		return
 	}
 	if sym := c.fa.Definitions[Pos{Line: p.Line, Col: p.Col}]; sym != nil && sym.Kind == SymbolParam && sym.Type != nil {
-		c.checkPublicTypeOf(sym.Type, context, p.Line, p.Col)
+		c.checkPublicTypeOf(sym.Type, e, p.Line, p.Col)
 	}
 }
 
-// checkPublicInferredType reports each private type the inferred type of
-// the unannotated `pub once` n names: a private top-level type of the
-// file, as checkPublicTypeExpr reports one written in an annotation, or a
-// type declared inside a body, which no other file can name either.
-func (c *checker) checkPublicInferredType(n *ast.OnceBinding) {
+// checkPublicInferredType is checkPublicTypeOf for the inferred type of
+// the unannotated `once` n, which e describes.
+func (c *checker) checkPublicInferredType(n *ast.OnceBinding, e exposure) {
+	if e.level == ast.Private {
+		return
+	}
 	sym := c.fa.Definitions[Pos{Line: n.Line, Col: n.Col}]
 	if sym == nil {
 		return
 	}
 	c.ensureOnceType(sym)
-	c.checkPublicTypeOf(sym.Type, "public once binding", n.Line, n.Col)
+	c.checkPublicTypeOf(sym.Type, e, n.Line, n.Col)
 }
 
-// checkPublicTypeOf reports each private type t names, t being the type a
-// public declaration at line:col takes from a value rather than from an
-// annotation (subject says which: "public once binding", "public struct
-// field").
-func (c *checker) checkPublicTypeOf(t Type, subject string, line, col int) {
+// checkPublicTypeOf reports each type t names that the declaration e
+// describes exposes (exposes), t being the type it takes at line:col from
+// a value rather than from an annotation. A type's level is its
+// declaration's, in this file or the one its origin names; a type
+// declared inside a body is private, since no other file can name it.
+func (c *checker) checkPublicTypeOf(t Type, e exposure, line, col int) {
+	if e.level == ast.Private {
+		return
+	}
 	reported := map[string]bool{}
 	seen := map[Type]bool{}
 	nominal := func(origin, name string) {
 		if reported[name] {
 			return
 		}
-		top := c.fa.ModuleScope.LookupLocal(name)
-		switch {
-		case origin == c.fa.Origin && top != nil && top.Resolved == nil && isTypeSymbolKind(top.Kind):
-			if top.Public {
-				return
-			}
-			c.addError(line, col, fmt.Sprintf("%s exposes private type %s", subject, name))
-		case IsBodyOrigin(origin):
-			c.addError(line, col, fmt.Sprintf("%s exposes private type %s, which is declared inside a body", subject, name))
-		default:
+		if IsBodyOrigin(origin) {
+			reported[name] = true
+			c.addError(line, col, fmt.Sprintf("%s exposes private type %s, which is declared inside a body", e.subject(), name))
+			return
+		}
+		home := c.fa
+		if origin != c.fa.Origin {
+			home = c.fa.fileOfOrigin(origin)
+		}
+		if home == nil || home.ModuleScope == nil {
+			return
+		}
+		top := home.ModuleScope.LookupLocal(name)
+		if top == nil || top.Resolved != nil || !isTypeSymbolKind(top.Kind) {
 			return
 		}
 		reported[name] = true
+		c.exposes(e, top, name, line, col)
 	}
 	// The types t is built from before t itself, so a private type
 	// argument is reported before the private type it is an argument of.
@@ -2101,37 +2261,72 @@ func isTypeSymbolKind(k SymbolKind) bool {
 	return false
 }
 
-// checkPublicTypeExpr reports each private type of the file that te, a
-// type a public declaration writes, names: te's own name, and the names
-// in every type expression inside it, whatever kind of type expression
-// holds them (ast.Children), so a conjunction's members, an anonymous
-// struct's fields and a function type's parameters are all read.
-func (c *checker) checkPublicTypeExpr(te ast.TypeExpr, context string) {
-	if ast.IsNilNode(te) {
+// checkPublicTypeExpr reports each type te, a type the declaration e
+// writes, names that e exposes (exposes): te's own name, and the names in
+// every type expression inside it, whatever kind of type expression holds
+// them (ast.Children), so a conjunction's members, an anonymous struct's
+// fields and a function type's parameters are all read.
+func (c *checker) checkPublicTypeExpr(te ast.TypeExpr, e exposure) {
+	if ast.IsNilNode(te) || e.level == ast.Private {
 		return
 	}
-	switch t := te.(type) {
-	case *ast.SimpleType:
-		c.flagIfPrivate(Pos{Line: t.Line, Col: t.Col}, t.Name, context)
-	case *ast.GenericType:
-		c.flagIfPrivate(Pos{Line: t.Line, Col: t.Col}, t.Name, context)
-	case *ast.QualifiedType:
-		// A module-qualified type (other.Module.SomeType) is reachable only
-		// because the imported module exposed it, so it's by definition not
-		// a file-local privacy leak. A generic member's arguments can name
-		// local types.
-		if g, ok := t.Member.(*ast.GenericType); ok {
+	if decl, name, line, col := c.writtenTypeDecl(te); decl != nil {
+		c.exposes(e, decl, name, line, col)
+	}
+	if q, ok := te.(*ast.QualifiedType); ok {
+		// A generic member's arguments can name any type; the member's
+		// own name is the qualifier's file's, which writtenTypeDecl read.
+		if g, ok := q.Member.(*ast.GenericType); ok {
 			for _, p := range g.Params {
-				c.checkPublicTypeExpr(p, context)
+				c.checkPublicTypeExpr(p, e)
 			}
 		}
 		return
 	}
 	ast.Children(te, func(child ast.Node) {
 		if part, ok := child.(ast.TypeExpr); ok {
-			c.checkPublicTypeExpr(part, context)
+			c.checkPublicTypeExpr(part, e)
 		}
 	})
+}
+
+// writtenTypeDecl is the declaration of the type te names by its own name,
+// with the name and its position: for a simple or generic type the file's
+// own declaration or the one an import binds (writtenType), and for
+// `other.Secret` the declaration the file `other` holds. The declaration is
+// nil when the name declares no type here (a primitive, a type the prelude
+// binds) and when te has no name of its own (a function type, a tuple).
+func (c *checker) writtenTypeDecl(te ast.TypeExpr) (decl *Symbol, name string, line, col int) {
+	switch t := te.(type) {
+	case *ast.SimpleType:
+		decl, name, line, col = c.writtenType(t.Name), t.Name, t.Line, t.Col
+	case *ast.GenericType:
+		decl, name, line, col = c.writtenType(t.Name), t.Name, t.Line, t.Col
+	case *ast.QualifiedType:
+		switch m := t.Member.(type) {
+		case *ast.SimpleType:
+			name, line, col = m.Name, m.Line, m.Col
+		case *ast.GenericType:
+			name, line, col = m.Name, m.Line, m.Col
+		}
+		if name != "" && !strings.Contains(t.Module, ".") {
+			if file := c.fa.ModuleScope.Lookup(t.Module); file != nil {
+				for file.Resolved != nil {
+					file = file.Resolved
+				}
+				if file.Kind == SymbolModule && file.ModuleScope != nil {
+					decl = file.ModuleScope.LookupLocal(name)
+				}
+			}
+		}
+	}
+	for decl != nil && decl.Resolved != nil {
+		decl = decl.Resolved
+	}
+	if decl != nil && !isTypeSymbolKind(decl.Kind) {
+		decl = nil
+	}
+	return decl, name, line, col
 }
 
 // checkNamingConventions enforces spec §2 *Naming Conventions*: types and enum variants are
@@ -2406,20 +2601,16 @@ func isStrictSnakeCase(s string) bool {
 	return !strings.Contains(s, "?") && isSnakeCase(s)
 }
 
-// flagIfPrivate reports a private-type leak when the type named at pos is
-// declared as a non-`pub` symbol in this file. Resolves directly via the
-// fileTypeSymbols name map rather than fa.References, so embedded enum
-// variants don't mask the underlying private struct/enum/etc.
-func (c *checker) flagIfPrivate(pos Pos, name, context string) {
-	sym, ok := c.fileTypeSymbols[name]
-	if !ok || sym == nil {
-		return // imported / primitive / unknown — not file-local.
+// writtenType is the declaration of the type a signature in this file
+// names as name: the file's own, through the fileTypeSymbols name map
+// rather than fa.References, so an embedded enum variant does not mask the
+// type it embeds, or the one an import of the name binds. Nil for a name
+// that is neither, such as a primitive or a type the prelude binds.
+func (c *checker) writtenType(name string) *Symbol {
+	if sym := c.fileTypeSymbols[name]; sym != nil {
+		return sym
 	}
-	if sym.Public {
-		return
-	}
-	c.addError(pos.Line, pos.Col, fmt.Sprintf(
-		"%s exposes private type %s", context, name))
+	return c.fa.ModuleScope.LookupLocal(name)
 }
 
 func (c *checker) addError(line, col int, msg string) {
@@ -2879,21 +3070,10 @@ func (c *checker) checkModuleMemberVisibility(obj ast.Node, member *ast.Ident, s
 	if real.Resolved != nil {
 		real = real.Resolved
 	}
-	if real == nil || real.Public || c.fa.readsPrivateOf(real) {
+	if real == nil || c.fa.Sees(real) || isHiddenImportAlias(moduleObjectName(obj)) {
 		return
 	}
-	moduleName := moduleObjectName(obj)
-	if std, ok := c.stdModuleOf(obj); ok {
-		if !isHiddenImportAlias(moduleName) && !IsStdlibKey(c.fa.Origin) {
-			c.addError(member.Line, member.Col, internalToStd(moduleName+"."+member.Name, std))
-		}
-		return
-	}
-	if real.SourceFile == "" || real.SourceFile == c.fa.FilePath {
-		return
-	}
-	c.addError(member.Line, member.Col, fmt.Sprintf(
-		"file '%s' has no member '%s'", moduleName, member.Name))
+	c.report(c.fa.unseen(c.fa.Program().Packages, real, member.Name, member.Line, member.Col))
 }
 
 // reportMissingFileMember reports `file.member` when the object is a file API
@@ -2924,7 +3104,7 @@ func (c *checker) reportMissingFileMember(n *ast.FieldAccess) bool {
 	if hint := c.typeOwnedMemberHint(modScope, n.Field.Name); hint != "" {
 		e = e.WithHint(hint)
 	} else {
-		e = e.WithHint(didYouMean(n.Field.Name, publicNames(modScope)))
+		e = e.WithHint(didYouMean(n.Field.Name, seenNames(c.fa, modScope)))
 	}
 	c.report(e)
 	return true
@@ -3137,7 +3317,6 @@ func (c *checker) bareNameDispatchInterface(ident *ast.Ident) string {
 }
 
 func (c *checker) checkImportVisibility(n *ast.ImportStmt) {
-	c.checkInternalStdImport(n)
 	// Only check selective imports (import models.{User, helper})
 	if len(n.Names) == 0 {
 		return
@@ -3188,19 +3367,32 @@ func (c *checker) checkImportVisibility(n *ast.ImportStmt) {
 				origName, strings.Join(parts, ast.PathSeparator), origName))
 			continue
 		}
-		if !real.Public && !c.fa.readsPrivateOf(real) {
-			if std, ok := c.stdModuleOfImport(n); ok {
-				if !IsStdlibKey(c.fa.Origin) {
-					nameLine, nameCol := nodeLineCol(nameNode)
-					c.addError(nameLine, nameCol, internalToStd(origName, std))
-				}
-				continue
+		if !c.fa.Sees(real) {
+			nameLine, nameCol := nodeLineCol(nameNode)
+			c.report(c.fa.unseen(c.fa.Program().Packages, real, origName, nameLine, nameCol).Spanning(nameNode))
+			continue
+		}
+		// A re-export publishes the item under this file's name, so the
+		// item must be public itself: `pub import` cannot widen an
+		// internal or private declaration (spec §14 *Re-exporting
+		// imported names*).
+		// The help edits the declaration, so it is left off for a fetched
+		// module's declaration (PackageIndex.Fetched), as unseen leaves it.
+		if n.Pub && real.Visibility != ast.Public {
+			e := errAt(nameNode, fmt.Sprintf(
+				"`%s` is %s, and `pub import` re-exports public items only", origName, real.Visibility)).
+				coded(ReexportNotPublicCode, origName, real.Visibility.String())
+			if !c.fa.Program().Packages.Fetched[real.Package] {
+				e = e.WithHint("write `pub` on its declaration, or import it without `pub`")
 			}
-			c.addErrorAt(nameNode, fmt.Sprintf(
-				"'%s' is private and cannot be imported", origName))
+			c.report(e)
 		}
 	}
 }
+
+// ReexportNotPublicCode is the code of the error for a `pub import` of an
+// item that is not public. Args are the name and its level.
+const ReexportNotPublicCode = "reexport-not-public"
 
 func (c *checker) checkOnce(n *ast.OnceBinding) {
 	if n.Value == nil {
@@ -5695,7 +5887,7 @@ func (c *checker) checkTypeIdent(n *ast.TypeIdent) Type {
 			real = real.Resolved
 		}
 		// Opaque-types: bare-variant reference (`Active` for a nullary
-		// variant, used at value position) outside its owning module
+		// variant, used at value position) outside its file
 		// exposes the variant shape. The non-nullary case is caught at
 		// the call site by checkOpaqueEnumVariantCall; this branch
 		// handles the bare-variant value case where the expression
@@ -6298,7 +6490,7 @@ func repointSynthErrors(n *ast.ImplBlock, errs []TypeError) {
 }
 
 // hiddenQualifier is a qualifier through a hidden import's alias, which
-// holds a `$` no source can write (`json$.`, `partner$1.`).
+// holds a `$` no source can write (`json$.`, `phrase$.`).
 var hiddenQualifier = regexp.MustCompile(`\b[a-z_][a-z0-9_]*\$[0-9]*\.`)
 
 // generatedName is a name a synthesized body binds (`__value_email`,
@@ -8375,7 +8567,10 @@ func (c *checker) checkOpaqueEnumVariantCall(n *ast.Call, fnTy Type) {
 		return
 	}
 	et, ok := ft.Return.(*EnumType)
-	if !ok || c.opaqueOutside(et) == "" {
+	if !ok {
+		return
+	}
+	if name, _ := c.opaqueOutside(et); name == "" {
 		return
 	}
 	// Confirm the callee is a variant constructor (not a top-level
@@ -8409,36 +8604,37 @@ func (c *checker) checkOpaqueEnumVariantCall(n *ast.Call, fnTy Type) {
 	c.refuseOpaqueConstruction(pos.Line, pos.Col, et, "")
 }
 
-// opaqueOutside answers the name of t when t is an opaque struct, enum or
+// opaqueOutside answers the name of t and the file it is declared in, as a
+// message names it (fileNamed), when t is an opaque struct, enum or
 // distinct type this file may not build: one declared in a file this one is
-// not inside (FileAnalysis.inside, which counts the declaring file's
-// partner test). It answers "" for every other type. Every construction
-// form of an opaque type is refused by this answer (refuseOpaqueConstruction).
-func (c *checker) opaqueOutside(t Type) string {
-	var name, file string
+// not inside (FileAnalysis.inside). It answers "" for every other type.
+// Every construction form of an opaque type is refused by this answer
+// (refuseOpaqueConstruction).
+func (c *checker) opaqueOutside(t Type) (name, home string) {
+	var file string
 	switch t := resolveTypeVar(t).(type) {
 	case *DistinctType:
 		if t == nil || !t.Opaque {
-			return ""
+			return "", ""
 		}
 		name, file = t.Name, t.OwningSourceFile
 	case *StructType:
 		if t == nil || !t.Opaque {
-			return ""
+			return "", ""
 		}
 		name, file = t.Name, t.OwningSourceFile
 	case *EnumType:
 		if t == nil || !t.Opaque {
-			return ""
+			return "", ""
 		}
 		name, file = t.Name, t.OwningSourceFile
 	default:
-		return ""
+		return "", ""
 	}
 	if c.fa != nil && c.fa.inside(file) {
-		return ""
+		return "", ""
 	}
-	return name
+	return name, fileNamed(file)
 }
 
 // OpaqueConstructionCode tags the error for building a value of an opaque
@@ -8454,13 +8650,13 @@ const OpaqueConstructionCode = "opaque-construction"
 // type's own forms: its call form, its literal, a variant (spec §4
 // *Opaque distinct types*).
 func (c *checker) refuseOpaqueConstruction(line, col int, t Type, member string) bool {
-	name := c.opaqueOutside(t)
+	name, home := c.opaqueOutside(t)
 	if name == "" {
 		return false
 	}
-	msg := fmt.Sprintf("constructor of opaque type '%s' is private to its defining module — use an exported constructor function", name)
+	msg := fmt.Sprintf("constructor of opaque type '%s' is private to %s — use an exported constructor function", name, home)
 	if member != "" {
-		msg = fmt.Sprintf("`%s.%s` constructs the opaque type '%s', whose construction is private to its defining module — use an exported constructor function", name, member, name)
+		msg = fmt.Sprintf("`%s.%s` constructs the opaque type '%s', whose construction is private to %s — use an exported constructor function", name, member, name, home)
 	}
 	c.report(TypeError{Line: line, Col: col, Message: msg}.coded(OpaqueConstructionCode, name))
 	return true
@@ -8804,9 +9000,9 @@ func (c *checker) checkCallExpr(n *ast.Call, expected Type) Type {
 	// Opaque enum variant constructor: `Active(...)` or
 	// `Status.Active(...)` where Status is an inline-body opaque enum.
 	// The variant constructor exposes the variant shape, so block it
-	// outside the owning module. Mirrors checkOpaqueConstructor for
+	// outside the type's file. Mirrors checkOpaqueConstructor for
 	// distinct types and the StructLit/StructCallForm branches for
-	// opaque structs. Same-module construction is the owner's right.
+	// opaque structs. Construction in the type's file is the owner's right.
 	c.checkOpaqueEnumVariantCall(n, fnTy)
 
 	// A struct-shaped or embedded variant takes its shape's construction
@@ -12650,9 +12846,9 @@ func (c *checker) checkStructCallForm(n *ast.Call, st *StructType) Type {
 }
 
 // checkOpaqueStructCall rejects the call form of an opaque struct
-// (`Foo({...})`, `{...} |> Foo()`) outside its owning module: construction
-// there would expose the field representation, so the owner module exports
-// a constructor function instead. Mirrors the StructLit branch in
+// (`Foo({...})`, `{...} |> Foo()`) outside its file: construction there
+// would expose the field representation, so the type's file provides a
+// constructor function instead. Mirrors the StructLit branch in
 // checkStructLit and checkOpaqueConstructor for distinct types.
 func (c *checker) checkOpaqueStructCall(n *ast.Call, st *StructType) {
 	line, col := n.Line, 1
@@ -13297,16 +13493,18 @@ func (c *checker) opaqueUpdateBlocked(st *StructType, lit *ast.StructLit, fbLine
 		return false
 	}
 	canon := canonicalStructForFieldAccess(c, st)
-	if canon == nil || !canon.Opaque || (c.fa != nil && c.fa.inside(canon.OwningSourceFile)) {
+	if canon == nil {
+		return false
+	}
+	name, home := c.opaqueOutside(canon)
+	if name == "" {
 		return false
 	}
 	line, col := lit.Fields[0].Line, lit.Fields[0].Col
 	if line == 0 {
 		line, col = fbLine, fbCol
 	}
-	c.addError(line, col, fmt.Sprintf(
-		"cannot update field '%s' of opaque type '%s' outside its defining module — use an exported constructor function",
-		lit.Fields[0].Name, canon.Name))
+	c.addError(line, col, opaqueUpdateMessage(lit.Fields[0].Name, name, home))
 	for _, f := range lit.Fields {
 		c.checkNode(f.Value)
 	}
@@ -14959,6 +15157,10 @@ func (c *checker) checkFieldAccess(n *ast.FieldAccess) Type {
 					"check the value with `%s.try_from(...)`, an `Option<%s>`", tqTypeName, tqTypeName)))
 				return nil
 			}
+			if hidden := c.fa.unseenTypeMethod(tqTypeName, n.Field.Name); hidden != nil {
+				c.report(c.fa.unseen(c.fa.Program().Packages, hidden, tqTypeName+"."+n.Field.Name, fieldPos.Line, fieldPos.Col))
+				return nil
+			}
 			hint := emptyCollectionLiteralHint(c.reg.Lookup(tqTypeName), n.Field.Name)
 			if hint == "" {
 				hint = membershipHint(stdCollectionName(c.reg.Lookup(tqTypeName)), n.Field.Name)
@@ -15271,13 +15473,13 @@ func fieldTypeFromObject(c *checker, objTy Type, fieldName string, fieldPos Pos)
 	case *StructType:
 		ty = canonicalStructForFieldAccess(c, ty)
 		// Opaque-types: field access on an opaque struct (inline-body
-		// opaque) from outside its owning module exposes the field
-		// representation. Block it; same-module field access is the
+		// opaque) from outside its file exposes the field
+		// representation. Block it; field access in its file is the
 		// owner's right. Mirrors the destructuring boundary check.
-		if ty.Opaque && (c.fa == nil || !c.fa.inside(ty.OwningSourceFile)) {
+		if name, home := c.opaqueOutside(ty); name != "" {
 			c.addError(fieldPos.Line, fieldPos.Col, fmt.Sprintf(
-				"cannot access field '%s' of opaque type '%s' outside its defining module — use an exported accessor",
-				fieldName, ty.Name))
+				"cannot access field '%s' of opaque type '%s' outside %s — use an exported accessor",
+				fieldName, name, home))
 			return nil, true
 		}
 		// For generic structs (e.g. Pair<Int, String>), substitute the
@@ -15367,11 +15569,11 @@ func fieldTypeFromObject(c *checker, objTy Type, fieldName string, fieldPos Pos)
 		// A named tuple reads its items as the tuple it wraps does:
 		// `Pair(1, "x").first`.
 		if tup, isTuple := distinctInnerOf(ty).(*TupleType); isTuple {
-			if ty.Opaque && (c.fa == nil || !c.fa.inside(ty.OwningSourceFile)) {
+			if name, home := c.opaqueOutside(ty); name != "" {
 				if _, ordinal := ast.TupleOrdinalIndex(fieldName); ordinal {
 					c.addError(fieldPos.Line, fieldPos.Col, fmt.Sprintf(
-						"cannot read item '%s' of opaque type '%s' outside its defining module — use an exported accessor",
-						fieldName, ty.Name))
+						"cannot read item '%s' of opaque type '%s' outside %s — use an exported accessor",
+						fieldName, name, home))
 					return nil, true
 				}
 			}
@@ -17213,11 +17415,10 @@ func (c *checker) checkPattern(pattern ast.Node, expectedTy Type) {
 				return
 			}
 			// Opaque-types: destructuring an opaque distinct type from
-			// outside its owning module exposes the wrapped value. Block
-			// it. Same-module destructuring is fine.
-			if dt.Opaque && (c.fa == nil || !c.fa.inside(dt.OwningSourceFile)) {
-				c.addError(n.Line, n.Col, fmt.Sprintf(
-					"cannot destructure opaque type '%s' outside its defining module", dt.Name))
+			// outside its file exposes the wrapped value. Block it.
+			// Destructuring in its file is fine.
+			if name, home := c.opaqueOutside(dt); name != "" {
+				c.addError(n.Line, n.Col, opaqueDestructureMessage(name, home))
 				return
 			}
 			if tp, flat := n.Payload.(*ast.TuplePattern); flat && tp.Flat {
@@ -17260,12 +17461,11 @@ func (c *checker) checkPattern(pattern ast.Node, expectedTy Type) {
 			return
 		}
 		// Opaque-types: destructuring an opaque enum (inline-body opaque)
-		// from outside its owning module exposes the variant shape and
-		// payloads. Block it; same-module destructuring is the owner's
-		// right. Mirrors the DistinctType branch above.
-		if et.Opaque && (c.fa == nil || !c.fa.inside(et.OwningSourceFile)) {
-			c.addError(n.Line, n.Col, fmt.Sprintf(
-				"cannot destructure opaque type '%s' outside its defining module", et.Name))
+		// from outside its file exposes the variant shape and payloads.
+		// Block it; destructuring in its file is the owner's right.
+		// Mirrors the DistinctType branch above.
+		if name, home := c.opaqueOutside(et); name != "" {
+			c.addError(n.Line, n.Col, opaqueDestructureMessage(name, home))
 			return
 		}
 		// Look up variant by name.
@@ -17586,12 +17786,11 @@ func (c *checker) checkStructPattern(n *ast.StructPattern, expectedTy Type) {
 	switch st := expectedTy.(type) {
 	case *StructType:
 		// Opaque-types: destructuring an opaque struct (inline-body
-		// opaque) from outside its owning module exposes the field
-		// representation. Block it; same-module destructuring is the
+		// opaque) from outside its file exposes the field
+		// representation. Block it; destructuring in its file is the
 		// owner's right.
-		if st.Opaque && (c.fa == nil || !c.fa.inside(st.OwningSourceFile)) {
-			c.addError(n.Line, n.Col, fmt.Sprintf(
-				"cannot destructure opaque type '%s' outside its defining module", st.Name))
+		if name, home := c.opaqueOutside(st); name != "" {
+			c.addError(n.Line, n.Col, opaqueDestructureMessage(name, home))
 			return
 		}
 		if !c.structPatternNames(n, st) {
@@ -20909,6 +21108,11 @@ func (c *checker) resolveTypeMethodSymbol(typeName, method, origin string) (*Sym
 	// defect one table over.
 	idx := c.fa.Program().ImplIndex
 	byIdentity := idx.LookupTypeMethodByIdentity(origin, typeName, method)
+	if byIdentity != nil && !byIdentity.IsImplMethod && !c.fa.Sees(byIdentity) {
+		// The index holds every module's internal functions too, and a file
+		// reaches only those its module's files may name.
+		byIdentity = nil
+	}
 	local := c.fa.LookupVisibleTypeMethod(typeName, method)
 	// The file's own impl of the method wins: the identity index keeps one
 	// function per receiver and name, so with two files each implementing
@@ -20930,8 +21134,8 @@ func (c *checker) resolveTypeMethodSymbol(typeName, method, origin string) (*Sym
 		local = nil
 	}
 	// Then the per-file table, which still owns what the project index
-	// deliberately excludes: a module-private inherent method, reachable only
-	// from inside its declaring module and so never ambiguous by module.
+	// deliberately excludes: a private inherent method, reachable only from
+	// its own file and so never ambiguous by module.
 	if local != nil {
 		return local, typeMethodLocal
 	}
@@ -20939,7 +21143,7 @@ func (c *checker) resolveTypeMethodSymbol(typeName, method, origin string) (*Sym
 		return nil, typeMethodUnresolved
 	}
 	if byName, ok := idx.TypeMethods[typeName]; ok {
-		if sym := byName[method]; sym != nil && !idx.foreignTypeMethod(sym, origin) {
+		if sym := byName[method]; sym != nil && !idx.foreignTypeMethod(sym, origin) && (sym.IsImplMethod || c.fa.Sees(sym)) {
 			return sym, typeMethodByName
 		}
 	}

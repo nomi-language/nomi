@@ -11,7 +11,7 @@ import (
 // nomi.toml, lists each file with a `fn main` as an entry point, writes no
 // source and no go.mod, reads no go.mod already there, and never replaces
 // a nomi.toml.
-func TestModules_InitMakesTheDirectoryAProject(t *testing.T) {
+func TestPackages_InitMakesTheDirectoryAProject(t *testing.T) {
 	c := newModuleCLI(t)
 
 	// An empty directory gets a nomi.toml, with `main` as its entry point.
@@ -19,7 +19,7 @@ func TestModules_InitMakesTheDirectoryAProject(t *testing.T) {
 	if out := c.must(empty, "init", "hello_world"); out != "wrote nomi.toml" {
 		t.Errorf("nomi init in an empty directory printed\n%s", out)
 	}
-	if got := mustRead(t, filepath.Join(empty, "nomi.toml")); got != "[module]\nname = \"hello_world\"\nentry_points = [\"main\"]\n" {
+	if got := mustRead(t, filepath.Join(empty, "nomi.toml")); got != "[package]\nname = \"hello_world\"\nentry_points = [\"main\"]\n" {
 		t.Errorf("nomi.toml is\n%s", got)
 	}
 	for _, name := range []string{"main.nomi", "go.mod"} {
@@ -42,7 +42,7 @@ func TestModules_InitMakesTheDirectoryAProject(t *testing.T) {
 	if out := c.must(tools, "init", "tools"); out != "wrote nomi.toml\nnext: nomi run cmd/seed.nomi" {
 		t.Errorf("nomi init beside two entries printed\n%s", out)
 	}
-	if got := mustRead(t, filepath.Join(tools, "nomi.toml")); got != "[module]\nname = \"tools\"\nentry_points = [\"cmd/seed\", \"main\"]\n" {
+	if got := mustRead(t, filepath.Join(tools, "nomi.toml")); got != "[package]\nname = \"tools\"\nentry_points = [\"cmd/seed\", \"main\"]\n" {
 		t.Errorf("nomi.toml is\n%s", got)
 	}
 	if out := c.must(tools, "check", "main.nomi"); out != "ok main.nomi" {
@@ -64,13 +64,13 @@ func TestModules_InitMakesTheDirectoryAProject(t *testing.T) {
 	// is written.
 	bare := t.TempDir()
 	_, stderr, err = c.run(bare, "init")
-	if err == nil || stderr != "nomi init: give the module's name, such as `nomi init hello`" {
+	if err == nil || stderr != "nomi init: give the package's name, such as `nomi init hello`" {
 		t.Errorf("nomi init with no name: %v\n%s", err, stderr)
 	}
 	for _, tc := range []struct{ arg, want string }{
-		{"not a name", `nomi init: "not a name" is not a module name: a name is lowercase letters, digits and _, not starting with a digit, such as hello_world`},
-		{"github.com/you/hello", `nomi init: "github.com/you/hello" is not a module name: a name is lowercase letters, digits and _, not starting with a digit, such as hello_world; ` +
-			"a module names no repository: a project that depends on it names the repository it is published in"},
+		{"not a name", `nomi init: "not a name" is not a package name: a name is lowercase letters, digits and _, not starting with a digit, such as hello_world`},
+		{"github.com/you/hello", `nomi init: "github.com/you/hello" is not a package name: a name is lowercase letters, digits and _, not starting with a digit, such as hello_world; ` +
+			"a package names no repository: a project that depends on it names the repository it is published in"},
 		{"std", "nomi init: std is the standard library's name; choose another"},
 	} {
 		_, stderr, err = c.run(bare, "init", tc.arg)

@@ -127,7 +127,7 @@ func TestEveryDocumentedInterfaceMethodReachesItsPage(t *testing.T) {
 		var methods []ast.InterfaceMethod
 		for _, node := range lib.Nodes[module] {
 			iface, ok := node.(*ast.InterfaceDef)
-			if !ok || !iface.Public {
+			if !ok || iface.Visibility != ast.Public {
 				continue
 			}
 			for i := range iface.Methods {

@@ -36,7 +36,7 @@
 // run's reporting and exit handling to the testing package.
 //
 // So the bubble is opened with a zero-value `testing.T`, under a discipline
-// that keeps every failure mode returnable. Each of the four layers closes one
+// that keeps every failure mode returnable. Each of the three layers closes one
 // failure mode:
 //
 //  1. **Never call a method on the T.** A zero-value T has nil internals;
@@ -50,10 +50,29 @@
 //  3. **Recover outside the bubble.** synctest reports deadlock and
 //     leftover-goroutine conditions by panicking. Those are results, not
 //     crashes.
-//  4. **Watchdog the whole thing.** Insurance against a future Go release
-//     calling a T method internally on a path we do not exercise. A bubbled
-//     test finishes in milliseconds no matter how much virtual time it spends,
-//     so a multi-second real-time ceiling cannot produce a false positive.
+//
+// # A case ends when its bubble does
+//
+// RunCase returns only once synctest.Test has: every goroutine the case
+// started has ended, or waits on the bubble's own channels and timers and
+// can never run again. Cases share the process's state, rt's supervisor
+// registry and signal watches among it, so a case whose bubble still ran
+// beside the next one could close a channel of one bubble from the other,
+// which Go ends the process for. Real time does not end a case here: a
+// case may compute for long in real time while its virtual clock stands
+// still, as a loop over many short sleeps does. `nomi test`'s limit on a
+// case's real time runs around the bubble (internal/vm's caselimit.go) and
+// stops the case's work, which ends the bubble.
+//
+// One wait the stop cannot reach: a wait outside the program, a socket or a
+// process. Nothing outside a bubble may touch its channels, and nothing in
+// it can run while its clock stands still, so such a bubble cannot end. Its
+// caller, rt.RunBubbled, runs RunCase on a goroutine of its own and gives up
+// on a bubble that has not ended shortly after the case's time ran out: the
+// case fails as waiting outside the program, RunCase's goroutine stays where
+// it is, and no case starts in the process after it, since a bubble beside
+// it could close one of its channels. `nomi test` reports the cases it did
+// not run and exits.
 //
 // # What a bubble changes
 //
@@ -61,9 +80,10 @@
 // run in a bubble — rather than the default, because a bubble genuinely
 // changes semantics:
 //
-//   - Anything blocking on the outside world — reading stdin, a real network
-//     call through a host function — is not "durably blocked", so the clock never advances
-//     and the bubble reports a deadlock.
+//   - Anything blocking on the outside world — a socket, a process, any
+//     host function that waits on it — is not "durably blocked", so the clock
+//     does not advance while it waits, and a case that waits on it until
+//     its time runs out ends the run (above).
 //   - Every goroutine must finish before the test does. Background work a test
 //     starts and abandons is an error rather than a leak.
 //   - `Instant.now` inside a bubble reads the fake clock, which starts at
@@ -74,16 +94,7 @@ import (
 	"fmt"
 	"testing"
 	"testing/synctest"
-	"time"
 )
-
-// Watchdog bounds the real time one bubbled test case may take. Virtual time is
-// free, so even a case that sleeps for simulated hours returns in
-// milliseconds; this only fires if the bubble itself wedges.
-//
-// Exported so a test can read the ceiling it is asserting against rather than
-// hard-coding a second copy of the number.
-const Watchdog = 30 * time.Second
 
 // RunCase runs one lowered test case under a virtual clock and returns its
 // result as an ordinary error, whatever happened inside.
@@ -91,56 +102,36 @@ const Watchdog = 30 * time.Second
 // See the package header for why each layer of recovery is here. `body` is the
 // test case; `cleanup` runs inside the bubble after it, so any drain budget is
 // spent in virtual time and any background work the case started is finished
-// before the bubble closes. A nil `cleanup` is accepted: rt has no supervisor
-// registry to drain today, and a caller that has nothing to do should not have
-// to synthesise an empty closure.
+// before the bubble closes. rt.RunBubbled passes the end of the supervisors;
+// a nil `cleanup` is accepted.
 //
 // The signature is `func(body func() error, cleanup func()) error` because that
 // is what `rt.Test.Bubble` is declared as, and rt cannot import this package —
 // the dependency runs the other way, so the seam is a function value rather
 // than a call.
-func RunCase(body func() error, cleanup func()) error {
-	done := make(chan error, 1)
-
-	go func() {
-		var result error
-
-		// Layer 3: synctest reports deadlock and leftover goroutines by
-		// panicking. Both are legitimate test outcomes.
-		defer func() {
-			if r := recover(); r != nil {
-				done <- fmt.Errorf("virtual-time bubble: %v", r)
-				return
-			}
-			done <- result
-		}()
-
-		synctest.Test(&testing.T{}, func(*testing.T) {
-			// Layer 2: keep a panicking test body away from synctest's own
-			// handler, which cannot cope with a zero-value T.
-			func() {
-				defer func() {
-					if r := recover(); r != nil {
-						result = fmt.Errorf("test panicked: %v", r)
-					}
-				}()
-				result = body()
-			}()
-			if cleanup != nil {
-				cleanup()
-			}
-		})
+func RunCase(body func() error, cleanup func()) (result error) {
+	// Layer 3: synctest reports deadlock and leftover goroutines by
+	// panicking. Both are legitimate test outcomes.
+	defer func() {
+		if r := recover(); r != nil {
+			result = fmt.Errorf("virtual-time bubble: %v", r)
+		}
 	}()
 
-	// Layer 4.
-	select {
-	case err := <-done:
-		return err
-	case <-time.After(Watchdog):
-		return fmt.Errorf(
-			"virtual-time bubble did not finish within %v of real time — "+
-				"a bubbled test should complete in milliseconds however much "+
-				"virtual time it spends, so this is the bubble itself wedging "+
-				"rather than a slow test", Watchdog)
-	}
+	synctest.Test(&testing.T{}, func(*testing.T) {
+		// Layer 2: keep a panicking test body away from synctest's own
+		// handler, which cannot cope with a zero-value T.
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					result = fmt.Errorf("test panicked: %v", r)
+				}
+			}()
+			result = body()
+		}()
+		if cleanup != nil {
+			cleanup()
+		}
+	})
+	return result
 }

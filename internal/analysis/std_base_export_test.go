@@ -56,7 +56,7 @@ func DumpStdBaseForTest(b *StdBase) string {
 			add("enum %s %s %p", name, d.key, d.sym)
 		}
 	}
-	for name, mods := range b.declModules {
+	for name, mods := range b.declPackages {
 		add("declared %s %v", name, mods)
 	}
 	for iface, byType := range b.demands {

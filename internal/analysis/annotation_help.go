@@ -64,7 +64,7 @@ func (c *checker) visibleAliases() []aliasCandidate {
 		}
 		c.modules = append(c.modules, name)
 		for member, m := range sym.ModuleScope.Symbols {
-			if m.Public && m.Resolved == nil && plainAlias(m) {
+			if m.Resolved == nil && c.fa.Sees(m) && plainAlias(m) {
 				names = append(names, name+"."+member)
 			}
 		}

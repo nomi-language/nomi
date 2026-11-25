@@ -12,7 +12,7 @@
 population reference
 what one record per stdlib reference page carrying interactive tests, each editor run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an editor's outcome and its label: the entry heading, its impl context, and #n for an entry's later editors, and `[not run in the browser: <classes>]` for a prompt the page shows as code since it reaches an effect the browser lacks; it runs here natively. N is the page's editor count.
 records 97
-declared-cases 1471
+declared-cases 1473
 failing 0
 C actors
 E 0
@@ -741,8 +741,8 @@ T ok type Css
 T ok interface OptionalAttribute
 C http
 E 0
-N 76
-H 13d4430e5f3e1c9d718a6faa77e440785550b5dcc18bd7f9dae7b1b69c716313
+N 77
+H 80b9cc7697db6867de9e7e9803f526aae5ec6f7da481ea6f96f4488b79572361
 T ok Method.text
 T ok Method.parse
 T ok Status.from_code
@@ -781,6 +781,7 @@ T ok Response.json_as
 T ok interface ToResponse
 T ok Protocols.to_string (impl Display for Protocols)
 T ok Client.with_tls
+T ok Client.with_max_body [not run in the browser: listen]
 T ok http.stream
 T ok type Route
 T ok Route.parse
@@ -1639,8 +1640,8 @@ H 57e0560ff1b64382f11ec0b75f1ffccd8a59ff54c9c93390556f7c5a784c51ac
 T ok interface Summable
 C system
 E 0
-N 15
-H 1c5645cfc6a302ae27afde73055ce4bdd67988f4570aa812bd6172933a3de472
+N 16
+H 79ab35803ded0dfb84266927cbed534efa3d7c9734bde964f46f83a446a3858d
 T ok Os.to_string (impl Display for Os)
 T ok Arch.to_string (impl Display for Arch)
 T ok Error.to_string (impl Display for Error)
@@ -1656,6 +1657,7 @@ T ok system.data_dir
 T ok system.user
 T ok system.memory
 T ok system.runtime
+T ok system.nomi_release
 C tasks
 E 0
 N 10

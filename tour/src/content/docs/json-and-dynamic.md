@@ -72,10 +72,10 @@ dbg line 8: todo = {order: None, title: "milk"}
 -->
 
 A frontend written in TypeScript can share these shapes. `nomi types` writes
-a TypeScript declaration for each `pub` type of the named files and
-directories that crosses as JSON, and for each type those reach. Were `User`
-above `pub`, in users.nomi, `nomi types users.nomi -o web/src/api.ts` would
-write:
+a TypeScript declaration for each type of the named files and directories
+that crosses as JSON and is not `private`, and for each type those reach.
+Were `User` above in users.nomi, `nomi types users.nomi -o web/src/api.ts`
+would write:
 
 ```ts
 export interface User {

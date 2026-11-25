@@ -10,6 +10,16 @@ import (
 // Suggestions for a misspelled name: the "did you mean" an unknown-name
 // diagnostic ends with, by internal/suggest's rule.
 
+// undefinedTypeHint is the help for name, a type or variant written at
+// line:col that names nothing in scope: the import that brings it when it
+// is a std type, otherwise the closest name in scope.
+func (c *checker) undefinedTypeHint(name string, line, col int) string {
+	if h := stdTypeImportHint(name); h != "" {
+		return h
+	}
+	return didYouMean(name, c.typeNamesAt(line, col))
+}
+
 // didYouMean is the hint `did you mean 'x'?` for the one candidate close to
 // name (suggest.Closest), or "" when none is, or when several are equally
 // close. It goes in a diagnostic's Hints (TypeError.WithHint), not its
@@ -121,7 +131,7 @@ func (c *checker) typeMemberNames(typeName string) []string {
 		}
 		if idx := c.fa.Program().ImplIndex; idx != nil {
 			for name, sym := range idx.TypeMethods[typeName] {
-				if sym != nil && sym.Public {
+				if sym != nil && c.fa.Sees(sym) {
 					fns[name] = sym
 				}
 			}
@@ -134,22 +144,23 @@ func (c *checker) typeMemberNames(typeName string) []string {
 }
 
 // importSuggestion is the "did you mean" for an import item the file does
-// not export: its public names, when the item is a top-level name.
-func importSuggestion(name string, modScope *Scope, ownerSegments []string) string {
+// not export: the names in it the importer fa sees, when the item is a
+// top-level name.
+func importSuggestion(fa *FileAnalysis, name string, modScope *Scope, ownerSegments []string) string {
 	if len(ownerSegments) > 0 {
 		return ""
 	}
-	return didYouMean(name, publicNames(modScope))
+	return didYouMean(name, seenNames(fa, modScope))
 }
 
-// publicNames are the names scope declares publicly.
-func publicNames(scope *Scope) []string {
+// seenNames are the names scope declares that fa sees (FileAnalysis.Sees).
+func seenNames(fa *FileAnalysis, scope *Scope) []string {
 	if scope == nil {
 		return nil
 	}
 	var names []string
 	for name, sym := range scope.Symbols {
-		if sym != nil && sym.Public {
+		if sym != nil && fa.Sees(sym) {
 			names = append(names, name)
 		}
 	}

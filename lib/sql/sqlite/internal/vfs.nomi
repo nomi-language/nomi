@@ -26,7 +26,7 @@ end
 /// The files one connection has open. One task at a time runs the
 /// engine's calls, so the table is a channel of one slot that a call takes
 /// and puts back.
-pub opaque struct Files
+opaque struct Files
     slot:  Channel<Table>
     place: Place
 end
@@ -35,7 +35,7 @@ end
 /// its temporary files in `temp`, else in `dir`. With neither, no file
 /// opens (an engine that only describes statements). `owned` says the
 /// connection opened the two itself, so stopping it closes them.
-pub struct Place
+struct Place
     dir:   Option<Dir> = None
     temp:  Option<Dir> = None
     owned: Bool = False
@@ -63,7 +63,7 @@ once open_create = 0x4
 once open_delete_on_close = 0x8
 
 /// No files open, in `place`.
-pub fn files(place: Place) -> Files
+fn files(place: Place) -> Files
     slot = Channel.buffered<Table>(1)
     _ = Sender.send(slot.sender, Table{next: 1, opened: {}})
     Files{slot:, place:}
@@ -109,7 +109,7 @@ end
 /// Every file still open closed, a temporary one deleted: what is left
 /// when an engine stops before SQLite closed them. The place's directories
 /// are closed too when the connection opened them.
-pub fn close_all(files: Files)
+fn close_all(files: Files)
     table = take(files)
     defer put(files, {..table, opened: {}})
     Iter.each(table.opened, fn (_, entry) -> closed(entry))
@@ -130,7 +130,7 @@ fn closed(entry: Opened) -> Bool
 end
 
 /// The imports the engine calls, over `files`.
-pub fn imports(files: Files) -> List<Import>
+fn imports(files: Files) -> List<Import>
     [
         answering("open", [.I32, .I32, .I32], [.I32], fn memory, args ->
             case args

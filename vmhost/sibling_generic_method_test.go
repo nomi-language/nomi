@@ -64,7 +64,7 @@ end
 func runSiblingProgram(t *testing.T, files map[string]string) string {
 	t.Helper()
 	dir := t.TempDir()
-	files["nomi.toml"] = "[module]\nname = \"app\"\nentry_points = [\"main\"]\n"
+	files["nomi.toml"] = "[package]\nname = \"app\"\nentry_points = [\"main\"]\n"
 	for name, src := range files {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte(src), 0o644); err != nil {
 			t.Fatal(err)

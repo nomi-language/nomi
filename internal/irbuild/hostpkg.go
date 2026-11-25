@@ -54,7 +54,7 @@ func hostShellOf(ef *ast.ExternFunc) *ast.FuncDef {
 	}
 	fd := &ast.FuncDef{
 		Name:           ef.Name,
-		Public:         ef.Public,
+		Visibility:     ef.Visibility,
 		Params:         ef.Params,
 		ReturnTypeExpr: ef.ReturnTypeExpr,
 		Line:           ef.Line,

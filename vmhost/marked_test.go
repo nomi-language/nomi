@@ -29,7 +29,7 @@ func ratesBlock(t *testing.T, edit func(string) string) string {
 		{"data/names.csv", read("rates/data/names.csv")},
 		{"nomi.toml", strings.Replace(read("rates/nomi.toml"), "../csvdata", "./csvdata", 1)},
 		{"csvdata/csvdata.nomi", read("csvdata/csvdata.nomi")},
-		{"csvdata/nomi.toml", "[module]\nname = \"csvdata\"\n"},
+		{"csvdata/nomi.toml", "[package]\nname = \"csvdata\"\n"},
 	}
 	var b strings.Builder
 	for _, s := range sections {
@@ -125,10 +125,10 @@ func TestLoadMarked_SiblingProjectsHoldEveryFile(t *testing.T) {
 	}
 }
 
-// A marked source whose root module requires a module of its own loads as
+// A marked source whose root package requires a package of its own loads as
 // the same files on disk would, and an error in a section is named by the
 // section's path.
-func TestLoadMarked_AProjectOfModulesLoadsAsItsFiles(t *testing.T) {
+func TestLoadMarked_AProjectOfPackagesLoadsAsItsFiles(t *testing.T) {
 	src := ratesBlock(t, func(s string) string { return s })
 	p, hasTests, err := vmhost.LoadMarked(src, t.TempDir())
 	if err != nil {
@@ -160,7 +160,7 @@ func TestLoadMarked_AProjectOfModulesLoadsAsItsFiles(t *testing.T) {
 	}
 }
 
-// A marked source that names modules is written under a directory, and a
+// A marked source that names packages is written under a directory, and a
 // run-time failure names a file by its path from there, as the source
 // marks it and its diagnostics name it: a `todo` reached in main and in a
 // test case says `app/main.nomi`, never the directory.
@@ -168,7 +168,7 @@ func TestLoadMarked_ARunNamesFilesFromTheProjectRoot(t *testing.T) {
 	src := "// FILE: app/main.nomi\n" +
 		"import std::io\n\nfn main()\n  io.print(\"start\")\n  todo \"finish main\"\nend\n\n" +
 		"test \"unfinished\"\n  assert 1 == 1\n  todo\nend\n" +
-		"// FILE: nomi.toml\n[module]\nname = \"demo\"\nentry_points = [\"app/main\"]\n" +
+		"// FILE: nomi.toml\n[package]\nname = \"demo\"\nentry_points = [\"app/main\"]\n" +
 		"// FILE: go.mod\nmodule demo\n\ngo 1.27.0\n"
 	dir := t.TempDir()
 	p, hasTests, err := vmhost.LoadMarked(src, dir)
@@ -248,7 +248,7 @@ end
 `
 	for _, tc := range []struct{ name, src string }{
 		{"in memory", files},
-		{"of modules", files + "// FILE: go.mod\nmodule example.com/app\n\ngo 1.27.0\n// FILE: nomi.toml\n[module]\nname = \"app\"\nentry_points = [\"main\"]\n"},
+		{"of modules", files + "// FILE: go.mod\nmodule example.com/app\n\ngo 1.27.0\n// FILE: nomi.toml\n[package]\nname = \"app\"\nentry_points = [\"main\"]\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			p, hasTests, err := vmhost.LoadMarked(tc.src, t.TempDir())

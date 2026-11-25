@@ -28,7 +28,7 @@ type Project struct {
 	// and a `(base64)` section's file holding its decoded bytes.
 	// The tour seeds a block's in-memory file system with them.
 	DataFiles map[string]string
-	// Files is set for a block that names modules (namesModules): every
+	// Files is set for a block that names packages (namesPackages): every
 	// section by its path from the project root, as the same files on disk
 	// would hold them (a data file's text as dataText gives it). Its
 	// imports resolve through its nomi.toml's [dependencies], so it
@@ -46,7 +46,7 @@ type Project struct {
 	// sees first (`tables.nomi`), when it has any.
 	First string
 	// TestFiles are the block's other Nomi files that declare tests (in a
-	// block of modules, its root module's), by their marked paths in block
+	// block of packages, its root package's), by their marked paths in block
 	// order. A block runs their tests after the entry's, as `nomi test`
 	// runs every test file of a project: each enters the program on its
 	// own (FromMarkedSourceAt).
@@ -111,10 +111,10 @@ func FromMarkedSource(src string) (Project, error) {
 	return fromMarked(src, "", false)
 }
 
-// FromMarkedSourceAsModules is FromMarkedSource with the block written as
-// files whether or not it names modules: a tool of its root module runs in
+// FromMarkedSourceAsPackages is FromMarkedSource with the block written as
+// files whether or not it names packages: a tool of its root package runs in
 // the project on disk (vmhost.ToolMarked).
-func FromMarkedSourceAsModules(src string) (Project, error) {
+func FromMarkedSourceAsPackages(src string) (Project, error) {
 	return fromMarked(src, "", true)
 }
 
@@ -128,7 +128,7 @@ func FromMarkedSourceAt(src, entry string) (Project, error) {
 	return fromMarked(src, entry, false)
 }
 
-func fromMarked(src, forced string, asModules bool) (Project, error) {
+func fromMarked(src, forced string, asPackages bool) (Project, error) {
 	files := map[string]string{}
 	// binary holds the sections marked `(base64)`, whose files hold their
 	// decoded bytes as they are: no newline is trimmed or added.
@@ -199,8 +199,8 @@ func fromMarked(src, forced string, asModules bool) (Project, error) {
 	var err error
 	var entry string
 	candidates := nomiNames
-	if asModules || namesModules(files) {
-		project, entry, candidates, err = fromModuleFiles(files, binary, order, forced)
+	if asPackages || namesPackages(files) {
+		project, entry, candidates, err = fromPackageFiles(files, binary, order, forced)
 	} else {
 		entry = forced
 		if entry == "" {
@@ -251,10 +251,10 @@ func fallbackEntry(files map[string]string, nomiNames []string) string {
 	return ""
 }
 
-// namesModules reports whether a block names modules: a section is a
-// nomi.toml in a directory under its root, a module of its own, or its
+// namesPackages reports whether a block names packages: a section is a
+// nomi.toml in a directory under its root, a package of its own, or its
 // root nomi.toml has a [dependencies] table.
-func namesModules(files map[string]string) bool {
+func namesPackages(files map[string]string) bool {
 	for name, body := range files {
 		clean := path.Clean(name)
 		if path.Base(clean) != "nomi.toml" {
@@ -267,16 +267,16 @@ func namesModules(files map[string]string) bool {
 	return false
 }
 
-// fromModuleFiles is the project of a block that names modules: its files
+// fromPackageFiles is the project of a block that names packages: its files
 // as they would be on disk, and its entry, the first file of the root
-// module (one in no directory holding a `nomi.toml` of its own)
-// that declares `fn main`, else fallbackEntry over the root module's Nomi
+// package (one in no directory holding a `nomi.toml` of its own)
+// that declares `fn main`, else fallbackEntry over the root package's Nomi
 // files in the block's order (order is the sections' paths as marked). In
-// a block of sibling projects, the root module is the project projectsDir
+// a block of sibling projects, the root package is the project projectsDir
 // picks.
-func fromModuleFiles(marked map[string]string, binary map[string]bool, order []string, forced string) (Project, string, []string, error) {
+func fromPackageFiles(marked map[string]string, binary map[string]bool, order []string, forced string) (Project, string, []string, error) {
 	files := make(map[string]string, len(marked))
-	moduleDirs := map[string]bool{}
+	packageDirs := map[string]bool{}
 	for name, body := range marked {
 		clean := path.Clean(name)
 		if strings.HasPrefix(clean, "/") || clean == ".." || strings.HasPrefix(clean, "../") {
@@ -289,7 +289,7 @@ func fromModuleFiles(marked map[string]string, binary map[string]bool, order []s
 		// lines between sections are not part of it.
 		files[clean] = dataText(body, binary[name])
 		if path.Base(clean) == "nomi.toml" && path.Dir(clean) != "." {
-			moduleDirs[path.Dir(clean)] = true
+			packageDirs[path.Dir(clean)] = true
 		}
 	}
 	project, err := projectsDir(files, order)
@@ -305,7 +305,7 @@ func fromModuleFiles(marked map[string]string, binary map[string]bool, order []s
 			return false
 		}
 		for dir := path.Dir(name); dir != rootDir; dir = path.Dir(dir) {
-			if moduleDirs[dir] {
+			if packageDirs[dir] {
 				return false
 			}
 		}
@@ -334,7 +334,7 @@ func fromModuleFiles(marked map[string]string, binary map[string]bool, order []s
 		if project != "" {
 			return Project{}, "", nil, fmt.Errorf("no Nomi file is in the block's project %s/", project)
 		}
-		return Project{}, "", nil, fmt.Errorf("no Nomi file is in the block's root module")
+		return Project{}, "", nil, fmt.Errorf("no Nomi file is in the block's root package")
 	}
 	data := map[string]string{}
 	for name, body := range files {
@@ -347,7 +347,7 @@ func fromModuleFiles(marked map[string]string, binary map[string]bool, order []s
 
 // projectsDir is the project directory of a block of sibling projects: one
 // with no nomi.toml at its root and a nomi.toml in two or more of its
-// top-level directories, each a module of its own beside the others (an
+// top-level directories, each a package of its own beside the others (an
 // app, and a library its nomi.toml names with `dir = "../shared"`). Its project is the
 // top-level directory of its first section, the file a reader sees first,
 // and every file is in one of its top-level directories. The entry rule
@@ -357,13 +357,13 @@ func projectsDir(files map[string]string, order []string) (string, error) {
 	if _, ok := files["nomi.toml"]; ok {
 		return "", nil
 	}
-	modules := map[string]bool{}
+	packages := map[string]bool{}
 	for name := range files {
 		if dir, base := path.Split(name); base == "nomi.toml" && dir != "" && strings.Count(dir, "/") == 1 {
-			modules[dir] = true
+			packages[dir] = true
 		}
 	}
-	if len(modules) < 2 {
+	if len(packages) < 2 {
 		return "", nil
 	}
 	for _, name := range order {
@@ -400,7 +400,7 @@ func FromSources(entryPoint string, sources map[string]string, manifest *analysi
 	}, nil
 }
 
-// fromFiles is the project of a block that names no modules, entered at
+// fromFiles is the project of a block that names no packages, entered at
 // entry when it is one of its Nomi files, else at its first Nomi file by
 // name.
 func fromFiles(files map[string]string, binary map[string]bool, entry string) (Project, error) {
@@ -445,7 +445,7 @@ func fromFiles(files map[string]string, binary map[string]bool, entry string) (P
 			virtualFiles[NormalizeModuleName(name)] = body
 		case strings.HasSuffix(name, ".toml"):
 			// A phrase catalog, which the declaring file's expansion
-			// reads by its path from the module root.
+			// reads by its path from the package root.
 			virtualFiles[strings.TrimPrefix(name, "./")] = body
 			dataFiles[strings.TrimPrefix(name, "./")] = body
 		default:
@@ -469,15 +469,15 @@ func fromFiles(files map[string]string, binary map[string]bool, entry string) (P
 	}, nil
 }
 
-// Write writes a project that names modules (Files) as its files under
+// Write writes a project that names packages (Files) as its files under
 // dir, emptying dir first, and answers dir with its symbolic links
 // resolved: the directory the front end names the files under.
 func (p Project) Write(dir string) (string, error) {
 	if p.Files == nil {
-		return "", fmt.Errorf("the project names no modules, so it is not written as files")
+		return "", fmt.Errorf("the project names no packages, so it is not written as files")
 	}
 	if dir == "" {
-		return "", fmt.Errorf("a project that names modules is loaded from a directory, and none was given")
+		return "", fmt.Errorf("a project that names packages is loaded from a directory, and none was given")
 	}
 	if err := os.RemoveAll(dir); err != nil {
 		return "", err

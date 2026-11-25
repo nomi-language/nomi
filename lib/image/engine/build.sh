@@ -1,5 +1,5 @@
 #!/bin/sh
-# Rebuilds image.wasm, the engine the Nomi module image embeds, from the
+# Rebuilds image.wasm, the engine the package image embeds, from the
 # pinned stb headers, libwebp's release and shim.c, with the pinned zig,
 # and writes and prints its SHA-256, which image.wasm.sha256 records: a
 # test in image_test.nomi holds the committed module to it. The same

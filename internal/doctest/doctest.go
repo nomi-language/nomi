@@ -61,7 +61,7 @@ const (
 	// their machine would before `nomi run`: the files the tool writes
 	// replace the block's, in its editor too, and what it prints comes
 	// before the run's output (vmhost.ToolMarked). The module is one the
-	// tour links (tourmodules.Modules); the word may repeat, and the tools run
+	// tour links (tourpackages.Packages); the word may repeat, and the tools run
 	// in order.
 	InfoTool = "tool:"
 )
@@ -77,7 +77,7 @@ var infoWords = []string{InfoError, InfoNoRun, InfoCompileOnly, InfoManual, Info
 // InfoWords answers the words a ```nomi-run fence may carry after its
 // language, for a message naming them.
 func InfoWords() []string {
-	return append(append([]string(nil), infoWords...), InfoReadOnly+"<glob>", InfoTool+"<module>/<name>")
+	return append(append([]string(nil), infoWords...), InfoReadOnly+"<glob>", InfoTool+"<package>/<name>")
 }
 
 // HasInfo reports whether word appears in the block's info string after the

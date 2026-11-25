@@ -26,7 +26,7 @@ once constraint_primary_key = 1555
 once constraint_unique = 2067
 
 /// A connection, for the queries that look a constraint up.
-pub struct Db
+struct Db
     engine: Engine
     handle: Int
 end
@@ -34,13 +34,7 @@ end
 /// The constraint error SQLite's `code` and `message` are, for the
 /// statement `query` that failed with `params`, or `None` when the code is
 /// no constraint this names.
-pub fn error(
-    db:      Db,
-    code:    Int,
-    message: String,
-    query:   String,
-    params:  List<Cell>,
-) -> Option<sql.Error>
+fn error(db: Db, code: Int, message: String, query: String, params: List<Cell>) -> Option<sql.Error>
     if code == constraint_unique or code == constraint_primary_key then
         (table, columns) = constrained(message)
 

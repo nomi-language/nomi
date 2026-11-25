@@ -22,19 +22,19 @@ var ErrNoSuchModule = errors.New("no such module")
 type DirectoryError struct {
 	// Files are the directory's .nomi files, without `.nomi`, sorted.
 	Files []string
-	// Dirs are its subdirectories that are not modules of their own,
+	// Dirs are its subdirectories that are not packages of their own,
 	// sorted.
 	Dirs []string
-	// Module is set when the directory holds a nomi.toml: it is another
-	// module's root, which no path of this module reaches.
-	Module bool
+	// Package is set when the directory holds a nomi.toml: it is another
+	// package's root, which no path of this package reaches.
+	Package bool
 	// Dir is the directory's path on disk, "" for one held in memory.
 	Dir string
 }
 
 func (e *DirectoryError) Error() string {
-	if e.Module {
-		return "a directory holding another module"
+	if e.Package {
+		return "a directory holding another package"
 	}
 	return "a directory, not a file"
 }
@@ -60,21 +60,21 @@ func DiskDirectory(root string, modulePath []string) *DirectoryError {
 		name := e.Name()
 		switch {
 		case e.IsDir():
-			if strings.HasPrefix(name, ".") || isModuleRoot(filepath.Join(dir, name)) {
+			if strings.HasPrefix(name, ".") || isPackageRoot(filepath.Join(dir, name)) {
 				continue
 			}
 			out.Dirs = append(out.Dirs, name)
 		case strings.HasSuffix(name, ".nomi"):
 			out.Files = append(out.Files, strings.TrimSuffix(name, ".nomi"))
 		case name == "nomi.toml" && len(modulePath) > 0:
-			out.Module = true
+			out.Package = true
 		}
 	}
 	return out
 }
 
-// isModuleRoot reports whether dir holds a nomi.toml.
-func isModuleRoot(dir string) bool {
+// isPackageRoot reports whether dir holds a nomi.toml.
+func isPackageRoot(dir string) bool {
 	_, err := os.Stat(filepath.Join(dir, "nomi.toml"))
 	return err == nil
 }
@@ -110,7 +110,7 @@ func VirtualDirectory(modulePath []string, keys []string, manifest func(dir stri
 	}
 	out := &DirectoryError{}
 	if manifest != nil && len(modulePath) > 0 && manifest(strings.TrimSuffix(prefix, "/")) {
-		out.Module = true
+		out.Package = true
 	}
 	for f := range files {
 		out.Files = append(out.Files, f)

@@ -306,21 +306,38 @@ func callbackShape(fd *ast.FuncDef, name, in string) string {
 }
 
 // validate reports every use of an iter-sensitive function that is not an
-// iteration callback itself, an iter-sensitive function of this file that
-// nothing uses, and every `break` or `continue` with no iteration to act on.
+// iteration callback itself, an iter-sensitive function the runtime calls,
+// a private iter-sensitive function of this file that nothing uses, and
+// every `break` or `continue` with no iteration to act on.
+//
+// Every use of an iter-sensitive function is checked where it stands, in
+// whichever file holds it, so a function nothing calls but iterations is
+// sound at any visibility. What remains is a function some caller reaches
+// without a use: the runtime, which calls an entry function and is no
+// iteration. A private function's uses are all in this file, so one with
+// none can never run its signal where an iteration catches it, and is
+// reported too. An internal or `pub` one may be used in other files of the
+// package or beyond, each of which checks its own.
 func (s *iterSensitivity) validate(nodes []ast.Node) {
 	used := s.checkUses(nodes)
 	for _, fsym := range s.funcSyms {
 		fd := s.funcBody[fsym]
-		if !s.sensitive[fsym] || fd.Public || used[fd] {
+		if !s.sensitive[fsym] {
 			continue
 		}
-		// Nothing can run this function's break or continue where an
-		// iteration catches it. A `pub` one's uses may be in other files,
-		// each of which checks its own.
-		s.reportNoCallSites(fsym)
+		if calledByTheRuntime(fd) || fd.Visibility == ast.Private && !used[fd] {
+			s.reportNoCallSites(fsym)
+		}
 	}
 	s.reportStrayBreaks(nodes)
+}
+
+// calledByTheRuntime reports whether the top-level function fd is one a run
+// calls itself: `main` and `boot` (spec §15 *Entry callbacks*), and an
+// `export fn`, which a host calls by name (spec §7 *Exported Functions*).
+// Any file may be a run's entry, so the names count in every file.
+func calledByTheRuntime(fd *ast.FuncDef) bool {
+	return fd.Export || fd.Name == "main" || fd.Name == "boot"
 }
 
 // checkUses walks the file, reports each use of an iter-sensitive function

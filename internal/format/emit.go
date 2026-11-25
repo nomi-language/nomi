@@ -4233,8 +4233,8 @@ func emitFuncDefHeader(v *ast.FuncDef) Doc {
 	if v.Export {
 		parts = append(parts, Text("export "))
 	}
-	if v.Public {
-		parts = append(parts, Text("pub "))
+	if kw := v.Visibility.Keyword(); kw != "" {
+		parts = append(parts, Text(kw+" "))
 	}
 	parts = append(parts, Text("fn "), Text(v.Name))
 
@@ -4968,8 +4968,8 @@ func emitStructDef(v *ast.StructDef) Doc {
 	parts := emitDocBeforeAttachedTests(v.Doc, v.AttachedTests)
 	parts = append(parts, emitAttachedTests(v.AttachedTests)...)
 	parts = append(parts, emitTypeDeclDecorators(v.Decorators)...)
-	if v.Public {
-		parts = append(parts, Text("pub "))
+	if kw := v.Visibility.Keyword(); kw != "" {
+		parts = append(parts, Text(kw+" "))
 	}
 	if v.Opaque {
 		parts = append(parts, Text("opaque "))
@@ -5059,8 +5059,8 @@ func emitEnumDef(v *ast.EnumDef) Doc {
 	parts := emitDocBeforeAttachedTests(v.Doc, v.AttachedTests)
 	parts = append(parts, emitAttachedTests(v.AttachedTests)...)
 	parts = append(parts, emitTypeDeclDecorators(v.Decorators)...)
-	if v.Public {
-		parts = append(parts, Text("pub "))
+	if kw := v.Visibility.Keyword(); kw != "" {
+		parts = append(parts, Text(kw+" "))
 	}
 	if v.Opaque {
 		parts = append(parts, Text("opaque "))
@@ -5170,8 +5170,8 @@ func emitInterfaceMethod(m ast.InterfaceMethod) Doc {
 func emitInterfaceDef(v *ast.InterfaceDef) Doc {
 	parts := emitDocBeforeAttachedTests(v.Doc, v.AttachedTests)
 	parts = append(parts, emitAttachedTests(v.AttachedTests)...)
-	if v.Public {
-		parts = append(parts, Text("pub "))
+	if kw := v.Visibility.Keyword(); kw != "" {
+		parts = append(parts, Text(kw+" "))
 	}
 	parts = append(parts, Text("interface "), Text(v.Name), emitTypeParams(v.TypeParams))
 	parts = append(parts, emitWhereClause(v.WhereClauses)...)
@@ -5283,8 +5283,8 @@ func emitRangeLit(v *ast.RangeLit) Doc {
 func emitTypeAlias(v *ast.TypeAlias) Doc {
 	parts := emitDocBeforeAttachedTests(v.Doc, v.AttachedTests)
 	parts = append(parts, emitAttachedTests(v.AttachedTests)...)
-	if v.Public {
-		parts = append(parts, Text("pub "))
+	if kw := v.Visibility.Keyword(); kw != "" {
+		parts = append(parts, Text(kw+" "))
 	}
 	parts = append(parts, Text("typealias "), Text(v.Name), emitTypeParams(v.TypeParams), Text(" "))
 	if len(v.Bounds) > 0 {
@@ -5312,8 +5312,8 @@ func emitTypeDef(v *ast.TypeDef) Doc {
 	parts := emitDocBeforeAttachedTests(v.Doc, v.AttachedTests)
 	parts = append(parts, emitAttachedTests(v.AttachedTests)...)
 	parts = append(parts, emitTypeDeclDecorators(v.Decorators)...)
-	if v.Public {
-		parts = append(parts, Text("pub "))
+	if kw := v.Visibility.Keyword(); kw != "" {
+		parts = append(parts, Text(kw+" "))
 	}
 	if v.Opaque {
 		parts = append(parts, Text("opaque "))
@@ -5343,8 +5343,8 @@ func emitOnceBinding(v *ast.OnceBinding) Doc {
 	// Consecutive `once` declarations align their `=`.
 	it := onceBlock.item()
 	target := []Doc{}
-	if v.Public {
-		target = append(target, Text("pub "))
+	if kw := v.Visibility.Keyword(); kw != "" {
+		target = append(target, Text(kw+" "))
 	}
 	target = append(target, Text("once "), Text(v.Name))
 	if v.TypeAnnotation != nil {
@@ -5359,8 +5359,8 @@ func emitOnceBinding(v *ast.OnceBinding) Doc {
 func emitExternFunc(v *ast.ExternFunc) Doc {
 	parts := emitDocBeforeAttachedTests(v.Doc, v.AttachedTests)
 	parts = append(parts, emitAttachedTests(v.AttachedTests)...)
-	if v.Public {
-		parts = append(parts, Text("pub "))
+	if kw := v.Visibility.Keyword(); kw != "" {
+		parts = append(parts, Text(kw+" "))
 	}
 	parts = append(parts, Text("host fn "), Text(v.Name), emitTypeParams(v.TypeParams))
 
@@ -5378,8 +5378,8 @@ func emitExternFunc(v *ast.ExternFunc) Doc {
 // writing each part that was written.
 func emitKeywordDecl(v *ast.KeywordDecl) Doc {
 	parts := emitDocBeforeAttachedTests(v.Doc, nil)
-	if v.Public {
-		parts = append(parts, Text("pub "))
+	if kw := v.Visibility.Keyword(); kw != "" {
+		parts = append(parts, Text(kw+" "))
 	}
 	parts = append(parts, Text(v.Keyword+" "+v.Name))
 	if v.HasParams {
@@ -5397,8 +5397,8 @@ func emitKeywordDecl(v *ast.KeywordDecl) Doc {
 // emitEmbedDecl renders `[pub] embed name `patterns“, its body as written.
 func emitEmbedDecl(v *ast.EmbedDecl) Doc {
 	parts := emitDocBeforeAttachedTests(v.Doc, nil)
-	if v.Public {
-		parts = append(parts, Text("pub "))
+	if kw := v.Visibility.Keyword(); kw != "" {
+		parts = append(parts, Text(kw+" "))
 	}
 	parts = append(parts, Text("embed "+v.Name+" "), emit(v.Body))
 	return Concat(parts...)
@@ -5411,8 +5411,8 @@ func emitExternType(v *ast.ExternType) Doc {
 	parts := emitDocBeforeAttachedTests(v.Doc, v.AttachedTests)
 	parts = append(parts, emitAttachedTests(v.AttachedTests)...)
 	parts = append(parts, emitTypeDeclDecorators(v.Decorators)...)
-	if v.Public {
-		parts = append(parts, Text("pub "))
+	if kw := v.Visibility.Keyword(); kw != "" {
+		parts = append(parts, Text(kw+" "))
 	}
 	parts = append(parts, Text("host type "), Text(v.Name), emitTypeParams(v.TypeParams))
 	parts = append(parts, emitWhereClause(v.WhereClauses)...)

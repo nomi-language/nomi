@@ -1019,7 +1019,7 @@ func TestParseFuncDef(t *testing.T) {
 	if fd.Name != "add" {
 		t.Errorf("expected name add, got %s", fd.Name)
 	}
-	if fd.Public {
+	if fd.Visibility == ast.Public {
 		t.Error("expected private function (snake_case name)")
 	}
 	if len(fd.Params) != 2 {
@@ -1105,7 +1105,7 @@ func TestParseFuncDefPublic(t *testing.T) {
 	if fd == nil {
 		t.Fatal("expected *ast.FuncDef among nodes")
 	}
-	if !fd.Public {
+	if fd.Visibility != ast.Public {
 		t.Error("expected pub fn to be public")
 	}
 	if fd.Name != "add" {
@@ -1122,7 +1122,7 @@ func TestParsePubFn(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected *ast.FuncDef, got %T", nodes[0])
 	}
-	if !fd.Public {
+	if fd.Visibility != ast.Public {
 		t.Error("expected pub fn to set Public=true")
 	}
 	if fd.Name != "foo" {
@@ -1139,7 +1139,7 @@ func TestParseFnNotPubByDefault(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected *ast.FuncDef, got %T", nodes[0])
 	}
-	if fd.Public {
+	if fd.Visibility == ast.Public {
 		t.Error("fn without pub should default to Public=false")
 	}
 }
@@ -1169,7 +1169,7 @@ func TestParsePubTypeStruct(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected *ast.StructDef, got %T", nodes[0])
 	}
-	if !sd.Public {
+	if sd.Visibility != ast.Public {
 		t.Error("expected pub type (struct) to set Public=true")
 	}
 	if sd.Name != "Foo" {
@@ -1186,7 +1186,7 @@ func TestParsePubTypeEnum(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected *ast.EnumDef, got %T", nodes[0])
 	}
-	if !ed.Public {
+	if ed.Visibility != ast.Public {
 		t.Error("expected pub type (enum) to set Public=true")
 	}
 	if ed.Name != "Color" {
@@ -1203,7 +1203,7 @@ func TestParsePubTypeDistinct(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected *ast.TypeDef, got %T", nodes[0])
 	}
-	if !td.Public {
+	if td.Visibility != ast.Public {
 		t.Error("expected pub type (distinct) to set Public=true")
 	}
 	if td.Name != "UserId" {
@@ -1220,7 +1220,7 @@ func TestParsePubInterface(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected *ast.InterfaceDef, got %T", nodes[0])
 	}
-	if !id.Public {
+	if id.Visibility != ast.Public {
 		t.Error("expected pub interface to set Public=true")
 	}
 	if id.Name != "Display" {
@@ -1237,7 +1237,7 @@ func TestParsePubTypealias(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected *ast.TypeAlias, got %T", nodes[0])
 	}
-	if !ta.Public {
+	if ta.Visibility != ast.Public {
 		t.Error("expected pub typealias to set Public=true")
 	}
 	if ta.Name != "Id" {
@@ -1254,7 +1254,7 @@ func TestParsePubOnce(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected *ast.OnceBinding, got %T", nodes[0])
 	}
-	if !ob.Public {
+	if ob.Visibility != ast.Public {
 		t.Error("expected pub once to set Public=true")
 	}
 	if ob.Name != "max_retries" {
@@ -1271,7 +1271,7 @@ func TestParsePubExternFn(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected *ast.ExternFunc, got %T", nodes[0])
 	}
-	if !ef.Public {
+	if ef.Visibility != ast.Public {
 		t.Error("expected pub host fn to set Public=true")
 	}
 	if ef.Name != "println" {
@@ -1288,7 +1288,7 @@ func TestParsePubExternType(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected *ast.ExternType, got %T", nodes[0])
 	}
-	if !et.Public {
+	if et.Visibility != ast.Public {
 		t.Error("expected pub host type to set Public=true")
 	}
 	if et.Name != "Regex" {
@@ -1305,7 +1305,7 @@ func TestParsePubOpaqueType(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected *ast.TypeDef, got %T", nodes[0])
 	}
-	if !td.Public {
+	if td.Visibility != ast.Public {
 		t.Error("expected pub opaque type to set Public=true")
 	}
 	if !td.Opaque {
@@ -1327,7 +1327,7 @@ func TestParseOpaqueTypeWithoutPub(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected *ast.TypeDef, got %T", nodes[0])
 	}
-	if td.Public {
+	if td.Visibility == ast.Public {
 		t.Error("expected opaque type without pub to set Public=false")
 	}
 	if !td.Opaque {
@@ -1347,7 +1347,7 @@ func TestParsePubTypeNotOpaqueByDefault(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected *ast.TypeDef, got %T", nodes[0])
 	}
-	if !td.Public {
+	if td.Visibility != ast.Public {
 		t.Error("expected pub type to set Public=true")
 	}
 	if td.Opaque {
@@ -2488,7 +2488,7 @@ func TestParseTypeAlias(t *testing.T) {
 	if alias.TargetTypeExpr == nil || alias.TargetTypeExpr.TypeString() != "String" {
 		t.Errorf("expected target 'String', got %v", alias.TargetTypeExpr)
 	}
-	if !alias.Public {
+	if alias.Visibility != ast.Public {
 		t.Errorf("expected public (pub modifier)")
 	}
 }
@@ -2500,7 +2500,7 @@ func TestParseTypeAliasPrivate(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	alias := nodes[0].(*ast.TypeAlias)
-	if alias.Public {
+	if alias.Visibility == ast.Public {
 		t.Errorf("expected private (no pub modifier)")
 	}
 }
@@ -2632,7 +2632,7 @@ func TestParser_TypeAlias_NoEqualsSign(t *testing.T) {
 	if alias.Name != "Handler" {
 		t.Errorf("expected name 'Handler', got %q", alias.Name)
 	}
-	if !alias.Public {
+	if alias.Visibility != ast.Public {
 		t.Errorf("expected public")
 	}
 	if alias.TargetTypeExpr == nil {
@@ -3627,7 +3627,7 @@ end`)
 	if sd == nil {
 		t.Fatal("expected *ast.StructDef among nodes")
 	}
-	if !sd.Public {
+	if sd.Visibility != ast.Public {
 		t.Error("expected pub struct to be public")
 	}
 }
@@ -3637,7 +3637,7 @@ func TestStructDefPrivate(t *testing.T) {
     name: String
 end`)
 	sd := nodes[0].(*ast.StructDef)
-	if sd.Public {
+	if sd.Visibility == ast.Public {
 		t.Error("expected struct without `pub` modifier to be private")
 	}
 }
@@ -3662,7 +3662,7 @@ end`)
 	if sd.Name != "Foo" {
 		t.Errorf("expected name Foo, got %q", sd.Name)
 	}
-	if !sd.Public {
+	if sd.Visibility != ast.Public {
 		t.Error("expected public")
 	}
 	if len(sd.Fields) != 2 {
@@ -3738,7 +3738,7 @@ end`)
 	if !ok {
 		t.Fatalf("expected StructDef, got %T", nodes[0])
 	}
-	if sd.Public {
+	if sd.Visibility == ast.Public {
 		t.Error("expected private (no pub keyword)")
 	}
 	if sd.Name != "Foo" || len(sd.Fields) != 1 {
@@ -3765,7 +3765,7 @@ func TestParser_EnumDef_Generic(t *testing.T) {
 	if ed.Name != "Option" {
 		t.Errorf("expected name Option, got %q", ed.Name)
 	}
-	if !ed.Public {
+	if ed.Visibility != ast.Public {
 		t.Error("expected public")
 	}
 	if len(ed.TypeParams) != 1 || ed.TypeParams[0].Name != "T" {
@@ -3861,7 +3861,7 @@ end`)
 	if ed == nil {
 		t.Fatal("expected *ast.EnumDef among nodes")
 	}
-	if !ed.Public {
+	if ed.Visibility != ast.Public {
 		t.Error("expected pub enum to be public")
 	}
 }
@@ -3877,7 +3877,7 @@ func TestParser_StructKeyword(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected *ast.StructDef, got %T", nodes[0])
 	}
-	if !sd.Public {
+	if sd.Visibility != ast.Public {
 		t.Error("expected pub struct to set Public=true")
 	}
 	if sd.Name != "Point" {
@@ -3899,7 +3899,7 @@ func TestParser_EnumKeyword(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected *ast.EnumDef, got %T", nodes[0])
 	}
-	if !ed.Public {
+	if ed.Visibility != ast.Public {
 		t.Error("expected pub enum to set Public=true")
 	}
 	if ed.Name != "Color" {
@@ -3943,7 +3943,7 @@ end`)
 	if id == nil {
 		t.Fatal("expected *ast.InterfaceDef among nodes")
 	}
-	if !id.Public {
+	if id.Visibility != ast.Public {
 		t.Error("expected pub interface to be public")
 	}
 }
@@ -4879,7 +4879,7 @@ func TestExternFunc(t *testing.T) {
 	if ef.ReturnTypeExpr == nil || ef.ReturnTypeExpr.TypeString() != "Unit" {
 		t.Errorf("expected return type Unit, got %v", ef.ReturnTypeExpr)
 	}
-	if !ef.Public {
+	if ef.Visibility != ast.Public {
 		t.Error("expected print to be public (pub modifier)")
 	}
 }
@@ -4899,7 +4899,7 @@ func TestExternType(t *testing.T) {
 	if et.Name != "Int" {
 		t.Errorf("expected name Int, got %s", et.Name)
 	}
-	if !et.Public {
+	if et.Visibility != ast.Public {
 		t.Error("expected Int to be public (pub modifier)")
 	}
 }
@@ -6540,11 +6540,11 @@ end`
 		t.Fatalf("expected inherent impl for List<T> with two items, got %+v", blk)
 	}
 	once, ok := blk.Items[0].(*ast.OnceBinding)
-	if !ok || !once.Public || once.Name != "Empty" {
+	if !ok || once.Visibility != ast.Public || once.Name != "Empty" {
 		t.Fatalf("expected public once Empty item, got %T %+v", blk.Items[0], blk.Items[0])
 	}
 	fn, ok := blk.Items[1].(*ast.FuncDef)
-	if !ok || !fn.Public || fn.Name != "first" {
+	if !ok || fn.Visibility != ast.Public || fn.Name != "first" {
 		t.Fatalf("expected public fn first item, got %T %+v", blk.Items[1], blk.Items[1])
 	}
 }

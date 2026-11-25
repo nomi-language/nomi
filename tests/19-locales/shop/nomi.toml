@@ -1,4 +1,4 @@
-[module]
+[package]
 name = "shop"
 
 [i18n]

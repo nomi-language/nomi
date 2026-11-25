@@ -64,7 +64,7 @@ const wasmUpper = "0061736d01000000010c0260017f017f60027f7f017e03030200010503010
 // instance is std::wasm, named where it is made.
 func TestWasm_OnlyAnInstanceIsAnEffect(t *testing.T) {
 	dir := t.TempDir()
-	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[module]\nname = \"fx\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = []\n")
+	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[package]\nname = \"fx\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = []\n")
 	program := func(body string) string {
 		return "import\n    std::hex\n    std::wasm.{self, Instance}\nend\n\n" +
 			"once upper = wasm.compile(hex.decode(\"" + wasmUpper + "\")!)!\n\n" +
@@ -81,7 +81,7 @@ func TestWasm_OnlyAnInstanceIsAnEffect(t *testing.T) {
 	}
 	mustWrite(t, filepath.Join(dir, "main.nomi"), program("    _ = shout(\"hi\")\n    _ = size()\n"))
 	r := runNomiIn(t, dir, cache, "check", ".")
-	if r.exit != 1 || !strings.Contains(r.stdout+r.stderr, "this module's own code has the effect std::wasm, and [effects.self] allows it no effects") ||
+	if r.exit != 1 || !strings.Contains(r.stdout+r.stderr, "this package's own code has the effect std::wasm, and [effects.self] allows it no effects") ||
 		!strings.Contains(r.stdout+r.stderr, "instance = wasm.instantiate(upper)!") {
 		t.Errorf("a program that makes an instance, with no effects allowed:\n%s", r)
 	}

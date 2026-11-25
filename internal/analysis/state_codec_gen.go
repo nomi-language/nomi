@@ -70,7 +70,6 @@ func stateGlobalValues() []any {
 		infiniteIterOwners,
 		infiniteIterTerminals,
 		intFamily,
-		internalStdModules,
 		iterCallbackArg,
 		iterCallbackSlots,
 		iterElemCallbacks,
@@ -349,14 +348,14 @@ func (d *stateDecoder) stDirectoryBinding(x *DirectoryBinding) {
 func (e *stateEncoder) stDirectoryError(x *DirectoryError) {
 	e.stSstring(x.Files)
 	e.stSstring(x.Dirs)
-	e.w.Bool(x.Module)
+	e.w.Bool(x.Package)
 	e.str(string(x.Dir))
 }
 
 func (d *stateDecoder) stDirectoryError(x *DirectoryError) {
 	x.Files = d.stSstring()
 	x.Dirs = d.stSstring()
-	x.Module = bool(d.w.Bool())
+	x.Package = bool(d.w.Bool())
 	x.Dir = string(d.str())
 }
 
@@ -591,7 +590,9 @@ func (e *stateEncoder) stFileDecls(x *FileDecls) {
 	e.stMAPast_ImportStmt_bool(x.unboundImports)
 	e.stSstring(x.ScopeNames)
 	e.str(string(x.FilePath))
+	e.w.Bool(x.Session)
 	e.str(string(x.Origin))
+	e.str(string(x.Package))
 	e.stMAstring_bool(x.reservedNames)
 	e.stMAstring_bool(x.DispatchNames)
 	e.stMAstring_MAstring_bool(x.Impls)
@@ -623,7 +624,9 @@ func (d *stateDecoder) stFileDecls(x *FileDecls) {
 	x.unboundImports = d.stMAPast_ImportStmt_bool()
 	x.ScopeNames = d.stSstring()
 	x.FilePath = string(d.str())
+	x.Session = bool(d.w.Bool())
 	x.Origin = string(d.str())
+	x.Package = string(d.str())
 	x.reservedNames = d.stMAstring_bool()
 	x.DispatchNames = d.stMAstring_bool()
 	x.Impls = d.stMAstring_MAstring_bool()
@@ -4511,18 +4514,6 @@ func (d *stateDecoder) stMethodSig(x *MethodSig) {
 	x.BuildsSelf = bool(d.w.Bool())
 }
 
-func (e *stateEncoder) stModuleIndex(x *ModuleIndex) {
-	e.stMAstring_string(x.Roots)
-	e.stMAstring_MAstring_string(x.Names)
-	e.str(string(x.Own))
-}
-
-func (d *stateDecoder) stModuleIndex(x *ModuleIndex) {
-	x.Roots = d.stMAstring_string()
-	x.Names = d.stMAstring_MAstring_string()
-	x.Own = string(d.str())
-}
-
 func (e *stateEncoder) stOnceTable(x *OnceTable) {
 	e.stMAPast_OnceBinding_onceSite(x.sites)
 	e.stSPast_OnceBinding(x.checking)
@@ -5701,6 +5692,20 @@ func (d *stateDecoder) stPTypedLiteral() *TypedLiteral {
 	return v.(*TypedLiteral)
 }
 
+func (e *stateEncoder) stPackageIndex(x *PackageIndex) {
+	e.stMAstring_string(x.Roots)
+	e.stMAstring_MAstring_string(x.Names)
+	e.str(string(x.Own))
+	e.stMAstring_bool(x.Fetched)
+}
+
+func (d *stateDecoder) stPackageIndex(x *PackageIndex) {
+	x.Roots = d.stMAstring_string()
+	x.Names = d.stMAstring_MAstring_string()
+	x.Own = string(d.str())
+	x.Fetched = d.stMAstring_bool()
+}
+
 func (e *stateEncoder) stPartialType(x *PartialType) {
 	e.stType(x.Inner)
 }
@@ -6581,6 +6586,7 @@ func (e *stateEncoder) stProgram(x *Program) {
 	e.stPbootGraphCache(x.bootGraph)
 	e.stPonceGraphCache(x.onceGraph)
 	e.stType(x.ContextType)
+	e.stPackageIndex(&x.Packages)
 	e.stMAstring_PScope(x.StdlibModuleScopes)
 	e.stSPFileAnalysis(x.files)
 	e.stMAstring_PFileAnalysis(x.filesByKey)
@@ -6609,6 +6615,7 @@ func (d *stateDecoder) stProgram(x *Program) {
 	x.bootGraph = d.stPbootGraphCache()
 	x.onceGraph = d.stPonceGraphCache()
 	x.ContextType = d.stType()
+	d.stPackageIndex(&x.Packages)
 	x.StdlibModuleScopes = d.stMAstring_PScope()
 	x.files = d.stSPFileAnalysis()
 	x.filesByKey = d.stMAstring_PFileAnalysis()
@@ -8695,7 +8702,7 @@ func (e *stateEncoder) stStdBase(x *StdBase) {
 	e.stMAstring_bool(x.names)
 	e.stMAstring_SimplBlockAt(x.implBlockGroups)
 	e.stMAstring_SkeyedSymbol(x.enumDecls)
-	e.stMAstring_Sstring(x.declModules)
+	e.stMAstring_Sstring(x.declPackages)
 	e.stMAstring_MAstring_SRecording(x.demands)
 	e.stMAimplPair_bool(x.pairs)
 	e.stSimplPair(x.wanted)
@@ -8712,7 +8719,7 @@ func (d *stateDecoder) stStdBase(x *StdBase) {
 	x.names = d.stMAstring_bool()
 	x.implBlockGroups = d.stMAstring_SimplBlockAt()
 	x.enumDecls = d.stMAstring_SkeyedSymbol()
-	x.declModules = d.stMAstring_Sstring()
+	x.declPackages = d.stMAstring_Sstring()
 	x.demands = d.stMAstring_MAstring_SRecording()
 	x.pairs = d.stMAimplPair_bool()
 	x.wanted = d.stSimplPair()
@@ -8772,7 +8779,8 @@ func (e *stateEncoder) stSymbol(x *Symbol) {
 	e.str(string(x.Name))
 	e.w.Int(int64(x.Kind))
 	e.stPos(&x.Pos)
-	e.w.Bool(x.Public)
+	e.w.Uint(uint64(x.Visibility))
+	e.str(string(x.Package))
 	e.w.Bool(x.Opaque)
 	e.str(string(x.Doc))
 	e.stast_Node(x.Node)
@@ -8818,7 +8826,8 @@ func (d *stateDecoder) stSymbol(x *Symbol) {
 	x.Name = string(d.str())
 	x.Kind = SymbolKind(d.w.Int())
 	d.stPos(&x.Pos)
-	x.Public = bool(d.w.Bool())
+	x.Visibility = ast.Visibility(d.w.Uint())
+	x.Package = string(d.str())
 	x.Opaque = bool(d.w.Bool())
 	x.Doc = string(d.str())
 	x.Node = d.stast_Node()
@@ -9378,9 +9387,9 @@ func (e *stateEncoder) stbuilder(x *builder) {
 	e.stMAPast_ImportStmt_bool(x.blockImports)
 	e.hookBuilderLoader(x)
 	e.str(string(x.projectRoot))
-	e.str(string(x.currentModuleName))
-	e.stModuleIndex(&x.moduleIndex)
-	e.str(string(x.inModule))
+	e.str(string(x.currentPackageName))
+	e.stPackageIndex(&x.packageIndex)
+	e.str(string(x.inPackage))
 	e.stMAstring_PFileAnalysis(x.cache)
 	e.stMAstring_bool(x.loading)
 	e.str(string(x.moduleAlias))
@@ -9406,9 +9415,9 @@ func (d *stateDecoder) stbuilder(x *builder) {
 	x.blockImports = d.stMAPast_ImportStmt_bool()
 	d.hookBuilderLoader(x)
 	x.projectRoot = string(d.str())
-	x.currentModuleName = string(d.str())
-	d.stModuleIndex(&x.moduleIndex)
-	x.inModule = string(d.str())
+	x.currentPackageName = string(d.str())
+	d.stPackageIndex(&x.packageIndex)
+	x.inPackage = string(d.str())
 	x.cache = d.stMAstring_PFileAnalysis()
 	x.loading = d.stMAstring_bool()
 	x.moduleAlias = string(d.str())
@@ -9902,4 +9911,4 @@ func (d *stateDecoder) stunbuiltDecl(x *unbuiltDecl) {
 }
 
 // stateCodecDigest is a digest of the code above it (StdStateFormat).
-const stateCodecDigest = "4f864fc18142d9b0"
+const stateCodecDigest = "eca957086a68b208"

@@ -94,11 +94,11 @@ end
 func TestImplCollision_TwoDependenciesErrorsConvertApart(t *testing.T) {
 	dir := t.TempDir()
 	writeFiles(t, dir, map[string]string{
-		"sqlish/nomi.toml":    "[module]\nname = \"sqlish\"\n",
+		"sqlish/nomi.toml":    "[package]\nname = \"sqlish\"\n",
 		"sqlish/errors.nomi":  "pub struct Error\n    text: String\nend\n",
-		"httpish/nomi.toml":   "[module]\nname = \"httpish\"\n",
+		"httpish/nomi.toml":   "[package]\nname = \"httpish\"\n",
 		"httpish/errors.nomi": "pub struct Error\n    code: Int\nend\n",
-		"app/nomi.toml": `[module]
+		"app/nomi.toml": `[package]
 name = "app"
 entry_points = ["main"]
 

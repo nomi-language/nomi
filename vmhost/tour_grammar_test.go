@@ -610,7 +610,7 @@ func parseGrammarWasm(b []byte) (tsLanguage, error) {
 		}
 	}
 
-	importedFuncs, err := countImportedFuncs(importSec)
+	importedFuncs, importedGlobals, err := readImports(importSec)
 	if err != nil {
 		return zero, err
 	}
@@ -625,11 +625,11 @@ func parseGrammarWasm(b []byte) (tsLanguage, error) {
 	if err != nil {
 		return zero, err
 	}
-	addr, err := constantAddress(body)
+	addr, err := constantAddress(body, importedGlobals)
 	if err != nil {
 		return zero, fmt.Errorf("decoding tree_sitter_nomi's body: %w", err)
 	}
-	image, err := dataImage(dataSec)
+	image, err := dataImage(dataSec, importedGlobals)
 	if err != nil {
 		return zero, err
 	}
@@ -723,24 +723,40 @@ func readCStringTable(image []byte, base uint32, count int, allowNull bool) ([]s
 	return out, nil
 }
 
-func countImportedFuncs(sec []byte) (uint32, error) {
+// readImports walks the import section and returns how many functions it
+// imports, which offsets the defined functions' indices, and the
+// `module.field` name of each imported global in global-index order. An
+// imported global's index is its position among the imported globals alone,
+// so the names are what a `global.get` resolves against. Which globals the
+// toolchain imports, and in what order, changes with the parser's code: the
+// committed module imports `env.__stack_pointer`, `env.__memory_base` and
+// `env.__table_base`, so `__memory_base` is global 1, where a module that
+// needs no stack pointer has it at global 0.
+func readImports(sec []byte) (uint32, []string, error) {
 	p := 0
 	n, adv, err := uleb(sec[p:])
 	if err != nil {
-		return 0, fmt.Errorf("import count: %w", err)
+		return 0, nil, fmt.Errorf("import count: %w", err)
 	}
 	p += adv
 	var funcs uint32
+	var globals []string
 	for i := range n {
-		for range 2 { // module name, then field name
+		var names [2]string // module name, then field name
+		for k := range names {
 			l, a, err := uleb(sec[p:])
 			if err != nil {
-				return 0, fmt.Errorf("import %d name: %w", i, err)
+				return 0, nil, fmt.Errorf("import %d name: %w", i, err)
 			}
-			p += a + int(l)
+			p += a
+			if p+int(l) > len(sec) {
+				return 0, nil, fmt.Errorf("import %d name truncated", i)
+			}
+			names[k] = string(sec[p : p+int(l)])
+			p += int(l)
 		}
 		if p >= len(sec) {
-			return 0, fmt.Errorf("import %d: truncated", i)
+			return 0, nil, fmt.Errorf("import %d: truncated", i)
 		}
 		kind := sec[p]
 		p++
@@ -748,7 +764,7 @@ func countImportedFuncs(sec []byte) (uint32, error) {
 		case 0x00: // func: type index
 			_, a, err := uleb(sec[p:])
 			if err != nil {
-				return 0, err
+				return 0, nil, err
 			}
 			p += a
 			funcs++
@@ -759,13 +775,13 @@ func countImportedFuncs(sec []byte) (uint32, error) {
 			p++
 			_, a, err = uleb(sec[p:])
 			if err != nil {
-				return 0, err
+				return 0, nil, err
 			}
 			p += a
 			if flags&1 != 0 {
 				_, a, err = uleb(sec[p:])
 				if err != nil {
-					return 0, err
+					return 0, nil, err
 				}
 				p += a
 			}
@@ -774,23 +790,43 @@ func countImportedFuncs(sec []byte) (uint32, error) {
 			p++
 			_, a, err := uleb(sec[p:])
 			if err != nil {
-				return 0, err
+				return 0, nil, err
 			}
 			p += a
 			if flags&1 != 0 {
 				_, a, err = uleb(sec[p:])
 				if err != nil {
-					return 0, err
+					return 0, nil, err
 				}
 				p += a
 			}
 		case 0x03: // global: valtype + mutability
 			p += 2
+			globals = append(globals, names[0]+"."+names[1])
 		default:
-			return 0, fmt.Errorf("import %d has unknown kind 0x%02x", i, kind)
+			return 0, nil, fmt.Errorf("import %d has unknown kind 0x%02x", i, kind)
 		}
 	}
-	return funcs, nil
+	return funcs, globals, nil
+}
+
+// memoryBase is the import a side module's statics are placed from.
+const memoryBase = "env.__memory_base"
+
+// requireMemoryBase reads the operand of a `global.get` at b and fails
+// unless it names the imported `env.__memory_base`, by its import name.
+func requireMemoryBase(b []byte, globals []string, what string) (int, error) {
+	g, a, err := uleb(b)
+	if err != nil {
+		return 0, err
+	}
+	if int(g) >= len(globals) {
+		return 0, fmt.Errorf("%s is based on global %d, which is not imported (the module imports %d globals: %v)", what, g, len(globals), globals)
+	}
+	if globals[g] != memoryBase {
+		return 0, fmt.Errorf("%s is based on global %d, the import %s; want %s", what, g, globals[g], memoryBase)
+	}
+	return a, nil
 }
 
 func exportedFuncIndex(sec []byte, want string) (uint32, error) {
@@ -866,8 +902,9 @@ func functionBody(sec []byte, idx uint32) ([]byte, error) {
 // Either way the answer is N, because the data segment is itself placed at
 // `__memory_base` and pointers stored inside it are relocated by the same
 // amount. Reading the image as if the base were zero makes every pointer a
-// direct index into it.
-func constantAddress(body []byte) (uint32, error) {
+// direct index into it. A `global.get` must name the `env.__memory_base`
+// import, whatever its index.
+func constantAddress(body []byte, globals []string) (uint32, error) {
 	p := 0
 	decls, a, err := uleb(body[p:])
 	if err != nil {
@@ -879,7 +916,7 @@ func constantAddress(body []byte) (uint32, error) {
 	}
 	if p < len(body) && body[p] == 0x23 { // global.get
 		p++
-		_, a, err := uleb(body[p:])
+		a, err := requireMemoryBase(body[p:], globals, "the address")
 		if err != nil {
 			return 0, err
 		}
@@ -914,10 +951,12 @@ func safeByte(b []byte, i int) byte {
 }
 
 // dataImage returns the module's single active data segment. Requiring
-// exactly one, at offset `global.get 0` (the imported `env.__memory_base`),
-// is what makes "treat the base as zero" correct: every pointer stored in
-// the segment is `__memory_base + offset-into-this-image`.
-func dataImage(sec []byte) ([]byte, error) {
+// exactly one, at offset `global.get` of the imported `env.__memory_base`
+// (found by its import name, since its index depends on which globals the
+// module imports before it), is what makes "treat the base as zero"
+// correct: every pointer stored in the segment is
+// `__memory_base + offset-into-this-image`.
+func dataImage(sec []byte, globals []string) ([]byte, error) {
 	p := 0
 	n, a, err := uleb(sec[p:])
 	if err != nil {
@@ -939,16 +978,13 @@ func dataImage(sec []byte) ([]byte, error) {
 		return nil, fmt.Errorf("data segment offset expression truncated")
 	}
 	switch sec[p] {
-	case 0x23: // global.get — the __memory_base import
+	case 0x23: // global.get of the __memory_base import
 		p++
-		g, a, err := uleb(sec[p:])
+		a, err := requireMemoryBase(sec[p:], globals, "the data segment")
 		if err != nil {
 			return nil, err
 		}
 		p += a
-		if g != 0 {
-			return nil, fmt.Errorf("data segment is based on global %d; want global 0 (__memory_base)", g)
-		}
 	case 0x41: // i32.const
 		p++
 		v, a, err := sleb(sec[p:])

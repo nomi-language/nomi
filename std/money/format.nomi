@@ -20,7 +20,7 @@ end
 /// currency shown as `display` says: 0 its symbol, 1 its narrow symbol, 2
 /// its code, 3 its name; in the locale's accounting pattern when
 /// `accounting`. What `Money.format` calls.
-pub fn format(
+fn format(
     amount:     Decimal,
     currency:   Currency,
     locale:     Locale,
@@ -40,7 +40,7 @@ end
 
 /// The amount in `currency` a reader of `locale` wrote in `text`, strictly
 /// unless `lenient`. What `Money.parse_in` calls.
-pub fn parse(
+fn parse(
     text:     String,
     locale:   Locale,
     currency: Currency,
@@ -70,7 +70,7 @@ end
 /// The currency as `CurrencyMismatch` names it: its
 /// code, with its digits when it is a custom currency (`PTS:2`), so two of
 /// one code are told apart.
-pub fn label(c: Currency) -> String
+fn label(c: Currency) -> String
     if Currency.is_iso(c) then
         Currency.code(c)
     else

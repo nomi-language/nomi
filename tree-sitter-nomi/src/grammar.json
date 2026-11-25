@@ -208,7 +208,7 @@
             "members": [
               {
                 "type": "SYMBOL",
-                "name": "pub"
+                "name": "_visibility"
               },
               {
                 "type": "BLANK"
@@ -299,6 +299,19 @@
     "pub": {
       "type": "STRING",
       "value": "pub"
+    },
+    "_visibility": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "pub"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "private_keyword"
+        }
+      ]
     },
     "export": {
       "type": "STRING",
@@ -573,7 +586,7 @@
           "members": [
             {
               "type": "SYMBOL",
-              "name": "pub"
+              "name": "_visibility"
             },
             {
               "type": "BLANK"
@@ -1401,7 +1414,7 @@
                 "members": [
                   {
                     "type": "SYMBOL",
-                    "name": "pub"
+                    "name": "_visibility"
                   },
                   {
                     "type": "SYMBOL",
@@ -1594,7 +1607,7 @@
             "members": [
               {
                 "type": "SYMBOL",
-                "name": "pub"
+                "name": "_visibility"
               },
               {
                 "type": "BLANK"
@@ -1781,7 +1794,7 @@
             "members": [
               {
                 "type": "SYMBOL",
-                "name": "pub"
+                "name": "_visibility"
               },
               {
                 "type": "BLANK"
@@ -2621,7 +2634,7 @@
             "members": [
               {
                 "type": "SYMBOL",
-                "name": "pub"
+                "name": "_visibility"
               },
               {
                 "type": "BLANK"
@@ -2783,7 +2796,7 @@
           "members": [
             {
               "type": "SYMBOL",
-              "name": "pub"
+              "name": "_visibility"
             },
             {
               "type": "BLANK"
@@ -3050,7 +3063,7 @@
           "members": [
             {
               "type": "SYMBOL",
-              "name": "pub"
+              "name": "_visibility"
             },
             {
               "type": "BLANK"
@@ -3397,7 +3410,7 @@
             "members": [
               {
                 "type": "SYMBOL",
-                "name": "pub"
+                "name": "_visibility"
               },
               {
                 "type": "BLANK"
@@ -3459,7 +3472,7 @@
           "members": [
             {
               "type": "SYMBOL",
-              "name": "pub"
+              "name": "_visibility"
             },
             {
               "type": "BLANK"
@@ -13869,6 +13882,10 @@
     {
       "type": "SYMBOL",
       "name": "host_keyword"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "private_keyword"
     },
     {
       "type": "SYMBOL",

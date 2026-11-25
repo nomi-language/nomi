@@ -26,16 +26,16 @@ func ExtractImports(source string, dir string) []string {
 	return ExtractImportsFromNodes(nodes, dir)
 }
 
-// declaringModuleOfForTest is declaringModuleOf in the shape the
+// declaringPackageOfForTest is declaringPackageOf in the shape the
 // declaring-module tests assert against: the reported module, or "".
-func declaringModuleOfForTest(idx map[string][]string, name string) string {
-	mod, _ := declaringModuleOf(idx, name)
+func declaringPackageOfForTest(idx map[string][]string, name string) string {
+	mod, _ := declaringPackageOf(idx, name)
 	return mod
 }
 
-// singleDeclModules lifts a one-module-per-name map into the
+// singleDeclPackages lifts a one-module-per-name map into the
 // multi-valued shape, for tests that state the simple case directly.
-func singleDeclModules(in map[string]string) map[string][]string {
+func singleDeclPackages(in map[string]string) map[string][]string {
 	out := make(map[string][]string, len(in))
 	for name, mod := range in {
 		out[name] = []string{mod}

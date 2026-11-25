@@ -92,6 +92,24 @@ func TestCompletion_AutoImportStdlib(t *testing.T) {
 	}
 }
 
+// std's plumbing modules (`fs/host`), which declare nothing public, are
+// never offered: not after `import std::`, and not as a file object to
+// import. The public modules beside them are.
+func TestCompletion_OffersOnlyPublicStdModules(t *testing.T) {
+	paths := map[string]bool{}
+	for _, label := range itemLabels(complete(t, "import std::f"+cursorMark+"\n\nfn main()\nend\n")) {
+		paths[label] = true
+	}
+	if !paths["fs"] || !paths["fs/testing"] || paths["fs/host"] || paths["prelude"] {
+		t.Errorf("after `import std::`: want fs and fs/testing, and neither fs/host nor prelude; got %v", paths)
+	}
+	for _, it := range complete(t, "fn f()\n    hos"+cursorMark+"\nend\n") {
+		if it.Detail != nil && *it.Detail == "import std::fs::host" {
+			t.Errorf("std::fs::host offered as an import: %q", it.Label)
+		}
+	}
+}
+
 func TestCompletion_AutoImportFunctionInsertsQualifiedCall(t *testing.T) {
 	items := completeWith(t, true, "fn f()\n    read_li"+cursorMark+"\nend\n")
 	it := mustItem(t, items, "io.read_line")
@@ -140,12 +158,12 @@ func TestCompletion_AutoImportNothingWithoutAPrefix(t *testing.T) {
 
 func TestCompletion_AutoImportProjectFiles(t *testing.T) {
 	dir := writeProject(t, map[string]string{
-		"server.nomi": "pub struct Config\n    port: Int\nend\n\npub fn start_server(c: Config) -> Int\n    c.port\nend\n\nfn hidden_helper() -> Int\n    1\nend\n",
+		"server.nomi": "pub struct Config\n    port: Int\nend\n\npub fn start_server(c: Config) -> Int\n    c.port\nend\n\nprivate fn hidden_helper() -> Int\n    1\nend\n",
 		"main.nomi":   "fn main() end\n",
 	})
 	s := NewServer()
-	s.docs.SetWorkspaceRoot(dir)
-	s.docs.IndexWorkspace(context.Background())
+	s.docs.SetEditorFolder(dir)
+	s.docs.IndexEditorFolder(context.Background())
 	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
 
 	items := completeIn(t, s, uri, "fn main()\n    start_s"+cursorMark+"\nend\n").Items
@@ -156,4 +174,36 @@ func TestCompletion_AutoImportProjectFiles(t *testing.T) {
 	items = completeIn(t, s, uri, "fn main()\n    c: Conf"+cursorMark+"\nend\n").Items
 	it = mustItem(t, items, "Config")
 	wantEdit(t, onlyEdit(t, it), 0, 0, 0, 0, "import server.Config\n\n")
+}
+
+// Within a module, completion offers another file's internal declarations,
+// a function with no modifier, as auto-import, after the file's name and
+// in an import's braces, and never a private one (spec §14 *Visibility*).
+func TestCompletion_OffersThePackagesInternalDeclarations(t *testing.T) {
+	dir := writeProject(t, map[string]string{
+		"engine.nomi": "pub fn start_engine() -> Int\n    1\nend\n\nfn spin_engine() -> Int\n    2\nend\n\n" +
+			"private fn stall_engine() -> Int\n    3\nend\n\nstruct Gear\n    teeth: Int\nend\n\nprivate struct Bolt\n    size: Int\nend\n",
+		"main.nomi": "fn main() end\n",
+	})
+	s := NewServer()
+	s.docs.SetEditorFolder(dir)
+	s.docs.IndexEditorFolder(context.Background())
+	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
+
+	items := completeIn(t, s, uri, "fn main()\n    spin_"+cursorMark+"\nend\n").Items
+	wantEdit(t, onlyEdit(t, mustItem(t, items, "engine.spin_engine")), 0, 0, 0, 0, "import engine\n\n")
+	items = completeIn(t, s, uri, "fn main()\n    stall_"+cursorMark+"\nend\n").Items
+	labelsExclude(t, items, "engine.stall_engine")
+	items = completeIn(t, s, uri, "fn main()\n    g: Ge"+cursorMark+"\nend\n").Items
+	wantEdit(t, onlyEdit(t, mustItem(t, items, "Gear")), 0, 0, 0, 0, "import engine.Gear\n\n")
+	items = completeIn(t, s, uri, "fn main()\n    b: Bol"+cursorMark+"\nend\n").Items
+	labelsExclude(t, items, "Bolt")
+
+	items = completeIn(t, s, uri, "import engine\n\nfn main()\n    engine."+cursorMark+"\nend\n").Items
+	labelsInclude(t, items, "start_engine", "spin_engine")
+	labelsExclude(t, items, "stall_engine")
+
+	items = completeIn(t, s, uri, "import engine.{"+cursorMark+"}\n\nfn main() end\n").Items
+	labelsInclude(t, items, "start_engine", "spin_engine", "Gear")
+	labelsExclude(t, items, "stall_engine", "Bolt")
 }

@@ -34,8 +34,8 @@ func BenchmarkCompletion(b *testing.B) {
 	files["main.nomi"] = "fn main() end\n"
 	dir := writeProject(b, files)
 	s := NewServer()
-	s.docs.SetWorkspaceRoot(dir)
-	s.docs.IndexWorkspace(context.Background())
+	s.docs.SetEditorFolder(dir)
+	s.docs.IndexEditorFolder(context.Background())
 	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
 
 	cases := map[string]string{

@@ -112,10 +112,10 @@ type Frame struct {
 	// every call, loop iteration and Go-driven iteration element, so a task
 	// that never waits still stops; see stopFlag.
 	stop *atomic.Bool
-	// park is the supervisor tracker a supervised task's blocking waits report
-	// to, or nil. Read only by the drain, to tell "still working" from "nothing
-	// left to wait for" — see supervisor.go's drainOnce.
-	park *parkTracker
+	// task is the registry's record of the task this lineage runs as: a main
+	// line, a `concurrent` task or a supervised task, or nil on a lineage
+	// recorded nowhere (deadlock.go). Every wait on the frame blocks it.
+	task *taskRec
 	// app is the application fields and Context in force, an immutable
 	// value inherited by child frames and tasks (scoped.go). nil before boot
 	// publishes.
@@ -179,10 +179,10 @@ func EnterBoot(parent *Frame) *Frame {
 // A Nomi deadline has two halves. `Context` is a pure deadline chain that
 // readers walk (`Context.deadline_remaining`), and `ContextWithFloor` installs
 // a tightened one into the app-field cell. But every blocking operation in
-// this package selects on `fr.ctx` — nine sites: `TimerSleep`, `SenderSend`,
-// `ReceiverReceive`, `TaskAwait`, `TaskOutcome`, `CancelIfDone`, the scope
-// wait in `ScopeExit`, `SupervisorFlush`, and the batch semaphore in
-// `spawnScopeTask`. Without this function nothing puts the Nomi deadline onto
+// this package also waits on `fr.ctx`: `TimerSleep`, the channel operations
+// and `Select`, the task waits (`TaskAwait`, `TaskOutcomeOf`,
+// `TaskAwaitAll`), `CancelIfDone`, `SupervisorFlushBounded`, and the batch
+// semaphore in `spawnScopeTask`. Without this function nothing puts the Nomi deadline onto
 // that context, so a rebind bounds what a program can read and nothing it can
 // wait on.
 //
@@ -199,11 +199,11 @@ func EnterBoot(parent *Frame) *Frame {
 // to both.
 //
 // This composes them at the one place the ambient deadline changes rather than
-// at each of the nine places it is read. The structural context is
+// at each place it is read. The structural context is
 // `parent.ctx`; the ambient deadline is derived onto it here; and every
 // existing `fr.ctx` read is then already correct, with no per-operation change
-// — so `spawnScopeTask` selects on the task frame's own `ctx` and needs no
-// deadline plumbing of its own. The list of nine sites above covers only
+// — so `spawnScopeTask` waits on the task frame's own `ctx` and needs no
+// deadline plumbing of its own. The list above covers only
 // operations that wait on `fr.ctx`; a route that waits on anything else would
 // not appear in it. Deriving per read would
 // allocate a context and a timer per Iter element, which frame.go's own hard
@@ -227,12 +227,19 @@ func EnterBoot(parent *Frame) *Frame {
 // structural context it was already under. ContextWithFloor guarantees the
 // stored value can only be tighter than what was in force, so the value read
 // here is already the effective one.
+//
+// The Go deadline is now plus the time left (deadlineBound.inForce), so it
+// carries the monotonic reading time.Now does, and Go's timer counts the time
+// left on the monotonic clock: a timeout's and a named deadline's alike, each
+// as it stood when this line ran.
 func EnterDeadline(parent *Frame, next Context) (*Frame, func()) {
-	ns, ok := contextEffectiveDeadline(next)
-	if !ok {
+	b := chainBound(next)
+	if !b.set() {
 		return parent, func() {}
 	}
-	ctx, cancel := context.WithDeadline(parent.ctx, time.Unix(0, ns))
+	now := time.Now()
+	left, _ := b.inForce(readingOf(now))
+	ctx, cancel := context.WithDeadline(parent.ctx, now.Add(time.Duration(left)))
 	child := *parent
 	child.ctx = ctx
 	child.underDeadline = true

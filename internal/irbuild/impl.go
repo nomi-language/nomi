@@ -383,16 +383,17 @@ type implItem struct {
 	// name is built from (link.go).
 	impl    *implDef
 	instKey string
-	// public is `pub` on the declaration, which decides whether a call in
-	// ANOTHER FILE may name this function type-qualified.
+	// vis is the declaration's visibility, which decides whether a call in
+	// ANOTHER FILE may name this function type-qualified: any but a
+	// `private` one.
 	//
 	// It matters only for an INHERENT block, and that asymmetry is the
-	// analyzer's rather than this builder's: a non-`pub` inherent impl function
-	// called across a file boundary is "type 'Widget' has no member 'hidden'",
-	// a front-end error, while an INTERFACE impl function with no `pub` at all
-	// is accepted and runs. So an inherent one is checked and an interface one is not; see
+	// analyzer's rather than this builder's: a `private` inherent impl
+	// function called across a file boundary is a front-end error, while an
+	// INTERFACE impl function, which takes no modifier, has its interface's
+	// visibility. So an inherent one is checked and an interface one is not; see
 	// siblingimpl.go, which is the only reader.
-	public bool
+	vis ast.Visibility
 
 	lowerable bool
 }
@@ -408,10 +409,7 @@ func (g *gen) addImplItem(d *implDef, it *implItem) {
 	if isNilNode(src) {
 		return
 	}
-	if g.implItemsByDecl == nil {
-		g.implItemsByDecl = map[ast.Node][]*implItem{}
-	}
-	g.implItemsByDecl[src] = append(g.implItemsByDecl[src], it)
+	g.fileImplItem(src, it)
 }
 
 // source is the declaration it lowers, as a checker record names it: its
@@ -802,7 +800,8 @@ func (g *gen) registerImplAt(ib *ast.ImplBlock, recv kind) *implDef {
 }
 
 // resolveImplDef resolves d's interface, receiver, items and defaults, and
-// registers it in g.implsByIface (or g.operImpls for an operator impl).
+// files it in the impl tables (fileImpl), or g.operImpls for an operator
+// impl.
 //
 // `recv == kindInvalid` means "resolve the receiver from the declaration"; any
 // other value is used verbatim. One body for both entry points, because a second
@@ -1001,29 +1000,7 @@ func (g *gen) resolveImplDef(d *implDef, ib *ast.ImplBlock, recv kind) {
 		g.registerOperImpl(d)
 		return
 	}
-	byRecv := g.implsByIface[d.ifaceKey]
-	if byRecv == nil {
-		byRecv = map[kind]*implDef{}
-		g.implsByIface[d.ifaceKey] = byRecv
-	}
-	if g.registerInstImpl(byRecv, d) {
-		return
-	}
-	if prior, dup := byRecv[d.recv]; dup && d.ifaceKey == "" && d.iface == nil && prior.iface == nil && mergeInherent(prior, d) {
-		// Two inherent blocks for one type, as a `type`'s generated
-		// `try_from` and `unchecked` beside the block its file writes: one
-		// table of the type's functions, each lowered with its own block.
-		return
-	} else if dup {
-		// Two impls of one interface declaration for one type is a
-		// coherence error the analyzer rejects. Both are refused and
-		// neither is picked, so ordering never decides. Impls of two
-		// interfaces of one name are two keys and never meet here.
-		prior.lowerable, prior.why, prior.whyDetail = false, "duplicate impl block", d.label()
-		d.lowerable, d.why, d.whyDetail = false, "duplicate impl block", d.label()
-		return
-	}
-	byRecv[d.recv] = d
+	g.fileImpl(d)
 }
 
 // mergeInherent adds the functions of d, an inherent block, to prior, an
@@ -1115,7 +1092,7 @@ func (g *gen) implItemSig(d *implDef, fd *ast.FuncDef) (*implItem, implGap) {
 		body:      fd.Body,
 		line:      fd.Line,
 		result:    kindUnit,
-		public:    fd.Public,
+		vis:       fd.Visibility,
 		lowerable: true,
 	}
 	for i := range fd.Params {

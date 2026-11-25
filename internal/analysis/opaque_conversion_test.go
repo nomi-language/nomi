@@ -11,8 +11,7 @@ import (
 // The functions the compiler provides for a type with a rule in its chain,
 // `try_from` and `unchecked` (spec §4 *Validated types*), build a value of
 // the type from something else. For an opaque type that is construction,
-// private to its defining file and that file's partner test, as its call
-// form is (spec §4 *Opaque distinct types*). An opaque enum has no rule and
+// private to its defining file, as its call form is (spec §4 *Opaque distinct types*). An opaque enum has no rule and
 // so no provided conversion.
 
 // conversionsModule declares an opaque type over a refinement (Uid), an opaque
@@ -75,6 +74,15 @@ func checkConversions(t *testing.T, entry string, files map[string]string) []ana
 	return out
 }
 
+// opaqueHome is the file an opaque type of these tests is declared in, as
+// an error names it: std's Codepoint in its file, every other in ids.
+func opaqueHome(typ string) string {
+	if typ == "Codepoint" {
+		return "`code_points.nomi`"
+	}
+	return "`ids.nomi`"
+}
+
 func diagList(errs []analysis.TypeError) string {
 	var b strings.Builder
 	for _, e := range errs {
@@ -86,8 +94,8 @@ func diagList(errs []analysis.TypeError) string {
 // TestOpaqueConversion_RefusedOutsideTheDefiningFile: each provided
 // conversion of an opaque type, called, named as a value, captured, or
 // chosen among the type's `TryFrom` impls, is an error
-// outside the type's file, at the function's name, coded as opaque
-// construction.
+// outside the type's file, a test file beside it included, at the
+// function's name, coded as opaque construction.
 func TestOpaqueConversion_RefusedOutsideTheDefiningFile(t *testing.T) {
 	cases := []struct {
 		name, body, typ, member string
@@ -103,30 +111,32 @@ func TestOpaqueConversion_RefusedOutsideTheDefiningFile(t *testing.T) {
 		{"a std type", "    dbg Codepoint.try_from(65)\n", "Codepoint", "try_from", 19},
 	}
 	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			errs := checkConversions(t, "main", map[string]string{
-				"main": "import ids.{Uid, Pct, Span, Kelvin}\n\nfn main()\n" + tc.body + "end\n",
-			})
-			want := fmt.Sprintf("`%s.%s` constructs the opaque type '%s', whose construction is private to its defining module — use an exported constructor function", tc.typ, tc.member, tc.typ)
-			var found []analysis.TypeError
-			for _, e := range errs {
-				if e.Message == want {
-					found = append(found, e)
+		for _, entry := range []string{"main", "ids_test"} {
+			t.Run(tc.name+" in "+entry, func(t *testing.T) {
+				errs := checkConversions(t, entry, map[string]string{
+					entry: "import ids.{Uid, Pct, Span, Kelvin}\n\nfn main()\n" + tc.body + "end\n",
+				})
+				want := fmt.Sprintf("`%s.%s` constructs the opaque type '%s', whose construction is private to %s — use an exported constructor function", tc.typ, tc.member, tc.typ, opaqueHome(tc.typ))
+				var found []analysis.TypeError
+				for _, e := range errs {
+					if e.Message == want {
+						found = append(found, e)
+					}
 				}
-			}
-			if len(found) != 1 {
-				t.Fatalf("want one error %q, got:%s", want, diagList(errs))
-			}
-			if e := found[0]; e.Line != 4 || e.Col != tc.col || e.Code != analysis.OpaqueConstructionCode || len(e.Args) != 1 || e.Args[0] != tc.typ {
-				t.Fatalf("the error is at %d:%d with code %q %v, want 4:%d with %q [%s]", e.Line, e.Col, e.Code, e.Args, tc.col, analysis.OpaqueConstructionCode, tc.typ)
-			}
-		})
+				if len(found) != 1 {
+					t.Fatalf("want one error %q, got:%s", want, diagList(errs))
+				}
+				if e := found[0]; e.Line != 4 || e.Col != tc.col || e.Code != analysis.OpaqueConstructionCode || len(e.Args) != 1 || e.Args[0] != tc.typ {
+					t.Fatalf("the error is at %d:%d with code %q %v, want 4:%d with %q [%s]", e.Line, e.Col, e.Code, e.Args, tc.col, analysis.OpaqueConstructionCode, tc.typ)
+				}
+			})
+		}
 	}
 }
 
 // TestOpaqueConversion_AdmittedWhereConstructionIs: the provided
 // conversions of an opaque type are callable in its own file (the module's
-// functions) and in its partner test; a `try_from` the type's file writes
+// functions); a `try_from` the type's file writes
 // itself is its public function; and a validated type that is not opaque
 // keeps its `try_from` public.
 func TestOpaqueConversion_AdmittedWhereConstructionIs(t *testing.T) {
@@ -151,22 +161,6 @@ end
 	})
 	if len(errs) > 0 {
 		t.Fatalf("the conversions are refused where they are allowed:%s", diagList(errs))
-	}
-	errs = checkConversions(t, "ids_test", map[string]string{
-		"ids_test": `import ids.{Uid, Pct, Span}
-
-test "the partner test builds its partner's opaque types"
-    assert Uid.try_from(5) != None
-    assert Pct.try_from(5) != None
-    assert Pct.unchecked(5) == Pct(5)
-    assert Span.try_from({low: 1, high: 2}) != None
-    f = Pct.try_from
-    assert f(200) == None
-end
-`,
-	})
-	if len(errs) > 0 {
-		t.Fatalf("the partner test may not build its partner's opaque types:%s", diagList(errs))
 	}
 }
 
@@ -248,7 +242,7 @@ func TestOpaqueConversion_ProvidedImplMeetsNoBoundOutside(t *testing.T) {
 			if e.Line != 12 || e.Col != tc.col || e.Code != analysis.OpaqueConstructionCode || len(e.Args) != 1 || e.Args[0] != tc.typ {
 				t.Fatalf("the error is at %d:%d with code %q %v, want 12:%d with %q [%s]", e.Line, e.Col, e.Code, e.Args, tc.col, analysis.OpaqueConstructionCode, tc.typ)
 			}
-			if len(e.Hints) == 0 || !strings.Contains(e.Hints[len(e.Hints)-1], "'"+tc.typ+"' is opaque, and its construction is private to its defining module") {
+			if len(e.Hints) == 0 || !strings.Contains(e.Hints[len(e.Hints)-1], "'"+tc.typ+"' is opaque, and its construction is private to "+opaqueHome(tc.typ)+":") {
 				t.Fatalf("the error's help %q does not say why", e.Hints)
 			}
 		})
@@ -256,7 +250,7 @@ func TestOpaqueConversion_ProvidedImplMeetsNoBoundOutside(t *testing.T) {
 }
 
 // TestOpaqueConversion_ProvidedImplMeetsBoundsInside: in an opaque type's
-// file and its partner test, the `TryFrom` impl the compiler provides for
+// file, the `TryFrom` impl the compiler provides for
 // it meets a bound, a generic one another file declares included; and a
 // `TryFrom` impl the type's file writes itself meets a bound outside.
 func TestOpaqueConversion_ProvidedImplMeetsBoundsInside(t *testing.T) {
@@ -282,16 +276,6 @@ fn main()
     dbg ids.built(5)
     k: Option<Kelvin> = gen.from_celsius(Celsius(20.0))
     dbg k
-end
-`,
-		"ids_test": `import
-    ids.{Pct, Uid}
-    gen
-end
-
-test "the partner test meets bounds through the provided impls"
-    assert gen.make<Pct>(5) != None
-    assert gen.make<Uid>(0) == None
 end
 `,
 	})

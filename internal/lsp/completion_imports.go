@@ -22,8 +22,8 @@ func (r *completionRequest) projectRoot() string {
 
 // importPathCandidates offers the next segment of an import path: `std` and
 // the project's top-level files and directories first, then the standard
-// library's files after `std/`, or the files and directories of a project
-// directory.
+// library's public files (analysis.IsPublicStdModule) after `std/`, or the
+// files and directories of a project directory.
 func (r *completionRequest) importPathCandidates() []candidate {
 	stmt, seg := r.ctx.importStmt, r.ctx.importSeg
 	var segs []string
@@ -39,7 +39,7 @@ func (r *completionRequest) importPathCandidates() []candidate {
 			return nil
 		}
 		for name := range r.s.std.Modules {
-			if name == "prelude" {
+			if !analysis.IsPublicStdModule(name) {
 				continue
 			}
 			out = append(out, candidate{label: name, kind: protocol.CompletionItemKindModule, detail: "std::" + name, locality: 2})
@@ -96,7 +96,7 @@ func (r *completionRequest) importNameCandidates() []candidate {
 
 // filePublicNames lists the public top-level names of the file a module path
 // names: from the standard library's analyzed scopes, from a project file's
-// analyzed snapshot when the workspace tracks it, and otherwise from a parse
+// analyzed snapshot when the manager tracks it, and otherwise from a parse
 // of the file.
 func (r *completionRequest) filePublicNames(segs []string) []candidate {
 	if len(segs) == 0 {
@@ -104,7 +104,7 @@ func (r *completionRequest) filePublicNames(segs []string) []candidate {
 	}
 	if segs[0] == "std" {
 		if len(segs) == 2 && r.s.std != nil {
-			return scopeMemberCandidates(r.s.std.Modules[segs[1]], func(*analysis.Symbol) bool { return true })
+			return r.scopeMemberCandidates(r.s.std.Modules[segs[1]], func(*analysis.Symbol) bool { return true })
 		}
 		return nil
 	}
@@ -114,7 +114,7 @@ func (r *completionRequest) filePublicNames(segs []string) []candidate {
 // filePublicNamesAt is filePublicNames of the project file at path.
 func (r *completionRequest) filePublicNamesAt(path string) []candidate {
 	if snap := r.s.docs.Snapshot(fileuri.FromPath(path)); snap != nil && snap.Analysis != nil {
-		return scopeMemberCandidates(snap.Analysis.ModuleScope, func(*analysis.Symbol) bool { return true })
+		return r.scopeMemberCandidates(snap.Analysis.ModuleScope, func(*analysis.Symbol) bool { return true })
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -122,7 +122,7 @@ func (r *completionRequest) filePublicNamesAt(path string) []candidate {
 	}
 	nodes, _ := parser.ParseWithRecovery(lexer.Lex(string(data)))
 	var out []candidate
-	for _, d := range publicDecls(nodes, r.reads(false, path)) {
+	for _, d := range seenDecls(nodes, func(vis ast.Visibility) bool { return r.seesProjectDecl(vis, path) }) {
 		out = append(out, candidate{label: d.name, kind: d.kind, locality: 2})
 	}
 	return out
@@ -133,36 +133,35 @@ type publicDecl struct {
 	kind protocol.CompletionItemKind
 }
 
-// publicDecls lists a file's public top-level declarations by name, and its
-// private ones too when private is set: the requesting document is the
-// file's partner test (analysis.IsPartnerTestPath).
-func publicDecls(nodes []ast.Node, private bool) []publicDecl {
+// seenDecls lists a file's top-level declarations by name, those whose
+// level sees accepts.
+func seenDecls(nodes []ast.Node, sees func(ast.Visibility) bool) []publicDecl {
 	var out []publicDecl
-	add := func(public bool, name string, kind protocol.CompletionItemKind) {
-		if (public || private) && name != "" {
+	add := func(vis ast.Visibility, name string, kind protocol.CompletionItemKind) {
+		if sees(vis) && name != "" {
 			out = append(out, publicDecl{name, kind})
 		}
 	}
 	for _, n := range nodes {
 		switch d := n.(type) {
 		case *ast.FuncDef:
-			add(d.Public, d.Name, protocol.CompletionItemKindFunction)
+			add(d.Visibility, d.Name, protocol.CompletionItemKindFunction)
 		case *ast.ExternFunc:
-			add(d.Public, d.Name, protocol.CompletionItemKindFunction)
+			add(d.Visibility, d.Name, protocol.CompletionItemKindFunction)
 		case *ast.StructDef:
-			add(d.Public, d.Name, protocol.CompletionItemKindStruct)
+			add(d.Visibility, d.Name, protocol.CompletionItemKindStruct)
 		case *ast.EnumDef:
-			add(d.Public, d.Name, protocol.CompletionItemKindEnum)
+			add(d.Visibility, d.Name, protocol.CompletionItemKindEnum)
 		case *ast.TypeDef:
-			add(d.Public, d.Name, protocol.CompletionItemKindClass)
+			add(d.Visibility, d.Name, protocol.CompletionItemKindClass)
 		case *ast.ExternType:
-			add(d.Public, d.Name, protocol.CompletionItemKindClass)
+			add(d.Visibility, d.Name, protocol.CompletionItemKindClass)
 		case *ast.TypeAlias:
-			add(d.Public, d.Name, protocol.CompletionItemKindClass)
+			add(d.Visibility, d.Name, protocol.CompletionItemKindClass)
 		case *ast.InterfaceDef:
-			add(d.Public, d.Name, protocol.CompletionItemKindInterface)
+			add(d.Visibility, d.Name, protocol.CompletionItemKindInterface)
 		case *ast.OnceBinding:
-			add(d.Public, d.Name, protocol.CompletionItemKindConstant)
+			add(d.Visibility, d.Name, protocol.CompletionItemKindConstant)
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].name < out[j].name })

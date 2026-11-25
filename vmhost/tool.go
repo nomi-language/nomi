@@ -12,11 +12,11 @@ import (
 	"github.com/nomi-language/nomi/internal/virtualproject"
 )
 
-// ToolMarked runs `nomi tool <module> <name>` in the project a marked
+// ToolMarked runs `nomi tool <package> <name>` in the project a marked
 // source holds, written as its files under dir whether or not it names
-// modules (virtualproject.FromMarkedSourceAsModules), and answers the text of each of the source's files the tool
+// packages (virtualproject.FromMarkedSourceAsPackages), and answers the text of each of the source's files the tool
 // changed, by its path (ReplaceSections puts them in a source). The tool is
-// tools/<name>.nomi at the root of the module named module, the project's
+// tools/<name>.nomi at the root of the package named module, the project's
 // own or one its nomi.toml names, run with no arguments; what it prints
 // goes to out, and its failure is the error.
 //
@@ -28,7 +28,7 @@ import (
 // back. So it is for a process that runs one thing at a time, such as the
 // tour's worker; a file the tool writes reaches the source only through
 // std/fs. A file it writes that the source does not hold, or one in a
-// module of the project other than its root (a directory with a nomi.toml
+// package of the project other than its root (a directory with a nomi.toml
 // of its own), is left out.
 //
 // In a source of sibling projects (LoadMarked), the tool runs in the
@@ -36,12 +36,12 @@ import (
 // the files it may write are that project's; they come back by their
 // paths from the source's root (`rates/tables.nomi`).
 //
-// The tool's program is held to its module's nomi.toml [effects]
+// The tool's program is held to its package's nomi.toml [effects]
 // lists when it loads, as LoadMarked holds a block, so a tool over them
 // fails to load (LoadFailed) and runs nothing. Its Startup's env holds
-// ToolModuleEnv, as `nomi tool` sets it.
+// ToolPackageEnv, as `nomi tool` sets it.
 func ToolMarked(src, dir, module, name string, out io.Writer, opts ...Option) (map[string]string, error) {
-	project, err := virtualproject.FromMarkedSourceAsModules(src)
+	project, err := virtualproject.FromMarkedSourceAsPackages(src)
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +67,7 @@ func ToolMarked(src, dir, module, name string, out io.Writer, opts ...Option) (m
 	if err != nil {
 		return nil, &underRoot{err: err, root: root}
 	}
-	if err := p.run(context.Background(), out, nil, false, map[string]string{ToolModuleEnv: module}); err != nil {
+	if err := p.run(context.Background(), out, nil, false, map[string]string{ToolPackageEnv: module}); err != nil {
 		return nil, err
 	}
 	written := map[string]string{}
@@ -79,35 +79,35 @@ func ToolMarked(src, dir, module, name string, out io.Writer, opts ...Option) (m
 	return written, nil
 }
 
-// ToolModuleEnv names the environment variable a tool runs with, set to
-// the name the project gives the tool's module: the <module> of `nomi tool
-// <module> <name>`, the project's own [module].name or the key its
-// [dependencies] gives the module. A tool reads its table in the project's
-// nomi.toml by that name, and imports the module by it in the code it
-// generates, so a project may name a module that has tools as it likes.
-const ToolModuleEnv = "NOMI_TOOL_MODULE"
+// ToolPackageEnv names the environment variable a tool runs with, set to
+// the name the project gives the tool's package: the <package> of `nomi
+// tool <package> <name>`, the project's own [package].name or the key its
+// [dependencies] gives the package. A tool reads its table in the project's
+// nomi.toml by that name, and imports the package by it in the code it
+// generates, so a project may name a package that has tools as it likes.
+const ToolPackageEnv = "NOMI_TOOL_PACKAGE"
 
-// toolFile is tools/<name>.nomi of the module named module, seen from the
+// toolFile is tools/<name>.nomi of the package named module, seen from the
 // project at root.
 func toolFile(root, module, name string) (string, error) {
 	if name == "" || strings.Contains(name, "..") || strings.ContainsAny(name, `\`) || filepath.IsAbs(name) {
 		return "", fmt.Errorf("%q is not a tool name", name)
 	}
-	modRoot, err := analysis.ModuleRoot(root, module)
+	modRoot, err := analysis.PackageRoot(root, module)
 	if err != nil {
 		return "", err
 	}
 	if modRoot == "" {
-		return "", fmt.Errorf("no module %s: it is neither this module nor a dependency its nomi.toml names", module)
+		return "", fmt.Errorf("no package %s: it is neither this package nor a dependency its nomi.toml names", module)
 	}
 	path := filepath.Join(modRoot, "tools", filepath.FromSlash(name)+".nomi")
 	if _, err := os.Stat(path); err != nil {
-		return "", fmt.Errorf("module %s has no tool %s: there is no tools/%s.nomi", module, name, name)
+		return "", fmt.Errorf("package %s has no tool %s: there is no tools/%s.nomi", module, name, name)
 	}
 	return path, nil
 }
 
-// inSubmodule reports whether the file name is in a module other than the
+// inSubmodule reports whether the file name is in a package other than the
 // project's root, the block's root or its project directory dir: outside
 // dir, or under a directory below it that holds a nomi.toml of its own.
 func inSubmodule(files map[string]string, dir, name string) bool {

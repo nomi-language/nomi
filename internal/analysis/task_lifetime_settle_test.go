@@ -59,7 +59,6 @@ func TestTaskLifetime_SettlingPositions_OK(t *testing.T) {
 		{"a pipe into a call with a settling argument", "Task.cancel(t)\n    hs |> Iter.each(Task.cancel)"},
 		{"a pipe chain", "Task.cancel(t)\n    hs |> Iter.filter(fn _ -> True) |> Iter.each(Task.cancel)"},
 		{"a nested concurrent block", "concurrent\n      _ = Task.await(t)\n      _ = Task.await_all(hs)\n    end"},
-		{"a lambda never called", "_f = fn -> Task.outcome(t)\n    _g = fn -> Task.await_all(hs)"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			errs := analyzeConcurrent(strings.ReplaceAll(settleFixture, "USE", tc.use))
@@ -97,8 +96,8 @@ func TestTaskLifetime_OtherUses_Errors(t *testing.T) {
 			"line 21 passes it to `wait_for`"},
 		{"a program's own function named cancel", "Box.cancel(t)\n    Iter.each(hs, Task.cancel)", "t",
 			"line 21 passes it to `Box.cancel`"},
-		{"a lambda that settles something other than its parameter", "Iter.each(hs, fn _ -> Task.cancel(t))", "hs",
-			"line 21 passes them to `Iter.each`"},
+		{"a lambda that settles something other than its parameter", "Task.cancel(t)\n    Iter.each(hs, fn _ -> Task.cancel(t))", "hs",
+			"line 22 passes them to `Iter.each`"},
 		{"never used", "Task.cancel(t)", "hs",
 			"Tasks bound to 'hs' are never awaited or cancelled; pass them to `Task.await`, `Task.await_all`, `Task.outcome` or `Task.cancel`"},
 	} {

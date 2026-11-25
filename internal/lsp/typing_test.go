@@ -243,7 +243,7 @@ type typingSession struct {
 	stopped   chan struct{}
 }
 
-// newTypingSession writes files to a fresh workspace and opens a server
+// newTypingSession writes files to a fresh editor folder and opens a server
 // on it. open names the file the session edits; it starts empty.
 func newTypingSession(t testing.TB, seed string, files map[string]string, open string, counts *typingCounts) *typingSession {
 	t.Helper()
@@ -283,7 +283,7 @@ func newTypingSession(t testing.TB, seed string, files map[string]string, open s
 }
 
 // reopen closes the session's document and opens a new, empty one named
-// open in the same workspace and server, for the test t. Findings start
+// open in the same editor folder and server, for the test t. Findings start
 // over.
 func (ss *typingSession) reopen(t testing.TB, seed, open string) {
 	ss.t, ss.c.t, ss.seed = t, t, seed

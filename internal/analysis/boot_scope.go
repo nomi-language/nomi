@@ -341,7 +341,7 @@ func (r bootReading[K]) visits(nodes []ast.Node, fns []BootFnFact[K]) []BootVisi
 				if i := fnIndex[v.Key]; i > 0 && r.s.fns[n] != nil {
 					v.Fn, v.Calls = i, nil
 				}
-				v.Main, v.Public = n.Name == "main", n.Public
+				v.Main, v.Public = n.Name == "main", n.Visibility == ast.Public
 				v.Boot = n.Name == "boot" || covered[n] || r.fa.Program().BootFunctions[n]
 				out = append(out, v)
 			case *ast.TestDecl:

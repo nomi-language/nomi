@@ -133,6 +133,10 @@ func parseBuildArgs(args []string) (buildArgs, error) {
 			return b, fmt.Errorf("nomi build: unexpected argument %q\n%s", arg, buildUsage)
 		}
 	}
+	if b.entry == "" && atWorkspaceRoot() {
+		// The root names its members (projectEntry).
+		b.entry = "."
+	}
 	if b.entry == "" {
 		return b, errors.New(buildUsage)
 	}

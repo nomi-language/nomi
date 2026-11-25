@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/ast"
-	"github.com/nomi-language/nomi/internal/modcache"
+	"github.com/nomi-language/nomi/internal/pkgcache"
 )
 
 // Project is the result of a discovery walk: every user-module file
@@ -27,13 +27,13 @@ type Project struct {
 	// checks that consume the manifest (entry enforcement, cross-module
 	// resolution) skip themselves when Manifest is nil.
 	Manifest *Manifest
-	// ModuleIndex is the modules the program's files import by name: the
-	// standard library and each dependency the module graph holds
-	// (BuildModuleIndex), with the names each module's files import
+	// PackageIndex is the packages the program's files import by name: the
+	// standard library and each dependency the package graph holds
+	// (BuildPackageIndex), with the names each package's files import
 	// others by. Consumed by the builder's import resolver
 	// (resolveImport) and by this file's discovery walk to follow
-	// imports into other modules.
-	ModuleIndex ModuleIndex
+	// imports into other packages.
+	PackageIndex PackageIndex
 	// reused holds the keys of the files the walk reached whose analysis
 	// the build was handed (reusedFile): it neither loaded nor parsed them,
 	// and walked their imports from the nodes it was handed.
@@ -50,7 +50,7 @@ type Project struct {
 //
 // Stdlib imports (paths starting with "std") are walked like any
 // other cross-module import; the bundled stdlib's root is virtually
-// injected into ModuleIndex below so classify() routes `std/foo`
+// injected into PackageIndex below so classify() routes `std/foo`
 // through the same path as any sibling-module dep.
 //
 // Loader errors for individual files are tolerated (the builder
@@ -92,20 +92,20 @@ const stdJSONKey = "std/json"
 
 func discoverProjectStd(entryNodes []ast.Node, projectRoot string, loader FileLoader, mfst *Manifest, analyzed func(key string) bool, reused map[string]reusedFile, roots []string, stdBlock func(key string)) (*Project, error) {
 	p := &Project{
-		Entry:       entryNodes,
-		Files:       make(map[string][]ast.Node),
-		FilePaths:   make(map[string]string),
-		ProjectRoot: projectRoot,
-		ModuleIndex: newModuleIndex(),
+		Entry:        entryNodes,
+		Files:        make(map[string][]ast.Node),
+		FilePaths:    make(map[string]string),
+		ProjectRoot:  projectRoot,
+		PackageIndex: newPackageIndex(),
 	}
 	// Caller-supplied manifest wins (in-memory virtual mode). Otherwise
 	// load nomi.toml once per build from disk. Missing manifest is fine —
 	// single-file `nomi run` and many test fixtures have no manifest, and
 	// downstream consumers skip when Manifest is nil. A malformed manifest
-	// is returned to the caller beside the project, which BuildProjectWithCache
-	// reports once as a TypeError on the entry FA; the walk still runs, as
-	// for a project with no manifest, so the program's imports, std's
-	// among them, resolve as they always do and report nothing of their own.
+	// is returned to the caller beside the project, which a build reports
+	// as its one error, checking nothing (buildProjectWithCache); the walk
+	// still runs, as for a project with no manifest, for a caller that
+	// lists the files it finds (frontend.ImportedFiles).
 	var manifestErr error
 	if mfst != nil {
 		p.Manifest = mfst
@@ -116,46 +116,46 @@ func discoverProjectStd(entryNodes []ast.Node, projectRoot string, loader FileLo
 			manifestErr = err
 		}
 	}
-	// A module that needs a later nomi, the project or one it depends
+	// A package that needs a later nomi, the project or one it depends
 	// on, stops the walk: its files are written for that nomi, so nothing
 	// is read or checked, and the build reports that one error.
-	if tooOld := (*modcache.NomiVersionError)(nil); errors.As(manifestErr, &tooOld) {
-		tooOld.Module += " (this project)"
+	if tooOld := (*pkgcache.NomiVersionError)(nil); errors.As(manifestErr, &tooOld) {
+		tooOld.Package += " (this project)"
 		return p, tooOld
 	}
-	// The module index comes from the module graph (BuildModuleIndex).
+	// The PackageIndex comes from the package graph (BuildPackageIndex).
 	// No nomi.toml is an empty index, which single-file mode keeps, and so
 	// is a manifest the graph cannot read, whose error is returned as a
 	// malformed manifest's is, unless that manifest's own error came first.
 	if projectRoot != "" {
-		if idx, err := BuildModuleIndex(projectRoot); err == nil {
-			p.ModuleIndex = idx
-		} else if tooOld := (*modcache.NomiVersionError)(nil); errors.As(err, &tooOld) {
+		if idx, err := BuildPackageIndex(projectRoot); err == nil {
+			p.PackageIndex = idx
+		} else if tooOld := (*pkgcache.NomiVersionError)(nil); errors.As(err, &tooOld) {
 			return p, tooOld
 		} else if manifestErr == nil {
 			manifestErr = err
 		}
 	}
-	// The standard library is a module of every program under the key
+	// The standard library is a package of every program under the key
 	// name "std", which no nomi.toml lists: `import std::strings`
 	// resolves through the same index as an import of a dependency. With
 	// no std/ directory reachable, single-file `nomi parse` flows that
 	// never touch it still work; a build that needs it fails where
 	// resolveImport finds nothing for a `std/...` path.
 	if stdPath, err := StdlibPath(); err == nil {
-		p.ModuleIndex.Roots["std"] = stdPath
+		p.PackageIndex.Roots["std"] = stdPath
 	}
 	if loader == nil && stdBlock == nil {
 		return p, manifestErr
 	}
 
-	currentModuleName := ""
+	currentPackageName := ""
 	if p.Manifest != nil {
-		currentModuleName = p.Manifest.Name
+		currentPackageName = p.Manifest.Name
 	}
 
-	// walkItem is a file to load: the module it is in (by key name, ""
-	// for the program's own), that module's root, the path within it, and
+	// walkItem is a file to load: the package it is in (by key name, ""
+	// for the program's own), that package's root, the path within it, and
 	// the key the builder's resolveImport computes for it too.
 	type walkItem struct {
 		module  string
@@ -164,14 +164,14 @@ func discoverProjectStd(entryNodes []ast.Node, projectRoot string, loader FileLo
 		key     string
 	}
 
-	// classify is the file an import path written in a file of module in
-	// names (ModuleIndex.target).
+	// classify is the file an import path written in a file of package in
+	// names (PackageIndex.target).
 	classify := func(in string, modPath []string) (walkItem, bool) {
-		t := p.ModuleIndex.target(in, currentModuleName, projectRoot, modPath)
+		t := p.PackageIndex.target(in, currentPackageName, projectRoot, modPath)
 		if len(t.rest) == 0 {
 			return walkItem{}, false
 		}
-		return walkItem{module: t.module, root: t.root, modPath: t.rest, key: t.key}, true
+		return walkItem{module: t.pkg, root: t.root, modPath: t.rest, key: t.key}, true
 	}
 
 	queue := make([]walkItem, 0)
@@ -248,14 +248,14 @@ func discoverProjectStd(entryNodes []ast.Node, projectRoot string, loader FileLo
 				continue
 			}
 			p.Files[wi.key] = nodes
-			p.FilePaths[wi.key] = importDest{module: wi.module, root: wi.root, rest: wi.modPath}.file()
+			p.FilePaths[wi.key] = importDest{pkg: wi.module, root: wi.root, rest: wi.modPath}.file()
 			imports = walk(nodes, IsStdlibKey(wi.key))
 			if p.imports == nil {
 				p.imports = map[string][][]string{}
 			}
 			p.imports[wi.key] = imports
 		}
-		// A file's imports name files through the names of the module
+		// A file's imports name files through the names of the package
 		// the file is in.
 		for _, mp := range imports {
 			// A stdlib file names its siblings bare; they are the same
@@ -372,14 +372,14 @@ func importStmtPath(stmt *ast.ImportStmt) []string {
 	return out
 }
 
-// SelfNameImport reports whether modPath names a file of the current module
-// through the module's own name (`import todo::foo` inside module `todo`), and
-// answers the path within the module (`foo`). An import that is the module
-// name alone (`import thing` inside module `thing`) is not one: a module is a
+// SelfNameImport reports whether modPath names a file of the current package
+// through the package's own name (`import todo::foo` inside package `todo`), and
+// answers the path within the package (`foo`). An import that is the package
+// name alone (`import thing` inside package `thing`) is not one: a package is a
 // directory, not a file, so that path names the file `thing.nomi` at the
-// module root, as it would in a module of any other name.
-func SelfNameImport(modPath []string, currentModuleName string) ([]string, bool) {
-	if currentModuleName == "" || len(modPath) < 2 || modPath[0] != currentModuleName {
+// package root, as it would in a package of any other name.
+func SelfNameImport(modPath []string, currentPackageName string) ([]string, bool) {
+	if currentPackageName == "" || len(modPath) < 2 || modPath[0] != currentPackageName {
 		return nil, false
 	}
 	return modPath[1:], true
@@ -387,8 +387,8 @@ func SelfNameImport(modPath []string, currentModuleName string) ([]string, bool)
 
 // ImportFile answers the .nomi file that modPath, an import path written in a
 // file of the project rooted at projectRoot (not `std/...`), names as the
-// front end resolves it (ModuleIndex.target): through the project's own
-// module name, a dependency's name (alone, its root file of that name), or
+// front end resolves it (PackageIndex.target): through the project's own
+// package name, a dependency's name (alone, its root file of that name), or
 // a path within the project. It reads only the disk, and answers false when
 // the file does not exist.
 func ImportFile(projectRoot string, modPath []string) (string, bool) {
@@ -399,7 +399,7 @@ func ImportFile(projectRoot string, modPath []string) (string, bool) {
 	if m, err := LoadManifest(projectRoot); err == nil {
 		current = m.Name
 	}
-	index, _ := BuildModuleIndex(projectRoot)
+	index, _ := BuildPackageIndex(projectRoot)
 	return existingFile(index.target("", current, projectRoot, modPath))
 }
 
@@ -411,9 +411,9 @@ func FileOfKey(projectRoot, key string) (string, bool) {
 	if key == "" {
 		return "", false
 	}
-	index, _ := BuildModuleIndex(projectRoot)
+	index, _ := BuildPackageIndex(projectRoot)
 	t := importDest{root: projectRoot, rest: strings.Split(key, "/")}
-	if m := index.moduleOfKey(key); m != "" {
+	if m := index.packageOfKey(key); m != "" {
 		t.root, t.rest = index.Roots[m], t.rest[1:]
 	}
 	return existingFile(t)

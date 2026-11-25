@@ -30,6 +30,6 @@ revenue report declares its sum's type with
 `CAST(sum(o.total) AS DECIMAL(12, 2))` so it does too. See the
 [driver's notes on decimals](../../sqlite/README.md#decimals).
 
-The module names `sqlite`, `sqlkit`, `migrate` and `postgres` with a
+The package names `sqlite`, `sqlkit`, `migrate` and `postgres` with a
 `dir` entry for each sibling directory, so it runs from a checkout of
 this repository.

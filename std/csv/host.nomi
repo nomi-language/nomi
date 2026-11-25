@@ -15,12 +15,12 @@ import
 end
 
 /// A CSV reader over a `Reader`, which reads it a record at a time.
-pub host type Records
+host type Records
 
 /// A reader of the CSV in `reader`, `comment` `None` for no comment
 /// character; `fields` is the field count of every
 /// record, 0 for the first record's and -1 for any.
-pub host fn open(
+host fn open(
     reader:    Reader,
     delimiter: Codepoint,
     comment:   Option<Codepoint>,
@@ -31,26 +31,26 @@ pub host fn open(
 
 /// The next record's fields, or `[]` once reading stopped (`stopped`
 /// says why).
-pub host fn next(records: Records) -> List<String>
+host fn next(records: Records) -> List<String>
 
 /// The line the last record `next` returned starts on.
-pub host fn line(records: Records) -> Int
+host fn line(records: Records) -> Int
 
 /// Why reading stopped, as `[kind, line, column]`: kind 0 at the end (or
 /// not yet), 1 a syntax error at the line and column, 2 the reader failed
 /// (`failure`), 3 invalid options.
-pub host fn stopped(records: Records) -> List<Int>
+host fn stopped(records: Records) -> List<Int>
 
 /// The message of the failure `stopped` describes.
-pub host fn message(records: Records) -> String
+host fn message(records: Records) -> String
 
 /// The reader's error, once `stopped` says 2.
-pub host fn failure(records: Records) -> Error
+host fn failure(records: Records) -> Error
 
 /// Every record of the CSV in `data`, read whole by the reader `open`
 /// makes, with `open`'s options: the records, the line each starts on, why
 /// reading stopped as `stopped` says it (never 2), and its message.
-pub host fn decode(
+host fn decode(
     data:      Bytes,
     delimiter: Codepoint,
     comment:   Option<Codepoint>,
@@ -60,4 +60,4 @@ pub host fn decode(
 ) -> (List<List<String>>, List<Int>, List<Int>, String)
 
 /// `fields` as one CSV line, ended by `\r\n` when `crlf` and `\n` if not.
-pub host fn encode(fields: List<String>, delimiter: Codepoint, crlf: Bool) -> String
+host fn encode(fields: List<String>, delimiter: Codepoint, crlf: Bool) -> String

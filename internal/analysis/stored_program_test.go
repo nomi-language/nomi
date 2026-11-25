@@ -159,7 +159,7 @@ func recordDiffTaken(tb testing.TB, p incrementalProject, dir string, edit *reco
 	}
 	sort.Strings(keys[1:])
 	writer := newManager()
-	writer.SetWorkspaceRoot(dir)
+	writer.SetEditorFolder(dir)
 	writer.Open(uri(p.entry), p.texts[p.entry])
 	writer.AnalyzeLatest(context.Background(), uri(p.entry))
 	writer.NoteLoweredClean(uri(p.entry), p.texts[p.entry], nil)
@@ -173,7 +173,7 @@ func recordDiffTaken(tb testing.TB, p incrementalProject, dir string, edit *reco
 		}
 	}
 	open := func(dm *analysis.DocumentManager) {
-		dm.SetWorkspaceRoot(dir)
+		dm.SetEditorFolder(dir)
 		for _, key := range keys {
 			dm.Open(uri(key), texts[key])
 			dm.AnalyzeLatest(context.Background(), uri(key))

@@ -141,7 +141,7 @@ func unusedHints(r *vmhost.Reach, path, text string) ([]protocol.Diagnostic, []p
 		}
 		key := append([]string{"effects"}, strings.Split(c.List, ".")...)
 		if slices.Contains(analysis.EntryLists, c.List) {
-			key = analysis.EntryKeyPath(c.List, c.Module)
+			key = analysis.EntryKeyPath(c.List, c.Key)
 		}
 		line := analysis.ManifestEntryLine(data, c.Name, key...)
 		if line == 0 {
@@ -174,7 +174,7 @@ func unusedName(lists, tight *vmhost.Effects, c analysis.EffectChange) (message,
 	without := func(names []string) []string {
 		return slices.DeleteFunc(slices.Clone(names), func(n string) bool { return n == c.Name })
 	}
-	message = nothingReaches(c.List, c.Module, c.Name)
+	message = nothingReaches(c.List, c.Key, c.Name)
 	_, key, _ := strings.Cut(c.List, ".")
 	title = fmt.Sprintf("Remove %s from %s", c.Name, key)
 	// std and std_in_tests of the table c is in, as lists has and tight
@@ -187,8 +187,8 @@ func unusedName(lists, tight *vmhost.Effects, c analysis.EffectChange) (message,
 	case analysis.ListDepsStd, analysis.ListDepsStdInTests:
 		std, inTests, tightStd, tightInTests = &to.Deps.Std, &to.Deps.StdInTests, tight.Deps.Std, tight.Deps.StdInTests
 	default:
-		to.SetEntry(c.List, c.Module, without(to.Entries(c.List)[c.Module]))
-		return message, fmt.Sprintf("Remove %s from the entry for %s", c.Name, c.Module), to
+		to.SetEntry(c.List, c.Key, without(to.Entries(c.List)[c.Key]))
+		return message, fmt.Sprintf("Remove %s from the entry for %s", c.Name, c.Key), to
 	}
 	switch {
 	case strings.HasSuffix(c.List, "_in_tests"):
@@ -287,13 +287,20 @@ func projectReach(root string) (r *vmhost.Reach) {
 	return vmhost.ReachedAll(files, nil, vmhost.WithWarnings(io.Discard))
 }
 
-// manifestHover is the hover at pos in the nomi.toml at uri: on a std name
-// in an effects list, the calls that need it there (nameHover); on a key
-// in a table of entries, what that code reaches (moduleHover); nil
-// anywhere else.
+// manifestHover is the hover at pos in the manifest at uri: in a
+// nomi-workspace.toml, workspaceHover's; on [package] or its name, the
+// workspace the package is in (packageHover); on a std name in an effects
+// list, the calls that need it there (nameHover); on a key in a table of
+// entries, what that code reaches (moduleHover); nil anywhere else.
 func (s *Server) manifestHover(uri string, pos protocol.Position) *protocol.Hover {
+	if isWorkspaceURI(uri) {
+		return s.workspaceHover(uri, pos)
+	}
 	text, _ := s.contentForURI(protocol.DocumentUri(uri))
 	at := manifestPlaceAt(text, pos)
+	if h := packageHover(uriToPath(uri), text, at); h != nil {
+		return h
+	}
 	name, start, end, ok := at.quoted()
 	if !ok {
 		return nil
@@ -376,7 +383,7 @@ func nameHover(r *vmhost.Reach, list, module, name string) string {
 // moduleHover is what a hover on module, a key of list's entries (a
 // dependency's path, or a module of the project), says, r being the
 // effects the project's programs have: the effects the module's own files have, as
-// `nomi add` prints them (vmhost.WriteModuleReach), or that no program
+// `nomi add` prints them (vmhost.WritePackageReach), or that no program
 // imports it yet; for no r, that its effects are not known.
 func moduleHover(r *vmhost.Reach, list, module string) string {
 	if r == nil {
@@ -385,8 +392,8 @@ func moduleHover(r *vmhost.Reach, list, module string) string {
 	var b strings.Builder
 	b.WriteString(module + "\n")
 	modules := r.EntryReaches(list)
-	if i := slices.IndexFunc(modules, func(u vmhost.ModuleReach) bool { return u.Path == module }); i >= 0 {
-		vmhost.WriteModuleReach(&b, "  ", modules[i])
+	if i := slices.IndexFunc(modules, func(u vmhost.PackageReach) bool { return u.Path == module }); i >= 0 {
+		vmhost.WritePackageReach(&b, "  ", modules[i])
 	} else {
 		b.WriteString("  not imported yet\n")
 	}
@@ -397,7 +404,7 @@ func moduleHover(r *vmhost.Reach, list, module string) string {
 // holds (Reach.Why): a call in the project's own files for [effects.self]'s
 // lists, in a dependency's for [effects.deps]', and in module's for
 // its entry under [effects.self.modules] or
-// [effects.deps.modules].
+// [effects.deps.packages].
 func neededBy(r *vmhost.Reach, list, module, name string) []vmhost.WhyCall {
 	calls, err := r.Why(name)
 	if err != nil {
@@ -405,7 +412,7 @@ func neededBy(r *vmhost.Reach, list, module, name string) []vmhost.WhyCall {
 	}
 	var out []vmhost.WhyCall
 	for _, c := range calls {
-		self := c.Module == r.Project
+		self := c.Package == r.Project
 		switch list {
 		case analysis.ListSelfStd, analysis.ListSelfStdInTests:
 			if !self {
@@ -415,8 +422,8 @@ func neededBy(r *vmhost.Reach, list, module, name string) []vmhost.WhyCall {
 			if !self || c.Import != module {
 				continue
 			}
-		case analysis.ListDepsModules:
-			if c.Module != module {
+		case analysis.ListDepsPackages:
+			if c.Package != module {
 				continue
 			}
 		default:
@@ -434,8 +441,8 @@ func neededBy(r *vmhost.Reach, list, module, name string) []vmhost.WhyCall {
 func nothingReaches(list, module, name string) string {
 	switch list {
 	case analysis.ListSelfStd, analysis.ListSelfStdInTests:
-		return fmt.Sprintf("nothing in this module's own code has the effect %s", name)
-	case analysis.ListSelfModules, analysis.ListDepsModules:
+		return fmt.Sprintf("nothing in this package's own code has the effect %s", name)
+	case analysis.ListSelfModules, analysis.ListDepsPackages:
 		return fmt.Sprintf("nothing in %s has the effect %s", module, name)
 	}
 	return fmt.Sprintf("no dependency has the effect %s", name)

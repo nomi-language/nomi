@@ -32,7 +32,7 @@ import (
 	"github.com/nomi-language/nomi/internal/expectation"
 	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/frontend"
-	"github.com/nomi-language/nomi/internal/tourmodules"
+	"github.com/nomi-language/nomi/internal/tourpackages"
 	"github.com/nomi-language/nomi/internal/vmcmd"
 	"github.com/nomi-language/nomi/std"
 	"github.com/nomi-language/nomi/vmhost"
@@ -372,8 +372,8 @@ func runTourBlock(b doctest.Block) (observed, bool) {
 	}
 	defer os.RemoveAll(dir)
 	// The modules the tour links that it imports are attached as the
-	// tour's runner attaches them (tourmodules.Source).
-	src := tourmodules.Source(b.Code)
+	// tour's runner attaches them (tourpackages.Source).
+	src := tourpackages.Source(b.Code)
 	p, hasTests, err := vmhost.LoadMarked(src, dir)
 	if err != nil {
 		return observed{stdout: out.String(), stderr: err.Error() + "\n", exit: 1}, hasTests

@@ -22,7 +22,7 @@ func TestCompilerRun_NestedProgramIsNoFileOfTheProject(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	write("nomi.toml", "[module]\nname = \"demo\"\nentry_points = [\"app\"]\n")
+	write("nomi.toml", "[package]\nname = \"demo\"\nentry_points = [\"app\"]\n")
 	write("app.nomi", "fn main()\n  _ = 1\nend\n")
 	write("helper.nomi", "pub fn greet() -> String\n  \"hi\"\nend\n")
 	write("stray.nomi", "pub fn x() -> Int\n  1\nend\n\nfn main()\n  _ = x()\nend\n")

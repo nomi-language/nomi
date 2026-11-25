@@ -1,2 +1,2 @@
-[module]
+[package]
 name = "cross_file_enum_cycle"

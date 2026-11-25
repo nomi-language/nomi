@@ -74,7 +74,7 @@ func TestIOErrorSlotsMatchRTFieldNames(t *testing.T) {
 		"InvalidPath": {"path", "reason"}, "InvalidText": {"path", "offset"},
 		"Corrupt": {"path", "reason"}, "Truncated": {"path"},
 		"NoSpace": {"path"}, "ReadOnly": {"path"},
-		"TooManyOpen": nil, "Closed": nil, "BrokenPipe": nil, "TimedOut": nil,
+		"TooManyOpen": nil, "Closed": nil, "BrokenPipe": nil, "Reset": {"path"}, "TimedOut": nil,
 		"Unsupported": {"operation", "target"}, "Other": {"operation", "path", "code"},
 	}
 	if len(want) != len(d.variants) {

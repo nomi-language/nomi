@@ -6,7 +6,7 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/dap"
 	"github.com/nomi-language/nomi/internal/frontend"
-	"github.com/nomi-language/nomi/internal/modcache"
+	"github.com/nomi-language/nomi/internal/pkgcache"
 	"github.com/nomi-language/nomi/internal/termcolor"
 	"github.com/nomi-language/nomi/vmhost"
 	"io"
@@ -95,7 +95,7 @@ const usage = `usage:
                                         the calls from main and the tests down to
                                         each effect, as text or mermaid
   nomi types <paths> [-o <file>]        write TypeScript declarations of the JSON that
-                                        the pub types of the named files and directories
+                                        the types of the named files and directories
                                         cross as, for a frontend; stdout by default
   nomi fmt [-w|-l|-d|-check] [paths]    format source, to standard output; -w writes each
                                         file, -l lists the files that would change, -d prints
@@ -113,20 +113,24 @@ const usage = `usage:
                                         or a commit's 40 hex digits after @,
                                         fetched and locked in nomi.lock; prints the
                                         effects its code has
-  nomi add [<name>=]<directory>         add the Nomi module in a directory, such as
+  nomi add [<name>=]<directory>         add the Nomi package in a directory, such as
                                         nomi add ../shared
   nomi remove <name>                    remove a dependency no file imports any more
   nomi update [name]                    move one dependency, or all of them, to its
                                         repository's latest release of the same line:
-                                        the same major version, or below v1 the same
-                                        minor version; with no name, raise every
+                                        the same major version, or from v0.1 to v1 the
+                                        same minor version; a 0.0.x release is a line
+                                        of its own, so it stays, and a later release
+                                        is named; with no name, raise every
                                         repository only a dependency names too,
-                                        recorded under [indirect]
+                                        recorded in nomi.lock
   nomi outdated [dir]                   list each repository of the build with a
                                         later release: its version, the latest in its
                                         line, the latest of all, and what reaches it
-  nomi fetch [dir]                      fetch the modules the project needs and lock
-                                        them in nomi.lock, so --offline works later
+  nomi fetch [--update] [dir]           fetch the packages the project needs and lock
+                                        them in nomi.lock, so --offline works later;
+                                        --update selects the versions from the
+                                        manifests alone, as with no nomi.lock
   --offline                             on {offline}:
                                         fetch nothing, and name what is missing
 
@@ -164,7 +168,7 @@ const usage = `usage:
   nomi mcp                              serve the Model Context Protocol on stdin and
                                         stdout, so a coding agent can check, test,
                                         format and search Nomi through the compiler
-  nomi tool <module> <name> [args]      run a module's tool, tools/<name>.nomi,
+  nomi tool <package> <name> [args]     run a package's tool, tools/<name>.nomi,
                                         such as a code generator
   nomi editor [install [--force] | uninstall] [--dry-run] [<editor>]
                                         set up Helix, Neovim, VS Code or Zed for
@@ -202,10 +206,6 @@ type command struct {
 	// project needs (enableDownloads). The debugger is started by an
 	// editor, which never downloads, and the others build nothing.
 	downloads bool
-	// libNote is set for a command that checks or runs a program, whose
-	// project's first fetch notes the lib/ modules off this release
-	// (noteLibRelease).
-	libNote bool
 	// run runs the command. An error it returns is printed, unless it says
 	// the command printed its reasons already (alreadyReported), and the
 	// process exits 1.
@@ -216,11 +216,11 @@ type command struct {
 // variable, since help's run reads it.
 func commandTable() []command {
 	return []command{
-		{name: "run", usage: runUsage, programArgs: true, offline: true, allCalls: true, downloads: true, libNote: true,
+		{name: "run", usage: runUsage, programArgs: true, offline: true, allCalls: true, downloads: true,
 			run: func(args []string, _ bool) error { return runCommand(args) }},
-		{name: "test", usage: testUsage, offline: true, allCalls: true, downloads: true, libNote: true,
+		{name: "test", usage: testUsage, offline: true, allCalls: true, downloads: true,
 			run: func(args []string, _ bool) error { return runTest(args) }},
-		{name: "check", usage: checkUsage, offline: true, allCalls: true, downloads: true, libNote: true,
+		{name: "check", usage: checkUsage, offline: true, allCalls: true, downloads: true,
 			run: func(args []string, _ bool) error {
 				path, err := parseCheckArgs(args)
 				if err != nil {
@@ -228,7 +228,7 @@ func commandTable() []command {
 				}
 				return runCheck(path)
 			}},
-		{name: "build", usage: buildUsage, offline: true, allCalls: true, downloads: true, libNote: true,
+		{name: "build", usage: buildUsage, offline: true, allCalls: true, downloads: true,
 			run: func(args []string, _ bool) error { return runBuild(args) }},
 		{name: "effects", usage: effectsUsage, offline: true, downloads: true,
 			run: func(args []string, _ bool) error { return runEffects(os.Stdout, args) }},
@@ -246,7 +246,7 @@ func commandTable() []command {
 		{name: "update", usage: updateUsage, downloads: true,
 			run: func(args []string, _ bool) error { return runUpdate(args) }},
 		{name: "fetch", usage: fetchUsage, offline: true, downloads: true, run: runFetch},
-		{name: "outdated", usage: outdatedUsage, offline: true, downloads: true, run: runOutdated},
+		{name: "outdated", usage: outdatedUsage, downloads: true, run: runOutdated},
 		{name: "build-vm", usage: buildVMUsage, downloads: true,
 			run: func(args []string, _ bool) error { return runBuildVM(args) }},
 		{name: "lsp", usage: lspUsage,
@@ -335,9 +335,9 @@ func alreadyReported(err error) bool {
 }
 
 func main() {
-	modcache.SetRelease(release())
+	pkgcache.SetRelease(release())
 	if len(os.Args) < 2 {
-		enableDownloads(false, false, os.Stderr)
+		enableDownloads(false, os.Stderr)
 		runReplVM()
 		return
 	}
@@ -348,7 +348,7 @@ func main() {
 			// `nomi hi.nomi a b` is `nomi run hi.nomi a b`, which is what the
 			// kernel runs for a `#!/usr/bin/env nomi` script invoked as
 			// `./hi.nomi a b`, or as `hi a b` for an extensionless one on PATH.
-			enableDownloads(false, true, os.Stderr)
+			enableDownloads(false, os.Stderr)
 			runFileVM(name, args...)
 			return
 		}
@@ -376,7 +376,7 @@ func main() {
 		}
 	}
 	if c.downloads {
-		enableDownloads(offline, c.libNote, os.Stderr)
+		enableDownloads(offline, os.Stderr)
 	}
 	if err := c.run(args, offline); err != nil {
 		if !alreadyReported(err) {
@@ -391,6 +391,10 @@ func main() {
 // dev loop's (run_web.go), whose flags may also follow the file.
 func runCommand(args []string) error {
 	args = takeProfileFlag(args)
+	if len(args) < 1 && atWorkspaceRoot() {
+		// The root names its members (projectEntry).
+		args = []string{"."}
+	}
 	if len(args) < 1 {
 		return errors.New(runUsage)
 	}
@@ -442,9 +446,9 @@ var checkJSONFormat bool
 var checkHints bool
 
 // parseCheckArgs reads `nomi check [--format full|short|json] [--hints] <path>`:
-// exactly one path, and the diagnostics format, which it selects for the
-// process through NOMI_DIAGNOSTICS. With json, runCheck writes the
-// records.
+// exactly one path, or none at a workspace's root, which is then the path,
+// and the diagnostics format, which it selects for the process through
+// NOMI_DIAGNOSTICS. With json, runCheck writes the records.
 const checkUsage = "usage: nomi check [--format full|short|json] [--hints] <path>"
 
 func parseCheckArgs(args []string) (string, error) {
@@ -479,6 +483,9 @@ func parseCheckArgs(args []string) (string, error) {
 			return "", unknownFlag("nomi check", arg, checkUsage)
 		}
 		paths = append(paths, arg)
+	}
+	if len(paths) == 0 && atWorkspaceRoot() {
+		return ".", nil
 	}
 	if len(paths) == 0 {
 		return "", errors.New(checkUsage)
@@ -638,9 +645,13 @@ func programEntry(cmd, path string) (string, error) {
 
 // projectEntry is the file of the one entry point that dir's nomi.toml
 // lists (frontend.EntryFile), as `nomi check dir` finds its entries, or why
-// dir names no one program: it has no nomi.toml, its nomi.toml lists no
-// entry point, or it lists several, which the error names.
+// dir names no one program: it is a workspace's root, which names its
+// members (workspaceRootError), it has no nomi.toml, its nomi.toml lists
+// no entry point, or it lists several, which the error names.
 func projectEntry(cmd, dir string) (string, error) {
+	if err := workspaceRootError(cmd, dir, "name a member's directory or program"); err != nil {
+		return "", err
+	}
 	mfst, err := analysis.LoadManifest(dir)
 	if errors.Is(err, analysis.ErrManifestMissing) || err == nil && len(mfst.EntryPoints) == 0 {
 		return "", fmt.Errorf("nomi %s: %s is a directory; name the program's .nomi file", cmd, dir)

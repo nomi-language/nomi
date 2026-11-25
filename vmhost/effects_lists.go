@@ -11,8 +11,8 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/effects"
 	"github.com/nomi-language/nomi/internal/frontend"
-	"github.com/nomi-language/nomi/internal/modcache"
 	"github.com/nomi-language/nomi/internal/parser"
+	"github.com/nomi-language/nomi/internal/pkgcache"
 	"github.com/nomi-language/nomi/internal/suggest"
 )
 
@@ -25,7 +25,7 @@ type Effects = analysis.Effects
 // files may have.
 type SelfEffects = analysis.SelfEffects
 
-// DepsEffects is [effects.deps] with [effects.deps.modules]:
+// DepsEffects is [effects.deps] with [effects.deps.packages]:
 // the effects the files of the modules the project depends on may have.
 type DepsEffects = analysis.DepsEffects
 
@@ -44,13 +44,13 @@ func (p *Program) manifestPath() (string, []byte) {
 // [effects.self] declares, its entries' among them, that names
 // nothing a list can allow: a name that is no std module; a key under
 // [effects.self.modules] that is no module of the project
-// (ownModuleProblem); and a key under [effects.deps.modules] that is not
-// a module the project needs (dependencyProblem). A name that is valid and never reached is
+// (ownModuleProblem); and a key under [effects.deps.packages] that is not
+// a package the project needs (dependencyProblem). A name that is valid and never reached is
 // not a problem. With entries_required under [effects.self], each
 // module of the project the program holds (ownModules) with no entry is
 // one too, at that key, and under [effects.deps] each dependency with
 // neither an entry nor an [effects.self] of its own
-// (requiredModules), each with the fix that writes its entry (entryFix).
+// (requiredPackages), each with the fix that writes its entry (entryFix).
 // A dependency's own table is read only when the project has an
 // [effects.deps] table.
 func (p *Program) effectListProblems() Diagnostics {
@@ -125,8 +125,8 @@ func (p *Program) effectListProblems() Diagnostics {
 	}
 	checkNames("effects.deps", "std", d.Std, "effects", "deps", "std")
 	checkNames("effects.deps", "std_in_tests", d.StdInTests, "effects", "deps", "std_in_tests")
-	entries(analysis.ListDepsModules, p.dependencyProblem)
-	for _, m := range p.requiredModules() {
+	entries(analysis.ListDepsPackages, p.dependencyProblem)
+	for _, m := range p.requiredPackages() {
 		if m.declares() {
 			ownPath := filepath.Join(m.root, "nomi.toml")
 			ownData, _ := analysis.ReadManifest(m.root)
@@ -137,9 +137,9 @@ func (p *Program) effectListProblems() Diagnostics {
 			}
 			continue
 		}
-		if _, listed := d.Modules[m.path]; d.EntriesRequired && !listed {
-			required("deps", analysis.ListDepsModules, m.path,
-				fmt.Sprintf("add %q under [effects.deps.modules] in nomi.toml, or give %s an [effects.self] table in its own nomi.toml", m.path, m.path))
+		if _, listed := d.Packages[m.path]; d.EntriesRequired && !listed {
+			required("deps", analysis.ListDepsPackages, m.path,
+				fmt.Sprintf("add %q under [effects.deps.packages] in nomi.toml, or give %s an [effects.self] table in its own nomi.toml", m.path, m.path))
 		}
 	}
 	return ds
@@ -174,7 +174,7 @@ func (p *Program) entryFix(list, module string, tightest **Effects) *parser.Fix 
 	}
 	if *tightest == nil {
 		var deps []string
-		for _, m := range p.requiredModules() {
+		for _, m := range p.requiredPackages() {
 			deps = append(deps, m.path)
 		}
 		*tightest = tightestLists(p.walks(p.checkedRoots()), deps, p.ownModules())
@@ -195,14 +195,14 @@ func (p *Program) entryFix(list, module string, tightest **Effects) *parser.Fix 
 }
 
 // requiredPaths is the name of each module the project needs
-// (modcache.Dep.Name), sorted; nil for a program with no project root.
+// (pkgcache.Dep.Name), sorted; nil for a program with no project root.
 func (p *Program) requiredPaths() []string {
 	root := p.prog.Root
 	if root == "" {
 		return nil
 	}
 	var required []string
-	if g, err := modcache.Load(root); err == nil && g != nil {
+	if g, err := pkgcache.Load(root); err == nil && g != nil {
 		for _, d := range g.Deps {
 			required = append(required, d.Name)
 		}
@@ -212,7 +212,7 @@ func (p *Program) requiredPaths() []string {
 }
 
 // dependencyProblem is what is wrong with module, a key under
-// [effects.deps.modules], when it is not the name of a module the project
+// [effects.deps.packages], when it is not the name of a module the project
 // needs, with a hint; both are "" when it is one. The project's own name
 // is not one: its own code is [effects.self]'s.
 func (p *Program) dependencyProblem(module string) (problem, hint string) {
@@ -220,15 +220,15 @@ func (p *Program) dependencyProblem(module string) (problem, hint string) {
 	switch {
 	case slices.Contains(required, module):
 		return "", ""
-	case module == p.projectModule() || module == p.ownName():
-		return "which is this project", "[effects.deps] holds the modules it depends on; its own code is held by [effects.self]"
+	case module == p.projectPackage() || module == p.ownName():
+		return "which is this project", "[effects.deps] holds the packages it depends on; its own code is held by [effects.self]"
 	case len(required) == 0:
 		return "which is not a dependency of this project", "the project has no dependencies"
 	}
 	// A dependency is named by its name in the program, the key the
 	// project's [dependencies] gives it, never by its repository or its
-	// own [module].name.
-	if g, err := modcache.Load(p.prog.Root); err == nil && g != nil {
+	// own [package].name.
+	if g, err := pkgcache.Load(p.prog.Root); err == nil && g != nil {
 		for _, d := range g.Deps {
 			if d.Name != module && (!d.ID.IsZero() && d.ID.String() == module || d.Self == module) {
 
@@ -242,7 +242,7 @@ func (p *Program) dependencyProblem(module string) (problem, hint string) {
 	return "which is not a dependency of this project", "its dependencies are " + strings.Join(required, ", ")
 }
 
-// ownName is the project's [module].name, or "".
+// ownName is the project's [package].name, or "".
 func (p *Program) ownName() string {
 	if m := programManifest(p.prog.Root, p.cfg.manifest); m != nil {
 		return m.Name

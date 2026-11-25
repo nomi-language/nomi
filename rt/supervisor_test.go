@@ -69,7 +69,7 @@ func TestSupervisorSpawnAndFlushRunTheWork(t *testing.T) {
 	sup := newTestSupervisor(fr, 4, DefaultShutdownTimeout)
 	var ran atomic.Int64
 	for range 5 {
-		_ = SupervisorSpawn(fr, sup, func(*Frame) Unit {
+		_ = SupervisorSpawn(fr, Site{}, sup, func(*Frame) Unit {
 			ran.Add(1)
 			return Unit{}
 		})
@@ -100,7 +100,7 @@ func TestSupervisorTaskReadsTheSpawnersContextValues(t *testing.T) {
 	cancel()
 	var got any
 	var stopped bool
-	_ = SupervisorSpawn(spawner, sup, func(taskFr *Frame) Unit {
+	_ = SupervisorSpawn(spawner, Site{}, sup, func(taskFr *Frame) Unit {
 		got = taskFr.Context().Value(supervisedValueKey{})
 		stopped = taskFr.Context().Err() != nil
 		return Unit{}
@@ -230,7 +230,7 @@ func measurePeak(t *testing.T, fr *Frame, maxRunning int64, n int) int64 {
 	var once sync.Once
 
 	for range n {
-		_ = SupervisorSpawn(fr, sup, func(*Frame) Unit {
+		_ = SupervisorSpawn(fr, Site{}, sup, func(*Frame) Unit {
 			mu.Lock()
 			live++
 			admitted++
@@ -272,7 +272,7 @@ func TestSupervisorFlushBoundReportsRatherThanUnwinds(t *testing.T) {
 	sup := newTestSupervisor(fr, 1, Duration(2*time.Second))
 	finished := make(chan struct{})
 	var didWork atomic.Bool
-	_ = SupervisorSpawn(fr, sup, func(taskFr *Frame) Unit {
+	_ = SupervisorSpawn(fr, Site{}, sup, func(taskFr *Frame) Unit {
 		TimerSleep(taskFr, Duration(60*time.Millisecond))
 		didWork.Store(true)
 		close(finished)
@@ -310,7 +310,7 @@ func TestSupervisorFlushOfAnIdleSupervisorIsFlushed(t *testing.T) {
 	defer done()
 
 	sup := newTestSupervisor(fr, 1, Duration(time.Second))
-	_ = SupervisorSpawn(fr, sup, func(*Frame) Unit { return Unit{} })
+	_ = SupervisorSpawn(fr, Site{}, sup, func(*Frame) Unit { return Unit{} })
 	if out := SupervisorFlushBounded(fr, sup, Wait{Tag: TagForever}); out.Tag != TagFlushed {
 		t.Fatalf("an unbounded flush reported tag %d, want Flushed", out.Tag)
 	}
@@ -343,7 +343,7 @@ func TestSupervisorDrainIsAGracePeriodNotAnUnwindWindow(t *testing.T) {
 		defer done()
 		sup := newTestSupervisor(fr, 1, Duration(3*time.Second))
 		var completed atomic.Bool
-		_ = SupervisorSpawn(fr, sup, func(taskFr *Frame) Unit {
+		_ = SupervisorSpawn(fr, Site{}, sup, func(taskFr *Frame) Unit {
 			TimerSleep(taskFr, Duration(40*time.Millisecond))
 			completed.Store(true)
 			return Unit{}
@@ -362,7 +362,7 @@ func TestSupervisorDrainIsAGracePeriodNotAnUnwindWindow(t *testing.T) {
 		sup := newTestSupervisor(fr, 1, Duration(10*time.Millisecond))
 		started := make(chan struct{})
 		var completed atomic.Bool
-		_ = SupervisorSpawn(fr, sup, func(taskFr *Frame) Unit {
+		_ = SupervisorSpawn(fr, Site{}, sup, func(taskFr *Frame) Unit {
 			close(started)
 			TimerSleep(taskFr, Duration(3*time.Second))
 			completed.Store(true)
@@ -427,7 +427,7 @@ func TestSupervisorRestartDispositions(t *testing.T) {
 				Backoff{Tag: TagExponential, MaxRestarts: SmallInt(1), MaxElapsed: BackoffDefaultMaxElapsed},
 				GiveUp{Tag: TagReport})
 
-			h := SupervisorSpawn(fr, sup, func(*Frame) Unit {
+			h := SupervisorSpawn(fr, Site{}, sup, func(*Frame) Unit {
 				runs.Add(1)
 				if c.fail {
 					Trap("deliberate")
@@ -461,7 +461,7 @@ func TestSupervisorPermanentReturnIsReportedAsAFailure(t *testing.T) {
 		Restart{Tag: TagPermanent},
 		Backoff{Tag: TagExponential, MaxRestarts: SmallInt(0), MaxElapsed: BackoffDefaultMaxElapsed},
 		GiveUp{Tag: TagReport})
-	h := SupervisorSpawn(fr, sup, func(*Frame) Unit { return Unit{} })
+	h := SupervisorSpawn(fr, Site{}, sup, func(*Frame) Unit { return Unit{} })
 	if out := SupervisorFlushBounded(fr, sup, Wait{Tag: TagForever}); out.Tag != TagFlushed {
 		t.Fatalf("flush did not complete: tag %d", out.Tag)
 	}
@@ -496,7 +496,7 @@ func TestSupervisorCancelledTaskIsNotAFailure(t *testing.T) {
 	var runs atomic.Int64
 	entered := make(chan struct{})
 	var once sync.Once
-	h := SupervisorSpawn(fr, sup, func(taskFr *Frame) Unit {
+	h := SupervisorSpawn(fr, Site{}, sup, func(taskFr *Frame) Unit {
 		runs.Add(1)
 		once.Do(func() { close(entered) })
 		TimerSleep(taskFr, Duration(30*time.Second))
@@ -507,7 +507,7 @@ func TestSupervisorCancelledTaskIsNotAFailure(t *testing.T) {
 	if out := SupervisorFlushBounded(fr, sup, Wait{Tag: TagForever}); out.Tag != TagFlushed {
 		t.Fatalf("flush did not complete after the cancel: tag %d", out.Tag)
 	}
-	if got := TaskOutcomeOf(fr, h); got.Tag != TagCancelled {
+	if got := TaskOutcomeOf(fr, Site{}, h); got.Tag != TagCancelled {
 		t.Errorf("outcome is tag %d, want Cancelled(%d)", got.Tag, TagCancelled)
 	}
 	if got := runs.Load(); got != 1 {
@@ -525,7 +525,7 @@ func TestSupervisorSpawnAllRunsOnePerItem(t *testing.T) {
 	var mu sync.Mutex
 	seen := map[int64]bool{}
 	source := ListSeq(listFromSlice([]int64{10, 20, 30}))
-	handles := SupervisorSpawnAll(fr, sup, source, func(_ *Frame, n int64) Unit {
+	handles := SupervisorSpawnAll(fr, Site{}, sup, source, func(_ *Frame, n int64) Unit {
 		mu.Lock()
 		seen[n] = true
 		mu.Unlock()
@@ -561,7 +561,7 @@ func TestSupervisorGiveUpExitRecordsRatherThanExits(t *testing.T) {
 			Restart{Tag: TagTemporary},
 			Backoff{Tag: TagExponential, MaxRestarts: SmallInt(0), MaxElapsed: BackoffDefaultMaxElapsed},
 			GiveUp{Tag: giveUp})
-		_ = SupervisorSpawn(fr, sup, func(*Frame) Unit {
+		_ = SupervisorSpawn(fr, Site{}, sup, func(*Frame) Unit {
 			Trap("the downstream is gone")
 			return Unit{}
 		})
@@ -662,8 +662,8 @@ func TestSupervisorClassifiesLikeTaskSpawn(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			// The block path.
 			blockFr := EnterScope(NewFrame(context.Background()))
-			h := TaskSpawn(blockFr, c.body)
-			ScopeExit(blockFr)
+			h := TaskSpawn(blockFr, Site{}, c.body)
+			ScopeExit(blockFr, Site{})
 			blockOutcome := h.t.tag
 			blockFail := h.t.fail
 
@@ -671,7 +671,7 @@ func TestSupervisorClassifiesLikeTaskSpawn(t *testing.T) {
 			fr, done := supervisorFixture(t)
 			defer done()
 			sup := newTestSupervisor(fr, 1, Duration(time.Second))
-			sh := SupervisorSpawn(fr, sup, c.body)
+			sh := SupervisorSpawn(fr, Site{}, sup, c.body)
 			if out := SupervisorFlushBounded(fr, sup, Wait{Tag: TagForever}); out.Tag != TagFlushed {
 				t.Fatalf("flush did not complete: tag %d", out.Tag)
 			}
@@ -693,7 +693,7 @@ func TestSupervisorClassifiesLikeTaskSpawn(t *testing.T) {
 // A permanent worker parked on an empty inbox never finishes, so the WaitGroup
 // never closes and the drain would spend its full budget on every clean
 // shutdown. The settle check ends it once every running task is parked with no
-// scheduled wake — which is what `SupervisedPark` in channel.go reports.
+// scheduled wake — which the task registry records (rt/deadlock.go).
 //
 // A worker sleeping rather than parked is the other case: a timer has a
 // scheduled wake, so work is genuinely still coming and the budget must be
@@ -710,16 +710,16 @@ func TestSupervisorDrainSettlesAPermanentWorkerEarly(t *testing.T) {
 	ch := ChannelBuffered[int64](1)
 	parked := make(chan struct{})
 	var once sync.Once
-	_ = SupervisorSpawn(fr, sup, func(taskFr *Frame) Unit {
+	_ = SupervisorSpawn(fr, Site{}, sup, func(taskFr *Frame) Unit {
 		once.Do(func() { close(parked) })
 		// Blocks forever: nothing ever sends, and nothing closes it.
-		_ = ReceiverReceive(taskFr, ch.Receiver)
+		_ = ReceiverReceive(taskFr, Site{}, ch.Receiver)
 		return Unit{}
 	})
 	<-parked
 	// The park is recorded once the receive has actually blocked, which is
 	// after `parked` closes. A short wait rather than a synchronisation point,
-	// because the tracker is deliberately not observable from outside rt.
+	// because the registry is deliberately not observable from outside rt.
 	time.Sleep(20 * time.Millisecond)
 
 	begin := time.Now()
@@ -759,7 +759,7 @@ func TestOnDrain_RunsBeforeTheGracePeriod(t *testing.T) {
 	defer cleanup()
 	sup := newTestSupervisor(fr, 1, Duration(3*time.Second))
 	release := make(chan struct{})
-	SupervisorSpawn(fr, sup, func(*Frame) Unit { <-release; return Unit{} })
+	SupervisorSpawn(fr, Site{}, sup, func(*Frame) Unit { <-release; return Unit{} })
 
 	hooked := make(chan struct{})
 	OnDrain(func() { close(hooked); close(release) })
@@ -799,8 +799,8 @@ func TestSenderCloseOnDrain_EndsAParkedReaderAtTheDrain(t *testing.T) {
 	drained := ChannelBuffered[Int](1)
 	SenderCloseOnDrain(drained.Sender)
 	ended := make(chan struct{})
-	SupervisorSpawn(fr, sup, func(f *Frame) Unit {
-		for ReceiverReceive(f, drained.Receiver).Tag == TagSome {
+	SupervisorSpawn(fr, Site{}, sup, func(f *Frame) Unit {
+		for ReceiverReceive(f, Site{}, drained.Receiver).Tag == TagSome {
 		}
 		close(ended)
 		return Unit{}
@@ -824,7 +824,7 @@ func TestSenderCloseOnDrain_EndsAParkedReaderAtTheDrain(t *testing.T) {
 
 	late := ChannelBuffered[Int](1)
 	SenderCloseOnDrain(late.Sender) // registered after the drain: closes at once
-	if ReceiverReceive(fr, late.Receiver).Tag == TagSome {
+	if ReceiverReceive(fr, Site{}, late.Receiver).Tag == TagSome {
 		t.Fatal("a channel registered after the drain began is still open")
 	}
 }

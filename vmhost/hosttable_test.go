@@ -47,7 +47,7 @@ func relativeFirstLine(err error, entry string) string {
 func writeHostProject(t *testing.T, files map[string]string) string {
 	t.Helper()
 	dir := t.TempDir()
-	files["nomi.toml"] = "[module]\nname = \"app\"\n"
+	files["nomi.toml"] = "[package]\nname = \"app\"\n"
 	writeFiles(t, dir, files)
 	return filepath.Join(dir, "main.nomi")
 }
@@ -512,7 +512,7 @@ end
 func TestHosts_FilesWithOneBaseNameHaveTheirOwnKeys(t *testing.T) {
 	dir := t.TempDir()
 	writeFiles(t, dir, map[string]string{
-		"app/nomi.toml": "[module]\nname = \"app\"\n\n[dependencies]\nlib = { dir = \"../lib\" }\n",
+		"app/nomi.toml": "[package]\nname = \"app\"\n\n[dependencies]\nlib = { dir = \"../lib\" }\n",
 		"app/main.nomi": `import
     a::util as au
     b::util as bu
@@ -525,7 +525,7 @@ end
 `,
 		"app/a/util.nomi":    "pub host fn greet(name: String) -> String\n",
 		"app/b/util.nomi":    "pub host fn greet(name: String) -> String\n",
-		"lib/nomi.toml":      "[module]\nname = \"lib\"\n",
+		"lib/nomi.toml":      "[package]\nname = \"lib\"\n",
 		"lib/sub/thing.nomi": "pub host fn ping() -> String\n",
 	})
 	answer := func(s string) hostadapt.Func {

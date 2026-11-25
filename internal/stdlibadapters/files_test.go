@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -265,8 +266,24 @@ func TestRtFuncs_FilesAndWithin(t *testing.T) {
 	}
 	// The metadata of a file whose times and mode were set: the kind, size,
 	// modification time and mode exactly, then the access time set, and the
-	// fields past it each there or None as the system keeps them
-	// (stdio's TestMetadata_AgreesWithGoStat holds their values).
+	// fields past it each there or None as the system keeps them, as
+	// Metadata's doc table says (on macOS and Linux stdio's
+	// TestMetadata_AgreesWithGoStat holds their values). The mode set is
+	// 0o640, and Windows keeps only the owner's write bit, so it reads
+	// back 0o666 there (fs.set_mode's doc).
+	mode := "416"
+	if runtime.GOOS == "windows" {
+		mode = "438"
+	}
+	// Each system's changed, created, links, device, inode, and owner's
+	// user and group, y where it keeps one. Linux has no creation time
+	// std::fs reads, and Windows no status change time and no numbered
+	// owner.
+	kept := map[string]string{
+		"darwin":  "yyyyyyy",
+		"linux":   "ynyyyyy",
+		"windows": "nyyyynn",
+	}[runtime.GOOS]
 	dated := dir + "/dated.txt"
 	if err := os.WriteFile(dated, []byte("1234567"), 0o644); err != nil {
 		t.Fatal(err)
@@ -280,8 +297,14 @@ func TestRtFuncs_FilesAndWithin(t *testing.T) {
 	for l := fields; l != nil; l = l.Tail {
 		got = append(got, text(l.Head))
 	}
-	if len(got) != 12 || strings.Join(got[:5], ", ") != strings.Join([]string{some("0"), some("7"), some("1700000000000000000"), some("416"), some("1600000000000000000")}, ", ") {
+	if len(got) != 12 || strings.Join(got[:5], ", ") != strings.Join([]string{some("0"), some("7"), some("1700000000000000000"), some(mode), some("1600000000000000000")}, ", ") {
 		t.Errorf("metadata of dated.txt answered %v", got)
+	} else if kept != "" {
+		for i, k := range kept {
+			if (got[5+i] != "option.Option/4.None{}") != (k == 'y') {
+				t.Errorf("metadata of dated.txt answered %s for field %d on %s, want one there = %v", got[5+i], 5+i, runtime.GOOS, k == 'y')
+			}
+		}
 	}
 	// A hard link, the disk's usage, the owner set to the one the file has,
 	// touch and the owner's name, each through the crossing.

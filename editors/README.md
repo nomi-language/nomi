@@ -23,10 +23,10 @@ installed is skipped; `make dev-nvim`, `make dev-helix` and `make dev-zed` run
 one.
 
 Every editor starts the language server as `nomi lsp`, from the `nomi` on
-PATH, and sends a module's `nomi.toml` to it beside the `.nomi` files, and keeps its own TOML highlighting for it: Zed sends every TOML
+PATH, and sends a package's `nomi.toml` to it beside the `.nomi` files, and keeps its own TOML highlighting for it: Zed sends every TOML
 buffer, VS Code's client and Neovim's `root_dir` select `nomi.toml` by name,
 and Helix's `nomi-catalog` language, over Helix's TOML grammar, globs it.
-The server answers only a `nomi.toml` and a module's phrase catalogs.
+The server answers only a `nomi.toml` and a package's phrase catalogs.
 
 The `post-merge` hook (`make enable-hooks`) runs the parts of that a merge
 changed. It acts only on `main`, or on the branches listed in

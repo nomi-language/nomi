@@ -1,4 +1,4 @@
-[module]
+[package]
 name = "sqlite"
 
 # The driver's public functions have these effects: its engine is a

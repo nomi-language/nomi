@@ -163,10 +163,15 @@ pub enum Error
     TooManyOpen
     /// The stream was already closed, by the program or by what it reads,
     /// as a request body an HTTP server discarded once the response
-    /// started.
+    /// started, or takes no more: a response body past the length its
+    /// `Content-Length` declared, or one its status gives none. The task
+    /// waiting on it being stopped closes it too.
     Closed
     /// The reader at the other end of a pipe has gone, as with `| head`.
     BrokenPipe
+    /// The other end of the stream at `path` ended it with an error before
+    /// it finished: it reset the connection, or it sent a TLS alert.
+    Reset {path: String}
     /// The operation passed its deadline.
     TimedOut
     /// The target the program runs on cannot do `operation`, as
@@ -227,6 +232,9 @@ impl Display for Error
 
             Error.BrokenPipe ->
                 "broken pipe"
+
+            Error.Reset{path:} ->
+                "${path}: reset by the other end"
 
             Error.TimedOut ->
                 "timed out"

@@ -237,14 +237,18 @@
 // SO_REUSEPORT and Unix datagram sockets, a TTL on a Unix socket) is
 // `net.Error.Unsupported`.
 //
-// `net.Error` sorts Go errors by the errno they carry as stdio.Errno reads
+// `net.Error` sorts Go errors by the errno they carry as rt.Errno reads
 // it, which names a Windows code by the Unix errno for the same failure,
 // so a refused or reset connection is the same variant on every system.
 // A read or write of a stream this package makes (a connection, a request
 // or response body, a chunked body, a part) fails with the `io.Error`
-// streamFailure gives: it names the errors of net/http and net (a body the
-// server closed, a hijacked response and a closed connection are
-// `Closed`) and hands every other to stdio.Classify.
+// streamFailure gives: it names the errors of net/http, net and crypto/tls
+// (a body the server closed, a hijacked response and a closed connection
+// are `Closed`, an alert the TLS peer sent is `Reset`, a TLS record that
+// does not decode is `Corrupt`) and hands every other to rt.IOErrorOf,
+// the table every stream's failure is sorted by. A stream that decodes
+// another Nomi stream (a chunked body, a part) answers `Corrupt` for what
+// its decoder refuses (decodedFailure).
 //
 // `dial_with`, `tls_dial`, `udp_dial` and `lookup` carry the `connect`
 // class and `net_listen_with`, `tls_listen`, `udp_bind`,

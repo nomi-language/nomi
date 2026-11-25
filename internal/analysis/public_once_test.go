@@ -3,7 +3,7 @@ package analysis
 import "testing"
 
 // An unannotated `pub once` exposes its value's type as an annotated one
-// does, so a private type or a type declared inside a body in it is the
+// does, so an internal type or a type declared inside a body in it is the
 // visibility error the annotation would get.
 func TestCheck_PublicOnceInferredTypeVisibility(t *testing.T) {
 	_, errs := checkSource(`
@@ -24,9 +24,9 @@ pub once boxes = begin
     [Box{inner: 1}]
 end
 `)
-	expectErrorCount(t, errs, "public once binding exposes private type Hidden", 1)
+	expectErrorCount(t, errs, "public once binding exposes internal type Hidden", 1)
 	expectErrorCount(t, errs, "public once binding exposes private type Box, which is declared inside a body", 1)
-	expectErrorCount(t, errs, "exposes private type", 2)
+	expectErrorCount(t, errs, " exposes ", 2)
 }
 
 // Each interface of a conjunction the inferred type holds is checked, as a
@@ -84,14 +84,14 @@ pub once boxed = Box{v: one()}
 		got = append(got, e.Message)
 	}
 	want := []string{
-		"public once binding exposes private type Hidden",
-		"public once binding exposes private type Hidden",
-		"public once binding exposes private type Named",
-		"public once binding exposes private type Hidden",
-		"public once binding exposes private type Named",
-		"public once binding exposes private type Hidden",
-		"public once binding exposes private type Hidden",
-		"public once binding exposes private type Box",
+		"public once binding exposes internal type Hidden",
+		"public once binding exposes internal type Hidden",
+		"public once binding exposes internal type Named",
+		"public once binding exposes internal type Hidden",
+		"public once binding exposes internal type Named",
+		"public once binding exposes internal type Hidden",
+		"public once binding exposes internal type Hidden",
+		"public once binding exposes internal type Box",
 	}
 	if len(got) != len(want) {
 		t.Fatalf("got %d errors, want %d:\n%v", len(got), len(want), got)

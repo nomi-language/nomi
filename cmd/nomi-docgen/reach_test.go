@@ -2,6 +2,7 @@ package main
 
 import (
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
@@ -94,8 +95,9 @@ func TestReferenceMarksFunctionsWithEffects(t *testing.T) {
 // std/compiler's hosts mark as an effect (vm.EffectCrossings) is marked
 // on its module's page when the page documents it (a module's private
 // host functions, such as random's `os_state`, are not on it), and the
-// page's overview says its functions have effects. A crossing a `host`
-// module declares is its parent module's.
+// page's overview says its functions have effects. A crossing a nested
+// module's page does not document (std's plumbing, `fs::host` or
+// `money::format`, which declares nothing public) is its parent module's.
 func TestReferenceMarksEveryEffectCrossing(t *testing.T) {
 	keys := vm.EffectCrossings()
 	for _, key := range compilerhosts.Names() {
@@ -104,15 +106,30 @@ func TestReferenceMarksEveryEffectCrossing(t *testing.T) {
 		}
 	}
 	lib := std.Load()
-	pages := map[string][]referenceEntry{}
-	marked := 0
-	for key, declaredIn := range keys {
-		module := strings.TrimSuffix(declaredIn, "::host")
-		qualified := strings.TrimPrefix(key, strings.ReplaceAll(declaredIn, "::", "/")+".")
+	// crossing is the owner and name the crossing qualified, declared in
+	// module, has on module's page.
+	crossing := func(module, qualified string) (string, string) {
 		owner, name, typed := strings.Cut(qualified, ".")
 		if !typed {
 			owner, name = module[strings.LastIndex(module, ":")+1:], qualified
 		}
+		return owner, name
+	}
+	documents := func(module, qualified string) bool {
+		owner, name := crossing(module, qualified)
+		return slices.ContainsFunc(referenceEntries(renderModuleWithLinks(lib, strings.ReplaceAll(module, "::", "/"), nil)), func(e referenceEntry) bool {
+			return e.owner == owner && e.name == name
+		})
+	}
+	pages := map[string][]referenceEntry{}
+	marked := 0
+	for key, declaredIn := range keys {
+		qualified := strings.TrimPrefix(key, strings.ReplaceAll(declaredIn, "::", "/")+".")
+		module := declaredIn
+		for strings.Contains(module, "::") && !documents(module, qualified) {
+			module = module[:strings.LastIndex(module, "::")]
+		}
+		owner, name := crossing(module, qualified)
 		entries, ok := pages[module]
 		if !ok {
 			page := renderModuleWithLinks(lib, strings.ReplaceAll(module, "::", "/"), nil)

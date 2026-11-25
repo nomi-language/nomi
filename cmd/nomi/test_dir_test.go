@@ -6,13 +6,13 @@ import (
 	"testing"
 )
 
-// A test file's std/fs calls take a relative path under its module root,
+// A test file's std/fs calls take a relative path under its package root,
 // the directory of the nearest nomi.toml, wherever `nomi test` runs: from
-// the module root, from above it, and on one file of a subdirectory.
-func TestTestCommand_RelativePathsAreUnderTheModuleRoot(t *testing.T) {
+// the package root, from above it, and on one file of a subdirectory.
+func TestTestCommand_RelativePathsAreUnderThePackageRoot(t *testing.T) {
 	outer := t.TempDir()
 	root := filepath.Join(outer, "app")
-	mustWrite(t, filepath.Join(root, "nomi.toml"), "[module]\nname = \"app\"\n")
+	mustWrite(t, filepath.Join(root, "nomi.toml"), "[package]\nname = \"app\"\n")
 	mustWrite(t, filepath.Join(root, "data", "greeting.txt"), "hello\n")
 	test := `import std::fs
 
@@ -38,20 +38,20 @@ end
 	}
 }
 
-// A partner test in a subdirectory calls its file's private functions
+// A test file in a subdirectory calls another file's internal functions
 // through the module name, one with a default left out included, whether
 // `nomi test` runs on the directory or on the test file alone, which is
 // then the entry and keyed by its name rather than its path.
-func TestTestCommand_ANestedPartnerTestCallsPrivateFunctions(t *testing.T) {
+func TestTestCommand_ANestedTestFileCallsInternalFunctions(t *testing.T) {
 	root := t.TempDir()
-	mustWrite(t, filepath.Join(root, "nomi.toml"), "[module]\nname = \"app\"\n")
+	mustWrite(t, filepath.Join(root, "nomi.toml"), "[package]\nname = \"app\"\n")
 	mustWrite(t, filepath.Join(root, "views", "post.nomi"), `fn classes(n: Int, prefix: String = "c") -> String
     "${prefix}${n}"
 end
 `)
 	mustWrite(t, filepath.Join(root, "views", "post_test.nomi"), `import views::post
 
-test "a partner test calls a private function"
+test "a test file calls an internal function"
     assert post.classes(1) == "c1"
     assert post.classes(2, prefix: "x") == "x2"
 end

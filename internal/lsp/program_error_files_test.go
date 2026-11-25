@@ -96,8 +96,8 @@ func TestOrphanImplInAnImportedFileIsPublishedOnThatFile(t *testing.T) {
 	t.Run("unopened", func(t *testing.T) {
 		root := writeProject(t, files)
 		s, published := recordingServer()
-		s.docs.SetWorkspaceRoot(root)
-		s.scanWorkspace()
+		s.docs.SetEditorFolder(root)
+		s.scanEditorFolder()
 		waitClosedDiagnostics(t, s, time.Minute)
 		pubs := published()
 		mainURI, childURI := pathToURI(filepath.Join(root, "main.nomi")), pathToURI(filepath.Join(root, "child.nomi"))
@@ -115,7 +115,7 @@ func TestOrphanImplInAnImportedFileIsPublishedOnThatFile(t *testing.T) {
 // orphan impl in it once; neither entry shows it.
 func TestOrphanImplInAFileTwoEntriesReachIsPublishedOnce(t *testing.T) {
 	files := map[string]string{
-		"nomi.toml":  "[module]\nname = \"app\"\nentry_points = [\"main\", \"tool\"]\n",
+		"nomi.toml":  "[package]\nname = \"app\"\nentry_points = [\"main\", \"tool\"]\n",
 		"main.nomi":  orphanMain,
 		"tool.nomi":  orphanMain,
 		"child.nomi": orphanChild,
@@ -137,9 +137,9 @@ func TestOrphanImplInAFileTwoEntriesReachIsPublishedOnce(t *testing.T) {
 // is checked as its own module's, and not on the entry that imports it.
 func TestOrphanImplInAnotherModuleIsPublishedOnItsFile(t *testing.T) {
 	files := map[string]string{
-		"app/nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[dependencies]\nfx = { dir = \"../fx\" }\n",
+		"app/nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[dependencies]\nfx = { dir = \"../fx\" }\n",
 		"app/main.nomi": "import\n    std::io\n    fx::rate.Rate\nend\n\nfn main()\n    io.inspect(Rate{per_unit: 4})\nend\n",
-		"fx/nomi.toml":  "[module]\nname = \"fx\"\n",
+		"fx/nomi.toml":  "[package]\nname = \"fx\"\n",
 		"fx/rate.nomi":  strings.Replace(orphanChild, "Box {\n    n: Int", "Rate {\n    per_unit: Int", 1),
 	}
 	s, mainURI := openProject(t, files, "app/main.nomi")

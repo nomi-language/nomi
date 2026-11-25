@@ -127,7 +127,7 @@ func WithHosts(tables ...HostTable) Option {
 // hold it to nomi.toml's lists. The project's own [effects] tables
 // still apply, so the program must satisfy both: neither list widens the
 // other, and an entry under [effects.self.modules] or
-// [effects.deps.modules] still holds that module's calls.
+// [effects.deps.packages] still holds that module's calls.
 //
 // It does not confine what it cannot see:
 //
@@ -174,7 +174,7 @@ func WithVirtualData(files map[string]string) Option {
 type Manifest = analysis.Manifest
 
 // WithVirtualManifest stages a nomi.toml for an in-memory program, so the
-// manifest's checks (entry_points, internal/ access, the orphan rule) apply.
+// manifest's checks (entry_points, the orphan rule) apply.
 func WithVirtualManifest(m *Manifest) Option {
 	return func(c *config) { c.manifest = m }
 }
@@ -581,24 +581,27 @@ func LoadStdlib(path string) (*Program, error) {
 		if err := frontend.StdlibErrors(); err != nil {
 			return nil, err
 		}
-		return loadStdlib(module, nil, nil, irbuild.GenerateStdlibTestIR)
+		return loadStdlib(module, func(hooks irbuild.DeclineHooks) (*irbuild.Program, *irbuild.Result, error) {
+			return irbuild.GenerateStdlibTestIR(module, hooks)
+		})
 	}
-	nodes, fa, err := checkStdlibSource(frontend.Config{}, module, string(src), frontend.Mode{Tests: true})
-	if err != nil {
-		return nil, err
-	}
-	return loadStdlib(module, nodes, fa, irbuild.GenerateEditedStdlibTestIR)
+	return LoadStdlibSource(module, string(src))
 }
 
-// LoadStdlibSource is LoadStdlib for a stdlib module's source as edited: the
-// tour's reference editors append one `test` to the module and run it. The
-// source is checked as `nomi test` checks a stdlib file.
+// LoadStdlibSource is LoadStdlib for a stdlib module's source as edited, as
+// `nomi test` runs an edited stdlib file: the source is checked, the
+// module's own bodies are lowered from it, and its cases call those
+// (irbuild.GenerateEditedStdlibTestIR). A reference editor whose edit is
+// more than one test runs through here (StdlibReference).
 func LoadStdlibSource(module, src string) (*Program, error) {
 	nodes, fa, err := checkStdlibSource(frontend.Config{}, module, src, frontend.Mode{Tests: true})
 	if err != nil {
 		return nil, err
 	}
-	return loadStdlib(strings.TrimSuffix(strings.TrimPrefix(module, "std/"), ".nomi"), nodes, fa, irbuild.GenerateStdlibTestIR)
+	module = strings.TrimSuffix(strings.TrimPrefix(module, "std/"), ".nomi")
+	return loadStdlib(module, func(hooks irbuild.DeclineHooks) (*irbuild.Program, *irbuild.Result, error) {
+		return irbuild.GenerateEditedStdlibTestIR(module, nodes, fa, hooks)
+	})
 }
 
 // LoadEmbeddedStdlib is LoadStdlib for the embedded stdlib module named
@@ -613,7 +616,9 @@ func LoadEmbeddedStdlib(module string) (*Program, error) {
 	if err := frontend.StdlibErrors(); err != nil {
 		return nil, err
 	}
-	return loadStdlib(module, nil, nil, irbuild.GenerateStdlibTestIR)
+	return loadStdlib(module, func(hooks irbuild.DeclineHooks) (*irbuild.Program, *irbuild.Result, error) {
+		return irbuild.GenerateStdlibTestIR(module, hooks)
+	})
 }
 
 // StdlibReference runs one of the tour's stdlib reference editors: body, with
@@ -646,7 +651,7 @@ func StdlibReference(module, body, context string, out io.Writer) ([]CaseResult,
 	var p *Program
 	if ok {
 		defer restore()
-		p, err = loadStdlib(module, nil, nil, func(_ string, _ []ast.Node, _ *analysis.FileAnalysis, hooks irbuild.DeclineHooks) (*irbuild.Program, *irbuild.Result, error) {
+		p, err = loadStdlib(module, func(hooks irbuild.DeclineHooks) (*irbuild.Program, *irbuild.Result, error) {
 			return irbuild.GenerateStdlibReferenceIR(module, test, fa, hooks)
 		})
 	} else {
@@ -699,8 +704,7 @@ func indentLines(s, prefix string) string {
 	return strings.Join(lines, "\n")
 }
 
-func loadStdlib(module string, nodes []ast.Node, fa *analysis.FileAnalysis,
-	generate func(string, []ast.Node, *analysis.FileAnalysis, irbuild.DeclineHooks) (*irbuild.Program, *irbuild.Result, error)) (*Program, error) {
+func loadStdlib(module string, generate func(irbuild.DeclineHooks) (*irbuild.Program, *irbuild.Result, error)) (*Program, error) {
 	lowering.Lock()
 	declines := map[string]string{}
 	var details []*irbuild.Decline
@@ -712,7 +716,7 @@ func loadStdlib(module string, nodes []ast.Node, fa *analysis.FileAnalysis,
 		// Deferred, as lower's are, so a producer panic does not leave every
 		// later load waiting on the lock.
 		defer lowering.Unlock()
-		return generate(module, nodes, fa, hooks)
+		return generate(hooks)
 	}()
 	if err != nil {
 		return nil, err

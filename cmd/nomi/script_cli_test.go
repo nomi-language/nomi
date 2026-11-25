@@ -137,7 +137,7 @@ func TestScriptMode_ExtensionlessScriptIsRootedAtItsDirectory(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	mod := t.TempDir()
-	mustWrite(t, filepath.Join(mod, "nomi.toml"), "[module]\nname = \"m\"\nentry_points = [\"main\"]\n")
+	mustWrite(t, filepath.Join(mod, "nomi.toml"), "[package]\nname = \"m\"\nentry_points = [\"main\"]\n")
 	mustWrite(t, filepath.Join(mod, "main.nomi"), "fn main() end\n")
 	body := "#!/usr/bin/env nomi\nimport std::io\n\nfn main()\n    io.print(\"deploy\")\nend\n"
 	mustWrite(t, filepath.Join(mod, "scripts", "deploy"), body)

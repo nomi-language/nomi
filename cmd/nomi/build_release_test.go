@@ -187,7 +187,7 @@ func releaseBuild(t *testing.T) fakeReleaseBuild {
 
 // releaseEnv is an installed machine's environment: no Go on PATH, nothing
 // inherited, an isolated cache, and a release nothing answers unless extra
-// names one in NOMI_RELEASE_BASE_URL. A module fetched into the module cache
+// names one in NOMI_RELEASE_BASE_URL. A package fetched into the package cache
 // under HOME stays writable (-modcacherw), so the test's temporary
 // directory can be removed.
 func releaseEnv(t *testing.T, cacheRoot string, extra ...string) []string {

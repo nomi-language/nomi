@@ -241,7 +241,7 @@ fn main()
     io.print(size(Client.get(small, Url.join_path(base, ["plain"]))))
     io.print(size(http.get(Url.join_path(base, ["past"]))))
     io.print(size(http.get(Url.join_path(base, ["mega"]))))
-    raised = {..small, options: {.., max_body: Some(1_048_576)}}
+    raised = Client.with_max_body(small, Some(1_048_576))
     io.print(size(Client.get(raised, Url.join_path(base, ["mega"]))))
     unlimited = Client.new(ClientOptions{max_body: None})
     io.print(size(Client.get(unlimited, Url.join_path(base, ["past"]))))

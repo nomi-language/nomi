@@ -133,7 +133,7 @@ func storedCorpusProjects(tb testing.TB) []storedProject {
 // open, each analyzed.
 func openServer(p storedProject, keys []string) *Server {
 	s := NewServer()
-	s.docs.SetWorkspaceRoot(p.dir)
+	s.docs.SetEditorFolder(p.dir)
 	for _, key := range keys {
 		text, err := os.ReadFile(fileuri.ToPath(p.uri(key)))
 		if err != nil {
@@ -465,7 +465,7 @@ func TestOpenFromRecordMatchesAFullCheck(t *testing.T) {
 	// machine through another, so hovers on such calls are compared.
 	reaching := t.TempDir()
 	for name, text := range map[string]string{
-		"nomi.toml":  "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+		"nomi.toml":  "[package]\nname = \"app\"\nentry_points = [\"main\"]\n",
 		"main.nomi":  "import\n    std::io\n    store\nend\n\nfn main()\n    io.print(store.load(\"notes.txt\"))\nend\n",
 		"store.nomi": "import std::fs\n\npub fn load(path: String) -> String\n    read(path) |> String.trim()\nend\n\nfn read(path: String) -> String\n    fs.read_text(path) |> Result.with_default(\"\")\nend\n",
 	} {

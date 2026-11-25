@@ -911,6 +911,7 @@ fn io_code(error: io.Error) -> String
         .TooManyOpen         -> "TooManyOpen"
         .Closed              -> "Closed"
         .BrokenPipe          -> "BrokenPipe"
+        .Reset{}             -> "Reset"
         .TimedOut            -> "TimedOut"
         .Unsupported{}       -> "Unsupported"
         .Other{}             -> "Other"

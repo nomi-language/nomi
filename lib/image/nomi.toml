@@ -1,4 +1,4 @@
-[module]
+[package]
 name = "image"
 
 # The module's public functions have no effects: each call runs its engine

@@ -5,8 +5,20 @@ import (
 	"runtime"
 	"runtime/metrics"
 
+	"github.com/nomi-language/nomi/internal/buildversion"
 	"github.com/nomi-language/nomi/rt"
 )
+
+// NomiRelease is std/system/host's `nomi_release`: the release the binary
+// running the program was built as (buildversion.Release, the version
+// std/http's client names in its User-Agent), or None for a build from
+// source, which is no release.
+func NomiRelease() rt.Option[string] {
+	if v := buildversion.Release(); v != "" {
+		return rt.Some(v)
+	}
+	return rt.None[string]()
+}
 
 // OS is std/system/host's `os`: Go's name for the operating system the
 // program runs on (`linux`, `darwin`, `windows`, `js`, `wasip1`).

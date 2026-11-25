@@ -208,10 +208,10 @@ func (g *gen) stdProgBinds(d *ifaceDef, k kind, kt analysis.Type) bool {
 		g.stdProgHeld[d][k] = true
 		return true
 	}
-	impl := g.implsByIface[g.implsKey(d)][k]
+	impl := g.implAt(g.implsKey(d), k)
 	if impl == nil || impl.stdIface != d {
 		impl = nil
-		for _, cand := range g.instImpls[g.implsKey(d)][k] {
+		for _, cand := range g.instImplsAt(g.implsKey(d), k) {
 			if cand.stdIface == d {
 				impl = cand
 			}

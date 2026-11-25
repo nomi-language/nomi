@@ -676,6 +676,46 @@ func (k SeqKind) String() string {
 	return "list"
 }
 
+// Visibility is where a declaration may be named from (spec §14
+// *Visibility*). The zero value is Internal, the level of a declaration
+// written with no modifier.
+type Visibility uint8
+
+const (
+	// Internal: every file of the declaration's module. No modifier.
+	Internal Visibility = iota
+	// Public: every file of every module. Written `pub`.
+	Public
+	// Private: the declaring file alone. Written `private`.
+	Private
+)
+
+// Visibilities is every Visibility, in declaration order.
+var Visibilities = []Visibility{Internal, Public, Private}
+
+// Keyword is the modifier that spells v: "pub", "private", or "" for
+// Internal, which has none.
+func (v Visibility) Keyword() string {
+	switch v {
+	case Public:
+		return "pub"
+	case Private:
+		return "private"
+	}
+	return ""
+}
+
+// String names the level: "public", "internal" or "private".
+func (v Visibility) String() string {
+	switch v {
+	case Public:
+		return "public"
+	case Private:
+		return "private"
+	}
+	return "internal"
+}
+
 // ListLit is a bracket literal: `[item, item, ...]`, with spreads anywhere
 // among its items (`[x, ..xs]`, `[..a, y, ..b]`), or naming the type it
 // builds, `Ids[1, 2]`, `Path[1, 2]`, `.Items[1]`, `Vector[1, 2]`. The
@@ -1456,9 +1496,9 @@ type StructDef struct {
 	AttachedTests []AttachedTest // prompt tests attached to this declaration
 	Decorators    []Decorator    // `derive` decorators the derive lowering adds; nil when none
 	Name          string
-	Public        bool
+	Visibility    Visibility
 	// Opaque is set when the parser saw `opaque` before `struct`. It marks
-	// the type as opaque per spec §4 *Opaque distinct types*: outside the owning module the
+	// the type as opaque per spec §4 *Opaque distinct types*: outside its file the
 	// type name is usable (signatures, generic args) but the field set is
 	// hidden — no `Name{...}` construction, no destructuring, no field
 	// access. The flag flows through to the symbol and StructType during
@@ -1601,9 +1641,9 @@ type EnumDef struct {
 	AttachedTests []AttachedTest // prompt tests attached to this declaration
 	Decorators    []Decorator    // `derive` decorators the derive lowering adds; nil when none
 	Name          string
-	Public        bool
+	Visibility    Visibility
 	// Opaque is set when the parser saw `opaque` before `enum`. It marks
-	// the type as opaque per spec §4 *Opaque distinct types*: outside the owning module the
+	// the type as opaque per spec §4 *Opaque distinct types*: outside its file the
 	// type name is usable (signatures, generic args) but the variant set
 	// is hidden — no construction of variants, no `case` destructuring,
 	// no payload access. The flag flows through to the symbol and EnumType
@@ -1648,7 +1688,7 @@ type TypeDef struct {
 	AttachedTests []AttachedTest // prompt tests attached to this declaration
 	Decorators    []Decorator    // `derive` decorators the derive lowering adds; nil when none
 	Name          string
-	Public        bool
+	Visibility    Visibility
 	Opaque        bool // true for `pub opaque type Name InnerType` — name exported, construction surface module-private. See spec §4, *Opaque distinct types*.
 	// TypeParams holds `<T, ...>` after the name (`type Tagged<T> (String, T)`),
 	// which the inner type may name; empty for a non-generic distinct.
@@ -1720,7 +1760,7 @@ type TypeAlias struct {
 	SpanCarrier
 	AttachedTests  []AttachedTest // prompt tests attached to this declaration
 	Name           string
-	Public         bool
+	Visibility     Visibility
 	TargetTypeExpr TypeExpr   // structured target type (single-type alias)
 	Bounds         []TypeExpr // bound list when RHS is `A and B` (bound alias)
 	// TypeParams holds `<T, ...>` after the name (`typealias Pair<T> (T,
@@ -2011,7 +2051,7 @@ type InterfaceDef struct {
 	SpanCarrier
 	AttachedTests []AttachedTest // prompt tests attached to this declaration
 	Name          string
-	Public        bool
+	Visibility    Visibility
 	TypeParams    []TypeParam
 	WhereClauses  []WhereConstraint
 	Methods       []InterfaceMethod
@@ -2422,7 +2462,7 @@ type OnceBinding struct {
 	SpanCarrier
 	AttachedTests  []AttachedTest // prompt tests attached to this declaration
 	Name           string
-	Public         bool
+	Visibility     Visibility
 	TypeAnnotation TypeExpr
 	Value          Node
 	Doc            string
@@ -2465,7 +2505,7 @@ type KeywordDecl struct {
 	SpanCarrier
 	Keyword         string
 	Name            string
-	Public          bool
+	Visibility      Visibility
 	HasParams       bool
 	Params          []Param
 	ParamsEndTrivia []Trivia // the comments in a parameter list with no parameter
@@ -2532,7 +2572,7 @@ func (n *KeywordDecl) BodyPosition(offset int) (line, col int) {
 // *Embedded files*). It is written by the keyword-declaration rule, and
 // the parser reads it into this node: Patterns are the body's patterns,
 // split at white space, each with its position. The front end resolves
-// them from the module root and expands the declaration
+// them from the package root and expands the declaration
 // into the `once` it names, whose value is an EmbeddedFiles
 // (analysis.ExpandDeclarations).
 //
@@ -2542,16 +2582,16 @@ func (n *KeywordDecl) BodyPosition(offset int) (line, col int) {
 type EmbedDecl struct {
 	TriviaCarrier
 	SpanCarrier
-	Name     string
-	Public   bool
-	Body     *StringLit
-	BodyCol  int
-	Patterns []EmbedPattern
-	Doc      string
-	Line     int
-	Col      int
-	NameLine int
-	NameCol  int
+	Name       string
+	Visibility Visibility
+	Body       *StringLit
+	BodyCol    int
+	Patterns   []EmbedPattern
+	Doc        string
+	Line       int
+	Col        int
+	NameLine   int
+	NameCol    int
 }
 
 func (*EmbedDecl) NodeType() string { return "EmbedDecl" }
@@ -2589,7 +2629,7 @@ func (*EmbeddedFiles) NodeType() string { return "EmbeddedFiles" }
 func (n *EmbeddedFiles) LineNum() int   { return n.Line }
 
 // EmbeddedFile is one embedded file: its slash-separated path from the
-// module root, where its contents are read from (Source: a path on disk,
+// package root, where its contents are read from (Source: a path on disk,
 // or a path in an in-memory program's data files), its size and the
 // SHA-256 of its contents in lowercase hex. The front end hashes the file
 // and keeps none of it: the program reads the contents when it reads the
@@ -2656,7 +2696,7 @@ type FuncDef struct {
 	AttachedTests []AttachedTest // prompt tests attached to this declaration
 	Decorators    []Decorator    // always nil: source has no decorators, and the derive lowering decorates types only
 	Name          string
-	Public        bool
+	Visibility    Visibility
 	// Export marks an `export fn`: a top-level function a host calls by
 	// name, with its arguments and result crossing as JSON. ExportLine and
 	// ExportCol are the `export` keyword's position.
@@ -2705,7 +2745,7 @@ type ExternFunc struct {
 	TriviaCarrier
 	SpanCarrier
 	Name            string
-	Public          bool
+	Visibility      Visibility
 	AttachedTests   []AttachedTest // prompt tests attached to this declaration
 	TypeParams      []TypeParam    // explicit `<T, U>` clause after the name; empty for the implicit-only form
 	Params          []Param
@@ -2747,7 +2787,7 @@ type ExternType struct {
 	TriviaCarrier
 	SpanCarrier
 	Name           string
-	Public         bool
+	Visibility     Visibility
 	TypeParams     []TypeParam
 	WhereClauses   []WhereConstraint
 	AttachedTests  []AttachedTest // prompt tests attached to this declaration

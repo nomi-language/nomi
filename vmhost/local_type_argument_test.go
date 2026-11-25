@@ -56,7 +56,7 @@ impl Multiply<Pct, Int> for Int
     end
 end
 // FILE: app/nomi.toml
-[module]
+[package]
 name = "app"
 entry_points = ["main"]
 
@@ -86,7 +86,7 @@ impl Contains<Rate> for String
     end
 end
 // FILE: fx/nomi.toml
-[module]
+[package]
 name = "fx"
 // FILE: shares/count.nomi
 pub struct Shares
@@ -99,7 +99,7 @@ impl Multiply<Shares, Decimal> for Decimal
     end
 end
 // FILE: shares/nomi.toml
-[module]
+[package]
 name = "shares"
 `
 

@@ -62,7 +62,7 @@ func TestQualifiedTypeName_ProgramInterfaceThroughItsModule(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	typeCycleRun(t, map[string]string{
-		"nomi.toml": "[module]\nname = \"held\"\nentry_points = [\"main\"]\n",
+		"nomi.toml": "[package]\nname = \"held\"\nentry_points = [\"main\"]\n",
 		"main.nomi": `import shapes
 import std::io
 

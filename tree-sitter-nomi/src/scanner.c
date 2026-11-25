@@ -38,9 +38,10 @@
 //   ATTACHED_TEST_PROMPT_GROUP_END — zero-width end of a contiguous `//!`
 //                                attached-test group.
 //   SAME_LINE                  — zero-width mark before a keyword's operand.
-//   SUBTESTS_KEYWORD, GROUP_KEYWORD, HOST_KEYWORD — the contextual keywords
-//                                `subtests`, `group` and `host`, each emitted
-//                                only where what follows makes it one.
+//   SUBTESTS_KEYWORD, GROUP_KEYWORD, HOST_KEYWORD, PRIVATE_KEYWORD — the
+//                                contextual keywords `subtests`, `group`,
+//                                `host` and `private`, each emitted only
+//                                where what follows makes it one.
 //   SUBTESTS_STAGE_KEYWORD     — the contextual keyword `subtests` as the
 //                                pipe stage `|> subtests pattern`.
 //   TODO_KEYWORD               — the contextual keyword `todo` before its
@@ -75,6 +76,10 @@ enum TokenType {
     // The contextual keyword `host` that opens a host declaration, emitted
     // only when `fn` or `type` follows it on its line (scan_host_keyword).
     HOST_KEYWORD,
+    // The contextual keyword `private` before a declaration, emitted only
+    // when a word that is not an operator follows it on its line
+    // (scan_private_keyword).
+    PRIVATE_KEYWORD,
     // The contextual keyword `subtests` after a `|>`, emitted only when a
     // pattern follows it after a space (scan_subtests_stage_keyword).
     SUBTESTS_STAGE_KEYWORD,
@@ -545,6 +550,35 @@ static bool scan_host_keyword(TSLexer *lexer) {
     return true;
 }
 
+// The contextual keyword `private`, at the lookahead where a declaration can
+// start. As in the Go parser (IsVisibilityModifier), the word is the
+// modifier only when a word follows it on its line that is not an operator
+// (`and`, `or`, `in`, `is`, `as`, `not`) or a lone `_`: `private fn
+// helper()`, `private host fn now() -> Int`. A `private` binding, parameter
+// or field (`private = 2`, `{private: True}`) leaves it an identifier. The
+// token ends after the word.
+static bool scan_private_keyword(TSLexer *lexer) {
+    if (!at_word(lexer, "private")) return false;
+    lexer->mark_end(lexer);
+    while (lexer->lookahead == ' ' || lexer->lookahead == '\t') advance(lexer);
+    int32_t c = lexer->lookahead;
+    if (!((c >= 'a' && c <= 'z') || c == '_')) return false;
+    char word[4];
+    int n = 0;
+    while (is_ident_char(lexer->lookahead)) {
+        if (n < 4) word[n] = (char)lexer->lookahead;
+        n++;
+        advance(lexer);
+    }
+    if (n == 1 && word[0] == '_') return false;
+    if (n == 2 && ((word[0] == 'o' && word[1] == 'r') || (word[0] == 'i' && (word[1] == 'n' || word[1] == 's')) ||
+                   (word[0] == 'a' && word[1] == 's'))) return false;
+    if (n == 3 && ((word[0] == 'a' && word[1] == 'n' && word[2] == 'd') ||
+                   (word[0] == 'n' && word[1] == 'o' && word[2] == 't'))) return false;
+    lexer->result_symbol = PRIVATE_KEYWORD;
+    return true;
+}
+
 // The contextual keyword `todo`, at the lookahead where an expression can
 // start, when its reason, a string, follows it on its line: `todo "parse
 // the header"`, `todo """...`, todo `raw`. A bare `todo` is left an
@@ -686,6 +720,10 @@ static bool scan_layout(Scanner *scanner, TSLexer *lexer, const bool *valid_symb
 
     if (valid_symbols[HOST_KEYWORD] && !valid_symbols[SAME_LINE] && lexer->lookahead == 'h') {
         return scan_host_keyword(lexer);
+    }
+
+    if (valid_symbols[PRIVATE_KEYWORD] && !valid_symbols[SAME_LINE] && lexer->lookahead == 'p') {
+        return scan_private_keyword(lexer);
     }
 
     if (valid_symbols[TODO_KEYWORD] && !valid_symbols[SAME_LINE] && lexer->lookahead == 't') {

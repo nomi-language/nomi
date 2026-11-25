@@ -6,12 +6,12 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// The orphan rule's second way in: a type argument the module declares.
+// The orphan rule's second way in: a type argument the package declares.
 //
 // `impl Multiply<Rate, Decimal> for Decimal` names std's interface and std's
-// receiver, so neither side is the module's own, yet the module that declares
-// `Rate` may write it. Only that module can name `Rate` in an impl it owns, so
-// no two modules can write the impl, and Nomi's several-instantiations rule
+// receiver, so neither side is the package's own, yet the package that declares
+// `Rate` may write it. Only that package can name `Rate` in an impl it owns, so
+// no two packages can write the impl, and Nomi's several-instantiations rule
 // keeps it apart from every other impl of `Multiply` for `Decimal`: they name
 // distinct concrete type arguments, or one of them is generic and the
 // collision check reports the overlap. The conditions are RFC 2451's, narrowed
@@ -42,19 +42,19 @@ import (
 // unknown.
 type implTypeArgsLookup func(fn *ast.FuncDef, iface, recv string) (*ImplTypeArgs, *InterfaceType)
 
-// orphanFacts is what detectOrphanImpls reads beyond the declaring-module
+// orphanFacts is what detectOrphanImpls reads beyond the declaring-package
 // index to admit an impl through a local type argument: the impl's resolved
-// type arguments, and the module a declaration's build key belongs to.
+// type arguments, and the package a declaration's build key belongs to.
 type orphanFacts struct {
-	typeArgs     implTypeArgsLookup
-	originModule func(origin string) string
+	typeArgs      implTypeArgsLookup
+	originPackage func(origin string) string
 }
 
 // verdict says whether an impl whose interface and receiver are
-// both foreign to implMod is admitted by a local type argument. When it is
+// both foreign to implPkg is admitted by a local type argument. When it is
 // not and a type argument is local, reason says which condition failed.
-func (r *orphanFacts) verdict(fn *ast.FuncDef, iface, recv, implMod string) (admitted bool, reason string) {
-	if r == nil || r.typeArgs == nil || r.originModule == nil {
+func (r *orphanFacts) verdict(fn *ast.FuncDef, iface, recv, implPkg string) (admitted bool, reason string) {
+	if r == nil || r.typeArgs == nil || r.originPackage == nil {
 		return false, ""
 	}
 	info, it := r.typeArgs(fn, iface, recv)
@@ -63,7 +63,7 @@ func (r *orphanFacts) verdict(fn *ast.FuncDef, iface, recv, implMod string) (adm
 	}
 	local := func(t Type) bool {
 		origin, ok := nominalOrigin(t)
-		return ok && origin != OriginUnresolved && r.originModule(origin) == implMod
+		return ok && origin != OriginUnresolved && r.originPackage(origin) == implPkg
 	}
 	firstReason := ""
 	for k, arg := range info.Args {
@@ -80,11 +80,11 @@ func (r *orphanFacts) verdict(fn *ast.FuncDef, iface, recv, implMod string) (adm
 		case ContainsTypeParam(arg):
 			why = fmt.Sprintf("the impl is generic in `%s`'s type parameter `%s` (`%s`); an impl admitted by a local type argument names one concrete type there", iface, param, arg.String())
 		case isBareTypeParam(info.Receiver):
-			why = fmt.Sprintf("its receiver is the bare type parameter `%s`, which stands for every type, so the impl would claim std's types too; a type argument the module declares admits an impl only for a receiver that is a type", info.Receiver.String())
+			why = fmt.Sprintf("its receiver is the bare type parameter `%s`, which stands for every type, so the impl would claim std's types too; a type argument the package declares admits an impl only for a receiver that is a type", info.Receiver.String())
 		default:
 			for j := 0; j < k; j++ {
 				if isBareTypeParam(info.Args[j]) {
-					why = fmt.Sprintf("`%s`'s type parameter `%s`, before `%s`, is the bare type parameter `%s`, which stands for every type, so the impl would claim impls other modules may write; a type argument the module declares admits an impl only when no earlier type argument is a bare type parameter", iface, it.TypeParams[j], typeArgName(arg), info.Args[j].String())
+					why = fmt.Sprintf("`%s`'s type parameter `%s`, before `%s`, is the bare type parameter `%s`, which stands for every type, so the impl would claim impls other packages may write; a type argument the package declares admits an impl only when no earlier type argument is a bare type parameter", iface, it.TypeParams[j], typeArgName(arg), info.Args[j].String())
 					break
 				}
 			}
@@ -101,7 +101,7 @@ func (r *orphanFacts) verdict(fn *ast.FuncDef, iface, recv, implMod string) (adm
 	}
 	for _, arg := range info.Args {
 		if name, ok := nestedLocalType(arg, local); ok {
-			return false, fmt.Sprintf("`%s` is declared in this module but does not head the type argument `%s`; only a type argument the module's own type heads admits the impl", name, arg.String())
+			return false, fmt.Sprintf("`%s` is declared in this package but does not head the type argument `%s`; only a type argument the package's own type heads admits the impl", name, arg.String())
 		}
 	}
 	return false, ""

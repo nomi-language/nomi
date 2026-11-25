@@ -500,7 +500,7 @@ struct Money
 end
 
 impl Money
-    pub once zero = Money{cents: 0}
+    once zero = Money{cents: 0}
 end
 ```
 

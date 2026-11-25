@@ -50,7 +50,7 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `tokio::spawn` | `Task.spawn` inside a `concurrent` ... `end` block |
 | `tokio::time::timeout(d, f)`, `tokio::select!` over futures | `Task.within(d, f)`, `Task.race([..])`: both cancel what did not finish |
 | `#[test] fn t()` | `test "name"` ... `end` |
-| `pub`, `pub(crate)` | `pub` alone. A declaration is private to its file unless it is marked `pub` |
+| `pub`, `pub(crate)`, private by default | `pub`, unmarked, `private`. Nomi's default is `pub(crate)`'s level: every file of the package sees an unmarked declaration, and `private` keeps one to its file |
 | `mod`, `use a::b` | A file is the unit of import: `import a.{b}`. A path is `::`-joined like Rust's (`import db::posts`), and the file is then used by its last part, `posts.find(1)`. Importing a directory, `import db`, is like `use crate::db`: `db::posts.find(1)` reaches the file. |
 | axum's `.route("/users/{id}", get(show))` with `Path(id): Path<u64>` | `Route.to_with("GET /users/{id}", show)` with `fn show(Request, user: {id: Int}) -> Response`. The handler gets `user.id` already parsed, `/users/ann` gets a 404, and the pattern is checked when the program is. See [HTTP](/http/#handlers-and-routes) and [Frontends](/frontends/). |
 

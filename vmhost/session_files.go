@@ -52,6 +52,11 @@ type sessionFiles struct {
 	// cost counts what the session's checks and lowerings of files have
 	// built.
 	cost SessionCost
+	// above is how many lines each file loaded has above what its author
+	// wrote (LoadFile), which each lowering of the file, its own or an
+	// instance a later file asks of it, takes off its positions
+	// (irbuild.Module.LinesAbove).
+	above map[string]int
 }
 
 // SessionCost is what checking and lowering files cost, counted rather than
@@ -74,7 +79,7 @@ func (s *Session) files() (*sessionFiles, error) {
 		return nil, err
 	}
 	sf := &sessionFiles{texts: map[string]string{}, objects: irbuild.NewSessionObjects(), generic: map[string]bool{},
-		apps: map[string][]analysis.AppTypeName{}}
+		apps: map[string][]analysis.AppTypeName{}, above: map[string]int{}}
 	sf.fe = frontend.New(fc)
 	sp := sf.fe.SessionSource(func(key string) (string, bool) {
 		text, ok := sf.texts[key]
@@ -145,6 +150,9 @@ func (sf *sessionFiles) check(key, src string) (*irbuild.Program, error) {
 		}
 	}
 	prog := irbuild.SessionProgram(fc, key, sessionPath(key))
+	for i := range prog.Modules {
+		prog.Modules[i].LinesAbove = sf.above[prog.Modules[i].Name]
+	}
 	return prog, err
 }
 
@@ -173,8 +181,13 @@ func (s *Session) CheckFile(key, src string) (c *Checked, err error) {
 
 // LoadFile checks src as the file with key against the files the session
 // holds and lowers it on its own. The file stays in the session's program:
-// Commit it once it ran, or Discard it.
-func (s *Session) LoadFile(key, src string) (*Program, error) {
+// Commit it once it ran, or Discard it. linesAbove is how many of src's
+// lines its author did not write above what they did, as a REPL writes
+// imports and declarations above an input: every position the file's
+// lowering holds, a `dbg`'s, a `todo`'s, an assertion's or a trap's, is a
+// line of what the author wrote, the first for a line above it. A
+// diagnostic's position is a line of src.
+func (s *Session) LoadFile(key, src string, linesAbove int) (*Program, error) {
 	sf, err := s.files()
 	if err != nil {
 		return nil, err
@@ -192,6 +205,7 @@ func (s *Session) LoadFile(key, src string) (*Program, error) {
 		return res, err
 	}
 	sf.add(key, src)
+	sf.above[key] = linesAbove
 	p, err := lower(cfg, func() (*irbuild.Program, error) { return sf.check(key, src) })
 	if err != nil {
 		return nil, err
@@ -298,6 +312,7 @@ func (sf *sessionFiles) discard(key string) {
 	delete(sf.texts, key)
 	delete(sf.apps, key)
 	delete(sf.generic, key)
+	delete(sf.above, key)
 	sf.pi.RemoveFile(key)
 }
 
@@ -309,6 +324,16 @@ func (s *Session) ReplaceFile(key, src string) {
 	if _, held := s.sf.texts[key]; s.sf != nil && held {
 		s.sf.add(key, src)
 	}
+}
+
+// LinesAbove is how many lines the file with key, which LoadFile loaded,
+// has above what its author wrote: a line of the file less it is a line of
+// what the author wrote. 0 for a file the session does not hold.
+func (s *Session) LinesAbove(key string) int {
+	if s.sf == nil {
+		return 0
+	}
+	return s.sf.above[key]
 }
 
 // FileText is the text the session holds for the file with key.

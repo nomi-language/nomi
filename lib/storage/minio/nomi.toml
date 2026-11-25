@@ -1,4 +1,4 @@
-[module]
+[package]
 name = "minio"
 entry_points = ["real"]
 

@@ -21,7 +21,7 @@ import (
 func TestSiblingDefault_ATypedLiteralTheCallerCannotName(t *testing.T) {
 	dir := t.TempDir()
 	files := map[string]string{
-		"nomi.toml": "[module]\nname = \"demo\"\nentry_points = [\"main\"]\n",
+		"nomi.toml": "[package]\nname = \"demo\"\nentry_points = [\"main\"]\n",
 		"links.nomi": `import std::url.Url
 
 pub struct Box

@@ -96,7 +96,7 @@ func TestSemanticTokens_EffectModifier(t *testing.T) {
 	dir := writeProject(t, map[string]string{
 		"main.nomi":  effectTokensMain,
 		"store.nomi": effectTokensStore,
-		"nomi.toml":  "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+		"nomi.toml":  "[package]\nname = \"app\"\nentry_points = [\"main\"]\n",
 	})
 	s, c := startEffectServer(t, dir, map[string]string{"main.nomi": effectTokensMain, "store.nomi": effectTokensStore})
 	mainURI := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
@@ -170,7 +170,7 @@ func TestSemanticTokens_EffectModifierOnFunctionsNothingReaches(t *testing.T) {
 	}
 	dir := writeProject(t, map[string]string{
 		"main.nomi": effectTokensUnreached,
-		"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+		"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n",
 	})
 	s, c := startEffectServer(t, dir, map[string]string{"main.nomi": effectTokensUnreached})
 	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
@@ -204,7 +204,7 @@ func TestSemanticTokens_NoEffectModifierWithoutALowering(t *testing.T) {
 	dir := writeProject(t, map[string]string{
 		"main.nomi":  effectTokensMain,
 		"store.nomi": effectTokensStore,
-		"nomi.toml":  "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+		"nomi.toml":  "[package]\nname = \"app\"\nentry_points = [\"main\"]\n",
 	})
 	_, c := startEffectServer(t, dir, map[string]string{"main.nomi": effectTokensMain})
 	mainURI := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
@@ -298,7 +298,7 @@ func TestSemanticTokens_EffectModifierOnOnceReads(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := writeProject(t, map[string]string{
 				"main.nomi": tc.text,
-				"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+				"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n",
 			})
 			s, c := startEffectServer(t, dir, map[string]string{"main.nomi": tc.text})
 			uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
@@ -320,7 +320,7 @@ func TestSemanticTokens_EffectModifierOnHeldCalls(t *testing.T) {
 	}
 	dir := writeProject(t, map[string]string{
 		"main.nomi": effectTokensStreams,
-		"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+		"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n",
 	})
 	s, c := startEffectServer(t, dir, map[string]string{"main.nomi": effectTokensStreams})
 	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))

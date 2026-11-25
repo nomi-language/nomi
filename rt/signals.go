@@ -51,7 +51,10 @@ import (
 // leaves its watches running with no feed to hand an arrival to, so a
 // SIGHUP during shutdown is dropped rather than ending the drain early;
 // ResetSupervisors, once the program's cleanup has run, stops those
-// watches (ReleaseSignals).
+// watches (ReleaseSignals). A feed made once the drain has begun is closed
+// at once and starts no watch, so no watch outlives the drain that
+// ReleaseSignals follows: a task a test case left running cannot leave one
+// for the next case to stop.
 
 // signalRegistry is the process's watches by signal number.
 var signalRegistry = struct {
@@ -134,7 +137,8 @@ var detachedFrame = &Frame{ctx: context.Background()}
 // is still waiting is dropped (the file header, "Coalescing"). The feed
 // closes s when fr's context ends or the program starts draining, and the
 // signals no other feed wants get their default action back. A feed that
-// wants no signal closes s at once, since nothing will arrive on it.
+// wants no signal, or is made once the drain has begun, closes s at once
+// and catches nothing.
 func SubscribeSignals[T any](fr *Frame, s Sender[T], wanted map[os.Signal]func() T) {
 	if len(wanted) == 0 {
 		SenderClose(s)
@@ -142,32 +146,18 @@ func SubscribeSignals[T any](fr *Frame, s Sender[T], wanted map[os.Signal]func()
 	}
 	c := s.c
 	ports := make(map[os.Signal]*signalPort, len(wanted))
-	signalRegistry.mu.Lock()
-	for sig, value := range wanted {
-		p := &signalPort{wake: make(chan struct{}, 1)}
-		ports[sig] = p
-		watchLocked(sig).ports[p] = struct{}{}
-		go func() {
-			for {
-				select {
-				case <-p.wake:
-				case <-c.done:
-					return
-				}
-				if SenderSend(detachedFrame, s, value()).Tag != TagOk {
-					return
-				}
-				p.pending.Store(false)
-			}
-		}()
-	}
-	signalRegistry.mu.Unlock()
-
 	var once sync.Once
 	var stopOwner func() bool
 	var unhook func()
 	var hooked sync.WaitGroup
 	hooked.Add(1)
+	// stopped ends the ports' senders once the feed closes.
+	stopped := make(chan struct{})
+	// The feed may send on s or close it from outside the tasks, so a wait
+	// on s is not one the registry may report (package doc, "Deadlock").
+	// Counted before anything can close the feed, and let go after its close
+	// has woken every waiter.
+	tasks.feed(c, 1)
 	closeFeed := func(draining bool) {
 		once.Do(func() {
 			signalRegistry.mu.Lock()
@@ -180,7 +170,9 @@ func SubscribeSignals[T any](fr *Frame, s Sender[T], wanted map[os.Signal]func()
 				}
 			}
 			signalRegistry.mu.Unlock()
+			close(stopped)
 			SenderClose(s)
+			tasks.feed(c, -1)
 			go func() {
 				// The hooks are set once both are registered; the drain's
 				// may close the feed before the owner's is.
@@ -192,7 +184,37 @@ func SubscribeSignals[T any](fr *Frame, s Sender[T], wanted map[os.Signal]func()
 			}()
 		})
 	}
-	unhook = OnDrain(func() { closeFeed(true) })
+	// The drain hook is registered and the watches started under the
+	// registry's lock: a drain that begins meanwhile closes the feed once
+	// its ports exist, before ReleaseSignals stops the watches it leaves.
+	signalRegistry.mu.Lock()
+	var began bool
+	unhook, began = onDrain(func() { closeFeed(true) })
+	if began {
+		signalRegistry.mu.Unlock()
+		SenderClose(s)
+		tasks.feed(c, -1)
+		return
+	}
+	for sig, value := range wanted {
+		p := &signalPort{wake: make(chan struct{}, 1)}
+		ports[sig] = p
+		watchLocked(sig).ports[p] = struct{}{}
+		go func() {
+			for {
+				select {
+				case <-p.wake:
+				case <-stopped:
+					return
+				}
+				if SenderSend(detachedFrame, Site{}, s, value()).Tag != TagOk {
+					return
+				}
+				p.pending.Store(false)
+			}
+		}()
+	}
+	signalRegistry.mu.Unlock()
 	if fr != nil && fr.ctx != nil {
 		stopOwner = context.AfterFunc(fr.ctx, func() { closeFeed(false) })
 	}

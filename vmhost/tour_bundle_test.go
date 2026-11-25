@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"github.com/nomi-language/nomi/internal/doctest"
 	"github.com/nomi-language/nomi/internal/nodeenv"
-	"github.com/nomi-language/nomi/internal/tourmodules"
+	"github.com/nomi-language/nomi/internal/tourpackages"
 	"github.com/nomi-language/nomi/internal/wasmmem"
 	"github.com/nomi-language/nomi/vmhost"
 	"io/fs"
@@ -870,7 +870,7 @@ func TestTourWasmRunsTheSqliteDriversTests(t *testing.T) {
 		t.Skip("node is not on PATH")
 	}
 	dir := ""
-	for _, m := range tourmodules.Modules {
+	for _, m := range tourpackages.Packages {
 		if m.Name == "sqlite" {
 			dir = m.Dir
 		}

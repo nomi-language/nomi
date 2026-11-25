@@ -29,7 +29,7 @@ func TestSemanticTokens_AnUninstantiatedGenericFunctionIsMarked(t *testing.T) {
 	}
 	dir := writeProject(t, map[string]string{
 		"main.nomi": effectGenericMain,
-		"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+		"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n",
 	})
 	s, c := startEffectServer(t, dir, map[string]string{"main.nomi": effectGenericMain})
 	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))

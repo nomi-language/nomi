@@ -98,7 +98,7 @@ func TestEffectHover_StdCall(t *testing.T) {
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
-	const module = "[module]\nname = \"app\"\nentry_points = [\"main\"]\n"
+	const module = "[package]\nname = \"app\"\nentry_points = [\"main\"]\n"
 	main := strings.Replace(effectMain, "fn main()\n", "fn twice(n: Int) -> Int\n    n * 2\nend\n\nfn main()\n    io.print(\"${twice(2)}\")\n", 1)
 	cases := []struct {
 		name, manifest, want string
@@ -135,10 +135,10 @@ func TestEffectHover_InADependencysFile(t *testing.T) {
 	main := "import\n    std::io\n    pricing::rules\nend\n\nfn main()\n    io.print(rules.load(\"prices.txt\"))\nend\n"
 	rules := "import std::fs\n\npub fn load(path: String) -> String\n    fs.read_text(path) |> Result.with_default(\"\")\nend\n"
 	dir := writeProject(t, map[string]string{
-		"app/nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.deps]\nstd = [\"std::io\", \"std::fs\"]\n\n[dependencies]\npricing = { dir = \"../pricing\" }\n" +
-			"[effects.deps.modules]\n\"pricing\" = [\"std::fs\"]\n",
+		"app/nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.deps]\nstd = [\"std::io\", \"std::fs\"]\n\n[dependencies]\npricing = { dir = \"../pricing\" }\n" +
+			"[effects.deps.packages]\n\"pricing\" = [\"std::fs\"]\n",
 		"app/main.nomi":      main,
-		"pricing/nomi.toml":  "[module]\nname = \"pricing\"\n",
+		"pricing/nomi.toml":  "[package]\nname = \"pricing\"\n",
 		"pricing/rules.nomi": rules,
 	})
 	s, c := startEffectServer(t, filepath.Join(dir, "app"), map[string]string{})
@@ -162,7 +162,7 @@ func TestEffectHover_FollowsEdits(t *testing.T) {
 		t.Skip("lowers the stdlib; -short")
 	}
 	without := "import std::io\n\nfn main()\n    io.print(\"notes.txt\")\nend\n"
-	dir := writeProject(t, map[string]string{"main.nomi": effectMain, "nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n"})
+	dir := writeProject(t, map[string]string{"main.nomi": effectMain, "nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n"})
 	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
 	s, c := startEffectServer(t, dir, map[string]string{"main.nomi": effectMain})
 	waitReachAt(t, s, c, uri, effectMain, "fs.read_text", "Has effects: `std::fs`.")
@@ -187,7 +187,7 @@ func TestEffectHover_AProgramOpenedFromItsRecord(t *testing.T) {
 	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
 	text := storedProjectFiles["main.nomi"]
 	writer := NewServer()
-	writer.docs.SetWorkspaceRoot(dir)
+	writer.docs.SetEditorFolder(dir)
 	writer.docs.Open(uri, text)
 	if diags := lowerAsARun(writer, uri, text); len(diags) != 0 {
 		t.Fatalf("the entry's lowering reports %v", diags)
@@ -195,7 +195,7 @@ func TestEffectHover_AProgramOpenedFromItsRecord(t *testing.T) {
 	writer.docs.NoteLoweredClean(uri, text, analyzedlowering.Kept)
 
 	s := NewServer()
-	s.docs.SetWorkspaceRoot(dir)
+	s.docs.SetEditorFolder(dir)
 	s.docs.Open(uri, text)
 	if opened, _ := s.docs.StoredPrograms(); opened != 1 {
 		t.Fatalf("the server opened %d programs from records, want 1", opened)
@@ -242,7 +242,7 @@ func TestEffectHover_EveryFileOfAProgramOpenedFromItsRecord(t *testing.T) {
 	files := "import std::fs\n\n/// The text at path, or \"\" when it cannot be read.\npub fn load(path: String) -> String\n    read(path) |> String.trim()\nend\n\nfn read(path: String) -> String\n    fs.read_text(path) |> Result.with_default(\"\")\nend\n"
 	dir := writeProject(t, map[string]string{
 		"main.nomi": main, "files.nomi": files,
-		"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+		"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n",
 	})
 	mainURI := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
 	filesURI := fileuri.FromPath(filepath.Join(dir, "files.nomi"))
@@ -288,7 +288,7 @@ func TestEffectHover_FollowsAnUnsavedManifest(t *testing.T) {
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
-	manifest := "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = [\"std::io\"]\n"
+	manifest := "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = [\"std::io\"]\n"
 	dir := writeProject(t, map[string]string{"main.nomi": effectMain, "nomi.toml": manifest})
 	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
 	manifestURI := fileuri.FromPath(filepath.Join(dir, "nomi.toml"))
@@ -340,10 +340,10 @@ func TestEffectHover_ANameInNomiToml(t *testing.T) {
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
-	manifest := "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n" +
+	manifest := "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n" +
 		"[effects.self]\nstd = [\"std::io\", \"std::net\"]\n\n" +
 		"[effects.deps]\nstd = [\"std::fs\", \"std::io\"]\n\n" +
-		"[effects.deps.modules]\n\"pricing\" = [\"std::fs\", \"std::instant\"]\n"
+		"[effects.deps.packages]\n\"pricing\" = [\"std::fs\", \"std::instant\"]\n"
 	app := manifestProject(t, manifest)
 	uri := fileuri.FromPath(filepath.Join(app, "nomi.toml"))
 	s := NewServer()
@@ -354,7 +354,7 @@ func TestEffectHover_ANameInNomiToml(t *testing.T) {
 		want   string
 	}{
 		{"a call the project's own code makes", 6, `"std::io"`, "```text\n1 call has the effect std::io:\n  main.nomi:7:5\n    reached from `main`\n```"},
-		{"nothing in the project's own code", 6, `"std::net"`, "Nothing in this module's own code has the effect std::net."},
+		{"nothing in the project's own code", 6, `"std::net"`, "Nothing in this package's own code has the effect std::net."},
 		{"a dependency's call", 9, `"std::fs"`, "```text\n1 call has the effect std::fs:\n  rules.nomi:4:5 in pricing\n    reached from `main`; `main` calls `load`\n```"},
 		{"no dependency's call", 9, `"std::io"`, "No dependency has the effect std::io."},
 		{"in the module's entry", 12, `"std::fs"`, "```text\n1 call has the effect std::fs:\n  rules.nomi:4:5 in pricing\n    reached from `main`; `main` calls `load`\n```"},
@@ -391,7 +391,7 @@ func TestEffectHover_ANameInNomiToml(t *testing.T) {
 		t.Fatal(err)
 	}
 	s.reaches.changed()
-	if got, want := manifestHoverText(t, s, uri, manifestAt(t, manifest, 6, `"std::io"`)), "Nothing in this module's own code has the effect std::io."; got != want {
+	if got, want := manifestHoverText(t, s, uri, manifestAt(t, manifest, 6, `"std::io"`)), "Nothing in this package's own code has the effect std::io."; got != want {
 		t.Errorf("after main stops printing, hover on std::io says %q; want %q", got, want)
 	}
 }

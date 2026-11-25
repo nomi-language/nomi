@@ -19,7 +19,7 @@ func openLiteralDoc(t testing.TB, src string) (*Server, *analysis.DocSnapshot) {
 	t.Helper()
 	dir := writeProject(t, map[string]string{
 		"main.nomi": src,
-		"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+		"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n",
 	})
 	s := NewServer()
 	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))

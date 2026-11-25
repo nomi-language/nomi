@@ -63,7 +63,7 @@ func TestCompletion_ConstructorsOfTheExpectedType(t *testing.T) {
 		},
 		{
 			"user struct",
-			"struct Config\n    port: Int\nend\n\nimpl Config\n    pub fn default() -> Config\n        Config{port: 80}\n    end\n\n    pub fn with_port(c: Config, port: Int) -> Config\n        Config{port: port}\n    end\nend\n\nfn f() -> Int\n    c: Config = " + cursorMark + "\n    c.port\nend\n",
+			"struct Config\n    port: Int\nend\n\nimpl Config\n    fn default() -> Config\n        Config{port: 80}\n    end\n\n    fn with_port(c: Config, port: Int) -> Config\n        Config{port: port}\n    end\nend\n\nfn f() -> Int\n    c: Config = " + cursorMark + "\n    c.port\nend\n",
 			"Config.default", "Config.default()$0",
 			[]string{"Config.with_port"},
 		},
@@ -150,8 +150,8 @@ func TestCompletion_ConstructorImportsItsOwner(t *testing.T) {
 	})
 	s := NewServer()
 	s.snippetSupport = true
-	s.docs.SetWorkspaceRoot(dir)
-	s.docs.IndexWorkspace(context.Background())
+	s.docs.SetEditorFolder(dir)
+	s.docs.IndexEditorFolder(context.Background())
 	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
 	list := completeIn(t, s, uri, "import lib\n\nfn f() -> Int\n    lib.wait("+cursorMark+")\nend\n")
 	it := mustItem(t, list.Items, "Duration.seconds")

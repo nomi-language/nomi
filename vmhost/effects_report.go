@@ -25,7 +25,7 @@ import (
 // Args are the call's name (`std::fs`); the list it is over: `self` for
 // [effects.self], `self.modules` for the entry of the project's module
 // under [effects.self.modules], `deps` for [effects.deps],
-// `deps.modules` for the module's entry under [effects.deps.modules],
+// `deps.packages` for the module's entry under [effects.deps.packages],
 // or `host` for the host's list; the module whose files hold the call, by
 // its path, the project's own for its own files, and for `self.modules`
 // the entry's key; and then each name that list allows. Over nomi.toml's
@@ -35,7 +35,7 @@ const EffectNotAllowedCode = "effect-not-allowed"
 
 // EffectNotDeclaredCode is the Code of the diagnostic for an effect
 // in a dependency's files that the [effects.self] in the
-// dependency's own nomi.toml does not allow (OverDeclared): the module
+// dependency's own nomi.toml does not allow (OverDeclared): the package
 // declares fewer effects than its code has, and the fix is in that module. Its
 // Args are EffectNotAllowedCode's, with the list `self`: the call's
 // name, `self`, the module, and each std name its own std holds; or, over its entry for the file's module under its own
@@ -232,7 +232,7 @@ func reachedOf(c EffectCall, standings []standing, i int) effects.Reached {
 		s := standings[i]
 		r.Allowed, r.In = !s.refused, s.in
 		if s.refused && s.List == OverDeclared {
-			r.Own = c.Module
+			r.Own = c.Package
 		}
 	}
 	return r
@@ -408,7 +408,7 @@ func (p *Program) reachedFuncs(walks []Walk, standings [][]standing, acting map[
 		if w.reach == nil {
 			continue
 		}
-		key := func(i int) string { return w.Calls[i].Name + "\x00" + w.Calls[i].Module }
+		key := func(i int) string { return w.Calls[i].Name + "\x00" + w.Calls[i].Package }
 		named := map[*ir.Func]bool{}
 		for _, f := range w.reach.Reaches(key) {
 			named[f.Func] = true
@@ -551,7 +551,7 @@ func (e *EffectError) Shown() Diagnostics {
 		if n.Host {
 			return fmt.Sprint(n.Name, "\x00", n.Host, n.Tests)
 		}
-		return fmt.Sprint(n.Name, "\x00", n.List, "\x00", n.Module, "\x00", n.Entry, "\x00", n.Tests)
+		return fmt.Sprint(n.Name, "\x00", n.List, "\x00", n.Package, "\x00", n.Entry, "\x00", n.Tests)
 	}
 	first := map[string]int{}
 	more := map[string]int{}
@@ -651,7 +651,7 @@ func (p *Program) checkedRoots() []Roots {
 // fixes for the calls after it.
 func (p *Program) notAllowedDiagnostic(n NotAllowed, tests bool, fixes map[string]*parser.Fix) frontend.Diagnostic {
 	path, line, col := p.shownAt(n.EffectCall)
-	module := cmp.Or(n.Module, p.projectModule())
+	module := cmp.Or(n.Package, p.projectPackage())
 	var message string
 	list, allowed := string(n.List), n.Allowed
 	switch {
@@ -662,22 +662,22 @@ func (p *Program) notAllowedDiagnostic(n NotAllowed, tests bool, fixes map[strin
 		list = "host"
 		message = effects.Message("this program has", n.Name, "the host", "", n.Allowed)
 	case n.List == OverSelf && tests:
-		message = effects.Message("this module's tests have", n.Name, "[effects.self]", " them", n.Allowed)
+		message = effects.Message("this package's tests have", n.Name, "[effects.self]", " them", n.Allowed)
 	case n.List == OverSelf:
-		message = effects.Message("this module's own code has", n.Name, "[effects.self]", " it", n.Allowed)
+		message = effects.Message("this package's own code has", n.Name, "[effects.self]", " it", n.Allowed)
 	case n.List == OverSelfEntry:
 		module = n.Entry
 		message = effects.Message(fmt.Sprintf("`%s` has", n.Entry), n.Name, "its entry under [effects.self.modules]", " it", n.Allowed)
 	case n.List == OverDeps:
-		message = effects.Message(n.Module+" has", n.Name, "[effects.deps]", " dependencies", n.Allowed)
+		message = effects.Message(n.Package+" has", n.Name, "[effects.deps]", " dependencies", n.Allowed)
 	case n.List == OverEntry:
-		message = effects.Message(n.Module+" has", n.Name, "its entry under [effects.deps.modules]", " it", n.Allowed)
+		message = effects.Message(n.Package+" has", n.Name, "its entry under [effects.deps.packages]", " it", n.Allowed)
 	case n.Entry != "":
 		list = string(OverSelfEntry)
-		message = effects.Message(fmt.Sprintf("%s's `%s` has", n.Module, n.Entry), n.Name, "its entry under the module's own [effects.self.modules]", " it", n.Allowed)
+		message = effects.Message(fmt.Sprintf("%s's `%s` has", n.Package, n.Entry), n.Name, "its entry under the package's own [effects.self.modules]", " it", n.Allowed)
 	default:
 		list = string(OverSelf)
-		message = effects.Message(n.Module+" has", n.Name, "its own [effects.self]", " it", n.Allowed)
+		message = effects.Message(n.Package+" has", n.Name, "its own [effects.self]", " it", n.Allowed)
 	}
 	d := frontend.NewDiagnostic(path, p.sources[path], line, col, message)
 	d.Code = EffectNotAllowedCode
@@ -700,7 +700,7 @@ func (p *Program) notAllowedDiagnostic(n NotAllowed, tests bool, fixes map[strin
 // for a call in the project's own files. own keeps, by file, whether a file
 // is the project's.
 func (p *Program) leadsTo(n NotAllowed, w Walk, own map[string]bool) []frontend.Related {
-	if n.Module == "" || w.reach == nil {
+	if n.Package == "" || w.reach == nil {
 		return nil
 	}
 	within := func(f *ir.Func) bool {
@@ -710,12 +710,12 @@ func (p *Program) leadsTo(n NotAllowed, w Walk, own map[string]bool) []frontend.
 		}
 		is, done := own[file]
 		if !done {
-			is = p.moduleOf(file) == ""
+			is = p.packageOf(file) == ""
 			own[file] = is
 		}
 		return is
 	}
-	has := fmt.Sprintf("has the effect %s in %s", n.Name, n.Module)
+	has := fmt.Sprintf("has the effect %s in %s", n.Name, n.Package)
 	var out []frontend.Related
 	for _, l := range w.reach.Leads(n.index, within) {
 		path, line, col, endLine, endCol := p.shownSpan(l.At)
@@ -751,7 +751,7 @@ func addition(n NotAllowed, tests bool) (item string, lists []string) {
 		}
 		return item, lists
 	case n.List == OverEntry || n.List == OverDeclared && n.EntryDenies:
-		lists = append(lists, fmt.Sprintf("to %q under [effects.deps.modules]", n.Module))
+		lists = append(lists, fmt.Sprintf("to %q under [effects.deps.packages]", n.Package))
 	}
 	if n.List == OverDeps || n.CeilingDenies {
 		lists = append(lists, fmt.Sprintf("to %s under [effects.deps]", key))
@@ -776,7 +776,7 @@ func (p *Program) notAllowedHelp(n NotAllowed, tests bool) []string {
 				n.Name, item, strings.Join(lists, " and ")))
 		}
 		toml := "its nomi.toml"
-		if m := p.moduleAt(n.at.File()); m != nil {
+		if m := p.packageAt(n.at.File()); m != nil {
 			toml = p.tomlName(m.root)
 		}
 		own := fmt.Sprintf("add %q to std under [effects.self]", n.Name)
@@ -786,8 +786,8 @@ func (p *Program) notAllowedHelp(n NotAllowed, tests bool) []string {
 		case n.Entry != "":
 			own = fmt.Sprintf("add %q to %q under [effects.self.modules]", n.Name, n.Entry)
 		}
-		return append(hints, fmt.Sprintf("%s declares fewer effects than its code has, and the fix is in that module: %s in %s%s",
-			n.Module, own, toml, remove))
+		return append(hints, fmt.Sprintf("%s declares fewer effects than its code has, and the fix is in that package: %s in %s%s",
+			n.Package, own, toml, remove))
 	}
 	var hints []string
 	if n.CeilingDenies {
@@ -824,9 +824,9 @@ func (p *Program) allowFix(n NotAllowed, tests bool, fixes map[string]*parser.Fi
 	switch {
 	case n.List == OverSelf:
 		adds = []analysis.EffectAdd{{List: selfStd, Name: n.Name}}
-		title = fmt.Sprintf("Allow %s for this module in nomi.toml", n.Name)
+		title = fmt.Sprintf("Allow %s for this package in nomi.toml", n.Name)
 		if tests {
-			title = fmt.Sprintf("Allow %s for this module's tests in nomi.toml", n.Name)
+			title = fmt.Sprintf("Allow %s for this package's tests in nomi.toml", n.Name)
 		}
 	case n.List == OverSelfEntry:
 		adds = []analysis.EffectAdd{{List: analysis.ListSelfModules, Module: n.Entry, Name: n.Name}}
@@ -835,11 +835,11 @@ func (p *Program) allowFix(n NotAllowed, tests bool, fixes map[string]*parser.Fi
 		}
 		title = fmt.Sprintf("Allow %s for %s in nomi.toml", n.Name, n.Entry)
 	case n.List == OverEntry:
-		adds = []analysis.EffectAdd{{List: analysis.ListDepsModules, Module: n.Module, Name: n.Name}}
+		adds = []analysis.EffectAdd{{List: analysis.ListDepsPackages, Module: n.Package, Name: n.Name}}
 		if n.CeilingDenies {
 			adds = append(adds, analysis.EffectAdd{List: depsStd, Name: n.Name})
 		}
-		title = fmt.Sprintf("Allow %s for %s in nomi.toml", n.Name, n.Module)
+		title = fmt.Sprintf("Allow %s for %s in nomi.toml", n.Name, n.Package)
 	default:
 		adds = []analysis.EffectAdd{{List: depsStd, Name: n.Name}}
 		title = fmt.Sprintf("Allow %s for dependencies%s in nomi.toml", n.Name, inTests)

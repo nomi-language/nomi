@@ -20,7 +20,7 @@ import (
 // `Type.f`, a pipe stage `|> Type.f()`) resolves to the function; a
 // function passed as a value is not a call. The callers are functions,
 // impl functions, `test` blocks (each test of a `group`) and `once`
-// initializers, across the project via the workspace index (references'
+// initializers, across the project via the editor folder's index (references'
 // file set: every open document and each closed file whose text holds
 // the name).
 
@@ -257,7 +257,7 @@ func (s *Server) callHierarchyIncomingCalls(gctx *glsp.Context, params *protocol
 
 func (s *Server) incomingCalls(ctx context.Context, d callItemData) []protocol.CallHierarchyIncomingCall {
 	id := symIdentity{Name: d.Name, File: uriToPath(d.URI), Pos: analysis.Pos{Line: d.Line, Col: d.Col}}
-	root := s.docs.WorkspaceRoot()
+	root := s.docs.EditorFolder()
 	if root == "" {
 		root = s.docs.FindProjectRoot(id.File)
 	}

@@ -235,7 +235,7 @@ func WireResponse(
 // ChunkedReader is `std::http::host.chunked_reader`: httputil's NewChunkedReader
 // over r.
 func ChunkedReader(fr *rt.Frame, r rt.Reader) rt.Reader {
-	return rt.NewReader(rt.ReadSource{Name: "<chunked>", R: httputil.NewChunkedReader(readerInput{fr: fr, r: r}), Fail: streamFailure("<chunked>")})
+	return rt.NewReader(rt.ReadSource{Name: "<chunked>", R: httputil.NewChunkedReader(readerInput{fr: fr, r: r}), Fail: decodedFailure("<chunked>", "the chunked encoding is malformed")})
 }
 
 // ChunkedWriter is `std::http::host.chunked_writer`: httputil's
@@ -294,7 +294,7 @@ func PartHeaders(h rt.HTTPHandle) *rt.List[string] { return headerList(http.Head
 
 // PartReader is `std::http::host.part_reader`: the part's body.
 func PartReader(h rt.HTTPHandle) rt.Reader {
-	return rt.NewReader(rt.ReadSource{Name: "<part>", R: partOf(h), Fail: streamFailure("<part>")})
+	return rt.NewReader(rt.ReadSource{Name: "<part>", R: partOf(h), Fail: decodedFailure("<part>", "the part's encoding is malformed")})
 }
 
 // PartFormName is `std::http::host.part_form_name`: "" when it has none.

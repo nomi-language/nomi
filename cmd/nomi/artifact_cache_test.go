@@ -1096,10 +1096,10 @@ func TestEffects_TheCacheAnswersForTheListsItWasKeptUnder(t *testing.T) {
 	}
 
 	// io taken out of the list.
-	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = []\nstd_in_tests = [\"std::fs\"]\n")
+	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = []\nstd_in_tests = [\"std::fs\"]\n")
 	for _, cmd := range []string{"run", "check"} {
 		r := runNomiIn(t, dir, cache, cmd, "main.nomi")
-		if r.exit != 1 || r.stdout != "" || !strings.Contains(r.stderr, "error: this module's own code has the effect std::io, and [effects.self] allows it no effects") {
+		if r.exit != 1 || r.stdout != "" || !strings.Contains(r.stderr, "error: this package's own code has the effect std::io, and [effects.self] allows it no effects") {
 			t.Errorf("nomi %s with io taken out of the list:\n%s\ncache: %v", cmd, r, r.report)
 		}
 	}

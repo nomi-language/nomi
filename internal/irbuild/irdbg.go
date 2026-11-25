@@ -367,7 +367,7 @@ func (bl *irScalarBuilder) dbgRecord(t *ast.Dbg, vt analysis.Type) *analysis.Res
 // synthesized; ok is false when no lowerable body renders k.
 func (bl *irScalarBuilder) debugImplSym(k kind) (sym *ir.Symbol, synth, ok bool) {
 	og, self := bl.g, k
-	d := bl.g.implsByIface[stdIfaceImplKey(stdDebug)][k]
+	d := bl.g.implAt(stdIfaceImplKey(stdDebug), k)
 	if d == nil && k.def != nil && k.def.instOrigin != nil {
 		// Another file's generic instance: the owner built its impl
 		// against its own instance def.
@@ -610,7 +610,7 @@ func (bl *irScalarBuilder) nestedDebugImpls(at ast.Node, k kind, kt analysis.Typ
 				}
 			}
 			for _, d := range bl.g.implOrder {
-				if d.recv.tag != tagNamed || d.recv.def == nil || bl.g.implsByIface[stdIfaceImplKey(stdIter)][d.recv] != d {
+				if d.recv.tag != tagNamed || d.recv.def == nil || bl.g.implAt(stdIfaceImplKey(stdIter), d.recv) != d {
 					continue
 				}
 				if it, userElem := bl.userSource(d.recv, userIterImpl{owner: bl.g, d: d}); it != nil && userElem == elem {
@@ -765,7 +765,7 @@ func (g *gen) debugInspectWritten(d *typeDef) bool {
 		if og == nil {
 			continue
 		}
-		for k, impl := range og.implsByIface[stdIfaceImplKey(stdDebug)] {
+		for k, impl := range og.resolvedImpls(stdIfaceImplKey(stdDebug)) {
 			if k.def == nil || (k.def.decl != decl && (k.def.instOrigin == nil || k.def.instOrigin.decl != decl)) {
 				continue
 			}

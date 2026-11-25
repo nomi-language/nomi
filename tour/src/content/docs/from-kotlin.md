@@ -42,7 +42,7 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `interface` with default methods | `interface`, where a default an impl may replace is an `open fn`; each implementation goes in `impl Interface for Type` |
 | `TODO("parse")` | `todo "parse"` |
 | `package app.db`, `import app.db.find` | `import db::posts.{find}`: a file is the unit of import, by its path, and declares no package |
-| Public unless marked `private` | A declaration is private to its file unless it is marked `pub` |
+| Public by default, `internal`, a top-level `private` | `pub`, unmarked, `private`. Nomi's default is `internal`'s level, so a declaration another package uses is marked `pub` |
 | `coroutineScope { launch { .. } }` | `Task.spawn(fn -> ..)` inside `concurrent` .. `end` |
 | `@Test fun t()` | `test "name"` ... `end` |
 | Ktor's `get("/users/{id}") { call.parameters["id"] }`, Spring's `@GetMapping("/users/{id}")` with `@PathVariable id: Long` | `Route.to_with("GET /users/{id}", show)` with `fn show(Request, user: {id: Int}) -> Response`. The handler gets `user.id` already parsed, `/users/ann` gets a 404, and the pattern is checked when the program is. See [HTTP](/http/#handlers-and-routes) and [Frontends](/frontends/). |

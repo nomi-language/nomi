@@ -1,5 +1,5 @@
 // Command nomi is the Nomi CLI: run, check, test, build, fmt, effects,
-// the module commands, `nomi tool`, `nomi types`, `nomi editor`
+// the package commands, `nomi tool`, `nomi types`, `nomi editor`
 // (internal/editors), the language server, the debug adapter, the MCP
 // server and, with no arguments, the REPL.
 // docs/tooling.md documents its commands and flags for users. This comment
@@ -22,6 +22,15 @@
 // A program `nomi run` or `nomi build` takes is a file, or a module's
 // directory whose nomi.toml lists one entry point (programEntry, over
 // frontend.EntryFile, which `nomi check` resolves entries with).
+//
+// A workspace's root (a directory with a nomi-workspace.toml) is no
+// package. There `nomi check`, `test`, `fmt` and `effects` act on every
+// member through the enumerations they share (frontend.WorkspaceFiles),
+// `effects` one member at a time since each has its own tables; `run`,
+// `build`, `tool`, `types`, `new`, `init` and the one-package edits of
+// `add`, `remove` and `update` answer workspaceRootError, which lists the
+// members. `nomi new` and `nomi init` under a root add the new package to
+// its members (joinWorkspace).
 //
 // # nomi build
 //
@@ -75,11 +84,17 @@
 // frontend.Checker.CheckSessionFile reports the file's diagnostics as a
 // from-source check reports the entry's; the reductions over every file's
 // bodies are not rerun, since earlier files passed them. A session's
-// program (analysis.SourceProgram.Session) differs from a project in two
-// things one input could do to an earlier one's type: an inherent impl may
-// extend a type another of its files declares, and a `derive` may name
-// one, lowered from that file's declaration (analysis.LowerDerivesWith,
-// ImportedTypeDecl) with the derive as the impl's origin. Each new file's
+// program (analysis.SourceProgram.Session) differs from a project in what
+// makes its files read to the user as one file: an inherent impl may
+// extend a type another of its files declares, a `derive` may name one,
+// lowered from that file's declaration (analysis.LowerDerivesWith,
+// ImportedTypeDecl) with the derive as the impl's origin, and each file is
+// inside every other for `private` and an opaque type's inside
+// (analysis.FileDecls.Session), which the builder asks before it calls a
+// private function or reads a private once of another file
+// (irbuild's gen.sees). The declarations the session writes into a file
+// (a value's host functions and once, a once's forcing function) are
+// `private`, so a value of a private type crosses inputs. Each new file's
 // boot application type joins earlier boots' (Session.Commit adds them to
 // AppTypeNames).
 //
@@ -111,6 +126,19 @@
 // a call through a function-valued `once` imported by name, and the impl
 // header of `impl Named for Box<T>` (a generic receiver with no `<T>`
 // clause) being seen without importing its file.
+//
+// Positions. Every position the REPL shows is a line of the input the user
+// typed, counted from its first line. An input is one declaration or
+// statement, so its text sits in its file in one piece under the lines the
+// session writes above it, at the columns it was typed at (a final
+// expression's binding is a line of its own, and a once's initializer
+// keeps its indent). The file's lowering takes those lines off every
+// position it holds (vmhost.Session.LoadFile's linesAbove,
+// irbuild.Module.LinesAbove, ir.Pos.Below), so a `dbg`, a `todo`, a failed
+// assertion and a trap name the input's line, an earlier input's included,
+// and the instances a later input asks of an earlier input's generic
+// function too. A diagnostic's or a decline's position is a line of the
+// file, which replSource.explain maps back through the same layout.
 //
 // Redefinitions. A redefined impl is taken out of its earlier file's text
 // (Session.ReplaceFile, its lines blanked) before the input is checked, so

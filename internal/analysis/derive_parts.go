@@ -26,8 +26,8 @@ import (
 // type parameters, which carry the bound the derive implies and its where
 // clause. Each demand names the derive and the part
 // (RecordingKindDeriveSynth, DeriveCtx) and is made where the part is
-// written, or at the derive for a type another file declares (a partner
-// test's derive, or a REPL input's). Any other block demands nothing here.
+// written, or at the derive for a type another file declares (a REPL
+// input's). Any other block demands nothing here.
 func (c *checker) checkDerivedParts(n *ast.ImplBlock) {
 	ifaceTE := derivedInterface(n)
 	if ifaceTE == nil || !derivesStdInterface(c.fa, ifaceTE) {

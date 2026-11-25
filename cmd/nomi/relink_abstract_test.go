@@ -27,7 +27,7 @@ end
 `
 	reads := "import std::fs\n\n" + strings.Replace(lib, `    "<${x}>"`, "    _ = fs.read_text(\"notes.txt\")\n    \"<${x}>\"", 1)
 	p := cacheProject{name: "generic-effects", entry: "main.nomi", files: map[string]string{
-		"nomi.toml": "[module]\nname = \"genericeffects\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = [\"std::io\"]\n",
+		"nomi.toml": "[package]\nname = \"genericeffects\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = [\"std::io\"]\n",
 		"lib.nomi":  lib,
 		"main.nomi": `import
     std::io

@@ -10,14 +10,18 @@ import (
 
 	"github.com/BurntSushi/toml"
 
+	"github.com/nomi-language/nomi/internal/pkgcache"
 	"github.com/nomi-language/nomi/internal/suggest"
 )
 
-// The keys nomi.toml accepts are manifestFile's: each table is a field with
-// a `toml` tag, and each key a field of that table's struct. A field whose
+// The keys nomi.toml accepts are manifestFile's, and the keys
+// nomi-workspace.toml accepts pkgcache.WorkspaceFile's (manifestSchema):
+// each table is a field with a `toml` tag, each key a field of that
+// table's struct, and a field at the top that is neither is a key outside
+// any table (nomi-workspace.toml's `members`). A field whose
 // type is a struct is a table nested in its own (`[effects.self]`),
-// and a map's keys are free, as `[effects.deps.modules]`'s module
-// paths are. A table or key the manifest holds and manifestFile does not
+// and a map's keys are free, as `[effects.deps.packages]`'s dependency
+// names are. A table or key the manifest holds and manifestFile does not
 // is an error at its line, so a misspelled key is never read as nothing.
 // The error names the nearest key when one is close in spelling, except in
 // a table whose field carries a `keys` tag: there it says what each key
@@ -25,8 +29,8 @@ import (
 // spelling to one far from it in meaning (`allow_in_tests` and
 // `std_in_tests`).
 //
-// A top-level table named for a module the project requires, or for the
-// project's own module, belongs to that module's tools (`nomi tool`), which
+// A top-level table named for a package the project requires, or for the
+// project's own package, belongs to that package's tools (`nomi tool`), which
 // read it themselves: sqlkit's `[sqlkit]`. The compiler does not check it.
 
 // manifestTable is one table manifestFile declares: its keys, and its
@@ -36,9 +40,22 @@ type manifestTable struct {
 	about string
 }
 
-// manifestTables is each table manifestFile declares, by its path joined
-// with ".", read from the struct's tags.
-func manifestTables() map[string]manifestTable {
+// manifestSchema is the keys one kind of file accepts: its name, as an
+// error names the file, and the struct it decodes into (manifestTables).
+type manifestSchema struct {
+	file  string
+	shape reflect.Type
+}
+
+var (
+	packageSchema   = manifestSchema{"nomi.toml", reflect.TypeOf(manifestFile{})}
+	workspaceSchema = manifestSchema{pkgcache.WorkspaceName, reflect.TypeOf(pkgcache.WorkspaceFile{})}
+)
+
+// manifestTables is each table shape declares, by its path joined with
+// ".", read from the struct's tags, and its keys outside any table under
+// "".
+func manifestTables(shape reflect.Type) map[string]manifestTable {
 	out := map[string]manifestTable{}
 	var tables func(prefix string, t reflect.Type)
 	tables = func(prefix string, t reflect.Type) {
@@ -59,11 +76,17 @@ func manifestTables() map[string]manifestTable {
 				out[path] = manifestTable{about: f.Tag.Get("keys")}
 				path, ft = path+".*", ft.Elem()
 			} else if ft.Kind() == reflect.Map {
-				// A table of values under free keys ([indirect]).
+				// A table of values under free keys
+				// ([effects.deps.packages]).
 				out[path] = manifestTable{about: f.Tag.Get("keys")}
 				continue
 			}
 			if ft.Kind() != reflect.Struct {
+				if prefix == "" {
+					top := out[""]
+					top.keys = append(top.keys, path)
+					out[""] = top
+				}
 				continue
 			}
 			table := manifestTable{about: f.Tag.Get("keys")}
@@ -74,19 +97,20 @@ func manifestTables() map[string]manifestTable {
 			tables(path, ft)
 		}
 	}
-	tables("", reflect.TypeOf(manifestFile{}))
+	tables("", shape)
 	return out
 }
 
 // unknownManifestKey is the error for the first key in undecoded (in the
-// order the manifest writes them) that is not a tool's: a table nomi.toml
-// has none of, or a key its table does not have, at its line, with the
-// nearest known name when one is close in spelling.
-func unknownManifestKey(data []byte, undecoded []toml.Key, md toml.MetaData, sourceLabel string, tools func() []string) error {
+// order the file writes them) that is not a tool's: a key outside any
+// table, or a table, that schema's file has none of, or a key its table
+// does not have, at its line, with the nearest known name when one is
+// close in spelling.
+func unknownManifestKey(data []byte, undecoded []toml.Key, md toml.MetaData, sourceLabel string, tools func() []string, schema manifestSchema) error {
 	if len(undecoded) == 0 {
 		return nil
 	}
-	tables := manifestTables()
+	tables := manifestTables(schema.shape)
 	var toolNames []string
 	asked := false
 	for _, k := range undecoded {
@@ -100,13 +124,25 @@ func unknownManifestKey(data []byte, undecoded []toml.Key, md toml.MetaData, sou
 		}
 		at := &ManifestError{Path: sourceLabel, Line: ManifestKeyLine(data, k...)}
 		if _, known := tables[k[0]]; !known {
-			if len(k) == 1 && md.Type(k...) != "Hash" {
-				return at.with("nomi.toml has no top-level key `%s`; every key is in a table (%s)", k[0], tableList(tables))
+			if top, keyed := tables[""]; len(k) == 1 && md.Type(k...) != "Hash" {
+				switch near := suggest.Closest(k[0], top.keys); {
+				case !keyed:
+					return at.with("%s has no top-level key `%s`; every key is in a table (%s)", schema.file, k[0], tableList(tables))
+				case near != "":
+					return at.with("%s has no key `%s`; did you mean `%s`?", schema.file, k[0], near)
+				}
+				if len(topTables(tables)) == 0 {
+					return at.with("%s has no key `%s`; its keys are %s", schema.file, k[0], keyList(top.keys))
+				}
+				return at.with("%s has no key `%s`; its keys are %s, and its tables %s", schema.file, k[0], keyList(top.keys), tableList(tables))
 			}
 			if near := suggest.Closest(k[0], topTables(tables)); near != "" {
-				return at.with("nomi.toml has no [%s] table; did you mean [%s]?", k[0], near)
+				return at.with("%s has no [%s] table; did you mean [%s]?", schema.file, k[0], near)
 			}
-			return at.with("nomi.toml has no [%s] table; its tables are %s", k[0], tableList(tables))
+			if len(topTables(tables)) == 0 {
+				return at.with("%s has no [%s] table; it has no tables, only the keys %s", schema.file, k[0], keyList(tables[""].keys))
+			}
+			return at.with("%s has no [%s] table; its tables are %s%s", schema.file, k[0], tableList(tables), toolTableList(tools, toolNames))
 		}
 		// The innermost known table the key is in; a key past its next
 		// part is in a table nested in that one, which it declares none of.
@@ -142,7 +178,7 @@ func unknownManifestKey(data []byte, undecoded []toml.Key, md toml.MetaData, sou
 func topTables(tables map[string]manifestTable) []string {
 	var names []string
 	for name := range tables {
-		if !strings.Contains(name, ".") {
+		if name != "" && !strings.Contains(name, ".") {
 			names = append(names, name)
 		}
 	}
@@ -158,6 +194,24 @@ func tableList(tables map[string]manifestTable) string {
 	return strings.Join(names, ", ")
 }
 
+// toolTableList ends the list of an unknown table's error with the tables
+// that belong to tools (toolTables): by name, names, when the manifest
+// names its package or a dependency, and otherwise what names one. It is
+// "" for a manifest with no project (tools nil), which holds none.
+func toolTableList(tools func() []string, names []string) string {
+	if tools == nil {
+		return ""
+	}
+	if len(names) == 0 {
+		return ", and its tools' tables, each named for the package or a dependency"
+	}
+	bracketed := slices.Compact(slices.Sorted(slices.Values(names)))
+	for i, name := range bracketed {
+		bracketed[i] = "[" + name + "]"
+	}
+	return ", and its tools' tables " + joinAnd(bracketed)
+}
+
 func keyList(keys []string) string {
 	quoted := make([]string, len(keys))
 	for i, k := range keys {
@@ -167,25 +221,25 @@ func keyList(keys []string) string {
 }
 
 // toolTables is the names of the tables in data, a manifest's text, that
-// belong to a module's tools: the module's own `[module].name` and each key
-// of its [dependencies], the name the project gives a module, which `nomi
+// belong to a package's tools: the package's own `[package].name` and each key
+// of its [dependencies], the name the project gives a package, which `nomi
 // tool` runs its tools under and they read their table by. They are read
 // from the text itself, so a table is a tool's in the text that names its
 // dependency, whatever the file on disk holds, and reading them needs no
-// module graph.
+// package graph.
 func toolTables(data []byte) []string {
 	var raw struct {
-		Module struct {
+		Package struct {
 			Name string `toml:"name"`
-		} `toml:"module"`
+		} `toml:"package"`
 		Dependencies map[string]toml.Primitive `toml:"dependencies"`
 	}
 	if _, err := toml.Decode(string(data), &raw); err != nil {
 		return nil
 	}
 	var names []string
-	if raw.Module.Name != "" {
-		names = append(names, raw.Module.Name)
+	if raw.Package.Name != "" {
+		names = append(names, raw.Package.Name)
 	}
 	for name := range raw.Dependencies {
 		names = append(names, name)
@@ -298,11 +352,29 @@ type ManifestLines struct {
 }
 
 // ManifestTableLayout is how nomi.toml's text data writes the table at
-// path (ManifestTable).
+// path (ManifestTable). With no path it is the keys written outside any
+// table, before the first header, such as nomi-workspace.toml's members:
+// Header is 0, and Body runs from the first line.
 func ManifestTableLayout(data []byte, path ...string) ManifestTable {
 	want := strings.Join(path, "\x00")
 	lines := strings.Split(string(data), "\n")
 	var t ManifestTable
+	if len(path) == 0 {
+		top := len(lines)
+		for i, line := range lines {
+			if strings.HasPrefix(strings.TrimSpace(stripTomlComment(line)), "[") {
+				top = i
+				break
+			}
+		}
+		t.Body = manifestRuns(lines, 1, top, false)
+		for _, run := range t.Body {
+			if run.Key != nil {
+				t.Last = run.Last
+			}
+		}
+		return t
+	}
 	for i, line := range lines {
 		text := strings.TrimSpace(stripTomlComment(line))
 		if text == "" {

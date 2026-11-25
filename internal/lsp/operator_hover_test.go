@@ -128,7 +128,7 @@ func operatorProject(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
 	files := map[string]string{
-		"nomi.toml": "[module]\nname = \"ops\"\n",
+		"nomi.toml": "[package]\nname = \"ops\"\n",
 		"money.nomi": `pub struct Money
   cents: Int
 end

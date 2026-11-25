@@ -382,7 +382,7 @@ fn main()
 end
 
 // FILE: nomi.toml
-[module]
+[package]
 name = "pricing"
 entry_points = ["main"]
 
@@ -390,7 +390,7 @@ entry_points = ["main"]
 std = ["std::io"]
 ```
 <!-- expect
-main.nomi:12:8: this module's own code has the effect std::fs, and [effects.self] allows it only std::io
+main.nomi:12:8: this package's own code has the effect std::fs, and [effects.self] allows it only std::io
 main.nomi:12:8: help: reached from `main`; `main` calls `saved_rate`
 main.nomi:12:8: help: add "std::fs" to std under [effects.self] in nomi.toml, or remove the call
 -->
@@ -459,7 +459,7 @@ money.
 Nomi is very early. This site is the main place to try the language while the
 design is still being worked out. Expressions, types, pattern matching,
 imports, interfaces, derives, tests, collections and control flow are the most
-used and tested parts. Concurrency and module management are newer.
+used and tested parts. Concurrency and package management are newer.
 :::
 
 </div>

@@ -375,7 +375,7 @@ func stdGenStructDeclIn(fa *analysis.FileAnalysis, s *stdGenStructSpec) *ast.Str
 // declared default with no spec row produces no anchor, and a spec default
 // the declaration does not carry produces no anchor either.
 func (s *stdGenStructSpec) matches(decl *ast.StructDef) bool {
-	if decl.Name != s.nomi || decl.Opaque != s.opaque || !decl.Public {
+	if decl.Name != s.nomi || decl.Opaque != s.opaque || decl.Visibility != ast.Public {
 		return false
 	}
 	if len(decl.TypeParams) != len(s.params) {

@@ -43,8 +43,8 @@
 // and a user file's name reaches another file's scope only through an
 // `import`. An import's edge comes from what the checker bound it to
 // (`resolvedImportEdges`) as well as from its path as written, since a path
-// spelled through the module's own name (`import r3::value.Value` in module
-// `r3`) matches no file key. The type groups of typecycle.go are found
+// spelled through the package's own name (`import r3::value.Value` in
+// package `r3`) matches no file key. The type groups of typecycle.go are found
 // within these components, so a cycle the import graph missed would build
 // its files one at a time and refuse the cycle. `pub` is enforced by the front end, so two files sharing a unit
 // change no visibility decision.
@@ -525,8 +525,13 @@
 // the source, written for a derive, and made by the builder;
 // `maxCallRouteSites` holds each to a maximum that only goes down.
 //
-// The impl tables (`implsByIface`, `instImpls`, and the sibling sites'
-// `implMemberSite.iface`) are keyed by the interface's identity, its
+// The impl tables (`implsByIface`, `instImpls`, `implItemsByDecl`, and the
+// sibling sites' `implMemberSite.iface`) are read and written only through
+// impltables.go (`implAt`, `instImplsAt`, `implItemsAt`, `implsOf`,
+// `fileImpl`; TestImplTablesAreReadThroughTheAccessor), since a block of a
+// generic interface over a generic type's instance is registered when an
+// impl of that instance is first asked for there ("Instantiation and
+// dispatch"). They are keyed by the interface's identity, its
 // declaring file's analyzer origin and its name (`ifaceKey`), never by its
 // spelling, so impls of two interfaces of one name (two files' `Show`, a
 // file's own `ToJson` and std's) for one type are two entries in one file
@@ -973,9 +978,12 @@
 // the parameters before it (siblingdefault.go). A callee whose file builds
 // none has its defaults lowered at the call from the declaring file's
 // records (`lowerNamesFrom`), whatever this file binds their names to. A file
-// builds them for each `pub fn`, and for a private `fn` when its partner
-// test is in the program. A monomorphic impl's `pub` members get theirs as
-// the impl is emitted, a generic member with its own type parameters per
+// builds them for each `pub fn`, and for an internal `fn` when another
+// file of its module is in the program (`anotherFileSees`), an inherent
+// impl's function by the same rule. A REPL session's file builds them for
+// every `fn`, private ones included, since the inputs that call it come
+// later and are lowered against the module it keeps. A monomorphic impl's members get
+// theirs as the impl is emitted, a generic member with its own type parameters per
 // instance (`methodInstAccessors`), and an impl function of a generic
 // type's instance (`Job.new` from a file that never imports the `Duration`
 // its `timeout` default names) on request, built under the instance's frame
@@ -1636,6 +1644,30 @@
 // `Option<T>`, is read the same way. The impl blocks over a generic type
 // are built at its instance at its own type parameters, and a generic
 // function of a block at its own.
+//
+// An instance of a generic type is given its template's impl blocks
+// (registerInstanceImpls, and another file's blocks over it,
+// siblingtemplateimpl.go) through one function, registerInstanceBlock. A
+// block whose interface takes type arguments (the checker's record of the
+// block has them) is filed as pending on the instance and registered when
+// a reader first asks for one of the instance's impls of that interface or
+// for its items (impltables.go). Registering such a block builds the
+// instances its interface's arguments name, and `impl Deeper<Box<Box<T>>>
+// for Box<T>` names a larger instance of its receiver at each one, so
+// registering them all when an instance is built would not end; on demand,
+// a call of `deeper` at Box<Int> builds Box<Box<Int>> with its own block
+// pending. Every other block is registered when the instance is built: the
+// machine selects an Equatable, Hashable, Display or Debug body by a value's
+// runtime type from tables filled by walking the registered impls, where
+// no reader names the receiver, and a block that cannot be built refuses
+// its instance. A walk over the tables that names no receiver sees only
+// the blocks registered so far, which holds every block of a generic
+// interface anything reached: such a block is reached only through a
+// receiver a reader names, a call, a boxing (bindsImpl) or a type's impls.
+// Functions that name another template's larger instance are not withheld
+// (expansiveImplItem withholds only its own), so two templates whose
+// blocks each name the other's larger instance still build a chain the
+// instance bounds (typeInstCap, typeInstSizeCap) refuse.
 //
 // An instance is built at the type arguments the checker instantiated the
 // call at, and nothing here solves them. `calleeTypeArgs` reads them off

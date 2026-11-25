@@ -73,7 +73,7 @@ func TestEffects_WriteSelfModulesWhenAsked(t *testing.T) {
 }
 
 // --check holds the entries under [effects.self.modules] as it holds
-// those under [effects.deps.modules]: a name an entry holds that its
+// those under [effects.deps.packages]: a name an entry holds that its
 // module does not reach is unused, and fails; a module the table gives no
 // entry is a choice, unless entries_required asks every module for one.
 // --format json names the list self.modules and the entry's module.
@@ -98,8 +98,13 @@ func TestEffects_CheckSelfModules(t *testing.T) {
 		t.Fatalf("--check --format json is not JSON: %v\n%s", err, r.stdout)
 	}
 	if r.exit != 1 || got.Table == nil || len(got.Table.Changes) != 1 ||
-		got.Table.Changes[0] != (analysis.EffectChange{Change: "remove", List: "self.modules", Module: "pricing", Name: "std::fs"}) {
+		got.Table.Changes[0] != (analysis.EffectChange{Change: "remove", List: "self.modules", Key: "pricing", Name: "std::fs"}) {
 		t.Errorf("--check --format json with an unused name in an entry:\n%s", r)
+	}
+	// The key of an entry of [effects.self.modules] is one of the
+	// project's modules, and JSON names it so.
+	if !strings.Contains(r.stdout, `"module": "pricing"`) || strings.Contains(r.stdout, `"package"`) {
+		t.Errorf("--check --format json names the entry's key otherwise than module:\n%s", r.stdout)
 	}
 
 	withoutStore := strings.Replace(exact, "\"store\" = [\"std::fs\"]\n", "", 1)

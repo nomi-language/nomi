@@ -23,7 +23,7 @@ import (
 // The error is either the program's own failure or this machine's limit;
 // ProgramFailure tells them apart.
 func (m *Machine) Main(ctx context.Context, args []string, handleSignals bool) error {
-	_, err := m.entry(ctx, args, handleSignals, func(run *Machine) (any, error) {
+	_, err := m.entry(ctx, "main", args, handleSignals, func(run *Machine) (any, error) {
 		result, err := run.Run("main")
 		if err != nil {
 			return nil, err
@@ -99,7 +99,7 @@ func (m *Machine) failureText(sym *ir.Symbol, payload any) (string, error) {
 // Call runs f with args as an embedding host calls a Nomi function: boot,
 // then f, on one rt frame of ctx, with Main's shutdown. It answers f's result.
 func (m *Machine) Call(ctx context.Context, f *ir.Func, args []any) (any, error) {
-	return m.entry(ctx, nil, false, func(run *Machine) (any, error) {
+	return m.entry(ctx, f.Name(), nil, false, func(run *Machine) (any, error) {
 		return run.callWithFrame(f, args, run.hostFrame)
 	})
 }
@@ -107,8 +107,12 @@ func (m *Machine) Call(ctx context.Context, f *ir.Func, args []any) (any, error)
 // entry is Main and Call: boot, body, shutdown. The activation runs on a
 // host's frame of ctx (rt.NewHostFrame), so ctx's end unwinds its main line
 // as a cancellation unwinds a task, and the activation answers ctx's error.
-func (m *Machine) entry(ctx context.Context, args []string, handleSignals bool, body func(*Machine) (any, error)) (result any, err error) {
+// It is a main line of rt's task registry, named name in a deadlock's
+// report: a deadlock among its tasks is its fault (rt.MainLine), taken out
+// once everything below, the drain and boot's cleanup too, has run.
+func (m *Machine) entry(ctx context.Context, name string, args []string, handleSignals bool, body func(*Machine) (any, error)) (result any, err error) {
 	fr := rt.NewHostFrame(m.withDiagnostics(ctx))
+	defer rt.MainLine(fr, name)()
 	if m.dbg != nil {
 		m.dbg.adopt(fr)
 	}

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/nomi-language/nomi/internal/token"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -1237,7 +1238,7 @@ func TestAttachedTestPromptLexesBodyAsCode(t *testing.T) {
 func TestAttachedTestPromptStripsFromTripleStringBodyLines(t *testing.T) {
 	tokens := Lex(`//! assert Toml.text(
 //!   Toml"""
-//!   [module]
+//!   [package]
 //!   name = "demo"
 //!   """
 //! ) == "ok"`)
@@ -1247,7 +1248,7 @@ func TestAttachedTestPromptStripsFromTripleStringBodyLines(t *testing.T) {
 			if tok.Tag != "Toml" {
 				t.Fatalf("tag = %q, want Toml", tok.Tag)
 			}
-			if tok.Lexeme != "[module]\nname = \"demo\"" {
+			if tok.Lexeme != "[package]\nname = \"demo\"" {
 				t.Fatalf("triple string body = %q", tok.Lexeme)
 			}
 			return
@@ -1431,6 +1432,45 @@ func TestIsCompleteBodies(t *testing.T) {
 	} {
 		if got := IsComplete(src); got != want {
 			t.Errorf("IsComplete(%q) = %v, want %v", src, got, want)
+		}
+	}
+}
+
+// A declaration after a visibility modifier keeps the input open until its
+// `end` as an unmarked one does, whichever modifier it has: `private` is
+// a modifier there by IsVisibilityModifier, which the parser reads too. A
+// `private` that is a name opens nothing.
+func TestIsCompleteBodiesAfterAModifier(t *testing.T) {
+	for _, mod := range []string{"", "pub ", "private ", "private opaque ", "pub opaque "} {
+		for src, want := range map[string]bool{
+			"fn f() -> Int":                              false,
+			"fn f() -> Int\n    1":                       false,
+			"fn f() -> Int\n    1\nend":                  true,
+			"struct S":                                   false,
+			"struct S\n    x: Int":                       false,
+			"struct S\n    x: Int\nend":                  true,
+			"enum E\n    A":                              false,
+			"enum E\n    A\nend":                         true,
+			"interface I\n    fn f(s: self) -> Int":      false,
+			"interface I\n    fn f(s: self) -> Int\nend": true,
+			"once x: Int =":                              false,
+			"once x: Int = begin\n    1":                 false,
+			"once x: Int = begin\n    1\nend":            true,
+			"once x: Int = case y\n    _ -> 1":           false,
+			"once x: Int = case y\n    _ -> 1\nend":      true,
+			"once x: Int = 1":                            true,
+		} {
+			if strings.Contains(mod, "opaque") && !strings.HasPrefix(src, "struct") && !strings.HasPrefix(src, "enum") {
+				continue
+			}
+			if got := IsComplete(mod + src); got != want {
+				t.Errorf("IsComplete(%q) = %v, want %v", mod+src, got, want)
+			}
+		}
+	}
+	for _, src := range []string{"private", "private + 1", "f(private)", "x = private"} {
+		if !IsComplete(src) {
+			t.Errorf("IsComplete(%q) = false, want true: `private` is a name there", src)
 		}
 	}
 }

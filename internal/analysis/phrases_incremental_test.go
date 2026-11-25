@@ -16,7 +16,7 @@ import (
 func phrasesProject(tb testing.TB) incrementalProject {
 	dir := tb.TempDir()
 	files := map[string]string{
-		"nomi.toml":            "[module]\nname = \"shop\"\nentry_points = [\"main\"]\n\n[i18n]\nlocales = [\"en\", \"pl\"]\npartial_locales = [\"de\"]\n",
+		"nomi.toml":            "[package]\nname = \"shop\"\nentry_points = [\"main\"]\n\n[i18n]\nlocales = [\"en\", \"pl\"]\npartial_locales = [\"de\"]\n",
 		"locales/pl/cart.toml": "[cart_items]\nsource = '''{$count :integer} items'''\ntext = '''{$count :integer} produkty'''\n",
 		"locales/de/cart.toml": "[cart_items]\nsource = '''{$count :integer} items'''\ntext = '''{$count :integer} Artikel'''\n",
 	}

@@ -69,7 +69,7 @@ end
 type Row
 
 impl Row
-    pub fn get<T>(n: Int) -> Result<T, String> where T: FromInt
+    fn get<T>(n: Int) -> Result<T, String> where T: FromInt
         Ok(T.from_int(n))
     end
 end

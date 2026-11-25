@@ -37,7 +37,7 @@ test "package-local types can use impl blocks"
         entry_point: "main",
         manifest: Some(
             """
-            [module]
+            [package]
             name = "demo"
             entry_points = ["main"]
             """
@@ -84,11 +84,11 @@ test "duplicate type-owned functions report coherence diagnostics"
                 end
 
                 impl Cookie
-                  pub fn new(flavor: String) -> Cookie
+                  fn new(flavor: String) -> Cookie
                     Cookie{flavor:}
                   end
 
-                  pub fn new(other: String) -> Cookie
+                  fn new(other: String) -> Cookie
                     Cookie{flavor: other}
                   end
                 end

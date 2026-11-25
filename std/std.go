@@ -21,7 +21,7 @@ import (
 	"testing"
 )
 
-// The stdlib is one Nomi module: every public module is a `<name>.nomi` here,
+// The stdlib is one package: every public module is a `<name>.nomi` here,
 // which `*.nomi` covers, or a module nested in its parent's directory,
 // `<parent>/<name>.nomi` (`storage/testing.nomi` is std::storage::testing),
 // which `*/*.nomi` covers, plus the one `nomi.toml` that declares it.
@@ -581,9 +581,9 @@ func load() *StdLib {
 	// for the synthetic entry. This matters because stdlib's own nomi.toml
 	// declares `name = "std"`, which the manifest validator (rightly)
 	// rejects when loaded as a user project — without this, the synthetic
-	// entry would fail discovery with "[module] name 'std' is reserved".
+	// entry would fail discovery with "[package] name 'std' is reserved".
 	// Stdlib lookups still resolve via the always-on stdlib injection in
-	// discovery.go (ModuleIndex["std"] = StdlibPath()), and file content
+	// discovery.go (PackageIndex["std"] = StdlibPath()), and file content
 	// comes from MakeLoader which reads embed first.
 	_, cache, extendedNodes := analysis.BuildProjectWithCache(
 		entryNodes,

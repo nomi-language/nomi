@@ -1096,7 +1096,7 @@ func (m *Machine) debugCallHost(fr *frame, h *hostCall, args []any) (any, error)
 		if h.intr != nil {
 			return h.intr(m.boundAt(fr, h.name), h.call.Pos(), args)
 		}
-		return callAdapter(h.fn, fr.runtime, args)
+		return callAdapter(m.noteGo, fr, h.call.Pos(), h.fn, args)
 	})
 }
 
