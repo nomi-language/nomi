@@ -518,7 +518,7 @@ func (e *Entry) Store(trees []Tree, files []string, payload []byte) {
 	}
 	stores.Add(1)
 	e.logf("stored")
-	prune(filepath.Dir(filepath.Dir(e.path)))
+	prune(filepath.Dir(filepath.Dir(e.path)), false)
 }
 
 func (e *Entry) logf(format string, args ...any) {
@@ -865,21 +865,63 @@ func keyOf(id, kind, entryFile string) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-// prune removes the records under dir nothing has read for unused, at most
-// once per pruneEvery (artifactcache.Due).
-func prune(dir string) {
-	if !artifactcache.Due(dir, pruneEvery) {
-		return
+// Prune removes now the records under root, the artifact cache, that
+// nothing has read for unused, in the programs' directory and each
+// sibling kind's (Entry.Sibling), and answers what it removed. A
+// directory of root holds records when a subdirectory of it is named as
+// a record's is, by its key's first two hex digits; the others (the
+// standard library's artifacts, compiled WebAssembly) are other
+// packages'.
+func Prune(root string) artifactcache.Pruned {
+	var pruned artifactcache.Pruned
+	kinds, err := os.ReadDir(root)
+	if err != nil {
+		return pruned
+	}
+	for _, k := range kinds {
+		if dir := filepath.Join(root, k.Name()); k.IsDir() && holdsRecords(dir) {
+			pruned.Add(prune(dir, true))
+		}
+	}
+	return pruned
+}
+
+// holdsRecords reports whether dir has a subdirectory named as a record's
+// is.
+func holdsRecords(dir string) bool {
+	subdirs, _ := os.ReadDir(dir)
+	for _, d := range subdirs {
+		if d.IsDir() && isRecordSubdir(d.Name()) {
+			return true
+		}
+	}
+	return false
+}
+
+// isRecordSubdir reports whether name is shaped like the subdirectory a
+// record's key puts it in: the key's first two hex digits.
+func isRecordSubdir(name string) bool {
+	return len(name) == 2 && strings.Trim(name, "0123456789abcdef") == ""
+}
+
+// prune removes the records under dir, one kind's directory, that nothing
+// has read for unused, at most once per pruneEvery (artifactcache.Due) or
+// now when force is set, and answers what it removed.
+func prune(dir string, force bool) artifactcache.Pruned {
+	var pruned artifactcache.Pruned
+	if !artifactcache.Due(dir, pruneEvery, force) {
+		return pruned
 	}
 	subdirs, err := os.ReadDir(dir)
 	if err != nil {
-		return
+		return pruned
 	}
 	for _, d := range subdirs {
-		if d.IsDir() && len(d.Name()) == 2 {
-			artifactcache.Prune(filepath.Join(dir, d.Name()), "", unused)
+		if d.IsDir() && isRecordSubdir(d.Name()) {
+			pruned.Add(artifactcache.Prune(filepath.Join(dir, d.Name()), "", unused))
 		}
 	}
+	return pruned
 }
 
 // The record's layout, after the magic: the version, a CRC-32 of the rest,

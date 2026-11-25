@@ -321,12 +321,12 @@ type Result struct {
 	// Literals are the typed literals checked at compile time
 	// that the user units lowered, in unit order (irliteralcell.go).
 	Literals []LiteralSite
-	// Refinements are the literals the user units' files check as
-	// refinements, in unit order (refinement.go).
-	Refinements []RefinementSite
-	// RefinementRules are the refinements the user units' files declare,
-	// whose rules must be pure (refinement.go).
-	RefinementRules []RefinementRuleSite
+	// Subtypes are the literals the user units' files check as
+	// subtypes, in unit order (subtype.go).
+	Subtypes []SubtypeSite
+	// SubtypeRules are the subtypes the user units' files declare,
+	// whose rules must be pure (subtype.go).
+	SubtypeRules []SubtypeRuleSite
 	// Exports are the program's `export fn` declarations, in unit order
 	// and then declaration order (exports.go).
 	Exports []Export
@@ -355,9 +355,9 @@ type Result struct {
 	perFileTables struct {
 		erased, boxed, synthRefused     []string
 		debugRendered, debugImplemented []string
-		// refinements and refinementRules are the file's own.
-		refinements     []RefinementSite
-		refinementRules []RefinementRuleSite
+		// subtypes and subtypeRules are the file's own.
+		subtypes     []SubtypeSite
+		subtypeRules []SubtypeRuleSite
 	}
 	file *relowered
 	// declines and refusals are each attempt's decline and each refused
@@ -498,9 +498,9 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 	// type-qualified call in one file may name an impl function declared in
 	// another. See siblingimpl.go.
 	files.resolveImplMembers(gens)
-	// A refinement's generated `try_from` calls its parent's, which another
+	// A subtype's generated `try_from` calls its parent's, which another
 	// file's owner block may hold, so owner functions are indexed before
-	// the synthesized impls are lowered too (refinement.go).
+	// the synthesized impls are lowered too (subtype.go).
 	files.resolveOwnerMembers(gens)
 	// The synthesized impls are lowered once the index exists, since a
 	// derived body may call another file's impl, and indexed again after,
@@ -572,15 +572,15 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 	for _, g := range gens {
 		g.irBuildStdDefaultThunks()
 	}
-	// A literal of a generic refinement is checked through its `try_from`
+	// A literal of a generic subtype is checked through its `try_from`
 	// at the literal's type arguments, an instance its check may ask
 	// another file for, so the sites are built before those are flushed.
-	var refinements []RefinementSite
-	var refinementRules []RefinementRuleSite
+	var subtypes []SubtypeSite
+	var subtypeRules []SubtypeRuleSite
 	for _, g := range gens {
-		g.refinements, g.refinementRuleSites = g.refinementSites(), g.refinementRules()
-		refinements = append(refinements, g.refinements...)
-		refinementRules = append(refinementRules, g.refinementRuleSites...)
+		g.subtypes, g.subtypeRuleSites = g.subtypeSites(), g.subtypeRules()
+		subtypes = append(subtypes, g.subtypes...)
+		subtypeRules = append(subtypeRules, g.subtypeRuleSites...)
 	}
 	// A generic function instance one file asked another for after that
 	// file's walk ended. See siblinggeneric.go.
@@ -650,7 +650,7 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 	irLibraries = append(append(slices.Clip(shared), linkedMods...), instMods...)
 
 	res = &Result{HasMain: hasMain,
-		IR: irMods, irLibraries: irLibraries, sharedStd: len(shared), irHostKeys: hostKeys, Literals: literals, Refinements: refinements, RefinementRules: refinementRules,
+		IR: irMods, irLibraries: irLibraries, sharedStd: len(shared), irHostKeys: hostKeys, Literals: literals, Subtypes: subtypes, SubtypeRules: subtypeRules,
 		Exports: exports, HostFns: hostFns, instMods: instMods}
 	if linked != nil {
 		res.linkedMods = linked.units
@@ -669,7 +669,7 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 		sort.Strings(res.perFileTables.debugRendered)
 		if len(gens) > 0 && gens[0] != nil {
 			res.perFileTables.debugImplemented = sortedSet(gens[0].debugImplemented())
-			res.perFileTables.refinements, res.perFileTables.refinementRules = gens[0].refinements, gens[0].refinementRuleSites
+			res.perFileTables.subtypes, res.perFileTables.subtypeRules = gens[0].subtypes, gens[0].subtypeRuleSites
 		}
 		for decl := range synthRefused(gens[:1]) {
 			if name, ok := reg.linkNames[decl]; ok {

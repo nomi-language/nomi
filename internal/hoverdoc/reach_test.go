@@ -44,7 +44,7 @@ func TestAppendReach_AFillingLineYieldsToAReachingOne(t *testing.T) {
 	at := analysis.Pos{Line: 3, Col: 5}
 	fill := analyzedlowering.Reached{Path: "rules.nomi", Line: 3, Col: 5, EndLine: 3, EndCol: 9, Text: "Has effects: `std::fs`.", Fills: true}
 	reach := analyzedlowering.Reached{Path: "rules.nomi", Line: 3, Col: 5, EndLine: 3, EndCol: 9,
-		Text: "Has effects: `std::fs`, which `nomi.toml` allows in `[effects.deps]`."}
+		Text: "Has effects: `std::fs`, which `nomi.toml` allows in `[effects.dependencies]`."}
 	uses := analyzedlowering.Reached{Path: "rules.nomi", Line: 3, Col: 5, EndLine: 3, EndCol: 9, Text: "Uses `App.limit`.", Uses: true}
 	for _, tc := range []struct {
 		name    string

@@ -502,7 +502,7 @@ func (p *Parser) synchronize() {
 		}
 		switch p.peek().Type {
 		case token.FN, token.TYPE, token.STRUCT, token.ENUM,
-			token.TYPEALIAS, token.REFINE, token.INTERFACE,
+			token.TYPEALIAS, token.SUBTYPE, token.INTERFACE,
 			token.IMPORT, token.EXTERN,
 			token.EXPORT, token.ONCE, token.TEST:
 			return
@@ -616,7 +616,7 @@ skip:
 				break skip
 			}
 		case token.FN, token.TYPE, token.STRUCT, token.ENUM,
-			token.TYPEALIAS, token.REFINE, token.INTERFACE,
+			token.TYPEALIAS, token.SUBTYPE, token.INTERFACE,
 			token.IMPORT, token.PUB, token.EXTERN,
 			token.EXPORT, token.ONCE, token.TEST:
 			if len(open) == 0 {
@@ -741,7 +741,7 @@ func (p *Parser) blockClosedByColumnOneDecl() bool {
 	}
 	switch tok.Type {
 	case token.FN, token.TYPE, token.STRUCT, token.ENUM,
-		token.TYPEALIAS, token.REFINE, token.INTERFACE,
+		token.TYPEALIAS, token.SUBTYPE, token.INTERFACE,
 		token.IMPORT, token.EXTERN,
 		token.EXPORT, token.ONCE, token.TEST:
 		return true
@@ -950,7 +950,7 @@ func isAttachedTestPostludeStart(tt token.TokenType) bool {
 		token.STRUCT,
 		token.ENUM,
 		token.TYPEALIAS,
-		token.REFINE,
+		token.SUBTYPE,
 		token.INTERFACE,
 		token.IMPL,
 		token.OPAQUE,
@@ -1410,7 +1410,7 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 			return p.parseEnumDef(vis, false)
 		case token.TYPE:
 			return p.parseTypeDef(vis, false)
-		case token.REFINE:
+		case token.SUBTYPE:
 			return p.parseTypeDef(vis, false)
 		case token.OPAQUE:
 			p.advance() // consume OPAQUE
@@ -1424,7 +1424,7 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 				return p.parseEnumDef(vis, true)
 			case token.TYPE:
 				return p.parseTypeDef(vis, true)
-			case token.REFINE:
+			case token.SUBTYPE:
 				return p.parseTypeDef(vis, true)
 			default:
 				return nil, errorAt(pubTok.Line, pubTok.Col, "'%s opaque' must be followed by 'struct', 'enum', or 'type'", word)
@@ -1533,8 +1533,8 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 		return p.parseTypeDef(ast.Internal, false)
 	}
 
-	// Refinement: refinement Name Parent [and Parent...] [where ...] [when rule]
-	if p.peek().Type == token.REFINE {
+	// Subtype: subtype Name Parent [and Parent...] [where ...] [when rule]
+	if p.peek().Type == token.SUBTYPE {
 		return p.parseTypeDef(ast.Internal, false)
 	}
 
@@ -1552,7 +1552,7 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 			return p.parseEnumDef(ast.Internal, true)
 		case token.TYPE:
 			return p.parseTypeDef(ast.Internal, true)
-		case token.REFINE:
+		case token.SUBTYPE:
 			return p.parseTypeDef(ast.Internal, true)
 		default:
 			return nil, errorAt(opaqueTok.Line, opaqueTok.Col, "'opaque' must be followed by 'struct', 'enum', or 'type'")
@@ -7720,12 +7720,12 @@ func (p *Parser) parseImportBlock(importTok token.Token) (ast.Node, error) {
 // the analyzer rejects opaque-on-zero-sized at the declaration site.
 func (p *Parser) parseTypeDef(vis ast.Visibility, opaque bool) (ast.Node, error) {
 	tok := p.peek()
-	refinement := tok.Type == token.REFINE
+	subtype := tok.Type == token.SUBTYPE
 	keyword := "type"
-	if refinement {
-		keyword = "refine"
+	if subtype {
+		keyword = "subtype"
 	}
-	p.advance() // consume TYPE or REFINE
+	p.advance() // consume TYPE or SUBTYPE
 
 	name, nameTok, err := p.parseQualifiedTypeDeclName(keyword)
 	if err != nil {
@@ -7766,14 +7766,14 @@ func (p *Parser) parseTypeDef(vis ast.Visibility, opaque bool) (ast.Node, error)
 		return nil, errorAt(p.peek().Line, p.peek().Col, "distinct `type` declarations do not take bodies; put constructors and helpers beside the type")
 	}
 
-	if refinement && innerTypeExpr == nil {
-		return nil, errorAt(nameTok.Line, nameTok.Col, "`refine %s` names the type it narrows: `refine %s Int when fn n -> n > 0`", name, name)
+	if subtype && innerTypeExpr == nil {
+		return nil, errorAt(nameTok.Line, nameTok.Col, "`subtype %s` names the type it narrows: `subtype %s Int when fn n -> n > 0`", name, name)
 	}
 	if innerTypeExpr == nil && len(typeParams) > 0 {
 		return nil, errorAt(typeParams[0].Line, typeParams[0].Col, "zero-sized `type %s` takes no type parameters: it has no value for them to describe", name)
 	}
 
-	// `refine Sorted<T> List<T> where T: Comparable when ...`: bounds on the
+	// `subtype Sorted<T> List<T> where T: Comparable when ...`: bounds on the
 	// type parameters, on the line the inner type ends on, before a rule.
 	var whereClauses []ast.WhereConstraint
 	if !p.atEnd() && p.peek().Type == token.WHERE && innerTypeExpr != nil && p.peek().Line == p.tokens[p.pos-1].Line {
@@ -7786,23 +7786,23 @@ func (p *Parser) parseTypeDef(vis ast.Visibility, opaque bool) (ast.Node, error)
 		}
 	}
 
-	rule, ruleTok, err := p.parseRefinementRule()
+	rule, ruleTok, err := p.parseSubtypeRule()
 	if err != nil {
 		return nil, err
 	}
 	if rule != nil && innerTypeExpr == nil {
 		return nil, errorAt(ruleTok.Line, ruleTok.Col, "zero-sized `type %s` has no value for a `when` rule to check: a validated type names the type it wraps, `type %s String when ...`", name, name)
 	}
-	// `refine PositiveInt NonNegativeInt and NonZeroInt when ...`: a
-	// refinement's parents, the first its inner type. A `type` over `A and B`
+	// `subtype PositiveInt NonNegativeInt and NonZeroInt when ...`: a
+	// subtype's parents, the first its inner type. A `type` over `A and B`
 	// wraps the intersection, which is its inner type.
 	var moreParents []ast.TypeExpr
-	if conj, isConj := innerTypeExpr.(*ast.ConjunctionType); isConj && refinement {
+	if conj, isConj := innerTypeExpr.(*ast.ConjunctionType); isConj && subtype {
 		innerTypeExpr, moreParents = conj.Members[0], conj.Members[1:]
 	}
 
 	return &ast.TypeDef{
-		Refinement:    refinement,
+		Subtype:       subtype,
 		Rule:          rule,
 		RuleLine:      ruleTok.Line,
 		RuleCol:       ruleTok.Col,
@@ -7880,7 +7880,7 @@ func (p *Parser) parseEnumDef(vis ast.Visibility, opaque bool) (ast.Node, error)
 // newline-separated items:
 //
 //   - field: name: Type [= default]
-//   - after every field, at most one refinement rule: when <rule>
+//   - after every field, at most one subtype rule: when <rule>
 //
 // The keyword and name (and any type params) have already been consumed;
 // the LBRACE is the next token. Returns *ast.StructDef. `opaque`
@@ -8054,7 +8054,7 @@ func (p *Parser) parseStructBody(vis ast.Visibility, opaque bool, name string, t
 }
 
 // rejectRuleAfterStructEnd refuses a `when` on the line a struct's `end`
-// ends on: a struct's rule is its body's last item (spec §4 *Refinements*).
+// ends on: a struct's rule is its body's last item (spec §4 *Subtypes*).
 func (p *Parser) rejectRuleAfterStructEnd() error {
 	if p.atEnd() || p.peek().Type != token.WHEN || p.pos == 0 || p.peek().Line != p.tokens[p.pos-1].Line {
 		return nil
@@ -8063,19 +8063,19 @@ func (p *Parser) rejectRuleAfterStructEnd() error {
 	return errorAt(when.Line, when.Col, "a struct's `when` rule goes inside its body, after its fields")
 }
 
-// parseRefinementRule parses a `type`'s refinement rule, on the line its
+// parseSubtypeRule parses a `type`'s subtype rule, on the line its
 // header ends on (parseWhenRule). It answers nil and a zero token when no
 // `when` follows on that line.
-func (p *Parser) parseRefinementRule() (ast.Node, token.Token, error) {
+func (p *Parser) parseSubtypeRule() (ast.Node, token.Token, error) {
 	if p.atEnd() || p.peek().Type != token.WHEN || p.pos == 0 || p.peek().Line != p.tokens[p.pos-1].Line {
 		return nil, token.Token{}, nil
 	}
 	return p.parseWhenRule()
 }
 
-// parseWhenRule parses a refinement's rule at its `when`: the keyword and
+// parseWhenRule parses a subtype's rule at its `when`: the keyword and
 // the function the rule is, a lambda or a function's name (spec §4
-// *Refinements*). A `type` writes it after its header, a struct as
+// *Subtypes*). A `type` writes it after its header, a struct as
 // its body's last item.
 func (p *Parser) parseWhenRule() (ast.Node, token.Token, error) {
 	when := p.peek()
@@ -8169,7 +8169,7 @@ func (p *Parser) parseTypeAlias(vis ast.Visibility) (ast.Node, error) {
 
 // parseAliasTail parses what may follow a typealias's target on its line:
 // a `where` clause over its type parameters. A `when` there is an error:
-// an alias is its target, and a rule makes a refinement.
+// an alias is its target, and a rule makes a subtype.
 func (p *Parser) parseAliasTail(name string, typeParams []ast.TypeParam, target string) ([]ast.WhereConstraint, error) {
 	var where []ast.WhereConstraint
 	if !p.atEnd() && p.peek().Type == token.WHERE && p.peek().Line == p.tokens[p.pos-1].Line {
@@ -8183,7 +8183,7 @@ func (p *Parser) parseAliasTail(name string, typeParams []ast.TypeParam, target 
 	}
 	if !p.atEnd() && p.peek().Type == token.WHEN && p.peek().Line == p.tokens[p.pos-1].Line {
 		when := p.peek()
-		return nil, errorAt(when.Line, when.Col, "a typealias has no rule, since it is its target under another name: for the values of %s that satisfy a rule, declare `refine %s %s when ...`", target, name, target)
+		return nil, errorAt(when.Line, when.Col, "a typealias has no rule, since it is its target under another name: for the values of %s that satisfy a rule, declare `subtype %s %s when ...`", target, name, target)
 	}
 	return where, nil
 }
@@ -10263,7 +10263,7 @@ func isDocBoundaryStart(tok, next token.Token) bool {
 		token.STRUCT,
 		token.ENUM,
 		token.TYPEALIAS,
-		token.REFINE,
+		token.SUBTYPE,
 		token.INTERFACE,
 		token.IMPL,
 		token.OPAQUE,

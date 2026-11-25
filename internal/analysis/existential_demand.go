@@ -26,7 +26,7 @@ import (
 // Comparable, whose `compare` takes two `self` values, is met by no
 // interface type. The checker's bound checks ask it
 // (checkExistentialBound), and so does impl matching
-// (typeSatisfiesInterfaceForImplMatch). A generic refinement's declaration
+// (typeSatisfiesInterfaceForImplMatch). A generic subtype's declaration
 // check is the one exception: it types the rule's `try_from` at its
 // bounds' interfaces as a witness for every implementor, which the IR
 // builder lowers for the effect walk and never runs (ruleWitness).

@@ -422,17 +422,16 @@ implements for the type.
 
 Spec: [Validated types](/spec/types/#validated-types).
 
-## Refinements
+## Subtypes
 
 An `Email` with a rule is still its own type, so it doesn't pass where a
 `String` is expected. Sometimes you want the check without a new type. A port
 number is an `Int` from 1 to 65535, and code that takes one should still be
-able to print it or compare it as an `Int`. A refinement, declared with
-`refine`, is the values of another type that a `when` rule allows, and its
-values remain that type.
+able to print it or compare it as an `Int`. A `subtype` is the values of
+another type that a `when` rule allows, and its values remain that type.
 
 ```nomi-run
-refine Port Int when fn p -> p >= 1 and p <= 65535
+subtype Port Int when fn p -> p >= 1 and p <= 65535
 
 fn serve(port: Port) -> String
     "listening on ${port}"
@@ -465,8 +464,8 @@ dbg line 22: Float.floor(half) = 0.0
 -->
 
 A `Port` is stored and used as an `Int`, so `serve` can interpolate it, and
-a `Port` passes wherever an `Int` is expected. A refinement may narrow other
-refinements, several joined by `and`: the prelude's `PositiveFloat` is
+a `Port` passes wherever an `Int` is expected. A subtype may narrow other
+subtypes, several joined by `and`: the prelude's `PositiveFloat` is
 `NonNegativeFloat and NonZeroFloat` over `Float`, so `half` goes to `scale`
 and to `Float.floor` as it is. Nothing converts down or sideways.
 
@@ -474,7 +473,7 @@ A literal where a `Port` is expected, as in `serve(8080)`, is checked while
 the program compiles, so a bad one never runs:
 
 ```nomi-run error
-refine Port Int when fn p -> p >= 1 and p <= 65535
+subtype Port Int when fn p -> p >= 1 and p <= 65535
 
 fn serve(port: Port) -> String
     "listening on ${port}"
@@ -499,7 +498,7 @@ exponent and the counts of `String.repeat` and `Iter.take` are
 `Iter.chunks` takes a `PositiveInt`, so `Iter.chunks(xs, 0)` does not
 compile.
 
-A refinement can take type parameters. The prelude's `NonEmptyList<T>` is a
+A subtype can take type parameters. The prelude's `NonEmptyList<T>` is a
 List with at least one element, so its first element is a `T`, not an
 `Option<T>`:
 
@@ -511,7 +510,7 @@ end
 fn main()
     dbg greet(["Ada", "Bo"])
 
-    typed = String.split("Cy,Di", ",")
+    typed = String.words("Cy Di")
     dbg NonEmptyList.try_from(typed) |> Option.map(greet)
 
     // Below this check, typed is a NonEmptyList.
@@ -526,10 +525,10 @@ dbg line 13: greet(typed) = "Hello, Cy"
 -->
 
 A list literal with an element is a `NonEmptyList` whatever its elements
-are, so `greet([name])` needs no check, and the same holds for vector, set and map literals and their non-empty refinements.
+are, so `greet([name])` needs no check, and the same holds for vector, set and map literals and their non-empty subtypes.
 A binding with no type written keeps that: after `names = [name]`, and for `once names = ["Ada"]`, `greet(names)` needs no check either.
 
-A check narrows a binding to the std refinement it proves, where it holds:
+A check narrows a binding to the std subtype it proves, where it holds:
 past `if typed == [] then return`, `typed` is a `NonEmptyList`, and in
 `if n > 0 then ...`, `n` is a `PositiveInt`. So a value the code checks
 already needs no `try_from`. The compiler follows each number's range
@@ -547,28 +546,28 @@ checked (`if count == 0 then return 0`) or typed, and never divides by zero.
   it, where the rule is known to hold.
 - A `struct` takes a rule as the last line of its body, after every field:
   `when fn s -> s.low <= s.high`.
-- A refinement can't be `opaque`. It may take type parameters, which its
+- A subtype can't be `opaque`. It may take type parameters, which its
   parents name, bounded with `where` before `when`:
-  `refine Sorted<T> List<T> where T: Comparable when ...`.
-- A refinement must narrow: one with no rule of its own needs two parents,
-  as `refine Strict NonNegativeInt and NonZeroInt`, and a value of every
+  `subtype Sorted<T> List<T> where T: Comparable when ...`.
+- A subtype must narrow: one with no rule of its own needs two parents,
+  as `subtype Strict NonNegativeInt and NonZeroInt`, and a value of every
   parent converts into it.
-- A `type` over a refinement is a validated type: `type UserId PositiveInt`
+- A `type` over a subtype is a validated type: `type UserId PositiveInt`
   has `UserId.try_from`, and converts to nothing.
 - `NonNegativeInt and NonZeroInt` is a type wherever one is written, the
   values that are both.
 - Where a `Port` meets an `Int` with no type written, as the two branches
   of an `if` or two elements of a list, the value is an `Int`. A literal
-  beside a std numeric refinement that satisfies its rule is that refinement:
+  beside a std numeric subtype that satisfies its rule is that subtype:
   with `n` a `NonNegativeInt`, `if c then n else 0` is one.
-- Arithmetic gives the std numeric refinement its result's range proves:
+- Arithmetic gives the std numeric subtype its result's range proves:
   with `n` a `NonNegativeInt`, `n + 1` is a `PositiveInt`, `n * n` a
   `NonNegativeInt`, and `n - 1` an `Int`. A value whose range proves a
-  refinement passes where one is expected, std::int's `Int64` and a rule of
+  subtype passes where one is expected, std::int's `Int64` and a rule of
   literal bounds over `Int` included. No range relates two bindings:
   `i < n` says nothing of `i`.
 
-Spec: [Refinements](/spec/types/#refinements).
+Spec: [Subtypes](/spec/types/#subtypes).
 
 </div>
 
@@ -862,7 +861,7 @@ anonymous shape like this one: a function type, an anonymous struct or a long
 tuple.
 
 An alias may take type parameters, as in `typealias Pair<T> (T, T)`, and may
-name several interfaces joined by `and`. It has no rule; that is a refinement.
+name several interfaces joined by `and`. It has no rule; that is a `subtype`.
 You cannot write an `impl` for it, and you call its target's functions by the
 target's name: for `typealias Names List<String>`, write `List.first`, not
 `Names.first`.

@@ -78,7 +78,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/nomi-language/nomi/internal/artifactcache"
 	"github.com/nomi-language/nomi/internal/ir"
@@ -91,9 +90,6 @@ const (
 	// stdBundleVersion versions this file's own layout; ir.FormatVersion
 	// versions the images inside it.
 	stdBundleVersion = 7
-	// stdBundleUnused is how long a cached bundle no process has used is
-	// kept: each build of the compiler writes its own.
-	stdBundleUnused = 24 * time.Hour
 )
 
 // stdBundleState is the bundle this process's stdlib lowering came from,
@@ -563,7 +559,7 @@ func writeStdBundle(shared, listed []byte) {
 	if err := artifactcache.WriteFile(path, assembleStdBundle(thisStdBundleHead(), shared, listed)); err != nil {
 		stdBundleDebug("writing %s: %v", path, err)
 	}
-	artifactcache.Prune(filepath.Dir(path), filepath.Base(path), stdBundleUnused)
+	artifactcache.Prune(filepath.Dir(path), filepath.Base(path), artifactcache.StdUnused)
 }
 
 // stdBundleDebug reports why a bundle was not used, under
@@ -582,7 +578,7 @@ func stdBundlePath() string {
 		return ""
 	}
 	sum := sha256.Sum256([]byte(fmt.Sprintf("%s\x00%d\x00%t", id, stdBundleVersion, std.FixturesLoaded())))
-	return filepath.Join(root, "std", hex.EncodeToString(sum[:16])+".bundle")
+	return filepath.Join(root, artifactcache.StdDir, hex.EncodeToString(sum[:16])+".bundle")
 }
 
 // StdBundle lowers the stdlib in this process, the shared modules and every

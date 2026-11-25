@@ -402,7 +402,7 @@ A function can take the directory instead. `fs.open_dir` opens a `Dir`,
 and `Dir`'s functions are the ones above, each reaching only what is under
 it. The signature says what the function can touch, and a library handed
 a `Dir` needs no `std::fs` in an [effects
-list](/tooling/projects/#authority-by-handle):
+list](/tooling/effects/#authority-by-handle):
 
 ```nomi-run read-only:private.txt
 // FILE: main.nomi

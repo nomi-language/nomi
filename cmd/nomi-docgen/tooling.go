@@ -12,15 +12,22 @@ package main
 // one level up, `spec §N *Heading*` links the Specification page, a link
 // into the document (`#anchor`) goes to the page its heading landed on, and
 // a link to another file in the repository goes to GitHub. docs/install.md,
-// beside it, is the section's first page, /tooling/install/, whole. The
-// pages are generated and gitignored (scripts/build-tour-wasm.sh writes
-// them).
+// beside it, is the section's first page, /tooling/install/, whole, and its
+// first sections may be numbered steps (`## 1. Install`), which the page
+// shows as an ordered list headed by their titles (installPage). Both, and
+// docs/style.md, may hold tab groups, `<!-- tabs: <key> -->`, a `**Label**`
+// paragraph opening each tab, then `<!-- end tabs -->`, which the site shows
+// as tabs and GitHub as the labeled tabs in order (tabs.go says the rules,
+// and a group that breaks one fails the generation). The pages are
+// generated and gitignored (scripts/build-tour-wasm.sh writes them).
 
 import (
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -48,7 +55,7 @@ func toolingPages(toolingPath, specPath string) (map[string]string, []string, er
 	sidebar := []item{{"Overview", toolingSite}, {install.title, toolingSite + installSlug + "/"}}
 	var index strings.Builder
 	index.WriteString("---\ntitle: Tooling\n")
-	index.WriteString("description: \"The nomi command and its flags, nomi.toml, modules and dependencies, the test runner, builds, environment variables and editor support.\"\n---\n\n")
+	index.WriteString("description: \"The nomi command and its flags, nomi.toml, effects lists, packages and dependencies, the test runner, builds, environment variables and editor support.\"\n---\n\n")
 	fmt.Fprintf(&index, "<!-- Generated from docs/tooling.md by `%s`. Do not edit. -->\n\n", toolingGenerateCommand)
 	index.WriteString(doc.render(doc.preamble, nil))
 	index.WriteString("\nThese pages are generated from [`docs/tooling.md`](" + styleRepo + "docs/tooling.md) and [`docs/install.md`](" + styleRepo + "docs/install.md) in the repository.\n")
@@ -111,7 +118,10 @@ type renderedInstall struct {
 }
 
 // installPage renders docs/install.md as one page: its `## ` headings stay
-// headings of the page, under the title its `# ` heading gives.
+// headings of the page, under the title its `# ` heading gives. Its first
+// sections may be numbered steps, `## 1. Install`, `## 2. ...`, which the
+// page shows as an ordered list of steps, each headed by its title without
+// the number (tour.css styles .nomi-steps).
 func installPage(installPath, specPath string) (renderedInstall, error) {
 	data, err := os.ReadFile(installPath)
 	if err != nil {
@@ -128,13 +138,39 @@ func installPage(installPath, specPath string) (renderedInstall, error) {
 	page.WriteString(doc.render(doc.preamble, nil))
 	slugs := newSlugger()
 	var sections []toolingSection
+	steps, stepsEnded := 0, false
 	for _, t := range doc.topics {
-		fmt.Fprintf(&page, "\n## %s\n\n", t.title)
-		page.WriteString(doc.render(t.body, nil))
-		sections = append(sections, toolingSection{t.title, toolingSite + installSlug + "/#" + slugs.slug(headingText(t.title))})
+		heading := t.title
+		if m := installStep.FindStringSubmatch(t.title); m != nil {
+			if num, _ := strconv.Atoi(m[1]); num != steps+1 || stepsEnded {
+				return renderedInstall{}, fmt.Errorf("%s: step `## %s` is out of order; number the steps 1, 2, 3, ... in the page's first sections", installPath, t.title)
+			}
+			if steps == 0 {
+				page.WriteString("\n<ol class=\"nomi-steps\">\n")
+			}
+			steps++
+			heading = m[2]
+			fmt.Fprintf(&page, "\n<li class=\"nomi-step\">\n\n## %s\n\n", heading)
+			page.WriteString(doc.render(t.body, nil))
+			page.WriteString("\n</li>\n")
+		} else {
+			if steps > 0 && !stepsEnded {
+				page.WriteString("\n</ol>\n")
+			}
+			stepsEnded = true
+			fmt.Fprintf(&page, "\n## %s\n\n", heading)
+			page.WriteString(doc.render(t.body, nil))
+		}
+		sections = append(sections, toolingSection{heading, toolingSite + installSlug + "/#" + slugs.slug(headingText(heading))})
+	}
+	if steps > 0 && !stepsEnded {
+		page.WriteString("\n</ol>\n")
 	}
 	return renderedInstall{title, page.String(), sections, doc.unresolved}, nil
 }
+
+// installStep is a step's heading in docs/install.md, `## 1. Install`.
+var installStep = regexp.MustCompile(`^(\d+)\. (.+)$`)
 
 type toolingSection struct {
 	title  string // the `###` heading's text

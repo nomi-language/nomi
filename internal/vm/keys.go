@@ -70,7 +70,7 @@ func (m *Machine) keysOver(fr *frame, v any) *rt.Keys {
 // (maphosts.go, sethosts.go). A body runs only on a value of the type that
 // declares it, as keysOver answers at run time, so the reachability walk
 // (reach.go) queues only the bodies of the declared types these operands'
-// types hold (heldTypes): a refinement's rule that compares Ints, or passes
+// types hold (heldTypes): a subtype's rule that compares Ints, or passes
 // an Int and a `fn (Int) -> Bool` to a host, reaches no `equal` of the
 // program's, and one that compares a Point reaches only the bodies of
 // Point and the types its fields hold.

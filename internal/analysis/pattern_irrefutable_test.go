@@ -28,7 +28,7 @@ struct Point
     y: Int
 end
 
-refine Port Int when fn port -> port >= 1 and port <= 65535
+subtype Port Int when fn port -> port >= 1 and port <= 65535
 
 fn bindings(o: Opt, s: Side, only: Only, pt: Point) -> Int
     (a, _) = (1, 2)

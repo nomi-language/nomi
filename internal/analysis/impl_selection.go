@@ -46,10 +46,10 @@ func (c *checker) implCandidates(concrete Type, iface, origin string) []implCand
 }
 
 func (fa *FileAnalysis) implCandidates(concrete Type, iface, origin string) []implCandidate {
-	if dt := refinementOf(concrete); dt != nil && dt.Inner != nil {
-		// A refinement has its parent's impls, save one that makes a
-		// value of its type (refinement_impls.go).
-		if fa.refinementLacksImplNamed(dt, iface, origin) {
+	if dt := subtypeOf(concrete); dt != nil && dt.Inner != nil {
+		// A subtype has its parent's impls, save one that makes a
+		// value of its type (subtype_impls.go).
+		if fa.subtypeLacksImplNamed(dt, iface, origin) {
 			return nil
 		}
 		return fa.implCandidates(DistinctInner(dt), iface, origin)

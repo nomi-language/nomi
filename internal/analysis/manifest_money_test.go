@@ -7,7 +7,7 @@ import (
 
 // [money].custom_currencies lists custom currencies as their literals write
 // them, each once; a missing table or an empty list lists none, and an
-// entry that is not a custom currency is an error naming it.
+// entry that is not a custom currency is an error naming it, at its line.
 func TestParseManifestData_MoneyCustomCurrencies(t *testing.T) {
 	const head = "[package]\nname = \"app\"\n\n[money]\n"
 	m, err := ParseManifestData([]byte(head+"custom_currencies = [\"PTS:0\", \"BTC:8\"]\n"), "nomi.toml")
@@ -24,14 +24,14 @@ func TestParseManifestData_MoneyCustomCurrencies(t *testing.T) {
 		}
 	}
 	for _, c := range []struct{ list, want string }{
-		{`["PTS"]`, "nomi.toml: [money] custom_currencies: \"PTS\" is not a custom currency: `PTS` names no minor digits: write the code, a colon and the digits, as PTS:2"},
-		{`["pts:0"]`, "nomi.toml: [money] custom_currencies: \"pts:0\" is not a custom currency: `pts` is not a currency code: a code is 1 to 12 of A-Z and 0-9, starting with a letter"},
-		{`["EUR:2"]`, "nomi.toml: [money] custom_currencies: \"EUR:2\" is not a custom currency: `EUR` is an ISO 4217 currency, which is not a custom one"},
-		{`["EUR"]`, "nomi.toml: [money] custom_currencies: \"EUR\" is not a custom currency: `EUR` is an ISO 4217 currency, which is not a custom one"},
-		{`["PTS:19"]`, "nomi.toml: [money] custom_currencies: \"PTS:19\" is not a custom currency: a currency has 0 to 18 minor digits, not 19"},
-		{`["PTS:x"]`, "nomi.toml: [money] custom_currencies: \"PTS:x\" is not a custom currency: `x` is not a count of minor digits: write a whole number from 0 to 18, as PTS:2"},
-		{`["PTS:00"]`, "nomi.toml: [money] custom_currencies: \"PTS:00\" is not a custom currency: `00` is not a count of minor digits: write a whole number from 0 to 18, as PTS:2"},
-		{`["PTS:0", "BTC:8", "PTS:0"]`, "nomi.toml: [money] custom_currencies lists PTS:0 twice"},
+		{`["PTS"]`, "nomi.toml:5: [money] custom_currencies: \"PTS\" is not a custom currency: `PTS` names no minor digits: write the code, a colon and the digits, as PTS:2"},
+		{`["pts:0"]`, "nomi.toml:5: [money] custom_currencies: \"pts:0\" is not a custom currency: `pts` is not a currency code: a code is 1 to 12 of A-Z and 0-9, starting with a letter"},
+		{`["EUR:2"]`, "nomi.toml:5: [money] custom_currencies: \"EUR:2\" is not a custom currency: `EUR` is an ISO 4217 currency, which is not a custom one"},
+		{`["EUR"]`, "nomi.toml:5: [money] custom_currencies: \"EUR\" is not a custom currency: `EUR` is an ISO 4217 currency, which is not a custom one"},
+		{`["PTS:19"]`, "nomi.toml:5: [money] custom_currencies: \"PTS:19\" is not a custom currency: a currency has 0 to 18 minor digits, not 19"},
+		{`["PTS:x"]`, "nomi.toml:5: [money] custom_currencies: \"PTS:x\" is not a custom currency: `x` is not a count of minor digits: write a whole number from 0 to 18, as PTS:2"},
+		{`["PTS:00"]`, "nomi.toml:5: [money] custom_currencies: \"PTS:00\" is not a custom currency: `00` is not a count of minor digits: write a whole number from 0 to 18, as PTS:2"},
+		{`["PTS:0", "BTC:8", "PTS:0"]`, "nomi.toml:5: [money] custom_currencies lists PTS:0 twice"},
 	} {
 		_, err := ParseManifestData([]byte(head+"custom_currencies = "+c.list+"\n"), "nomi.toml")
 		if err == nil || err.Error() != c.want {

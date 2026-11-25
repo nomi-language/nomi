@@ -322,7 +322,7 @@ func RenderWithAnalysis(sym *analysis.Symbol, fa *analysis.FileAnalysis) string 
 	case analysis.SymbolLiteral:
 		// Synthetic hover-only marker for a literal whose spelling does not
 		// name its type: `'a': Codepoint`. A literal checked as a
-		// refinement says so in its doc.
+		// subtype says so in its doc.
 		sig = sym.Name + ": " + displayValueType(sym.Type)
 		doc = sym.Doc
 	case analysis.SymbolAssertion:
@@ -407,7 +407,7 @@ func RenderWithAnalysis(sym *analysis.Symbol, fa *analysis.FileAnalysis) string 
 			doc = n.Doc
 		case *ast.StructDef:
 			sig = renderStructDef(n)
-			doc = withNote(n.Doc, refinementNote(n.Name, n.Rule != nil, sym.Type))
+			doc = withNote(n.Doc, subtypeNote(n.Name, n.Rule != nil, sym.Type))
 		case *ast.EnumDef:
 			sig = renderEnumDef(n)
 			doc = n.Doc
@@ -416,8 +416,8 @@ func RenderWithAnalysis(sym *analysis.Symbol, fa *analysis.FileAnalysis) string 
 			doc = n.Doc
 		case *ast.TypeDef:
 			keyword := "type "
-			if n.Refinement {
-				keyword = "refine "
+			if n.Subtype {
+				keyword = "subtype "
 			}
 			s := keyword + n.Name + renderTypeParams(n.TypeParams)
 			if n.InnerTypeExpr != nil {
@@ -431,7 +431,7 @@ func RenderWithAnalysis(sym *analysis.Symbol, fa *analysis.FileAnalysis) string 
 				s += " when " + analysis.RuleText(n.Rule)
 			}
 			sig = s
-			doc = withNote(n.Doc, refinementNote(n.Name, n.Refinement || analysis.IsCheckedDistinct(sym.Type), sym.Type))
+			doc = withNote(n.Doc, subtypeNote(n.Name, n.Subtype || analysis.IsCheckedDistinct(sym.Type), sym.Type))
 		// No `doc = n.Doc` here, deliberately, unlike every sibling in
 		// this switch. The `switch sym.Kind` above already claims
 		// SymbolInterfaceMethod and sets the doc there, and every
@@ -972,8 +972,8 @@ func renderTypeExprSelfAware(te ast.TypeExpr, resolved analysis.Type, receiver a
 		// import: the reader knows the type by its own name.
 		return q.Member.TypeString()
 	}
-	if _, isBase := te.(*ast.RefinementBaseType); isBase && resolved != nil {
-		// A refinement's generated `try_from` takes its base, which no
+	if _, isBase := te.(*ast.SubtypeBaseType); isBase && resolved != nil {
+		// A subtype's generated `try_from` takes its base, which no
 		// source spells there: the checker's type is its name.
 		return resolved.String()
 	}
@@ -1216,38 +1216,38 @@ func renderStructDef(n *ast.StructDef) string {
 	return b.String()
 }
 
-// refinementNote is the paragraph a hover on a refinement, a validated type
+// subtypeNote is the paragraph a hover on a subtype, a validated type
 // or a validated struct adds below its doc: what the type is, the chain of
-// types a refinement narrows, and how a value enters it. Empty when checked
+// types a subtype narrows, and how a value enters it. Empty when checked
 // is false: a declaration whose values need no check.
-func refinementNote(name string, checked bool, t analysis.Type) string {
+func subtypeNote(name string, checked bool, t analysis.Type) string {
 	if !checked {
 		return ""
 	}
 	var b strings.Builder
-	parents := analysis.RefinementParents(t)
+	parents := analysis.SubtypeParents(t)
 	switch {
-	case analysis.IsStructRefinement(t):
+	case analysis.IsValidatedStruct(t):
 		b.WriteString("*validated struct*")
 	case analysis.IsCheckedDistinct(t):
 		b.WriteString("*validated type*: `" + t.String() + "` converts to nothing")
 	default:
-		b.WriteString("*refinement*")
+		b.WriteString("*subtype*")
 	}
 	single := true
-	for _, c := range analysis.RefinementChecks(t) {
-		single = single && len(analysis.RefinementParents(c)) <= 1
+	for _, c := range analysis.SubtypeChecks(t) {
+		single = single && len(analysis.SubtypeParents(c)) <= 1
 	}
 	if len(parents) == 1 && single {
-		// One parent each way up: `PositiveFloat` is a refinement of
-		// `NonNegativeFloat`, a refinement of `Float`.
+		// One parent each way up: `PositiveFloat` is a subtype of
+		// `NonNegativeFloat`, a subtype of `Float`.
 		chain := []string{t.String()}
-		for _, a := range analysis.RefinementAncestors(t) {
+		for _, a := range analysis.SubtypeAncestors(t) {
 			chain = append(chain, a.String())
 		}
-		b.WriteString(": `" + strings.Join(chain, "` is a refinement of `") + "`")
+		b.WriteString(": `" + strings.Join(chain, "` is a subtype of `") + "`")
 	} else if len(parents) > 0 {
-		// `PositiveInt` is a refinement of `NonNegativeInt` and
+		// `PositiveInt` is a subtype of `NonNegativeInt` and
 		// `NonZeroInt`, and through them `Int`.
 		direct := map[string]bool{}
 		var names, further []string
@@ -1255,12 +1255,12 @@ func refinementNote(name string, checked bool, t analysis.Type) string {
 			direct[p.String()] = true
 			names = append(names, "`"+p.String()+"`")
 		}
-		for _, a := range analysis.RefinementAncestors(t) {
+		for _, a := range analysis.SubtypeAncestors(t) {
 			if !direct[a.String()] {
 				further = append(further, "`"+a.String()+"`")
 			}
 		}
-		b.WriteString(": `" + t.String() + "` is a refinement of " + joinAnd(names))
+		b.WriteString(": `" + t.String() + "` is a subtype of " + joinAnd(names))
 		if len(further) > 0 {
 			b.WriteString(", and through them " + joinAnd(further))
 		}

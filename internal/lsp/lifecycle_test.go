@@ -128,6 +128,13 @@ func (c *rpcClient) labels(w jsonrpc2.Waiter) ([]string, time.Time) {
 	return itemLabels(list.Items), time.Now()
 }
 
+// waitDiagnostics waits for any publication for uri. The closed-file pass
+// may publish a file from its disk text before the server has handled the
+// file's didOpen, so a publication does not mean the opened text has been
+// analyzed. A test that then reads the server's state, edits the text
+// itself, or needs an earlier analysis to answer from waits with
+// waitAnalyzed instead; one followed by a request needs neither, since
+// the request waits by its freshness.
 func (c *rpcClient) waitDiagnostics(uri string) published {
 	c.t.Helper()
 	return c.waitPublished(uri, 0)
@@ -198,13 +205,18 @@ func median(ds []time.Duration) time.Duration {
 // With a 500 ms debounce the edit's analysis cannot have run when the
 // answer comes, so an answer inside that window proves the request did not
 // wait for it. The diagnostics for the edit arrive after the answer.
+//
+// The edit waits for the opened text's analysis, not for the file's first
+// diagnostics: the closed-file pass may publish the file from disk before
+// the server has handled didOpen, and an edit then would leave the
+// document with no earlier analysis to answer from.
 func TestRPC_CompletionAfterEditDoesNotWaitForAnalysis(t *testing.T) {
 	dir, uri, text := datesFixture(t)
 	s := NewServer()
 	s.sched.delay = 500 * time.Millisecond
 	c := startRPC(t, s, dir)
 	c.open(uri, text)
-	c.waitDiagnostics(uri)
+	waitAnalyzed(t, s, uri)
 
 	edited, pos := typedIn(text, "Date.")
 	c.change(uri, 2, edited)
@@ -221,6 +233,71 @@ func TestRPC_CompletionAfterEditDoesNotWaitForAnalysis(t *testing.T) {
 	labelsHave(t, labels, "day")
 }
 
+// waitAnalyzed waits until the server holds an analysis of uri's latest
+// text as an open document, woken by each installation.
+func waitAnalyzed(t *testing.T, s *Server, uri string) {
+	t.Helper()
+	timeout := time.After(30 * time.Second)
+	for {
+		installed := s.docs.Installed()
+		if snap := s.docs.Snapshot(uri); snap != nil && snap.Analysis != nil && snap.Current() {
+			return
+		}
+		select {
+		case <-installed:
+		case <-timeout:
+			t.Fatalf("%s was never analyzed", uri)
+		}
+	}
+}
+
+// TestRPC_CompletionBeforeTheFirstAnalysisWaitsForIt: an edit that comes
+// before the opened text's analysis has started cancels it, so the
+// document has no analysis until the edit's has run, an hour later here. A
+// completion request then has nothing older to answer from: it starts the
+// edit's analysis at once, as hover does, and answers from it.
+//
+// Every analysis is held until the server has handled the edit, which a
+// formatting request answered after it shows: formatting reads the latest
+// text and waits for no analysis.
+func TestRPC_CompletionBeforeTheFirstAnalysisWaitsForIt(t *testing.T) {
+	dir, uri, text := datesFixture(t)
+	s := NewServer()
+	s.sched.delay = time.Hour
+	gate := make(chan struct{})
+	hold := func(at string) {
+		if at == "analysis" {
+			<-gate
+		}
+	}
+	faultHook.Store(&hold)
+	opened := false
+	t.Cleanup(func() {
+		faultHook.Store(nil)
+		if !opened {
+			close(gate)
+		}
+	})
+	c := startRPC(t, s, dir)
+	c.open(uri, text)
+	edited, pos := typedIn(text, "Date.")
+	c.change(uri, 2, edited)
+	if err := c.conn.Call(context.Background(), "textDocument/formatting", map[string]any{
+		"textDocument": map[string]any{"uri": uri}, "options": map[string]any{"tabSize": 4, "insertSpaces": true},
+	}, nil); err != nil {
+		t.Fatal(err)
+	}
+	close(gate)
+	opened = true
+
+	w, _ := c.completion(uri, pos, ".")
+	labels, _ := c.labels(w)
+	labelsHave(t, labels, "day")
+	if snap := s.docs.Snapshot(uri); snap.AnalyzedVersion != 2 {
+		t.Errorf("the installed analysis is of version %d, want the edit's, 2", snap.AnalyzedVersion)
+	}
+}
+
 // TestRPC_CompletionLatencyAfterEdit reports the completion latency after
 // an edit with the real debounce, the number to compare against the 35-42
 // ms measured before. The bound is generous for slow and race-enabled CI.
@@ -229,7 +306,7 @@ func TestRPC_CompletionLatencyAfterEdit(t *testing.T) {
 	s := NewServer()
 	c := startRPC(t, s, dir)
 	c.open(uri, text)
-	c.waitDiagnostics(uri)
+	waitAnalyzed(t, s, uri)
 
 	var lat []time.Duration
 	for i := range 10 {
@@ -259,7 +336,7 @@ func TestRPC_TypingBurstAnswersFromTheLatestText(t *testing.T) {
 	s := NewServer()
 	c := startRPC(t, s, dir)
 	c.open(uri, text)
-	c.waitDiagnostics(uri)
+	waitAnalyzed(t, s, uri)
 
 	type sentReq struct {
 		typed string
@@ -303,7 +380,7 @@ func TestRPC_CancelRequest(t *testing.T) {
 	s := NewServer()
 	c := startRPC(t, s, dir)
 	c.open(uri, text)
-	c.waitDiagnostics(uri)
+	waitAnalyzed(t, s, uri)
 	s.docs.SetText(uri, text+"\n")
 
 	id := jsonrpc2.ID{Str: "hover-to-cancel", IsString: true}
@@ -333,7 +410,7 @@ func TestRPC_EditingRequestFailsWhenAnalysisIsNotReady(t *testing.T) {
 	s.sched.wait = 100 * time.Millisecond
 	c := startRPC(t, s, dir)
 	c.open(uri, text)
-	c.waitDiagnostics(uri)
+	waitAnalyzed(t, s, uri)
 	s.docs.SetText(uri, text+"\n")
 
 	err := c.conn.Call(context.Background(), "textDocument/rename", map[string]any{

@@ -114,3 +114,31 @@ func TestSetStampForTest_MovesEveryAnswer(t *testing.T) {
 		t.Errorf("restored: release %q, built by the release script %t", Release(), BuiltByReleaseScript())
 	}
 }
+
+// A Name gives back its release, and a source build's names none.
+func TestReleaseOfName(t *testing.T) {
+	for name, want := range map[string]string{
+		NameOf("v0.0.2", "0123456789ab"):      "v0.0.2",
+		NameOf("v0.0.2", "v0.0.2"):            "v0.0.2",
+		NameOf("v0.1.0-rc.1", "0123456789ab"): "v0.1.0-rc.1",
+		NameOf("", "0123456789ab"):            "",
+		NameOf("", "0123456789ab-dirty"):      "",
+		NameOf("", "v0.0.1-3-gabcdef1"):       "",
+		"unknown":                             "",
+	} {
+		if got := ReleaseOfName(name); got != want {
+			t.Errorf("ReleaseOfName(%q) = %q, want %q", name, got, want)
+		}
+	}
+}
+
+// A build in a checkout records its commit; one from the module proxy, or
+// with no VCS information, does not.
+func TestFromCheckout(t *testing.T) {
+	if !FromCheckout(info("v0.0.1", true, false)) || !FromCheckout(info("(devel)", true, true)) {
+		t.Error("a checkout's build is not from a checkout")
+	}
+	if FromCheckout(info("v0.0.1", false, false)) || FromCheckout(nil) {
+		t.Error("a build with no commit is from a checkout")
+	}
+}

@@ -5711,7 +5711,7 @@
 "strings.String.slice#22(\"\", -1, 10)"	"value String(\"\")"
 "strings.String.slice#23(\"\", 2, 1)"	"value String(\"\")"
 "strings.String.slice#24(\"\", 0, 1)"	"value String(\"\")"
-"strings.String.split_in#0(\"\", \"\")"	"value []"
+"strings.String.split_in#0(\"\", \"\")"	"value [String(\"\")]"
 "strings.String.split_in#1(\"ll\", \"hello\")"	"value [String(\"he\"), String(\"o\")]"
 "strings.String.split_in#2(\"he\", \"hello\")"	"value [String(\"\"), String(\"llo\")]"
 "strings.String.split_in#3(\"lo\", \"hello\")"	"value [String(\"hel\"), String(\"\")]"

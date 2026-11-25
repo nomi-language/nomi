@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/analysis"
@@ -26,20 +25,7 @@ func renderClosed(snap *analysis.DocSnapshot, root string) string {
 	if snap.Analysis == nil {
 		return s + "(no analysis)\n"
 	}
-	dump := analysis.DumpFileForTest(snap.Analysis, analysis.ErrorsInFile(fileuri.ToPath(snap.URI), snap.TypeErrors()), root)
-	// What a derive or a universal Debug impl synthesizes sits at lines no
-	// request reaches, and a build of the file alone checks less of it
-	// than its program's check does.
-	var kept []string
-	for _, line := range strings.Split(dump, "\n") {
-		var kind string
-		var at int
-		if n, _ := fmt.Sscanf(line, "%s %d:", &kind, &at); n == 2 && analysis.IsSynthesizedLine(at) {
-			continue
-		}
-		kept = append(kept, line)
-	}
-	return s + strings.Join(kept, "\n")
+	return s + analysis.DumpFileForTest(snap.Analysis, analysis.ErrorsInFile(fileuri.ToPath(snap.URI), snap.TypeErrors()), root)
 }
 
 // closedDiff opens the files with keys open in a manager whose project

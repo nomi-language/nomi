@@ -538,7 +538,7 @@ end
 
 // The file name of a path without its directory and `.sql`.
 fn stem(path: String) -> String
-    name = String.split(path, "/") |> Iter.last() |> Option.with_default(path)
+    name = String.split(path, "/") |> NonEmptyList.last()
     sqltext.cut_suffix(name, ".sql")
 end
 

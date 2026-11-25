@@ -188,16 +188,27 @@ const ManifestCode = "manifest"
 
 // manifestTypeError is the one error a build stopped by err, the problem
 // discoverProjectStd found in the program's packages, answers on its entry.
-// Line and column 1 stand for no place in the entry: the message names the
-// nomi.toml. A package its workspace does not list gets the fix that adds
-// it to the workspace's members. A problem in a fetched package's
+// An error in a file (manifestErrorPlace), the project's nomi.toml, a
+// package's or the workspace's, is at its line in that file
+// (TypeError.File), over the line's text: a package that needs a later
+// nomi at its [package] nomi line, and a problem in a reached package's
+// nomi.toml with the entry that names the package as a related
+// location. One no file places, a problem in the
+// package graph, is at line and column 1 of the entry, which stand for no
+// place in it. Every file the build stops shows the error
+// (ErrorsInFile). A package its workspace does not list gets the fix that
+// adds it to the workspace's members. A problem in a fetched package's
 // nomi.toml gets no fix, since that file is not the reader's to edit.
 func manifestTypeError(err error) TypeError {
-	if tooOld := (*pkgcache.NomiVersionError)(nil); errors.As(err, &tooOld) {
-		return TypeError{Line: 1, Col: 1, Message: tooOld.Error(), Code: NomiVersionCode,
-			Args: []string{tooOld.Package, tooOld.Needs, tooOld.Running}}
-	}
 	te := TypeError{Line: 1, Col: 1, Message: err.Error(), Code: ManifestCode}
+	if path, line, message, related, ok := manifestErrorPlace(err); ok {
+		te.File, te.Message, te.Related = path, message, related
+		te.Line, te.Col, te.EndLine, te.EndCol = manifestLineSpan(path, line)
+	}
+	if tooOld := (*pkgcache.NomiVersionError)(nil); errors.As(err, &tooOld) {
+		te.Code, te.Args = NomiVersionCode, []string{tooOld.Package, tooOld.Needs, tooOld.Running}
+		return te
+	}
 	if reached := (*pkgcache.PackageManifestError)(nil); errors.As(err, &reached) && !reached.Fetched.ID.IsZero() {
 		return te
 	}
@@ -213,8 +224,12 @@ func manifestTypeError(err error) TypeError {
 // stopped (manifestTypeError): the build declared nothing of the file, so
 // nothing in it is checked, since every error there would follow from
 // that one.
-func buildStopped(fa *FileAnalysis) bool {
-	return len(fa.TypeErrors) == 1 && (fa.TypeErrors[0].Code == ManifestCode || fa.TypeErrors[0].Code == NomiVersionCode)
+func buildStopped(fa *FileAnalysis) bool { return stopsBuild(fa.TypeErrors) }
+
+// stopsBuild reports whether errs, a file's errors, are the one error of a
+// build its packages stopped (manifestTypeError).
+func stopsBuild(errs []TypeError) bool {
+	return len(errs) == 1 && (errs[0].Code == ManifestCode || errs[0].Code == NomiVersionCode)
 }
 
 func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map[string]*Scope, stdlibFAs map[string]*FileAnalysis, projectRoot string, entryAbsPath string, entryModRel string, placeEntry bool, loader FileLoader, mfst *Manifest, in *buildInputs) (*FileAnalysis, map[string]*FileAnalysis, map[string][]ast.Node) {
@@ -735,7 +750,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		}
 		fb.builder.defineImplicitSelfModule(fb.fa.ModuleScope)
 		fb.builder.validateInlineOpaqueDecls(fb.nodes)
-		fb.builder.validateRefinementDecls(fb.nodes)
+		fb.builder.validateSubtypeDecls(fb.nodes)
 	}
 
 	// Every file's re-exports, before any file's annotations read them.

@@ -46,7 +46,7 @@ import
     option.Option.{self, None, Some}
     results.Result.{self, Err, Ok}
     signatures.{self, KeyKind, PrivateKey, PublicKey, Scheme}
-    strings.String
+    strings.{NonEmptyString, String}
     unit.Unit
 end
 
@@ -333,7 +333,7 @@ end
 //! claims = jwt.verify(token, SigningKey.verifying_key(key), jwt.Validation{require_expiry: False})!
 //! assert Map.get(claims, "sub") == Some(Json.String("ada"))
 //
-pub fn sign(claims: Map<String, Json>, key: SigningKey) -> String
+pub fn sign(claims: Map<String, Json>, key: SigningKey) -> NonEmptyString
     header = {"alg" => Json.String(Display.to_string(key.algorithm)), "typ" => Json.String("JWT")}
     input = "${part(Json.Obj(header))}.${part(Json.Obj(claims))}"
 
@@ -364,7 +364,7 @@ end
 //! token = jwt.sign_as(claims, key)
 //! assert String.starts_with(token, "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.")
 //
-pub fn sign_as(claims: JsonObject, key: SigningKey) -> String
+pub fn sign_as(claims: JsonObject, key: SigningKey) -> NonEmptyString
     sign(JsonObject.fields(claims), key)
 end
 

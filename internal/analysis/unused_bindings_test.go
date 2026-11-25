@@ -116,7 +116,7 @@ end
 	expectUnusedBindingContaining(t, errs, "binding 'name' is never read")
 }
 
-func TestUnusedBinding_RefinementShadowingIsAccepted(t *testing.T) {
+func TestUnusedBinding_SubtypeShadowingIsAccepted(t *testing.T) {
 	errs := buildErrsWithStdlib(t, `
 fn demo() -> String
   name = "  JANE  "

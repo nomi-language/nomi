@@ -11,6 +11,7 @@ import (
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/fileuri"
+	"github.com/nomi-language/nomi/internal/parser"
 )
 
 // Diagnostics in files that are not Nomi: a `phrase`'s catalogs, and any
@@ -49,23 +50,30 @@ func (s *Server) readsInput(uri string) bool {
 	return s.docs.IsInput(uriToPath(uri))
 }
 
-// inputDiagnostics holds what each document's analysis said about each
-// input.
+// inputDiagnostics holds what each source, a document's analysis or
+// lowering or a nomi.toml's own check, said about each input.
 type inputDiagnostics struct {
 	mu sync.Mutex
-	// bySource maps an input's URI to the diagnostics each source
-	// document's analysis reports in it.
-	bySource map[string]map[string][]protocol.Diagnostic
+	// bySource maps an input's URI to what each source reports in it.
+	bySource map[string]map[string]inputReport
 }
 
-// update records what source's analysis reports in inputs (by input URI),
-// and answers the inputs whose diagnostics changed, each with its
-// diagnostics now.
-func (d *inputDiagnostics) update(source string, inputs map[string][]protocol.Diagnostic) map[string][]protocol.Diagnostic {
+// inputReport is what one source reports in one input: its diagnostics,
+// and the errors among them that carry a fix, as parse errors at the
+// diagnostic's start, which a code action in the input offers
+// (buildParseFixActions).
+type inputReport struct {
+	diags []protocol.Diagnostic
+	fixes []parser.ParseError
+}
+
+// update records what source reports in inputs (by input URI), and answers
+// the inputs whose diagnostics changed, each with its diagnostics now.
+func (d *inputDiagnostics) update(source string, inputs map[string]inputReport) map[string][]protocol.Diagnostic {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if d.bySource == nil {
-		d.bySource = map[string]map[string][]protocol.Diagnostic{}
+		d.bySource = map[string]map[string]inputReport{}
 	}
 	touched := map[string]bool{}
 	for input, sources := range d.bySource {
@@ -76,11 +84,11 @@ func (d *inputDiagnostics) update(source string, inputs map[string][]protocol.Di
 			}
 		}
 	}
-	for input, diags := range inputs {
+	for input, report := range inputs {
 		if d.bySource[input] == nil {
-			d.bySource[input] = map[string][]protocol.Diagnostic{}
+			d.bySource[input] = map[string]inputReport{}
 		}
-		d.bySource[input][source] = diags
+		d.bySource[input][source] = report
 		touched[input] = true
 	}
 	out := map[string][]protocol.Diagnostic{}
@@ -90,17 +98,33 @@ func (d *inputDiagnostics) update(source string, inputs map[string][]protocol.Di
 	return out
 }
 
-// merged is every source's diagnostics in input, each once, in order.
-func (d *inputDiagnostics) merged(input string) []protocol.Diagnostic {
+// sources are the sources that report in input, in order.
+func (d *inputDiagnostics) sources(input string) []string {
 	sources := make([]string, 0, len(d.bySource[input]))
 	for s := range d.bySource[input] {
 		sources = append(sources, s)
 	}
 	sort.Strings(sources)
+	return sources
+}
+
+// fixesIn are the fixes every source reports in input.
+func (d *inputDiagnostics) fixesIn(input string) []parser.ParseError {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	var out []parser.ParseError
+	for _, s := range d.sources(input) {
+		out = append(out, d.bySource[input][s].fixes...)
+	}
+	return out
+}
+
+// merged is every source's diagnostics in input, each once, in order.
+func (d *inputDiagnostics) merged(input string) []protocol.Diagnostic {
 	seen := map[string]bool{}
 	out := []protocol.Diagnostic{}
-	for _, s := range sources {
-		for _, diag := range d.bySource[input][s] {
+	for _, s := range d.sources(input) {
+		for _, diag := range d.bySource[input][s].diags {
 			key := diag.Message + "\x00" + rangeKey(diag.Range)
 			if !seen[key] {
 				seen[key] = true
@@ -120,8 +144,11 @@ func rangeKey(r protocol.Range) string {
 }
 
 // inputDiagnosticsOf groups the errors among errs that are in an input
-// file, by the input's URI, as diagnostics placed in its text.
-func (s *Server) inputDiagnosticsOf(errs []analysis.TypeError) map[string][]protocol.Diagnostic {
+// file, by the input's URI, as diagnostics placed in its text, with the
+// fixes they carry. The error in a nomi.toml or nomi-workspace.toml that
+// stops a build is one, which the documents it stops show too
+// (analysis.ErrorsInFile).
+func (s *Server) inputDiagnosticsOf(errs []analysis.TypeError) map[string]inputReport {
 	byFile := map[string][]analysis.TypeError{}
 	for _, e := range errs {
 		if e.File == "" || filepath.Ext(e.File) == ".nomi" {
@@ -129,7 +156,7 @@ func (s *Server) inputDiagnosticsOf(errs []analysis.TypeError) map[string][]prot
 		}
 		byFile[e.File] = append(byFile[e.File], e)
 	}
-	out := map[string][]protocol.Diagnostic{}
+	out := map[string]inputReport{}
 	for path, errs := range byFile {
 		uri := fileuri.FromPath(path)
 		content, _ := s.contentForURI(protocol.DocumentUri(uri))
@@ -140,17 +167,26 @@ func (s *Server) inputDiagnosticsOf(errs []analysis.TypeError) map[string][]prot
 				diags[i].Range = lines.utf16Range(diags[i].Range)
 			}
 		}
-		if !s.relatedInformation {
-			foldRelated(diags)
-		}
-		out[uri] = diags
+		out[uri] = inputReport{diags: diags, fixes: typeErrorFixes(errs)}
 	}
 	return out
 }
 
 // publishInputs publishes what source's analysis errs say about inputs.
 func (s *Server) publishInputs(notify glsp.NotifyFunc, source string, errs []analysis.TypeError) {
-	for uri, diags := range s.inputDiags.update(source, s.inputDiagnosticsOf(errs)) {
+	s.notifyInputs(notify, s.inputDiags.update(source, s.inputDiagnosticsOf(errs)))
+}
+
+// notifyInputs publishes each changed input's diagnostics. They are kept
+// with their related locations, so that two sources' reports of one error,
+// one with a related location and one without, are one diagnostic
+// (inputDiagnostics.merged), and for a client that does not read
+// relatedInformation the locations become `note:` lines here.
+func (s *Server) notifyInputs(notify glsp.NotifyFunc, changed map[string][]protocol.Diagnostic) {
+	for uri, diags := range changed {
+		if !s.relatedInformation {
+			foldRelated(diags)
+		}
 		notify(protocol.ServerTextDocumentPublishDiagnostics, &protocol.PublishDiagnosticsParams{
 			URI:         protocol.DocumentUri(uri),
 			Diagnostics: diags,

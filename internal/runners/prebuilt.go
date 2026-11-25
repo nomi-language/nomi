@@ -85,12 +85,14 @@ import (
 	"github.com/nomi-language/nomi/internal/gobuildinfo"
 )
 
-// releaseBaseURLEnv overrides where releases are downloaded from. Tests point
-// it at a local server; nothing else needs it.
+// releaseBaseURLEnv overrides the releases root, which a release's files are
+// downloaded from (<root>/download/<version>/<file>) and which names the
+// latest release (<root>/latest). Tests point it at a local server; nothing
+// else needs it.
 const releaseBaseURLEnv = "NOMI_RELEASE_BASE_URL"
 
-// defaultReleaseBaseURL is the GitHub release download root install.md uses.
-const defaultReleaseBaseURL = "https://github.com/nomi-language/nomi/releases/download"
+// defaultReleaseBaseURL is the GitHub releases root scripts/install.sh uses.
+const defaultReleaseBaseURL = "https://github.com/nomi-language/nomi/releases"
 
 // runnerMainPath is the main package every prebuilt command runner is built
 // from.
@@ -330,11 +332,11 @@ func releaseRunner(target Target, v Variant, progress io.Writer) (string, error)
 	if strings.ContainsAny(version, `/\`) || strings.Contains(version, "..") {
 		return "", fmt.Errorf("release version %q cannot name a cache directory", version)
 	}
-	root, err := cacheRoot()
+	root, err := CacheRoot()
 	if err != nil {
 		return "", err
 	}
-	releases := filepath.Join(root, "nomi-vm")
+	releases := filepath.Join(root, releasesDir)
 	bin, err := releaseRunnerIn(filepath.Join(releases, version, target.GOOS+"_"+target.GOARCH), version, target, v, progress)
 	if err != nil {
 		return "", err
@@ -344,9 +346,8 @@ func releaseRunner(target Target, v Variant, progress io.Writer) (string, error)
 }
 
 // useRelease marks version's directory under releases used
-// (artifactcache.Touch), and at most once a day (sweepEvery,
-// artifactcache.Due) removes the other releases' directories nothing has
-// used for artifactcache.Unused (artifactcache.Prune). A release whose
+// (artifactcache.Touch), and prunes the other releases' directories
+// (pruneReleases). A release whose
 // directory is removed unpacks or downloads its runners again the next time
 // a build needs one. Windows removes no file another process holds open,
 // such as a runner a build of that release is copying: the prune leaves
@@ -357,9 +358,19 @@ func useRelease(releases, version string) {
 	if info, err := os.Stat(dir); err == nil {
 		artifactcache.Touch(dir, info)
 	}
-	if artifactcache.Due(releases, sweepEvery) {
-		artifactcache.Prune(releases, version, artifactcache.Unused)
+	pruneReleases(releases, version, false)
+}
+
+// pruneReleases removes the releases' directories under releases other
+// than keep that nothing has used for artifactcache.Unused
+// (artifactcache.Prune), at most once a day (sweepEvery,
+// artifactcache.Due) or now when force is set, and answers what it
+// removed.
+func pruneReleases(releases, keep string, force bool) artifactcache.Pruned {
+	if !artifactcache.Due(releases, sweepEvery, force) {
+		return artifactcache.Pruned{}
 	}
+	return artifactcache.Prune(releases, keep, artifactcache.Unused)
 }
 
 // releaseRunnerIn answers the runner of variant v for target in dir, the
@@ -410,13 +421,20 @@ func releaseBaseURL() string {
 // holds the runner of variant v: the target's runners archive, or for
 // std/compiler's variants its compiler archive.
 func releaseArchiveName(version string, target Target, v Variant) string {
-	ext := ".tar.gz"
-	if target.GOOS == "windows" {
-		ext = ".zip"
-	}
 	suffix := "_runners"
 	if v.Compiler {
 		suffix = "_compiler"
+	}
+	return archiveName(version, target, suffix)
+}
+
+// archiveName is the release archive for target whose name ends in suffix
+// before its extension: "" for the main archive, which holds `nomi` alone,
+// "_runners" or "_compiler". Windows' archives are zips.
+func archiveName(version string, target Target, suffix string) string {
+	ext := ".tar.gz"
+	if target.GOOS == "windows" {
+		ext = ".zip"
 	}
 	return fmt.Sprintf("nomi_%s_%s_%s%s%s", version, target.GOOS, target.GOARCH, suffix, ext)
 }
@@ -426,25 +444,88 @@ func releaseChecksumsName(version string) string {
 	return fmt.Sprintf("nomi_%s_checksums.txt", version)
 }
 
-// maxArchiveBytes bounds a download. A runners archive is about 10 MB, and
-// a WebAssembly target's compiler archive about 30 MB.
+// releaseFileURL is where version's release serves file under the releases
+// root base.
+func releaseFileURL(base, version, file string) string {
+	return base + "/download/" + version + "/" + file
+}
+
+// maxArchiveBytes bounds a download. A runners archive is about 10 MB, a
+// WebAssembly target's compiler archive about 30 MB, and a main archive,
+// `nomi` with its runners, about 40 MB.
 const maxArchiveBytes = 512 << 20
 
 var httpClient = &http.Client{Timeout: 10 * time.Minute}
 
+// fetchError is a request for a release's file that failed: no network, or
+// a server that answered with something other than the file.
+type fetchError struct {
+	url string
+	err error
+}
+
+func (e *fetchError) Error() string { return e.url + ": " + e.err.Error() }
+
+func (e *fetchError) Unwrap() error { return e.err }
+
+// fetchArchive downloads archive from version's release under the releases
+// root base and checks its SHA-256 against the release's checksum manifest.
+// A request that fails is a *fetchError. It answers the archive's bytes only
+// when the checksum matched.
+func fetchArchive(base, version, archive string) ([]byte, error) {
+	sumsURL := releaseFileURL(base, version, releaseChecksumsName(version))
+	archiveURL := releaseFileURL(base, version, archive)
+	sums, err := httpGet(sumsURL, 1<<20)
+	if err != nil {
+		return nil, &fetchError{sumsURL, err}
+	}
+	want, ok := checksumFor(sums, archive)
+	if !ok {
+		return nil, fmt.Errorf("the %s release's checksum file %s lists no %s", version, sumsURL, archive)
+	}
+	data, err := httpGet(archiveURL, maxArchiveBytes)
+	if err != nil {
+		return nil, &fetchError{archiveURL, err}
+	}
+	sum := sha256.Sum256(data)
+	if got := hex.EncodeToString(sum[:]); got != want {
+		return nil, fmt.Errorf("%s does not match the release's checksum file %s: the file says sha256 %s, "+
+			"the download is %s. Nothing was installed", archiveURL, sumsURL, want, got)
+	}
+	return data, nil
+}
+
+// archiveMemberOf is the file name at the top level of a release archive for
+// goos: a zip for Windows, a .tar.gz otherwise.
+func archiveMemberOf(data []byte, goos, name string) ([]byte, error) {
+	var out []byte
+	var err error
+	if goos == "windows" {
+		out, err = extractZip(data, name)
+	} else {
+		out, err = extractTarGz(data, name)
+	}
+	if err == errNotInArchive {
+		err = fmt.Errorf("the archive holds no %s", name)
+	}
+	return out, err
+}
+
 // downloadRunner fetches the archive holding variant v for target and version
-// from base (releaseArchiveName), checks its
-// SHA-256 against the release's checksum manifest, and writes the archive's
-// runner of variant v (nomi-vm, or nomi-vm-reactor) to dest, and for js/wasm
-// its wasm_exec.js beside dest first. Nothing is written to dest unless
-// every check passes.
+// from the releases root base (releaseArchiveName, fetchArchive) and writes
+// the archive's runner of variant v (nomi-vm, or nomi-vm-reactor) to dest,
+// and for js/wasm its wasm_exec.js beside dest first. Nothing is written to
+// dest unless every check passes.
 func downloadRunner(base, version string, target Target, v Variant, dest string, progress io.Writer) error {
 	archive := releaseArchiveName(version, target, v)
 	name := exeName(v.BinaryName(), target.GOOS)
-	archiveURL := base + "/" + version + "/" + archive
-	sumsURL := base + "/" + version + "/" + releaseChecksumsName(version)
+	archiveURL := releaseFileURL(base, version, archive)
 	why := "A release nomi builds no runner: it fetches one that is not installed beside it from the release it was cut as"
-	offline := func(url string, err error) error {
+	if progress != nil {
+		fmt.Fprintf(progress, "nomi: downloading %s for %s from %s\n", v.BinaryName(), target, archiveURL)
+	}
+	data, err := fetchArchive(base, version, archive)
+	if fe := (*fetchError)(nil); errors.As(err, &fe) {
 		advice := "Connect to the network and re-run"
 		var status *httpStatusError
 		if errors.As(err, &status) {
@@ -452,46 +533,18 @@ func downloadRunner(base, version string, target Target, v Variant, dest string,
 				"archive for %s", version, target)
 		}
 		return fmt.Errorf("no %s for %s is installed, and downloading it from the %s release failed: "+
-			"%s: %v. %s. %s, or unpack %s from %s yourself into %s",
-			v.BinaryName(), target, version, url, err, why, advice, v.BinaryName(), archiveURL, filepath.Dir(dest))
+			"%v. %s. %s, or unpack %s from %s yourself into %s",
+			v.BinaryName(), target, version, err, why, advice, v.BinaryName(), archiveURL, filepath.Dir(dest))
 	}
-	if progress != nil {
-		fmt.Fprintf(progress, "nomi: downloading %s for %s from %s\n", v.BinaryName(), target, archiveURL)
-	}
-	sums, err := httpGet(sumsURL, 1<<20)
 	if err != nil {
-		return offline(sumsURL, err)
+		return err
 	}
-	want, ok := checksumFor(sums, archive)
-	if !ok {
-		return fmt.Errorf("the %s release's checksum file %s lists no %s", version, sumsURL, archive)
-	}
-	data, err := httpGet(archiveURL, maxArchiveBytes)
-	if err != nil {
-		return offline(archiveURL, err)
-	}
-	sum := sha256.Sum256(data)
-	if got := hex.EncodeToString(sum[:]); got != want {
-		return fmt.Errorf("%s does not match the release's checksum file %s: the file says sha256 %s, "+
-			"the download is %s. Nothing was installed", archiveURL, sumsURL, want, got)
-	}
-	var runner []byte
-	if target.GOOS == "windows" {
-		runner, err = extractZip(data, name)
-	} else {
-		runner, err = extractTarGz(data, name)
-	}
-	if err == errNotInArchive {
-		err = fmt.Errorf("the archive holds no %s", name)
-	}
+	runner, err := archiveMemberOf(data, target.GOOS, name)
 	if err != nil {
 		return fmt.Errorf("reading %s: %w", archiveURL, err)
 	}
 	if target.NeedsWasmExec() {
-		js, err := extractTarGz(data, WasmExecName)
-		if err == errNotInArchive {
-			err = fmt.Errorf("the archive holds no %s", WasmExecName)
-		}
+		js, err := archiveMemberOf(data, target.GOOS, WasmExecName)
 		if err != nil {
 			return fmt.Errorf("reading %s: %w", archiveURL, err)
 		}
@@ -500,6 +553,41 @@ func downloadRunner(base, version string, target Target, v Variant, dest string,
 		}
 	}
 	return writeFileAtomic(dest, runner, 0o755)
+}
+
+// LatestRelease is the version of the newest release: the tag the releases
+// root's /latest redirects to, as scripts/install.sh finds it, with no call
+// to GitHub's API.
+func LatestRelease() (string, error) {
+	url := releaseBaseURL() + "/latest"
+	client := *httpClient
+	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	resp, err := client.Get(url)
+	if err != nil {
+		return "", &fetchError{url, err}
+	}
+	resp.Body.Close()
+	_, version, ok := strings.Cut(resp.Header.Get("Location"), "/tag/")
+	if resp.StatusCode/100 != 3 || !ok || !buildversion.IsRelease(version) {
+		return "", fmt.Errorf("%s names no release (HTTP %s, to %q)", url, resp.Status, resp.Header.Get("Location"))
+	}
+	return version, nil
+}
+
+// ReleaseNomi is the `nomi` of version's release for target: from the
+// target's main archive, checked against the release's checksum manifest
+// (fetchArchive). A request that fails names its URL.
+func ReleaseNomi(version string, target Target) ([]byte, error) {
+	archive := archiveName(version, target, "")
+	data, err := fetchArchive(releaseBaseURL(), version, archive)
+	if err != nil {
+		return nil, err
+	}
+	nomi, err := archiveMemberOf(data, target.GOOS, exeName("nomi", target.GOOS))
+	if err != nil {
+		return nil, fmt.Errorf("reading %s: %w", releaseFileURL(releaseBaseURL(), version, archive), err)
+	}
+	return nomi, nil
 }
 
 // httpStatusError is a server that answered with something other than 200.

@@ -42,7 +42,7 @@ import (
 const (
 	// literalSteps bounds one literal's handler: calls plus backward
 	// branches. A Regex or Date literal takes a few hundred. A handler, a
-	// checked literal's check and a refinement's rule are bounded by the
+	// checked literal's check and a subtype's rule are bounded by the
 	// steps alone: each crossing whose cost grows with an operand's value is
 	// refused before it runs (vm.Machine.Effects), so the answer is the same
 	// however busy the machine is.
@@ -77,16 +77,16 @@ func literalHint(text string) string {
 // in source order, or nil.
 func (p *Program) checkLiterals() error {
 	ds := p.checkCurrencyCalls()
-	if p.res != nil && (len(p.res.Refinements) > 0 || len(p.res.RefinementRules) > 0) && len(p.res.IR) > 0 {
+	if p.res != nil && (len(p.res.Subtypes) > 0 || len(p.res.SubtypeRules) > 0) && len(p.res.IR) > 0 {
 		entry := p.entry
 		if entry == nil {
 			entry = p.res.IR[0]
 		}
-		refined, err := p.checkRefinements(p.machineOver(entry, io.Discard))
+		checked, err := p.checkSubtypes(p.machineOver(entry, io.Discard))
 		if err != nil {
 			return err
 		}
-		ds = append(refined, ds...)
+		ds = append(checked, ds...)
 	}
 	if p.res == nil || len(p.res.Literals) == 0 || len(p.res.IR) == 0 {
 		if len(ds) == 0 {

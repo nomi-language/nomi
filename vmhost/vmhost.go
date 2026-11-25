@@ -111,7 +111,8 @@ type Program struct {
 	// (analysis.Manifest.WebLocales), nil when it lists no locales.
 	webEmbedded []string
 	// effects is the program's nomi.toml [effects.self] and
-	// [effects.deps] tables, nil when it has neither
+	// [effects.dependencies] tables and its [dependencies] entries' effects
+	// keys, nil when it has none
 	// (EffectCallsNotAllowed).
 	effects *analysis.Effects
 	// modules is each dependency whose files the program holds, by its
@@ -372,7 +373,7 @@ func (p *Program) run(ctx context.Context, out io.Writer, args []string, handleS
 // file is the absolute path a JSON report locates each case by, with the
 // case's first and last lines.
 func (p *Program) Test(out io.Writer, rep *TestReport, file string, opts TestOptions, label func(string) string) {
-	// nomi.toml's [effects] tables, with their std_in_tests, and the
+	// nomi.toml's [effects] tables, with their effects_in_tests, and the
 	// host's (WithEffects) refuse the file's cases before any of them
 	// runs.
 	if err := p.effectError(Roots{Tests: &opts}); err != nil {
@@ -486,7 +487,7 @@ func (r *CaseResult) blockedBy(b *Blocked) {
 // order, as `nomi test` runs every test file of a project.
 //
 // The cases are held as Test holds them: when nomi.toml's [effects]
-// lists, with std_in_tests, or the host's (WithEffects) do not allow
+// lists, with effects_in_tests, or the host's (WithEffects) do not allow
 // what the selected cases reach,
 // Cases runs nothing and answers each selected case failed with the
 // *EffectError.

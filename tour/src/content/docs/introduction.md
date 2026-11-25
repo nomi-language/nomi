@@ -50,6 +50,7 @@ Then:
 
 ```console
 $ nomi run app.nomi           # run a program
+$ nomi run                    # run the project in the current directory
 $ nomi run --watch app.nomi   # run it again on every save
 $ nomi test                   # run every test under the current directory
 $ nomi test --watch           # run the tests again on every save

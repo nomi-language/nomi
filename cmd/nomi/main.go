@@ -43,16 +43,18 @@ func usageText() string {
 // usageText names the commands that take those flags.
 const usage = `usage:
   nomi                                  start the REPL (bindings, functions and types carry between inputs)
-  nomi run <file> [args]                run a program on the VM, from its source or
+  nomi run [file|dir] [args]            run a program on the VM, from its source or
                                         from a compiled program (.nomic) nomi build --no-vm wrote;
-                                        a project directory whose nomi.toml lists one
-                                        entry point runs that entry
-  nomi run --watch <file> [args]        run the program, and stop it and run it again
+                                        a package's directory whose nomi.toml lists one
+                                        entry point runs that entry, and with no file
+                                        or directory the current directory is the one
+                                        named
+  nomi run --watch [file|dir] [args]    run the program, and stop it and run it again
                                         whenever a file it is built from changes
-  nomi run --profile[=<file>] <file> [args]
+  nomi run --profile[=<file>] [file|dir] [args]
                                         run the program and report where its time went
                                         when it ends; =<file> also writes a pprof profile
-  nomi run --web [--port N] [--open] [--static <dir>] <file>
+  nomi run --web [--port N] [--open] [--static <dir>] [file|dir]
                                         serve the program in a browser on localhost
                                         (port 8000 or the next free one), and rebuild
                                         and reload the page when its source changes;
@@ -63,7 +65,8 @@ const usage = `usage:
                                         .nomi or starts with #!; with a first line of
                                         #!/usr/bin/env nomi it runs as an executable script
   nomi test [path] [--line N] [--run <regexp>] [--reaching <file>:<line>] [--format text|json] [--timeout <duration>] [--all | --changed] [--watch]
-                                        run test files on the VM; --run runs only the
+                                        run test files on the VM; --line runs the test
+                                        declared on line N of the file given; --run only the
                                         cases whose names (as the report prints them,
                                         after "file :: ") the regexp matches; --reaching
                                         only those whose code can run the function at
@@ -76,23 +79,26 @@ const usage = `usage:
                                         and is reported unchanged; --all runs every
                                         case, --changed skips unchanged cases with
                                         effects too
-  nomi check [--format full|short|json] [--hints] <path>
+  nomi check [--format full|short|json] [--hints] [path]
                                         analyze and lower without running, test
-                                        files and their cases included; short prints
+                                        files and their cases included, the current
+                                        directory's with no path; short prints
                                         path:line:col: lines, not source snippets
-                                        (NOMI_DIAGNOSTICS=short does so for every command);
+                                        (NOMI_DIAGNOSTICS=short does so for every command),
+                                        and json JSON Lines for a tool;
                                         --hints also reports the editor's hints
   nomi effects [--write | --check | --why <name> | --tree [--tests]] [--format text|json|mermaid] [path]
                                         print the effects the program has,
                                         its own code and its dependencies; --write writes
                                         the tightest [effects.self] and
-                                        [effects.deps] tables that pass into
+                                        [effects.dependencies] tables that pass into
                                         nomi.toml; --check exits 1 when nomi.toml's
                                         tables are not those, wider or narrower;
                                         --why lists the calls that have an effect,
                                         or that a module's files make; --tree prints
                                         the calls from main and the tests down to
-                                        each effect, as text or mermaid
+                                        each effect, as text or mermaid; json prints
+                                        the report as one JSON object
   nomi types <paths> [-o <file>]        write TypeScript declarations of the JSON that
                                         the types of the named files and directories
                                         cross as, for a frontend; stdout by default
@@ -114,7 +120,7 @@ const usage = `usage:
                                         effects its code has
   nomi add [<name>=]<directory>         add the Nomi package in a directory, such as
                                         nomi add ../shared
-  nomi remove <name>                    remove a dependency no file imports any more
+  nomi remove <name>                    remove a dependency that no file imports
   nomi update [name]                    move one dependency, or all of them, to its
                                         repository's latest release of the same line:
                                         the same major version, or from v0.1 to v1 the
@@ -136,24 +142,29 @@ const usage = `usage:
   --all-calls                           on {allCalls}: print every call
                                         nomi.toml's [effects] lists refuse, not
                                         the first of each name
-  nomi build <file> [-o <out>] [--target <os>/<arch>] [--allow-unsupported <class>]
+  nomi build [file|dir] [-o <out>] [--target <os>/<arch>] [--allow-unsupported <class>]
                                         build a single executable: nomi-vm with the
                                         program's IR appended (runs at nomi run speed);
-                                        a project directory builds its one entry point;
+                                        a package's directory builds its one entry point,
+                                        and with no file or directory the current
+                                        directory is the one named;
                                         a program that reaches a call its target cannot
                                         make (files in a browser) is refused, unless
                                         --allow-unsupported names the call's class
-  nomi build <file> --no-vm [-o <out>]  write the compiled program alone, as <file>.nomic,
+  nomi build [file|dir] --no-vm [-o <out>]
+                                        write the compiled program alone, as <file>.nomic,
                                         which any nomi-vm of the same program format
                                         runs: nomi-vm app.nomic [args]
-  nomi build <file> --web [-o <dir>] [--static <dir>]
+  nomi build [file|dir] --web [-o <dir>] [--static <dir>]
                                         build a folder that runs the program in a browser,
                                         with the files of its web/ folder (or --static's)
                                         copied in
   nomi build-vm [--target <os>/<arch>] [--compiler | --no-network] [-o <out>]
                                         write nomi-vm itself, with no program (default nomi-vm);
                                         --no-network writes the smaller one for programs
-                                        that make no network or WebAssembly call
+                                        that make no network or WebAssembly call, and
+                                        --compiler the one that runs programs importing
+                                        std::compiler
   nomi build-vm --reactor [--compiler | --no-network] [-o <out>]
                                         write the WASI reactor with no program (default nomi-vm-reactor.wasm),
                                         which a runner instantiates per .nomic and hands it
@@ -169,18 +180,32 @@ const usage = `usage:
                                         format and search Nomi through the compiler
   nomi tool <package> <name> [args]     run a package's tool, tools/<name>.nomi,
                                         such as a code generator
-  nomi editor [install [--force] | uninstall] [--dry-run] [<editor>]
+  nomi editor [install [--force] [--installed] | uninstall] [--dry-run] [<editor>]
                                         set up Helix, Neovim, VS Code or Zed for
                                         Nomi from the files this nomi carries, or
                                         remove that; with no words, list each
                                         editor and whether it is set up; --force
-                                        replaces a Zed extension nomi did not write
+                                        replaces a Zed extension nomi did not write;
+                                        install --installed, with no editor, is every
+                                        editor that has Nomi support already
+  nomi upgrade [--check] [<version>]    replace this nomi with the latest release,
+                                        or the one named, checked against the
+                                        release's checksums, then rewrite the
+                                        editors' support nomi set up; --check
+                                        prints what it would do
   nomi phrases accept <locale> <phrase> mark a locale's translation of a phrase
                                         current, recording the phrase's text as
                                         the source it was translated from
+  nomi cache [clean|prune [packages|artifacts|runners|std]]
+                                        print each cache's directory and size;
+                                        clean removes what every cache holds, or
+                                        the one named, read-only package trees
+                                        included; prune removes what nothing
+                                        has used for long enough
   nomi help [command]                   print this, or a command's usage, as
                                         nomi <command> --help does
-  nomi version                          print the version
+  nomi version                          print the version, and each editor whose
+                                        Nomi support is from another version
 `
 
 // command is one `nomi` subcommand. main runs the one its first argument
@@ -246,6 +271,8 @@ func commandTable() []command {
 			run: func(args []string, _ bool) error { return runUpdate(args) }},
 		{name: "fetch", usage: fetchUsage, offline: true, downloads: true, run: runFetch},
 		{name: "outdated", usage: outdatedUsage, downloads: true, run: runOutdated},
+		{name: "cache", usage: cacheUsage,
+			run: func(args []string, _ bool) error { return runCache(os.Stdout, args) }},
 		{name: "build-vm", usage: buildVMUsage, downloads: true,
 			run: func(args []string, _ bool) error { return runBuildVM(args) }},
 		{name: "lsp", usage: lspUsage,
@@ -268,6 +295,8 @@ func commandTable() []command {
 			run: func(args []string, _ bool) error { return runTool(args) }},
 		{name: "editor", usage: editorUsage,
 			run: func(args []string, _ bool) error { return runEditor(args) }},
+		{name: "upgrade", usage: upgradeUsage,
+			run: func(args []string, _ bool) error { return runUpgrade(os.Stdout, os.Stderr, args) }},
 		{name: "phrases", usage: phrasesUsage,
 			run: func(args []string, _ bool) error { return runPhrases(args) }},
 		{name: "version", aliases: []string{"--version"}, usage: versionUsage,
@@ -325,7 +354,7 @@ func runHelp(args []string, _ bool) error {
 // alreadyReported reports whether err says that the command printed its
 // reasons already, so main prints nothing more.
 func alreadyReported(err error) bool {
-	for _, done := range []error{errCheckFailed, errTestsFailed, errBuildRefused, errTypesFailed, errFormatFailed} {
+	for _, done := range []error{errCheckFailed, errTestsFailed, errBuildRefused, errTypesFailed, errFormatFailed, errUpgradeRefused} {
 		if errors.Is(err, done) {
 			return true
 		}
@@ -334,6 +363,7 @@ func alreadyReported(err error) bool {
 }
 
 func main() {
+	removeUpgradeAside()
 	if len(os.Args) < 2 {
 		enableDownloads(false, os.Stderr)
 		runReplVM()
@@ -386,15 +416,14 @@ func main() {
 
 // runCommand is `nomi run`. Everything after the file is the program's own
 // arguments. A flag before it is --watch's (watch_cmd.go) or the browser
-// dev loop's (run_web.go), whose flags may also follow the file.
+// dev loop's (run_web.go), whose flags may also follow the file. With no
+// word but nomi's own flags, the program is the current directory's
+// (pathOrHere).
 func runCommand(args []string) error {
 	args = takeProfileFlag(args)
-	if len(args) < 1 && atWorkspaceRoot() {
-		// The root names its members (projectEntry).
-		args = []string{"."}
-	}
-	if len(args) < 1 {
-		return errors.New(runUsage)
+	if len(args) == 0 {
+		runFileVM(programOrHere(""))
+		return nil
 	}
 	if isFlag(args[0]) {
 		watch, entry, progArgs, err := parseRunWatchArgs(args)
@@ -443,14 +472,15 @@ var checkJSONFormat bool
 // hints the language server shows (vmhost.WithHints).
 var checkHints bool
 
-// parseCheckArgs reads `nomi check [--format full|short|json] [--hints] <path>`:
-// exactly one path, or none at a workspace's root, which is then the path,
-// and the diagnostics format, which it selects for the process through
+// parseCheckArgs reads `nomi check [--format full|short|json] [--hints] [path]`:
+// one path, or none for the current directory (pathOrHere), and the
+// diagnostics format, which it selects for the process through
 // NOMI_DIAGNOSTICS. With json, runCheck writes the records.
-const checkUsage = "usage: nomi check [--format full|short|json] [--hints] <path>"
+const checkUsage = "usage: nomi check [--format full|short|json] [--hints] [path]\n\n" +
+	"With no path, it checks the current directory: the package there, or\nevery member at a workspace's root."
 
 func parseCheckArgs(args []string) (string, error) {
-	var paths []string
+	path := ""
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		value, isFormat := strings.CutPrefix(arg, "--format=")
@@ -480,18 +510,12 @@ func parseCheckArgs(args []string) (string, error) {
 		if isFlag(arg) {
 			return "", unknownFlag("nomi check", arg, checkUsage)
 		}
-		paths = append(paths, arg)
+		if path != "" {
+			return "", fmt.Errorf("nomi check: unexpected argument %q\n%s", arg, checkUsage)
+		}
+		path = arg
 	}
-	if len(paths) == 0 && atWorkspaceRoot() {
-		return ".", nil
-	}
-	if len(paths) == 0 {
-		return "", errors.New(checkUsage)
-	}
-	if len(paths) > 1 {
-		return "", fmt.Errorf("nomi check: unexpected argument %q\n%s", paths[1], checkUsage)
-	}
-	return paths[0], nil
+	return pathOrHere(path), nil
 }
 
 func runCheck(path string) error {
@@ -600,6 +624,38 @@ func pathError(path string, err error) error {
 	return err
 }
 
+// pathOrHere is the path a command acts on: the one its command line
+// names, or the current directory when it names none. `nomi run`, `check`,
+// `build`, `test` and `effects` each read their path through it, so one of
+// them with no path is that command with `.`.
+func pathOrHere(named string) string {
+	if named == "" {
+		return "."
+	}
+	return named
+}
+
+// programOrHere is pathOrHere for the commands that need a program, `nomi
+// run` and `nomi build`: with no path named it is the package the current
+// directory is in, the nearest directory upward with a nomi.toml, so the
+// command means the same anywhere inside a package. Outside one it is the
+// current directory, which says why it has no program. A path that is named
+// is taken as written: `nomi run sub` is the directory sub and no other.
+func programOrHere(named string) string {
+	if named != "" {
+		return named
+	}
+	if cwd, err := os.Getwd(); err == nil {
+		if dir, ok := analysis.NearestPackageDir(cwd); ok {
+			if rel, err := filepath.Rel(cwd, dir); err == nil {
+				return rel
+			}
+			return dir
+		}
+	}
+	return pathOrHere(named)
+}
+
 // programEntry is the absolute path of the program `nomi <cmd> path` runs
 // or builds from source, or why path cannot be one. path is a .nomi file, a
 // file of any name whose first line is a `#!` line (an extensionless
@@ -644,18 +700,24 @@ func programEntry(cmd, path string) (string, error) {
 // projectEntry is the file of the one entry point that dir's nomi.toml
 // lists (frontend.EntryFile), as `nomi check dir` finds its entries, or why
 // dir names no one program: it is a workspace's root, which names its
-// members (workspaceRootError), it has no nomi.toml, its nomi.toml lists
-// no entry point, or it lists several, which the error names.
+// members (workspaceRootError), it has no nomi.toml, where the error ends
+// with the command's usage, its nomi.toml lists no entry point, or it
+// lists several, which the error names.
 func projectEntry(cmd, dir string) (string, error) {
 	if err := workspaceRootError(cmd, dir, "name a member's directory or program"); err != nil {
 		return "", err
 	}
 	mfst, err := analysis.LoadManifest(dir)
-	if errors.Is(err, analysis.ErrManifestMissing) || err == nil && len(mfst.EntryPoints) == 0 {
-		return "", fmt.Errorf("nomi %s: %s is a directory; name the program's .nomi file", cmd, dir)
-	}
-	if err != nil {
+	switch {
+	case errors.Is(err, analysis.ErrManifestMissing):
+		c, _ := lookupCommand(cmd)
+		return "", fmt.Errorf("nomi %s: %s is not a package (it has no nomi.toml), so it has no entry point to %s\n%s",
+			cmd, dir, cmd, c.usage)
+	case err != nil:
 		return "", fmt.Errorf("nomi %s: %w", cmd, err)
+	case len(mfst.EntryPoints) == 0:
+		return "", fmt.Errorf("nomi %s: %s lists no entry point in its nomi.toml; add the file with the program's fn main to entry_points",
+			cmd, dir)
 	}
 	files := make([]string, len(mfst.EntryPoints))
 	for i, entry := range mfst.EntryPoints {
@@ -733,7 +795,7 @@ type testArgs struct {
 }
 
 func parseTestArgs(args []string) (testArgs, error) {
-	parsed := testArgs{root: ".", format: vmhost.TestFormatText, timeout: vmhost.DefaultTestTimeout}
+	parsed := testArgs{format: vmhost.TestFormatText, timeout: vmhost.DefaultTestTimeout}
 	usage := func() (testArgs, error) { return testArgs{}, errors.New(testUsage) }
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
@@ -821,12 +883,13 @@ func parseTestArgs(args []string) (testArgs, error) {
 		case isFlag(arg):
 			return testArgs{}, unknownFlag("nomi test", arg, testUsage)
 		default:
-			if parsed.root != "." {
+			if parsed.root != "" {
 				return testArgs{}, fmt.Errorf("nomi test: unexpected argument %q\n%s", arg, testUsage)
 			}
 			parsed.root = arg
 		}
 	}
+	parsed.root = pathOrHere(parsed.root)
 	return parsed, nil
 }
 

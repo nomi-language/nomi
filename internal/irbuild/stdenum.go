@@ -269,7 +269,7 @@ func bareVariant(name string) stdEnumVariantSpec {
 // scalarVariant is the common carrying row: a payload whose kind is a fixed
 // scalar, stored in rt's `field`. A scalar is written as its own name, which
 // is the kind's (kind.nomi), so the row's spelling is derived rather than
-// stated twice; std writes no refinement in an enum payload.
+// stated twice; std writes no subtype in an enum payload.
 func scalarVariant(name, field string, k kind) stdEnumVariantSpec {
 	return stdEnumVariantSpec{nomi: name, form: payloadScalar, scalar: k, decl: k.nomi(), ref: -1, field: field}
 }

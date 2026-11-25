@@ -49,11 +49,10 @@ func (s *Server) reachChanged() {
 }
 
 // unusedNames holds the open nomi.toml files, each with the count of its
-// hints' refreshes, and the fixes of the hints published in each.
+// hints' refreshes.
 type unusedNames struct {
-	mu    sync.Mutex
-	open  map[string]int
-	fixes map[string][]parser.ParseError
+	mu   sync.Mutex
+	open map[string]int
 }
 
 // opened notes that the nomi.toml at uri is open in an editor; its hints
@@ -62,7 +61,7 @@ func (u *unusedNames) opened(uri string) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 	if u.open == nil {
-		u.open, u.fixes = map[string]int{}, map[string][]parser.ParseError{}
+		u.open = map[string]int{}
 	}
 	if _, ok := u.open[uri]; !ok {
 		u.open[uri] = 0
@@ -75,22 +74,16 @@ func (s *Server) closeUnused(uri string) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 	delete(u.open, uri)
-	delete(u.fixes, uri)
 	s.publishInputDiagnostics(unusedSource(uri), nil)
 }
 
-// fixesIn are the fixes of the hints published in the nomi.toml at uri.
-func (u *unusedNames) fixesIn(uri string) []parser.ParseError {
-	u.mu.Lock()
-	defer u.mu.Unlock()
-	return u.fixes[uri]
-}
-
-// manifestFixes are the fixes the code actions in the nomi.toml at uri
-// offer: those of its hints (unusedHints), and those of the errors the
-// open documents' lowerings found in it (manifestDiagnostics).
+// manifestFixes are the fixes the code actions in the manifest at uri
+// offer: those of every diagnostic published in it, its hints
+// (unusedHints), the errors the open documents' lowerings found in it
+// (manifestDiagnostics) and the error in it that stops a build
+// (inputDiagnosticsOf).
 func (s *Server) manifestFixes(uri string) []parser.ParseError {
-	return append(s.unused.fixesIn(uri), s.lowering.manifestFixesIn(uri)...)
+	return s.inputDiags.fixesIn(uri)
 }
 
 // unusedSource is the source key the hints in the nomi.toml at uri are
@@ -111,8 +104,7 @@ func (s *Server) publishUnused(uri string, seq int) {
 	if at, open := u.open[uri]; !open || at != seq {
 		return
 	}
-	u.fixes[uri] = fixes
-	s.publishInputDiagnostics(unusedSource(uri), map[string][]protocol.Diagnostic{uri: diags})
+	s.publishInputDiagnostics(unusedSource(uri), map[string]inputReport{uri: {diags: diags, fixes: fixes}})
 }
 
 // unusedHints are the hints in text, the nomi.toml at path, r being what
@@ -139,7 +131,7 @@ func unusedHints(r *vmhost.Reach, path, text string) ([]protocol.Diagnostic, []p
 		if c.Change != "remove" || c.Name == "" || !isStdList(c.List) {
 			continue
 		}
-		key := append([]string{"effects"}, strings.Split(c.List, ".")...)
+		key := strings.Split(c.List, ".")
 		if slices.Contains(analysis.EntryLists, c.List) {
 			key = analysis.EntryKeyPath(c.List, c.Key)
 		}
@@ -166,26 +158,40 @@ func unusedHints(r *vmhost.Reach, path, text string) ([]protocol.Diagnostic, []p
 
 // unusedName is what a hint says of c, a name lists holds that the
 // tightest tables tight do not, the title of its fix and the tables the
-// fix writes: lists without the name. A name std holds that only the tests
-// reach moves to std_in_tests, and a name std_in_tests holds that std
-// allows already is said to be.
+// fix writes: lists without the name. A name an `effects` list holds that
+// only the tests reach moves to its effects_in_tests, and a name
+// effects_in_tests holds that effects allows already is said to be: in
+// [effects.self], in [effects.dependencies], and on a [dependencies]
+// entry.
 func unusedName(lists, tight *vmhost.Effects, c analysis.EffectChange) (message, title string, to *vmhost.Effects) {
 	to = lists.Clone()
 	without := func(names []string) []string {
 		return slices.DeleteFunc(slices.Clone(names), func(n string) bool { return n == c.Name })
 	}
 	message = nothingReaches(c.List, c.Key, c.Name)
-	_, key, _ := strings.Cut(c.List, ".")
-	title = fmt.Sprintf("Remove %s from %s", c.Name, key)
-	// std and std_in_tests of the table c is in, as lists has and tight
-	// would have them.
+	title = fmt.Sprintf("Remove %s from %s", c.Name, c.List[strings.LastIndex(c.List, ".")+1:])
+	// effects and effects_in_tests of the table or entry c is in, as lists
+	// has and tight would have them.
 	var std, inTests *[]string
 	var tightStd, tightInTests []string
 	switch c.List {
-	case analysis.ListSelfStd, analysis.ListSelfStdInTests:
-		std, inTests, tightStd, tightInTests = &to.Self.Std, &to.Self.StdInTests, tight.Self.Std, tight.Self.StdInTests
-	case analysis.ListDepsStd, analysis.ListDepsStdInTests:
-		std, inTests, tightStd, tightInTests = &to.Deps.Std, &to.Deps.StdInTests, tight.Deps.Std, tight.Deps.StdInTests
+	case analysis.ListSelfEffects, analysis.ListSelfEffectsInTests:
+		std, inTests, tightStd, tightInTests = &to.Self.Effects, &to.Self.EffectsInTests, tight.Self.Effects, tight.Self.EffectsInTests
+	case analysis.ListDependenciesEffects, analysis.ListDependenciesEffectsInTests:
+		std, inTests, tightStd, tightInTests = &to.Dependencies.Effects, &to.Dependencies.EffectsInTests, tight.Dependencies.Effects, tight.Dependencies.EffectsInTests
+	case analysis.ListEntryEffects, analysis.ListEntryEffectsInTests:
+		d, td := to.Dependencies, tight.Dependencies
+		entry, entryInTests := slices.Clone(d.Entries[c.Key]), slices.Clone(d.EntriesInTests[c.Key])
+		std, inTests, tightStd, tightInTests = &entry, &entryInTests, td.Entries[c.Key], td.EntriesInTests[c.Key]
+		title = fmt.Sprintf("Remove %s from %s of %s", c.Name, c.List[strings.LastIndex(c.List, ".")+1:], c.Key)
+		defer func() {
+			to.SetEntry(analysis.ListEntryEffects, c.Key, entry)
+			if len(entryInTests) == 0 {
+				delete(d.EntriesInTests, c.Key)
+			} else {
+				to.SetEntry(analysis.ListEntryEffectsInTests, c.Key, entryInTests)
+			}
+		}()
 	default:
 		to.SetEntry(c.List, c.Key, without(to.Entries(c.List)[c.Key]))
 		return message, fmt.Sprintf("Remove %s from the entry for %s", c.Name, c.Key), to
@@ -194,15 +200,15 @@ func unusedName(lists, tight *vmhost.Effects, c analysis.EffectChange) (message,
 	case strings.HasSuffix(c.List, "_in_tests"):
 		*inTests = without(*inTests)
 		if slices.Contains(tightStd, c.Name) {
-			message = fmt.Sprintf("std already allows %s to the tests", c.Name)
+			message = fmt.Sprintf("effects already allows %s to the tests", c.Name)
 		}
 	case slices.Contains(tightInTests, c.Name):
 		*std = without(*std)
 		if !slices.Contains(*inTests, c.Name) {
 			*inTests = append(*inTests, c.Name)
-			title = fmt.Sprintf("Move %s to std_in_tests", c.Name)
+			title = fmt.Sprintf("Move %s to effects_in_tests", c.Name)
 		}
-		message = fmt.Sprintf("only the tests have the effect %s, which std_in_tests is for", c.Name)
+		message = fmt.Sprintf("only the tests have the effect %s, which effects_in_tests is for", c.Name)
 	default:
 		*std = without(*std)
 	}
@@ -307,9 +313,9 @@ func (s *Server) manifestHover(uri string, pos protocol.Position) *protocol.Hove
 	}
 	root := filepath.Dir(uriToPath(uri))
 	var md string
-	switch list := at.list(); {
+	switch list, key := at.list(); {
 	case isStdList(list) && strings.HasPrefix(name, "std::"):
-		md = nameHover(s.reaches.of(root), list, at.key, name)
+		md = nameHover(s.reaches.of(root), list, key, name)
 	case at.entryList() != "":
 		md = moduleHover(s.reaches.of(root), at.entryList(), name)
 	default:
@@ -327,7 +333,7 @@ func (s *Server) manifestReferences(uri string, pos protocol.Position) []protoco
 	text, _ := s.contentForURI(protocol.DocumentUri(uri))
 	at := manifestPlaceAt(text, pos)
 	name, _, _, ok := at.quoted()
-	list := at.list()
+	list, key := at.list()
 	if !ok || !isStdList(list) {
 		return nil
 	}
@@ -336,7 +342,7 @@ func (s *Server) manifestReferences(uri string, pos protocol.Position) []protoco
 		return nil
 	}
 	var out []protocol.Location
-	for _, c := range neededBy(r, list, at.key, name) {
+	for _, c := range neededBy(r, list, key, name) {
 		target := protocol.DocumentUri(pathToURI(c.Path))
 		rng := posRange(c.Line, c.Col, c.EndLine, c.EndCol)
 		// The calls are in the files as the programs read them, from disk.
@@ -351,7 +357,7 @@ func (s *Server) manifestReferences(uri string, pos protocol.Position) []protoco
 // isStdList reports whether list, as a change names it, holds std names.
 func isStdList(list string) bool {
 	switch list {
-	case analysis.ListSelfStd, analysis.ListSelfStdInTests, analysis.ListDepsStd, analysis.ListDepsStdInTests:
+	case analysis.ListSelfEffects, analysis.ListSelfEffectsInTests, analysis.ListDependenciesEffects, analysis.ListDependenciesEffectsInTests:
 		return true
 	}
 	return slices.Contains(analysis.EntryLists, list)
@@ -392,7 +398,7 @@ func moduleHover(r *vmhost.Reach, list, module string) string {
 	var b strings.Builder
 	b.WriteString(module + "\n")
 	modules := r.EntryReaches(list)
-	if i := slices.IndexFunc(modules, func(u vmhost.PackageReach) bool { return u.Path == module }); i >= 0 {
+	if i := slices.IndexFunc(modules, func(u vmhost.PackageReach) bool { return u.Key == module }); i >= 0 {
 		vmhost.WritePackageReach(&b, "  ", modules[i])
 	} else {
 		b.WriteString("  not imported yet\n")
@@ -402,9 +408,9 @@ func moduleHover(r *vmhost.Reach, list, module string) string {
 
 // neededBy is each call r reaches that has the effect name and that list
 // holds (Reach.Why): a call in the project's own files for [effects.self]'s
-// lists, in a dependency's for [effects.deps]', and in module's for
-// its entry under [effects.self.modules] or
-// [effects.deps.packages].
+// lists, in a dependency's for [effects.dependencies]', in module's for
+// its entry under [effects.self.modules], and in a package reached through
+// module, a [dependencies] key, for that entry's effects keys.
 func neededBy(r *vmhost.Reach, list, module, name string) []vmhost.WhyCall {
 	calls, err := r.Why(name)
 	if err != nil {
@@ -414,7 +420,7 @@ func neededBy(r *vmhost.Reach, list, module, name string) []vmhost.WhyCall {
 	for _, c := range calls {
 		self := c.Package == r.Project
 		switch list {
-		case analysis.ListSelfStd, analysis.ListSelfStdInTests:
+		case analysis.ListSelfEffects, analysis.ListSelfEffectsInTests:
 			if !self {
 				continue
 			}
@@ -422,8 +428,8 @@ func neededBy(r *vmhost.Reach, list, module, name string) []vmhost.WhyCall {
 			if !self || c.Import != module {
 				continue
 			}
-		case analysis.ListDepsPackages:
-			if c.Package != module {
+		case analysis.ListEntryEffects, analysis.ListEntryEffectsInTests:
+			if !slices.Contains(c.Through, module) {
 				continue
 			}
 		default:
@@ -440,10 +446,12 @@ func neededBy(r *vmhost.Reach, list, module, name string) []vmhost.WhyCall {
 // (neededBy), naming the code list holds.
 func nothingReaches(list, module, name string) string {
 	switch list {
-	case analysis.ListSelfStd, analysis.ListSelfStdInTests:
+	case analysis.ListSelfEffects, analysis.ListSelfEffectsInTests:
 		return fmt.Sprintf("nothing in this package's own code has the effect %s", name)
-	case analysis.ListSelfModules, analysis.ListDepsPackages:
+	case analysis.ListSelfModules:
 		return fmt.Sprintf("nothing in %s has the effect %s", module, name)
+	case analysis.ListEntryEffects, analysis.ListEntryEffectsInTests:
+		return fmt.Sprintf("nothing the project reaches through %s has the effect %s", module, name)
 	}
 	return fmt.Sprintf("no dependency has the effect %s", name)
 }

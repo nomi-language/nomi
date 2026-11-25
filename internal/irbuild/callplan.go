@@ -299,7 +299,7 @@ func sameImplBlock(a, b *ast.ImplBlock) bool {
 // the file's path, or its module where it has none (a source loaded by
 // name), and in place of a position no source has, what wrote the node:
 // the front end, on a synthesized line (a derived body), or the checker,
-// at a column below zero (a refinement literal's check call).
+// at a column below zero (a subtype literal's check call).
 func (g *gen) sitePos(line, col int) string {
 	fa := g.srcFA()
 	path := fa.FilePath

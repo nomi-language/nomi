@@ -1,0 +1,22 @@
+import units.{Height, Meters, plus}
+
+subtype Hill Height when fn h -> h < 1000.0
+
+fn total(xs: List<Meters>) -> Float
+    Iter.sum(xs)
+end
+
+test "a subtype of another file's subtype checks the whole chain"
+    assert Hill.try_from(300.0) == Some(300.0)
+    assert Hill.try_from(3000.0) == None
+    assert Hill.try_from(-3.0) == None
+    assert Height.try_from(9500.0) == None
+end
+
+test "values of another file's subtypes convert up"
+    h: Hill = 250.0
+    tall: Height = 8848.0
+    m: Meters = 2.0
+    assert total([h, tall, m]) == 9100.0
+    assert plus(h, m) == 252.0
+end

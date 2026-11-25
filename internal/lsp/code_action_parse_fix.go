@@ -26,8 +26,9 @@ import (
 // A fix whose edits are in another file (parser.Fix's Path) edits that
 // file, read with read, which may be nil when no fix of errs has a Path:
 // the edit to nomi.toml that allows a call its [effects] lists do not
-// (vmhost's allowFix), and the edit to nomi-workspace.toml that adds an
-// unlisted package to members (analysis.AddWorkspaceMember). It widens
+// (vmhost's allowFix), the edit to nomi-workspace.toml that adds an
+// unlisted package to members (analysis.AddWorkspaceMember), and any fix
+// of a manifest's error a document it stops shows. It widens
 // what the program may reach, or changes another package's build, so it
 // is never the preferred fix.
 func buildParseFixActions(content, uri string, read func(protocol.DocumentUri) (string, bool), errs []parser.ParseError, diags []protocol.Diagnostic) []protocol.CodeAction {
@@ -107,13 +108,14 @@ func fixTextEdits(lines *lineIndex, edits []parser.Edit) []protocol.TextEdit {
 	return out
 }
 
-// typeErrorFixes are the errors of errs that carry a fix, as parse errors
+// typeErrorFixes are the errors of errs, the errors a document shows
+// (errorsInDocument, inputDiagnosticsOf), that carry a fix, as parse errors
 // at their start, so buildParseFixActions offers each fix the checker
 // knows.
 func typeErrorFixes(errs []analysis.TypeError) []parser.ParseError {
 	var out []parser.ParseError
 	for _, e := range errs {
-		if e.Fix != nil && e.File == "" {
+		if e.Fix != nil {
 			out = append(out, parser.ParseError{Line: e.Line, Col: e.Col, Message: e.Message, Fix: e.Fix})
 		}
 	}

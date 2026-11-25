@@ -205,7 +205,7 @@ end`
 	fa, errs := checkSourceWithStdlib(src)
 	expectNoErrorsT(t, errs)
 	wantRecorded(t, fa, "Call", 2, "List<Int>")
-	wantRecorded(t, fa, "Call", 3, "Map<String, Int>")
+	wantRecorded(t, fa, "Call", 3, "NonEmptyMap<String, Int>")
 	wantRecorded(t, fa, "Binary", 4, "List<Int>")
 	wantRecorded(t, fa, "Call", 5, "((Int) -> String) -> Iter<String>")
 	wantRecorded(t, fa, "Binary", 6, "List<String>")

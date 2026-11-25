@@ -14,7 +14,7 @@ import (
 // its nomi.toml after [effects.self] with std.
 func selfModulesFiles(std, tables string) map[string]string {
 	return map[string]string{
-		"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = " + std + "\n" + tables,
+		"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\neffects = " + std + "\n" + tables,
 		"main.nomi": `import
     std::io
     pricing
@@ -77,8 +77,8 @@ func TestEffectDiagnostic_AModuleOverItsEntry(t *testing.T) {
 	if got != want {
 		t.Errorf("diagnostics:\n%s\nwant:\n%s", got, want)
 	}
-	if len(ds) != 1 || ds[0].Code != EffectNotAllowedCode || !slices.Equal(ds[0].Args, []string{"std::http", "self.modules", "net::fetch"}) {
-		t.Errorf("code %q args %q; want %s with the name, self.modules and the entry's key", ds[0].Code, ds[0].Args, EffectNotAllowedCode)
+	if len(ds) != 1 || ds[0].Code != EffectNotAllowedCode || !slices.Equal(ds[0].Args, []string{"std::http", "effects.self.modules", "net::fetch"}) {
+		t.Errorf("code %q args %q; want %s with the name, effects.self.modules and the entry's key", ds[0].Code, ds[0].Args, EffectNotAllowedCode)
 	}
 	if fix := ds[0].Fix; fix == nil || fix.Title != "Allow std::http for net::fetch in nomi.toml" || len(fix.Edits) != 1 ||
 		fix.Edits[0].Text != "\"net::fetch\" = [\"std::http\"]\n" {
@@ -102,31 +102,31 @@ func TestEffectDiagnostic_AModuleOverItsEntryAndSelf(t *testing.T) {
 	got, ds := selfModulesDiagnostics(t, "main.nomi", `["std::io"]`, "\n[effects.self.modules]\n\"net::fetch\" = []\n")
 	want := "net/fetch.nomi:7:10: `net::fetch` has the effect std::http, and its entry under [effects.self.modules] allows it no effects\n" +
 		"net/fetch.nomi:7:10: help: reached from `main`; `main` calls `total`; `total` calls `rates`\n" +
-		"net/fetch.nomi:7:10: help: std under [effects.self] does not allow std::http either\n" +
-		"net/fetch.nomi:7:10: help: add \"std::http\" to \"net::fetch\" under [effects.self.modules] and to std under [effects.self] in nomi.toml, or remove the call"
+		"net/fetch.nomi:7:10: help: effects under [effects.self] does not allow std::http either\n" +
+		"net/fetch.nomi:7:10: help: add \"std::http\" to \"net::fetch\" under [effects.self.modules] and to effects under [effects.self] in nomi.toml, or remove the call"
 	if got != want {
 		t.Errorf("diagnostics:\n%s\nwant:\n%s", got, want)
 	}
-	if fix := ds[0].Fix; fix == nil || len(fix.Edits) != 1 || !strings.Contains(fix.Edits[0].Text, `std = ["std::io", "std::http"]`) ||
+	if fix := ds[0].Fix; fix == nil || len(fix.Edits) != 1 || !strings.Contains(fix.Edits[0].Text, `effects = ["std::io", "std::http"]`) ||
 		!strings.Contains(fix.Edits[0].Text, `"net::fetch" = ["std::http"]`) {
 		t.Errorf("fix %+v; want the edit that adds std::http to the entry and to std", fix)
 	}
 }
 
 // A test file is a module of its own, with its own entry, which holds its
-// calls from the tests too: std_in_tests allows the test's read under
+// calls from the tests too: effects_in_tests allows the test's read under
 // [effects.self], and pricing_test's empty entry refuses it.
 func TestEffectDiagnostic_ATestFilesEntry(t *testing.T) {
 	got, ds := selfModulesDiagnostics(t, "pricing_test.nomi", `["std::io", "std::http"]`,
-		"std_in_tests = [\"std::fs\"]\n\n[effects.self.modules]\n\"pricing_test\" = []\n")
+		"effects_in_tests = [\"std::fs\"]\n\n[effects.self.modules]\n\"pricing_test\" = []\n")
 	want := "pricing_test.nomi:7:9: `pricing_test` has the effect std::fs, and its entry under [effects.self.modules] allows it no effects\n" +
 		"pricing_test.nomi:7:9: help: reached from test \"totals\"\n" +
 		"pricing_test.nomi:7:9: help: add \"std::fs\" to \"pricing_test\" under [effects.self.modules] in nomi.toml, or remove the call"
 	if got != want {
 		t.Errorf("diagnostics:\n%s\nwant:\n%s", got, want)
 	}
-	if len(ds) != 1 || !slices.Equal(ds[0].Args, []string{"std::fs", "self.modules", "pricing_test"}) {
-		t.Errorf("args %q, want the name, self.modules and pricing_test", ds[0].Args)
+	if len(ds) != 1 || !slices.Equal(ds[0].Args, []string{"std::fs", "effects.self.modules", "pricing_test"}) {
+		t.Errorf("args %q, want the name, effects.self.modules and pricing_test", ds[0].Args)
 	}
 }
 
@@ -211,15 +211,15 @@ func TestEffectLists_SelfEntriesRequired(t *testing.T) {
 }
 
 // A dependency whose own nomi.toml declares [effects.self.modules] is
-// held to its entries when the project has an [effects.deps]: a call
+// held to its entries when the project has an [effects.dependencies]: a call
 // over the entry for its file's module is reported coded
 // effect-not-declared with the list self.modules, naming the module and
 // the entry, and the help says the fix is in that module. A name in the
 // dependency's own entry that is no std module is an error at its line in
 // the dependency's nomi.toml.
 func TestEffectDiagnostic_ADependencyOverItsOwnModuleEntry(t *testing.T) {
-	own := "\n[effects.self]\nstd = [\"std::fs\"]\n\n[effects.self.modules]\n\"rules\" = []\n"
-	deps := "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.deps]\nstd = [\"std::io\", \"std::fs\"]\n"
+	own := "\n[effects.self]\neffects = [\"std::fs\"]\n\n[effects.self.modules]\n\"rules\" = []\n"
+	deps := "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.dependencies]\neffects = [\"std::io\", \"std::fs\"]\n"
 	got, ds := effectDiagnostics(t, "app/main.nomi", dependencyFiles(deps, own))
 	want := "pricing/rules.nomi:4:5: pricing's `rules` has the effect std::fs, and its entry under the package's own [effects.self.modules] allows it no effects\n" +
 		"pricing/rules.nomi:4:5: help: reached from `main`; `main` calls `load`\n" +
@@ -228,11 +228,11 @@ func TestEffectDiagnostic_ADependencyOverItsOwnModuleEntry(t *testing.T) {
 	if got != want {
 		t.Errorf("diagnostics:\n%s\nwant:\n%s", got, want)
 	}
-	if len(ds) != 1 || ds[0].Code != EffectNotDeclaredCode || !slices.Equal(ds[0].Args, []string{"std::fs", "self.modules", "pricing"}) {
-		t.Errorf("code %q args %q; want %s with the name, self.modules and the module", ds[0].Code, ds[0].Args, EffectNotDeclaredCode)
+	if len(ds) != 1 || ds[0].Code != EffectNotDeclaredCode || !slices.Equal(ds[0].Args, []string{"std::fs", "effects.self.modules", "pricing"}) {
+		t.Errorf("code %q args %q; want %s with the name, effects.self.modules and the module", ds[0].Code, ds[0].Args, EffectNotDeclaredCode)
 	}
 
-	dir := writeProject(t, dependencyFiles(deps, "\n[effects.self]\nstd = [\"std::fs\"]\n\n[effects.self.modules]\n\"rules\" = [\"std::fss\"]\n"))
+	dir := writeProject(t, dependencyFiles(deps, "\n[effects.self]\neffects = [\"std::fs\"]\n\n[effects.self.modules]\n\"rules\" = [\"std::fss\"]\n"))
 	p, err := Load(filepath.Join(dir, "app", "main.nomi"))
 	if err != nil {
 		t.Fatalf("the program does not load: %v", err)

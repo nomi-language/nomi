@@ -57,7 +57,7 @@ The repository root is the compiler's Go module,
 | `editors/nvim/` | Neovim 0.11+ plugin: filetype, LSP config, generated queries, test runner, neotest adapter, nvim-dap adapter. |
 | `editors/vscode/` | VS Code extension (TypeScript): language configuration, a TextMate grammar derived from the bat syntax, the `nomi lsp` client, run and test commands, the `nomi` debugger. |
 | `editors/bat/` | `bat`/syntect syntax definition. |
-| `scripts/` | Tour wasm build, release and its tags, the install script `curl` pipes to `sh` (`install.sh`, which the tour build copies to the site root), the Homebrew formula's renderer, grammar publish, full check, publish to `main`, the js/wasm test runner, the tree-sitter wrapper, git hooks, and editor sync scripts. |
+| `scripts/` | Tour wasm build, release and its tags, the install scripts `curl` pipes to `sh` and PowerShell's `irm` to `iex` (`install.sh` and `install.ps1`, which the tour build copies to the site root), the Homebrew formula's renderer, grammar publish, full check, publish to `main`, the js/wasm test runner, the tree-sitter wrapper, git hooks, and editor sync scripts. |
 
 ## Architecture in brief
 
@@ -411,6 +411,12 @@ corpus by default and every input under the variable
 - A build over the stdlib's base matches one that folds every file:
   `TestStdBase_ABuildOverTheBaseMatchesOneThatFoldsEveryFile`,
   `NOMI_CORPUS_WALKS=full` (`internal/analysis/std_base_test.go`).
+- A file checked on its own (a std document, a std module's source,
+  std/compiler's `hover`) is built, typed and checked by
+  `analysis.CheckStandaloneFile`, and no shipped code calls the
+  single-file builder any other way:
+  `TestOnlyCheckStandaloneFileBuildsAFileOnItsOwn`
+  (`internal/analysis/standalone_check_test.go`).
 - The language server survives typing: `TestLSPSurvivesTyping`,
   `FuzzLSPSurvivesEdits`, `knownTypingGaps`, `NOMI_LSP_TYPING=full`
   (`internal/lsp/typing_test.go`).
@@ -675,12 +681,12 @@ until you do).
    (`files`), which `nomi build` checks against the target
    (`vmhost.TargetLacks`, `vmhost.Program.CheckTarget`). A function that
    computes its answer from its operands alone and acts on nothing outside
-   the machine gets `Pure`, so a refinement rule or a typed literal's
+   the machine gets `Pure`, so a subtype rule or a typed literal's
    handler may call it; unset, a call to it is an effect. A `Pure` function
    whose one call costs more as an operand's value grows also gets
    `Unbounded`, and those evaluations refuse it as unbounded. A `Pure`
    function whose answer is a hash keyed by the run's seed also gets
-   `Seeded`, and a refinement rule, a typed literal's handler and a `check`
+   `Seeded`, and a subtype rule, a typed literal's handler and a `check`
    refuse it, since their answer must hold in every run. A row that is not
    `Pure` sets `World: Inside` or `World: Outside`, whether a call to it
    acts on or reads from anything outside the machine (the
@@ -691,7 +697,7 @@ until you do).
 5. `go test ./internal/hostpair ./internal/stdlibadapters ./internal/hostgen/...`.
 6. A row that is neither `Pure` nor `Held` has an effect, and each public
    std function that reaches it is in the tooling reference's table of
-   functions with effects (`docs/tooling.md`, "Effects lists"), which
+   functions with effects (`docs/tooling.md`, "Functions with effects"), which
    holds what the stdlib reference marks "Has effects";
    `TestEffectTableMatchesTheReference` (`cmd/nomi-docgen`) fails
    until the table holds it, and prints the table to paste.
@@ -778,7 +784,11 @@ and commits the two pins on `next`.
 <editor>` (`internal/editors`); `make install-helix`, `install-nvim`,
 `install-vscode` and `install-zed` run it from this checkout, building the
 VS Code and Zed extensions first. `make dev-editors` installs `nomi` from
-this checkout and sets up each editor's dev install. `make enable-hooks` enables, once per
+this checkout and sets up each editor's dev install. `make use-release`
+puts the release's `nomi` and editor files on this machine in place of
+the build from this checkout, after `make clean-legacy` removes the
+binaries older install instructions left in Go's bin directory, and
+`make use-source` goes back. `make enable-hooks` enables, once per
 clone, the `post-merge` hook, which does the parts of that a merge
 into `main` needs, and the `pre-push` hook, which refuses any push to `main`
 (the grammar mirror's excepted) that `make publish-main` does not make.

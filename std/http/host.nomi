@@ -24,7 +24,7 @@ host type Exchange
 
 /// One of the Go values std::http keeps for a program: a TLS ClientHello, a
 /// request tracer, a streaming multipart reader or writer.
-pub host type Handle
+host type Handle
 
 /// A client made from options. A duration is in nanoseconds and a count of
 /// 0 is Go's default; `redirects` is -1 to follow none, else the most to
@@ -141,7 +141,7 @@ host fn cross_origin_check(
 host type Listener
 
 /// One request a server received, waiting for its response.
-pub host type Incoming
+host type Incoming
 
 /// Binds `address`, or takes `listener` when it is given, and starts
 /// serving. `durations` are the read,

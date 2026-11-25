@@ -118,7 +118,7 @@ func TestEvict_DeadRootIsEvictedAndLiveRootIsNot(t *testing.T) {
 	if victims[0].name != dead || victims[0].reason != evictDeadRoot {
 		t.Fatalf("wrong victim: %+v (dead=%s)", victims[0], dead)
 	}
-	if got := applyEviction(cacheRoot, victims); got != 1 {
+	if got := applyEviction(cacheRoot, victims); got.Entries != 1 {
 		t.Fatalf("applyEviction removed %d, want 1", got)
 	}
 	if present(t, cacheRoot, dead) {
@@ -160,7 +160,7 @@ func TestEvict_BoundKeepsNewestDropsOldest(t *testing.T) {
 			t.Fatalf("victim %s chose the wrong rule: %v", v.name, v.reason)
 		}
 	}
-	if got := applyEviction(cacheRoot, victims); got != 3 {
+	if got := applyEviction(cacheRoot, victims); got.Entries != 3 {
 		t.Fatalf("applyEviction removed %d, want 3", got)
 	}
 	for i, name := range names {
@@ -187,7 +187,7 @@ func TestEvict_RecentEntryIsNotEvicted(t *testing.T) {
 	alsoRecent := plantEntry(t, cacheRoot, compilerRoot+"/b", compilerRoot, 5*time.Minute)
 	stale := plantEntry(t, cacheRoot, compilerRoot+"/c", compilerRoot, 40*24*time.Hour)
 
-	if _, err := evictCache(cacheRoot, ""); err != nil {
+	if _, err := evictCache(cacheRoot, "", false); err != nil {
 		t.Fatalf("evictCache: %v", err)
 	}
 	if present(t, cacheRoot, stale) {
@@ -216,7 +216,7 @@ func TestEvict_CurrentEntryIsNotEvicted(t *testing.T) {
 	mine := plantEntry(t, cacheRoot, compilerRoot+"/mine", compilerRoot, 40*24*time.Hour)
 	other := plantEntry(t, cacheRoot, compilerRoot+"/other", compilerRoot, 41*24*time.Hour)
 
-	if _, err := evictCache(cacheRoot, mine); err != nil {
+	if _, err := evictCache(cacheRoot, mine, false); err != nil {
 		t.Fatalf("evictCache: %v", err)
 	}
 	if present(t, cacheRoot, other) {
@@ -273,7 +273,7 @@ func TestEvict_StampMovedAfterThePlanSparesTheEntry(t *testing.T) {
 		t.Fatalf("simulating the concurrent claim: %v", err)
 	}
 
-	if got := applyEviction(cacheRoot, victims); got != 1 {
+	if got := applyEviction(cacheRoot, victims); got.Entries != 1 {
 		t.Fatalf("applyEviction removed %d, want 1", got)
 	}
 	if present(t, cacheRoot, unclaimed) {
@@ -316,7 +316,7 @@ func TestEvict_UnmarkedEntryWithNoOriginIsReachableByTheBound(t *testing.T) {
 			t.Fatalf("a unmarked entry was selected by the dead-root rule: %+v", v)
 		}
 	}
-	if got := applyEviction(cacheRoot, victims); got != 2 {
+	if got := applyEviction(cacheRoot, victims); got.Entries != 2 {
 		t.Fatalf("applyEviction removed %d, want 2", got)
 	}
 	if !present(t, cacheRoot, newer) || !present(t, cacheRoot, middle) {
@@ -366,7 +366,7 @@ func TestEvict_OnlyTouchesCacheKeyNames(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := evictCache(cacheRoot, ""); err != nil {
+	if _, err := evictCache(cacheRoot, "", false); err != nil {
 		t.Fatalf("evictCache: %v", err)
 	}
 	if present(t, cacheRoot, dead) {
@@ -404,7 +404,7 @@ func TestEvict_TrashFromACrashedSweepIsCollected(t *testing.T) {
 	plantEntry(t, cacheRoot, compilerRoot+"/a", compilerRoot, 40*24*time.Hour)
 	plantEntry(t, cacheRoot, compilerRoot+"/b", compilerRoot, 41*24*time.Hour)
 
-	if _, err := evictCache(cacheRoot, ""); err != nil {
+	if _, err := evictCache(cacheRoot, "", false); err != nil {
 		t.Fatalf("evictCache: %v", err)
 	}
 	if _, err := os.Stat(orphan); err == nil {
@@ -502,7 +502,7 @@ func TestEvict_MalformedOriginFallsBackToTheBound(t *testing.T) {
 	if len(victims) != 1 || victims[0].name != torn || victims[0].reason != evictOverBound {
 		t.Fatalf("want the torn entry selected by the bound, got %+v", victims)
 	}
-	if got := applyEviction(cacheRoot, victims); got != 1 {
+	if got := applyEviction(cacheRoot, victims); got.Entries != 1 {
 		t.Fatalf("applyEviction removed %d, want 1", got)
 	}
 	if !present(t, cacheRoot, fine) {
@@ -578,7 +578,7 @@ func TestEvict_DisabledByZeroBound(t *testing.T) {
 	if err := os.RemoveAll(deadRoot); err != nil {
 		t.Fatal(err)
 	}
-	if n, err := evictCache(cacheRoot, ""); err != nil || n != 0 {
+	if n, err := evictCache(cacheRoot, "", false); err != nil || n.Entries != 0 {
 		t.Fatalf("evictCache with the bound disabled: removed %d, err %v", n, err)
 	}
 	if !present(t, cacheRoot, dead) {
@@ -587,9 +587,9 @@ func TestEvict_DisabledByZeroBound(t *testing.T) {
 
 	// Bound on, count still inside it, and today's sweep done: no
 	// scan, so nothing goes.
-	artifactcache.Due(cacheRoot, sweepEvery)
+	artifactcache.Due(cacheRoot, sweepEvery, false)
 	t.Setenv(maxEntriesEnv, "1")
-	if n, err := evictCache(cacheRoot, ""); err != nil || n != 0 {
+	if n, err := evictCache(cacheRoot, "", false); err != nil || n.Entries != 0 {
 		t.Fatalf("one entry at a bound of 1 was swept: removed %d, err %v", n, err)
 	}
 	if !present(t, cacheRoot, dead) {
@@ -599,7 +599,7 @@ func TestEvict_DisabledByZeroBound(t *testing.T) {
 	// Over budget: the scan runs and the dead entry goes.
 	liveRoot := t.TempDir()
 	live := plantEntry(t, cacheRoot, liveRoot, liveRoot, time.Second)
-	if n, err := evictCache(cacheRoot, ""); err != nil || n != 1 {
+	if n, err := evictCache(cacheRoot, "", false); err != nil || n.Entries != 1 {
 		t.Fatalf("over-budget sweep: removed %d, err %v", n, err)
 	}
 	if present(t, cacheRoot, dead) {
@@ -639,10 +639,10 @@ func TestEvict_SweepCostOnALargeRoot(t *testing.T) {
 	}
 
 	// In-budget and swept today: readdir only, no per-entry work.
-	artifactcache.Due(cacheRoot, sweepEvery)
+	artifactcache.Due(cacheRoot, sweepEvery, false)
 	t.Setenv(maxEntriesEnv, strconv.Itoa(n))
 	start := time.Now()
-	if removed, err := evictCache(cacheRoot, ""); err != nil || removed != 0 {
+	if removed, err := evictCache(cacheRoot, "", false); err != nil || removed.Entries != 0 {
 		t.Fatalf("in-budget sweep: removed %d, err %v", removed, err)
 	}
 	inBudget := time.Since(start)
@@ -652,7 +652,7 @@ func TestEvict_SweepCostOnALargeRoot(t *testing.T) {
 	// nothing is removable and this measures the scan alone.
 	t.Setenv(maxEntriesEnv, "256")
 	start = time.Now()
-	if _, err := evictCache(cacheRoot, ""); err != nil {
+	if _, err := evictCache(cacheRoot, "", false); err != nil {
 		t.Fatalf("over-budget sweep: %v", err)
 	}
 	fullScan := time.Since(start)
@@ -683,7 +683,7 @@ func TestEvict_UnusedEntryIsEvictedUnderTheBound(t *testing.T) {
 	recent := plantEntry(t, cacheRoot, compilerRoot+"/recent", compilerRoot, artifactcache.Unused-time.Hour)
 	mine := plantEntry(t, cacheRoot, compilerRoot+"/mine", compilerRoot, 2*artifactcache.Unused)
 
-	if n, err := evictCache(cacheRoot, mine); err != nil || n != 1 {
+	if n, err := evictCache(cacheRoot, mine, false); err != nil || n.Entries != 1 {
 		t.Fatalf("the day's first sweep: removed %d, err %v; want the unused entry", n, err)
 	}
 	if present(t, cacheRoot, unused) {
@@ -697,7 +697,7 @@ func TestEvict_UnusedEntryIsEvictedUnderTheBound(t *testing.T) {
 	}
 
 	later := plantEntry(t, cacheRoot, compilerRoot+"/later", compilerRoot, artifactcache.Unused+time.Hour)
-	if n, err := evictCache(cacheRoot, mine); err != nil || n != 0 {
+	if n, err := evictCache(cacheRoot, mine, false); err != nil || n.Entries != 0 {
 		t.Fatalf("a second sweep the same day: removed %d, err %v; want no scan", n, err)
 	}
 	if !present(t, cacheRoot, later) {

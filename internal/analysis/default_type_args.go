@@ -391,7 +391,7 @@ func instantiateNominal(t Type, args []Type) Type {
 			WrittenAsParts:   bt.WrittenAsParts,
 			Rule:             bt.Rule,
 			MoreParents:      bt.MoreParents,
-			Refinement:       bt.Refinement,
+			Subtype:          bt.Subtype,
 			Opaque:           bt.Opaque,
 			OwningSourceFile: bt.OwningSourceFile,
 			TypeParams:       bt.TypeParams,

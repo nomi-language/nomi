@@ -1056,7 +1056,7 @@
         "value": -1,
         "content": {
           "type": "PATTERN",
-          "value": "and|as|assert|begin|break|case|continue|dbg|defer|else|end|enum|export|extern|fn|for|if|impl|import|in|interface|is|not|once|opaque|or|pub|refine|refute|return|self|setup|struct|tap|test|then|todo|type(alias)?|unreachable|when|where|with"
+          "value": "and|as|assert|begin|break|case|continue|dbg|defer|else|end|enum|export|extern|fn|for|if|impl|import|in|interface|is|not|once|opaque|or|pub|refute|return|self|setup|struct|subtype|tap|test|then|todo|type(alias)?|unreachable|when|where|with"
         }
       }
     },
@@ -2662,7 +2662,7 @@
               },
               {
                 "type": "STRING",
-                "value": "refine"
+                "value": "subtype"
               }
             ]
           },
@@ -2729,7 +2729,7 @@
                     "members": [
                       {
                         "type": "SYMBOL",
-                        "name": "refinement_rule"
+                        "name": "when_rule"
                       },
                       {
                         "type": "BLANK"
@@ -2746,7 +2746,7 @@
         ]
       }
     },
-    "refinement_rule": {
+    "when_rule": {
       "type": "SEQ",
       "members": [
         {
@@ -2926,7 +2926,7 @@
                             },
                             {
                               "type": "SYMBOL",
-                              "name": "refinement_rule"
+                              "name": "when_rule"
                             },
                             {
                               "type": "SYMBOL",
@@ -2992,7 +2992,7 @@
                               },
                               {
                                 "type": "SYMBOL",
-                                "name": "refinement_rule"
+                                "name": "when_rule"
                               },
                               {
                                 "type": "SYMBOL",

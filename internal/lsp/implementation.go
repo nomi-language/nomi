@@ -3,6 +3,7 @@ package lsp
 import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
+	"slices"
 	"sort"
 
 	"github.com/tliron/glsp"
@@ -30,7 +31,7 @@ import (
 // interface method, not the other way around.
 func (s *Server) textDocumentImplementation(ctx *glsp.Context, params *protocol.ImplementationParams) (any, error) {
 	uri := string(params.TextDocument.URI)
-	doc := s.docs.Snapshot(uri)
+	doc := s.requestDoc(ctx, uri)
 	if doc == nil || doc.Analysis == nil {
 		return nil, nil
 	}
@@ -196,12 +197,12 @@ func (s *Server) implExternFiles(fa *analysis.FileAnalysis) map[*ast.ExternFunc]
 // document's URI since "entry file" means "the file the editor has open
 // and asked about."
 //
-// A derive SYNTHESIZED impl (`derive Iface`) has no hand-written
-// method — its FuncDef sits in the synth-band (Line >= synthLineBase, ~2^30),
-// a fake position the editor can't navigate to. For those we remap to the
-// real `derive Iface` conformance entry instead (see
-// derivedConformanceLocation); if that can't be recovered we drop the target
-// (ok=false) rather than emit an un-navigable ghost.
+// A function the front end wrote stands at a synthesized position
+// (analysis.IsSynthesizedLine), which names no line of the file. A derive's
+// answers its `derive Iface` entry (derivedLocation), read from the block
+// that holds it in the file the impl index names. Any other, which comes
+// with a type's declaration (a validated type's `TryFrom`, an opaque type's
+// Debug), is no impl the source writes, and is not listed.
 func (s *Server) implLocationFor(fa *analysis.FileAnalysis, ifaceName string, fn *ast.FuncDef, openDocURI string) (protocol.Location, bool) {
 	key, ok := s.implFiles(fa)[fn]
 	if !ok {
@@ -209,7 +210,12 @@ func (s *Server) implLocationFor(fa *analysis.FileAnalysis, ifaceName string, fn
 	}
 	uri := s.moduleKeyToURI(key, openDocURI)
 	if analysis.IsSynthesizedLine(fn.Line) {
-		return derivedConformanceLocation(fa, ifaceName, fa.Program().ImplBlockReceiver[fn], uri)
+		for _, info := range implHome(fa, key).ImplBlocks[fa.Program().ImplBlockReceiver[fn]][ifaceName] {
+			if info != nil && info.Block != nil && slices.Contains(info.Block.Items, ast.Node(fn)) {
+				return derivedLocation(info.Block, uri)
+			}
+		}
+		return protocol.Location{}, false
 	}
 	startLine := toZeroBased(fn.Line)
 	startChar := toZeroBased(fn.Col)
@@ -269,7 +275,7 @@ func (s *Server) shapeBlockLocations(fa *analysis.FileAnalysis, it *analysis.Int
 				if it != nil && (info.Interface != it.Name || info.Origin != it.Origin) {
 					continue
 				}
-				if loc, ok := derivedConformanceLocation(f, ifaceName, recv, uri); ok {
+				if loc, ok := derivedLocation(info.Block, uri); ok {
 					locs = append(locs, loc)
 				}
 			}
@@ -278,57 +284,27 @@ func (s *Server) shapeBlockLocations(fa *analysis.FileAnalysis, it *analysis.Int
 	return locs
 }
 
-// derivedConformanceLocation maps a derived impl of the type named recv in
-// fa back to the real `derive Iface` conformance entry that produced it.
-// The lowering stamps a synthetic `@derive Iface` decorator on the receiver
-// type's declaration carrying the conformance entry's real source position
-// (its arg is the entry's interface type-expr), which this reads. Returns
-// ok=false when any link is missing, so the caller drops the (un-navigable)
-// synth target.
-func derivedConformanceLocation(fa *analysis.FileAnalysis, ifaceName, recv string, uri protocol.DocumentUri) (protocol.Location, bool) {
-	if recv == "" {
+// derivedLocation is the `derive Iface` entry that wrote blk, an impl block
+// of the file at uri, as analysis.WrittenFor answers it. ok is false for a
+// block no derive wrote.
+func derivedLocation(blk *ast.ImplBlock, uri protocol.DocumentUri) (protocol.Location, bool) {
+	at, span, derived, ok := analysis.WrittenFor(blk)
+	if !ok || !derived {
 		return protocol.Location{}, false
 	}
-	sym := fa.ModuleScope.LookupLocal(recv)
-	if sym == nil {
-		return protocol.Location{}, false
-	}
-	for _, dec := range typeDeclDecorators(sym.Node) {
-		if dec.Name != "derive" || len(dec.Args) == 0 {
-			continue
-		}
-		arg, ok := dec.Args[0].(ast.TypeExpr)
-		if !ok || analysis.TypeExprBaseName(arg) != ifaceName {
-			continue
-		}
-		line, col, nameLen := interfaceRefPos(arg, dec.Line, dec.Col, ifaceName)
-		startLine := toZeroBased(line)
-		startChar := toZeroBased(col)
-		return protocol.Location{
-			URI: uri,
-			Range: protocol.Range{
-				Start: protocol.Position{Line: startLine, Character: startChar},
-				End:   protocol.Position{Line: startLine, Character: startChar + uint32(nameLen)},
-			},
-		}, true
-	}
-	return protocol.Location{}, false
+	loc := makeLocation(string(uri), at, "")
+	loc.Range.End.Character += uint32(span)
+	return loc, true
 }
 
-// typeDeclDecorators returns the decorator list of a type declaration node
-// (struct / enum / type / host type), or nil for anything else.
-func typeDeclDecorators(n ast.Node) []ast.Decorator {
-	switch d := n.(type) {
-	case *ast.StructDef:
-		return d.Decorators
-	case *ast.EnumDef:
-		return d.Decorators
-	case *ast.TypeDef:
-		return d.Decorators
-	case *ast.ExternType:
-		return d.Decorators
+// implHome is the analysis of the file with module key key, the home of an
+// impl that the program fa is of holds, and fa itself when the program
+// lists no file under the key.
+func implHome(fa *analysis.FileAnalysis, key string) *analysis.FileAnalysis {
+	if home := fa.Program().File(key); home != nil {
+		return home
 	}
-	return nil
+	return fa
 }
 
 // interfaceRefPos returns the 1-based source position + name length of an

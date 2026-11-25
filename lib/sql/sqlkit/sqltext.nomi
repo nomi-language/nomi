@@ -679,5 +679,5 @@ end
 pub fn position(text: String, index: Int) -> (Int, String)
     before = String.slice(text, 0, index)
     lines = String.split(before, "\n")
-    (Iter.count(lines) - 1, Iter.last(lines) |> Option.with_default(""))
+    (Iter.count(lines) - 1, NonEmptyList.last(lines))
 end

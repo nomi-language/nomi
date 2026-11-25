@@ -33,10 +33,18 @@ type Options struct {
 	Log io.Writer
 }
 
-// offlineError is a fetch --offline refused.
-type offlineError struct{ what string }
+// offlineError is a fetch --offline refused: of what the cache lacks, or
+// holds incomplete (pkgcache.Incomplete).
+type offlineError struct {
+	what       string
+	incomplete bool
+}
 
 func (e *offlineError) Error() string {
+	if e.incomplete {
+		return "the package cache holds " + e.what + " incomplete, and --offline forbids fetching it again; " +
+			"run the command without --offline to fetch it again"
+	}
 	return e.what + " is not in the package cache, and --offline forbids fetching it"
 }
 
@@ -146,7 +154,7 @@ func (f *fetcher) fetch(root string) (*pkgcache.Graph, error) {
 		g, err = pkgcache.Walk(root, f.materialize)
 	}
 	if f.cacheErr == nil {
-		pkgcache.Prune(f.cache)
+		pkgcache.Prune(f.cache, false)
 	}
 	if err != nil || g == nil {
 		return nil, err
@@ -200,33 +208,37 @@ func (f *fetcher) writeLock(g *pkgcache.Graph) error {
 }
 
 // materialize answers m's directory in the package cache, fetching its
-// repository first when the cache lacks it, and checks its files against
-// nomi.lock either way. A package is a directory of its repository at the
-// tag that holds a nomi.toml and no link (pkgcache.LinkIn): a link is not
-// installed, so the package would be missing it. A neighbor a package names
-// by its directory is materialized the same way.
+// repository first when the cache lacks it or holds it incomplete
+// (pkgcache.Lookup), once, and checks its files against nomi.lock either
+// way. A package is a directory of its repository at the tag that holds a
+// nomi.toml and no link (pkgcache.LinkIn): a link is not installed, so the
+// package would be missing it. A neighbor a package names by its directory
+// is materialized the same way.
 func (f *fetcher) materialize(m pkgcache.Package) (string, error) {
 	if f.cacheErr != nil {
 		return "", f.cacheErr
 	}
 	repoDir := pkgcache.RepoDir(f.cache, m.Repo, m.Version)
-	dir := pkgcache.Cached(f.cache, m)
-	if dir == "" {
+	dir, held := pkgcache.Lookup(f.cache, m)
+	if held != pkgcache.Present {
 		if _, ok := f.locked(m); !ok && !f.update {
 			return "", noEntry(m)
 		}
-		if _, err := os.Stat(repoDir); err != nil {
-			if err := f.download(m); err != nil {
+		if held != pkgcache.NoDirectory {
+			if err := f.download(m, held == pkgcache.Incomplete); err != nil {
 				var off *offlineError
 				if errors.As(err, &off) {
 					return "", err
 				}
 				return "", fmt.Errorf("fetching %s: %w", m, err)
 			}
-			dir = pkgcache.Cached(f.cache, m)
+			dir, held = pkgcache.Lookup(f.cache, m)
 		}
-		if dir == "" {
+		switch held {
+		case pkgcache.NoDirectory:
 			return "", fmt.Errorf("repository %s has no directory %s at %s", m.Repo, m.Subdir, m.Version)
+		case pkgcache.Absent, pkgcache.Incomplete:
+			return "", fmt.Errorf("fetched %s, and the package cache still does not hold it whole at %s", m, repoDir)
 		}
 	}
 	commit, files, err := pkgcache.ReadRepoFiles(repoDir)
@@ -346,10 +358,13 @@ func (f *fetcher) archive(repo, ref string) (io.ReadCloser, bool, error) {
 // package cache: the archive extracted into a temporary directory, every
 // package of it nomi.lock holds checked against its hash, made read-only,
 // and renamed into place beside the list of its files. A commit needs no
-// tag listing: it names itself.
-func (f *fetcher) download(m pkgcache.Package) error {
+// tag listing: it names itself. incomplete says the cache holds part of the
+// repository (pkgcache.Incomplete): the log line says so, and that part is
+// removed (pkgcache.RemoveIncomplete) only once the fetched copy has passed
+// its checks, so a fetch that fails leaves the cache as it found it.
+func (f *fetcher) download(m pkgcache.Package, incomplete bool) error {
 	if f.offline {
-		return &offlineError{what: "package " + m.String()}
+		return &offlineError{what: "package " + m.String(), incomplete: incomplete}
 	}
 	commit := m.Version
 	if !pkgcache.IsCommit(m.Version) {
@@ -368,7 +383,11 @@ func (f *fetcher) download(m pkgcache.Package) error {
 	}
 	defer body.Close()
 	if f.log != nil {
-		fmt.Fprintf(f.log, "nomi: fetching %s %s\n", m.Repo, m.Version)
+		note := ""
+		if incomplete {
+			note = " (the cached copy was incomplete)"
+		}
+		fmt.Fprintf(f.log, "nomi: fetching %s %s%s\n", m.Repo, m.Version, note)
 	}
 	repoDir := pkgcache.RepoDir(f.cache, m.Repo, m.Version)
 	if err := os.MkdirAll(filepath.Dir(repoDir), 0o755); err != nil {
@@ -378,7 +397,7 @@ func (f *fetcher) download(m pkgcache.Package) error {
 	if err != nil {
 		return err
 	}
-	defer pkgcache.RemoveTree(tmp)
+	defer artifactcache.RemoveTree(tmp)
 	files, err := extract(body, gz, tmp)
 	if err != nil {
 		return fmt.Errorf("extracting %s at %s: %w", m.Repo, m.Version, err)
@@ -389,6 +408,9 @@ func (f *fetcher) download(m pkgcache.Package) error {
 				return err
 			}
 		}
+	}
+	if err := pkgcache.RemoveIncomplete(f.cache, m); err != nil {
+		return err
 	}
 	return pkgcache.Install(f.cache, m.Repo, m.Version, commit, tmp, files)
 }

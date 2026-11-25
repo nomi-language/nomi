@@ -130,7 +130,9 @@ func TestReplCommand_VMBanner(t *testing.T) {
 	}
 	// The banner opens with the line `nomi --version` prints, not a version
 	// of its own.
-	version, err := exec.Command(nomiBin, "--version").Output()
+	versionCmd := exec.Command(nomiBin, "--version")
+	versionCmd.Env = editorSandboxEnv(home)
+	version, err := versionCmd.Output()
 	if err != nil {
 		t.Fatalf("nomi --version: %v", err)
 	}

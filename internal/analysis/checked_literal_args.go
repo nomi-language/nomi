@@ -237,7 +237,7 @@ func (c *checker) deferCheckedLiterals(order []int, args []ast.Node, posSlots []
 // (numericLiteral) whose parameter names a type parameter of the call
 // (mentioned) that no lambda argument takes a parameter of: deferred, it
 // meets what the other arguments solve, so a literal that satisfies a std
-// numeric refinement they solved is that refinement whichever argument comes
+// numeric subtype they solved is that subtype whichever argument comes
 // first (`Comparable.max(0, count)` is a NonNegativeInt, as
 // `Comparable.max(count, 0)` is). A lambda that leaves its parameter's
 // type to the call would take it from the literal, so the literal keeps

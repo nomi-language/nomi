@@ -64,7 +64,7 @@ derive Equatable for Bits
 //! assert Bits.field(f, 0b1100_0011) == Some(3)
 //! assert FieldBits.try_from(Bits"10xx") == None
 //
-pub refine FieldBits Bits when fn pattern -> pattern.field_mask != 0
+pub subtype FieldBits Bits when fn pattern -> pattern.field_mask != 0
 
 /// Why text is not a bit pattern. `index` counts characters from 0.
 pub enum Error

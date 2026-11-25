@@ -17,9 +17,9 @@ import (
 // A generic instantiation (`Option<User>`) lands on the generic type. A
 // type with no declaration (a function type, a tuple, a type parameter)
 // answers nothing.
-func (s *Server) textDocumentTypeDefinition(_ *glsp.Context, params *protocol.TypeDefinitionParams) (any, error) {
+func (s *Server) textDocumentTypeDefinition(gctx *glsp.Context, params *protocol.TypeDefinitionParams) (any, error) {
 	uri := string(params.TextDocument.URI)
-	doc := s.docs.Snapshot(uri)
+	doc := s.requestDoc(gctx, uri)
 	if doc == nil || doc.Analysis == nil {
 		return nil, nil
 	}

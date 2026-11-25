@@ -53,7 +53,7 @@ import
     int.Int
     io.{Reader, Writer}
     iter.Iter
-    lists.List
+    lists.{List, NonEmptyList}
     mail::host
     net.{self, Connection}
     option.Option.{self, None, Some}
@@ -101,7 +101,7 @@ derive Equatable for Message
 pub struct Attachment
     /// The name a reader saves it as.
     filename: String
-    /// `type/refinement`, such as `application/pdf`.
+    /// `type/subtype`, such as `application/pdf`.
     content_type: String
     data:         Bytes
 end
@@ -856,7 +856,7 @@ fn check_attachment(attachment: Attachment) -> Result<Unit, Error>
             invalid(
                 "the attachment ${String.to_literal(name)} has the content type ${String.to_literal(
                     attachment.content_type
-                )}, not type/refinement"
+                )}, not type/subtype"
             )
     end
 end
@@ -942,7 +942,7 @@ pub fn render(
 end
 
 fn new_message_id(from: Address) -> String
-    domain = String.split(from.email, "@") |> Iter.last() |> Option.with_default("localhost")
+    domain = String.split(from.email, "@") |> NonEmptyList.last()
     "<${hex.encode(random.secure_bytes(16))}@${domain}>"
 end
 

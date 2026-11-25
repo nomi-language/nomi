@@ -29,7 +29,7 @@ import
     duration.Duration
     equatable.Equatable
     instant.Instant
-    int.Int
+    int.{Int, PositiveInt}
     iter.Iter
     jobs.{self, Claimed, Enqueued, Handler, Job, JobId, NewJob, Queue, Settle, Unique, UniqueStates}
     json.{FromJson, Json}
@@ -74,7 +74,7 @@ pub struct StoredJob
     args:          Json
     state:         JobState
     attempt:       Int
-    max_attempts:  Int
+    max_attempts:  PositiveInt
     priority:      Int
     unique_key:    Option<String>
     unique_across: UniqueStates

@@ -1,5 +1,6 @@
 import
     add.Add
+    averageable.Averageable
     bool.Bool
     comparable.Comparable
     contains.Contains
@@ -65,11 +66,14 @@ impl Map<K, V>
     /// Returns a new map with `value` under `key`. A new key goes at the
     /// end; a key the map already holds keeps its place. It copies one path
     /// of the map's tree, O(log32 n), or writes in place when the compiler
-    /// proves nothing reads `m` again.
+    /// proves nothing reads `m` again. The result holds `key`, so it is a
+    /// NonEmptyMap whatever `m` held.
     //! assert Map.put({"a" => 1}, "b", 2) == {"a" => 1, "b" => 2}
     //! assert Map.put({"a" => 1}, "a", 9) == {"a" => 9}
+    //! empty: Map<String, Int> = {}
+    //! assert Map.put(empty, "a", 1) |> NonEmptyMap.first_entry() == ("a", 1)
     //
-    pub host fn put<K, V>(m: Map<K, V>, key: K, value: V) -> Map<K, V>
+    pub host fn put<K, V>(m: Map<K, V>, key: K, value: V) -> NonEmptyMap<K, V>
 
     /// Returns a new map with the key removed, or the same map if the key
     /// is absent.
@@ -110,11 +114,12 @@ impl Map<K, V>
     /// `default` is the value a missing key is taken to have, and counting
     /// one more is `Map.update(counts, word, 0, &(&1 + 1))`; counting every
     /// value of an iteration is `Iter.frequencies`. Elixir's `Map.update`
-    /// differs: it stores a missing key's default unchanged.
+    /// differs: it stores a missing key's default unchanged. The result
+    /// holds `key`, so it is a NonEmptyMap.
     //! assert Map.update({"a" => 1}, "a", 0, &(&1 + 1)) == {"a" => 2}
     //! assert Map.update({"a" => 1}, "b", 0, &(&1 + 1)) == {"a" => 1, "b" => 1}
     //
-    pub fn update<K, V>(m: Map<K, V>, key: K, default: V, f: (V) -> V) -> Map<K, V>
+    pub fn update<K, V>(m: Map<K, V>, key: K, default: V, f: (V) -> V) -> NonEmptyMap<K, V>
         before = Map.get(m, key) |> Option.with_default(default)
         Map.put(m, key, f(before))
     end
@@ -263,7 +268,7 @@ end
 /// A Map with at least one entry. A literal is checked when the program is
 /// compiled, so `{}` where a NonEmptyMap is expected is an error before the
 /// program runs; `NonEmptyMap.try_from(m)` checks a Map computed at run
-/// time, and `NonEmptyMap.put(m, key, value)` builds one from any Map.
+/// time, and `Map.put(m, key, value)` builds one from any Map.
 /// Its keys and values are NonEmptyLists, and its first and last entries
 /// are plain values, not `Option`s. A NonEmptyMap is a Map and passes
 /// wherever one is expected. It is in the prelude.
@@ -275,7 +280,7 @@ end
 //! none: Map<String, Int> = {}
 //! assert NonEmptyMap.try_from(none) == None
 //
-pub refine NonEmptyMap<K, V> Map<K, V> when fn m -> Map.size(m) > 0
+pub subtype NonEmptyMap<K, V> Map<K, V> when fn m -> Map.size(m) > 0
 
 impl NonEmptyMap<K, V>
     /// A NonEmptyMap of `key` mapped to `value`, then the entries of
@@ -321,6 +326,17 @@ impl NonEmptyMap<K, V>
         Iter.min_by(m, key)!
     end
 
+    /// The arithmetic mean of `key` of each entry, rounded as `Iter.mean_by`
+    /// rounds; a value, since there is at least one entry.
+    //! assert NonEmptyMap.mean_by({"a" => 1, "b" => 2}, fn (_, v) -> v) == 1.5
+    //
+    pub fn mean_by<K, V, N, R>(
+        m:   NonEmptyMap<K, V>,
+        key: ((K, V)) -> N,
+    ) -> R where N: Averageable<R>
+        Iter.mean_by(m, key)!
+    end
+
     /// The keys, in insertion order.
     //! assert NonEmptyMap.keys({"a" => 1, "b" => 2}) == ["a", "b"]
     //
@@ -342,17 +358,17 @@ impl NonEmptyMap<K, V>
         NonEmptyMap.unchecked(Map.map_values(m, f))
     end
 
-    /// `m`, which may be empty, with `key` mapped to `value`.
-    //! assert NonEmptyMap.put({"a" => 1}, "b", 2) == {"a" => 1, "b" => 2}
-    //! empty: Map<String, Int> = {}
-    //! assert NonEmptyMap.put(empty, "a", 1) == {"a" => 1}
+    /// Applies `f` to each key, as `Map.map_keys` does; keys that become one
+    /// keep the later entry's value, and at least one entry is left.
+    //! assert NonEmptyMap.map_keys({"a" => 1, "b" => 2}, fn _ -> "k") == {"k" => 2}
     //
-    pub fn put<K, V>(m: Map<K, V>, key: K, value: V) -> NonEmptyMap<K, V>
-        NonEmptyMap.unchecked(Map.put(m, key, value))
+    pub fn map_keys<K, V, J>(m: NonEmptyMap<K, V>, f: (K) -> J) -> NonEmptyMap<J, V>
+        NonEmptyMap.unchecked(Map.map_keys(m, f))
     end
 
     /// The entries of `a`, then those of `b`, which may be empty; `b`'s
-    /// value wins on a shared key.
+    /// value wins on a shared key. The spread `{..a, ..b}` is a NonEmptyMap
+    /// too, with the non-empty map on either side.
     //! assert NonEmptyMap.merge({"a" => 1}, {"a" => 5, "b" => 2}) == {"a" => 5, "b" => 2}
     //
     pub fn merge<K, V>(a: NonEmptyMap<K, V>, b: Map<K, V>) -> NonEmptyMap<K, V>

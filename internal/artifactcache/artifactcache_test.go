@@ -1,6 +1,8 @@
 package artifactcache
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -204,20 +206,34 @@ func TestPruneRemovesDirectoriesNothingUsed(t *testing.T) {
 }
 
 // TestDueMarksOnePrunePerPeriod holds Due: a directory never pruned is
-// due, and marking it makes it not due again until the period has passed.
+// due, and marking it makes it not due again until the period has passed,
+// unless the prune is forced. A directory that does not exist is never
+// due, and Due does not make it.
 func TestDueMarksOnePrunePerPeriod(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "cache")
-	if !Due(dir, time.Hour) {
+	if Due(dir, time.Hour, true) {
+		t.Fatal("a directory that does not exist is due")
+	}
+	if _, err := os.Stat(dir); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("Due made a directory that did not exist (%v)", err)
+	}
+	if err := os.Mkdir(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if !Due(dir, time.Hour, false) {
 		t.Fatal("a directory never pruned is not due")
 	}
-	if Due(dir, time.Hour) {
+	if Due(dir, time.Hour, false) {
 		t.Fatal("a directory pruned just now is due again")
+	}
+	if !Due(dir, time.Hour, true) {
+		t.Fatal("a forced prune of a directory pruned just now is not due")
 	}
 	old := time.Now().Add(-2 * time.Hour)
 	if err := os.Chtimes(filepath.Join(dir, dueMarker), old, old); err != nil {
 		t.Fatal(err)
 	}
-	if !Due(dir, time.Hour) {
+	if !Due(dir, time.Hour, false) {
 		t.Fatal("a directory pruned two hours ago is not due an hourly prune")
 	}
 	Prune(dir, "", 0)

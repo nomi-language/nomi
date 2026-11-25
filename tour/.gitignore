@@ -45,8 +45,9 @@ pnpm-debug.log*
 /public/llms-full.txt
 /public/cheatsheet.md
 
-# The install script, copied from scripts/install.sh by build-tour-wasm.sh.
+# The install scripts, copied from scripts/ by build-tour-wasm.sh.
 /public/install.sh
+/public/install.ps1
 
 # scripts/build-tour-wasm.sh's build and vendoring directory, staged from here
 # into public/nomi/

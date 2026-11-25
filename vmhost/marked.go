@@ -49,8 +49,8 @@ import (
 //
 // A block is loaded for its run and its tests at once, so the load holds
 // it to its nomi.toml's [effects] lists as `nomi check` does
-// (checkedRoots): main, the boot and the exports to std, and each test
-// file's cases to std with std_in_tests. A block over its lists fails
+// (checkedRoots): main, the boot and the exports to effects, and each
+// test file's cases to effects with effects_in_tests. A block over its lists fails
 // to load, with the diagnostics at the calls, as a block that does not
 // compile does; the tour shows it as a compile error.
 func LoadMarked(src, dir string, opts ...Option) (p *Program, hasTests bool, err error) {

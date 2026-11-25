@@ -12,8 +12,8 @@ import (
 // List<Shape>, as are the lists, vectors, sets, maps, Options and Iters of
 // the other operations here, whether they cross to the host (List, Vector,
 // Set, Map, `with_default`), are the builder's own (`Iter.concat`) or are
-// std bodies instantiated at the call (`Map.merge_with`). A refinement's
-// ancestor widens the same way and costs nothing, since a refinement is
+// std bodies instantiated at the call (`Map.merge_with`). A subtype's
+// ancestor widens the same way and costs nothing, since a subtype is
 // its base at run time.
 func TestRun_StdCallConvertsAnOperandToTheWidenedTypeParameter(t *testing.T) {
 	out, err := runVM(t, `import std::io

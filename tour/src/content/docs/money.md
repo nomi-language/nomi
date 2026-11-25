@@ -263,7 +263,7 @@ error: typed literal Money"5 PST:0": `PST:0` is a custom currency this package d
   and the application's list doesn't cover them.
 - A single file with no `nomi.toml`, like the other examples on this page,
   may write any custom currency.
-- [`[money]`](/tooling/projects/#money) lists what an entry may hold, and
+- [`[money]`](/tooling/projects/#nomitoml) says what an entry holds, and
   [`std::currency`](/reference/currency/) what a custom currency can do.
 
 </div>

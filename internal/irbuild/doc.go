@@ -176,7 +176,7 @@
 // type's inner, an interface method's parameters and result) by its
 // spelling, compared as typeText renders it with the row's own. A row
 // states that spelling where it is not the kind's own name (`decl`: a
-// refinement `month: Int64`, a container, a std newtype) and derives it for
+// subtype `month: Int64`, a container, a std newtype) and derives it for
 // the five scalars (kind.nomi). No validator resolves a type, so a row
 // needs no other row admitted first, two rows that name each other are
 // each checked on their own, and an interface's anchor does not depend on
@@ -271,7 +271,7 @@
 // the builder names (`patternBinding` answers the key it declared under),
 // and the parameters of a lambda the builder makes (`madeLambda`,
 // `paramKey`), whose parameters stand at one written node's position. A
-// refinement's literal is declared at its check's argument, where the
+// subtype's literal is declared at its check's argument, where the
 // checker's symbol stands. The table is never restored at a scope's end,
 // since two declarations never share a key, and is swapped for an empty
 // one where a callee's or a field's default is lowered inside the caller.
@@ -649,7 +649,7 @@
 // the rank of the Ordering it answers. An ordering by dispatch, over
 // interface values, has no arm: one written over them, and a generic call
 // that would instantiate one at an interface type, are checker errors
-// (spec §12 *Interface values*). Only the instance a generic refinement's
+// (spec §12 *Interface values*). Only the instance a generic subtype's
 // declaration check types at its bounds' interfaces reaches the switch,
 // for the rule's effect walk, and declines.
 //
@@ -1003,9 +1003,12 @@
 // builds the accessor, in a gen of the declaring module at the call's type
 // arguments (`stdInstances.defaultAccessor`), whether the function's body
 // is instantiated from std's source or the builder lowers the operation
-// itself. A short call of an instance the program builds (`Reader.chunks(r)`)
-// fills its omitted slots with the same accessors at the instance's type
-// arguments (`stdDefaultAccessors`, `fillStdInstDefaults`). A default is
+// itself. A call of an instance the program builds that leaves slots out,
+// trailing (`Reader.chunks(r)`) or before an operand written positionally
+// after them (`NonEmptyList.sort_by(xs, fn n -> n)`), places each written
+// operand at the slot the checker's record gives it and fills the rest
+// with the same accessors at the instance's type arguments
+// (`stdInstCall`, `stdDefaultAccessors`, `fillStdInstDefaults`). A default is
 // never written into the call as an argument, whatever its shape: every
 // one runs through an accessor or the declaring scope's `callDefaults`.
 //
@@ -1107,8 +1110,8 @@
 //
 // The node type chooses the test. The checker's records decide what the
 // node cannot: the variant a head names (PatternVariants, variantOf),
-// whether a head names a refinement (PatternTypes, patternRefines: a
-// refinement's value is its base's, so `Port(n)` binds the value itself),
+// whether a head names a subtype (PatternTypes, patternNamesSubtype: a
+// subtype's value is its base's, so `Port(n)` binds the value itself),
 // whether the pattern can fail at all (IrrefutablePatterns), and what a
 // bracket pattern takes apart (ListPattern.Kind). The value's kind shapes
 // only the IR of the test the node chose: a field read off a struct or off
@@ -1402,7 +1405,7 @@
 // other binary uses the artifact cache (internal/artifactcache:
 // os.UserCacheDir()/nomi/artifacts/std/, or $NOMI_ARTIFACT_CACHE) under a
 // name from its Go build ID. Writes go through a temporary file renamed
-// into place and prune bundles unused for a day (`stdBundleUnused`). Under
+// into place and prune bundles unused for a day (`artifactcache.StdUnused`). Under
 // `go test`, and in a child a test starts, the cache is under the system
 // temp directory.
 //
@@ -1440,13 +1443,13 @@
 // names its lowering holds while it runs, `holdDeclKeys`) and a
 // process-wide std interface (`stdIfaceDefs`) by its spec's module and
 // name, so a bundle's reader and writer name `impl CheckedLiteral<Display,
-// Url> for Url`'s functions alike. An instance that reads a refinement, one
+// Url> for Url`'s functions alike. An instance that reads a subtype, one
 // whose type parameter is bounded by an interface that makes a value of its
-// type and stands for a type that holds a refinement, is an instance of its own,
+// type and stands for a type that holds a subtype, is an instance of its own,
 // and after each such argument its name adds `!` and where the argument
-// holds its refinements, each by its declaring file and name
-// (`std/json.Json.decode_as<2!std/int.NonNegativeInt>`; refinementinst.go); every other
-// instance at a refinement is its base's. An impl function adds its block's
+// holds its subtypes, each by its declaring file and name
+// (`std/json.Json.decode_as<2!std/int.NonNegativeInt>`; subtypeinst.go); every other
+// instance at a subtype is its base's. An impl function adds its block's
 // identity, its receiver and the arguments of the generic interface it
 // implements, and an instance of a generic member its own type arguments
 // (`implItemLink`); no substitution frame is part of the name. A default
@@ -1582,11 +1585,11 @@
 // function reads it. A site the file's lowering puts in a std instance or
 // in a file read with its bodies is a miss.
 //
-// So are each file's refinement literals and declared rules
-// ([KeptRefinement], KeptUnit.Rules): a literal's value and the
+// So are each file's subtype literals and declared rules
+// ([KeptSubtype], KeptUnit.Rules): a literal's value and the
 // `try_from` of each step of its chain by linkage name, and a literal's
 // Build and each generic step's Check, the functions that make its value
-// and call a generic refinement's `try_from` at its type arguments, in an
+// and call a generic subtype's `try_from` at its type arguments, in an
 // object of its own (KeptUnit.Builds). A declared generic rule's Check is
 // not kept: its Instances prefix finds the instance it calls in the kept
 // objects. A lowering of one
@@ -1738,7 +1741,7 @@
 // `For` for a default's receiver no operand holds; the enclosing frame's
 // type for `T.method(...)` (`stdKindQualCall`'s `kt`). An instance an
 // annotation spells (`b: Box<Int>`, a field's `Pair<String, Int>`, a
-// generic refinement's `Many<Int>`) reads the types the checker recorded
+// generic subtype's `Many<Int>`) reads the types the checker recorded
 // for the annotation (analysis.FileAnalysis.TypeExprTypes, which `typeOf`
 // projects), and the impls of that instance carry them. Which of an impl
 // block's parameters a receiver's type binds is the checker's match of
@@ -1835,8 +1838,8 @@
 // qualified (`Meters(5)`, `Day.Hours(48)`, `ids.UserId(3)`), a struct's
 // call form (`Span({...})`), the prefix of an attached literal and the
 // `Context` of `Context.value` by the checker's reference at the written
-// name; the value a refinement's `unchecked` builds by the type the
-// checker gave its body (`uncheckedRefinement`); the enum of a written
+// name; the value a subtype's `unchecked` builds by the type the
+// checker gave its body (`uncheckedSubtype`); the enum of a written
 // `Owner.Variant` by the checker's reference at the owner's last name
 // (`variantOwnerDef`: `Shape` in `shapes.Shape.Circle`, `Reading` in
 // `Probe.Reading.Spike`); and the enum of the `Enum.Variant` the builder
@@ -1933,7 +1936,7 @@
 // call is. A thunk is keyed by the box's type name, so the first value to
 // ask for it gives its type, and two checker types of one kind share it:
 // what projection drops never changes which body a value reaches, since
-// a refinement has its base's impls (spec §4 *Refinements*), an alias is its
+// a subtype has its base's impls (spec §4 *Subtypes*), an alias is its
 // target and a host type's phantom argument (`Regex<C>`) has one
 // representation and std's impl is generic over it. Where the file binds
 // the interface's bare name to something else, the thunk calls the std
@@ -2115,7 +2118,7 @@
 //
 // Range's own functions are intrinsics (irrange.go): `contains`,
 // `is_bounded` and its parts `start`, `stop` and `is_inclusive`, which the
-// VM reads off the range's record with no element method, so a refinement
+// VM reads off the range's record with no element method, so a subtype
 // rule generic over a Comparable element (`ClosedRange`, `BoundedRange`)
 // lowers and runs as any body does, at compile time too. Range's and
 // Iter's own protocols (`known_count`, `is_infinite`, `steps_between` as a
@@ -2366,31 +2369,31 @@
 // TestFilesLowerOnTheirOwnAsInTheProgram (internal/expectation), and
 // TestStdBundle_DecodesToTheLowering and TestStdObjects_* (here).
 //
-// # Refinements and validated types
+// # Subtypes and validated types
 //
-// A refinement (spec §4 *Refinements*; refinement.go),
-// `refine Port Int when ...`, introduces a type the checker keeps apart, and no
+// A subtype (spec §4 *Subtypes*; subtype.go),
+// `subtype Port Int when ...`, introduces a type the checker keeps apart, and no
 // representation: a Port is an Int at run time. So the builder has no def
 // for it, as it has none for a `typealias`: an annotation naming it
-// (refinementKind) and a type the checker solved to it (project's
+// (subtypeKind) and a type the checker solved to it (project's
 // DistinctType arm) are its base's kind, every conversion up to a parent or
 // ancestor costs nothing, and a literal checked as a Port is the Int
 // constant. Its call form `Port(8080)`, its `unchecked` and its
-// destructuring `Port(n) = port` are the value itself. A refinement
+// destructuring `Port(n) = port` are the value itself. A subtype
 // implements no interface (the checker refuses an impl), so no dispatch
 // table can confuse it with its base.
 //
 // Its generated functions, `try_from` and `unchecked`
-// (analysis/refinement_synthesis.go), are an inherent block with no
-// receiver kind of its own, an owner block reached by the refinement's name
+// (analysis/subtype_synthesis.go), are an inherent block with no
+// receiver kind of its own, an owner block reached by the subtype's name
 // as an interface's inherent block is (ownerimpl.go). `try_from` calls its
-// rule through the VM intrinsic `vm.refinement_rule` (ast.RefinementRule),
+// rule through the VM intrinsic `vm.when_rule` (ast.SubtypeRule),
 // which answers False when the rule traps, so a value whose rule traps is
 // None; under vm.Machine.Evaluate the trap goes through, and vmhost reports
 // it at the literal. A parent named through a typealias is called by the
 // declaration the checker resolved the call to (typeQualCall), whether or
 // not the file has a name for it. A validated type, or a `type` over a
-// refinement, has a def, and its `try_from` is its TryFrom impl's; a generic one takes the
+// subtype, has a def, and its `try_from` is its TryFrom impl's; a generic one takes the
 // base at its impl's parameters and is built at the
 // type arguments the checker solved for the generated `unchecked` node.
 //
@@ -2398,26 +2401,26 @@
 // construction is checked. Its `unchecked` builds it from the record of its
 // fields, as the call form `Span({...})` does.
 //
-// A read of a refinement (refinementread.go) is a call of FromJson's function at
-// a refinement, which reaches its base's impl: the checker's record of the
-// call at the instance's types (analysis.FileAnalysis.RefinementReadAt)
+// A read of a subtype (subtyperead.go) is a call of FromJson's function at
+// a subtype, which reaches its base's impl: the checker's record of the
+// call at the instance's types (analysis.FileAnalysis.SubtypeReadAt)
 // names each `try_from` that decides the value, and the builder calls
 // them on what the base's impl answered (typeQualCall's readNarrowed, and
 // the field reads irrecordjson.go writes), answering the record's breach,
 // a ShapeError or None, when one is None. A record read from texts checks
-// each field of a refinement after its base's Parse (irparsefields.go), a
+// each field of a subtype after its base's Parse (irparsefields.go), a
 // breach the record's None. A container needs nothing more: its impl
 // reads each element through the element's own call, in an instance that
-// reads the refinement and so is its own (refinementinst.go). A `try_from` is
+// reads the subtype and so is its own (subtypeinst.go). A `try_from` is
 // called by the record the checker made of it, its reference carried at
-// the callee (carryCall, calleeRef) for a generic refinement's type
-// arguments, and reached from another module, a private refinement's
+// the callee (carryCall, calleeRef) for a generic subtype's type
+// arguments, and reached from another module, a private subtype's
 // included (fileOwnFunc).
 //
-// Each literal the checker typed as a refinement
-// (analysis.FileAnalysis.RefinedLiterals) becomes a RefinementSite: the
-// literal, and the `try_from` of each refinement whose rule it must
-// satisfy (analysis.RefinementChecks) by linkage name (implFuncLink: a
+// Each literal the checker typed as a subtype
+// (analysis.FileAnalysis.SubtypeLiterals) becomes a SubtypeSite: the
+// literal, and the `try_from` of each subtype whose rule it must
+// satisfy (analysis.SubtypeChecks) by linkage name (implFuncLink: a
 // shared std module's by the function's declaration, a listed one's and
 // a program's by its block, with an interface impl's written arguments,
 // `impl TryFrom<base(Email)> for Email`'s) with the path of parents to
@@ -2426,7 +2429,7 @@
 // collection, a typed literal (`Duration"15m"`), a Decimal, a codepoint,
 // or any of these grouped or negated, has a Build instead, a function of
 // no arguments that makes the value as its literal lowers
-// (refinementBuild). The builds run in source order: a typed literal's
+// (subtypeBuild). The builds run in source order: a typed literal's
 // build declares its cell in the unit's module, so the module's cells and
 // functions, and the std bundle written from them, follow that order.
 //
@@ -2435,11 +2438,11 @@
 // that does not lower or a `try_from` it cannot name, keeps its site with
 // Unchecked saying why, and vmhost reports it at the literal (or the
 // `when`) as an internal error, never a literal let through:
-// PlantMissingRefinementCheckForTest makes the builder miss one, so a
+// PlantMissingSubtypeCheckForTest makes the builder miss one, so a
 // test holds that.
 //
-// A generic refinement is its base at its type arguments: an annotation
-// `NonEmptyList<Int>` is List<Int>'s kind (project's refinement arm, over the
+// A generic subtype is its base at its type arguments: an annotation
+// `NonEmptyList<Int>` is List<Int>'s kind (project's subtype arm, over the
 // checker's type for the annotation), and so is a type the checker solved
 // to one. In a std
 // signature, `BoundedRange<Int>` in `Generator.int`, it is the same
@@ -2447,27 +2450,27 @@
 // lowering retains as it does a body over the base. A
 // literal of one
 // is checked by a function of no arguments that builds the literal and
-// calls the refinement's `try_from` instance at the literal's type
-// arguments, the call the checker typed (RefinementSiteStep.Check,
-// refinementCheckBuild), its owner the declaration the checker recorded,
-// whatever the file binds the refinement's name to (typeQualCall); the sites
+// calls the subtype's `try_from` instance at the literal's type
+// arguments, the call the checker typed (SubtypeSiteStep.Check,
+// subtypeCheckBuild), its owner the declaration the checker recorded,
+// whatever the file binds the subtype's name to (typeQualCall); the sites
 // are built before the late instances
 // other files asked for are flushed, so an instance such a call asks
-// another file for is built. Its declaration's RefinementRuleSite has a
+// another file for is built. Its declaration's SubtypeRuleSite has a
 // function of the base's value calling its `try_from` at each set of type
-// arguments the checker typed (analysis.RefinementRuleCheck,
-// refinementRuleCheckBuild), which vmhost never runs and only reads for
+// arguments the checker typed (analysis.SubtypeRuleCheck,
+// subtypeRuleCheckBuild), which vmhost never runs and only reads for
 // effects; each lowers its instance into the unit's module. The site also
 // names the prefix of every instance's linkage name and the interfaces of
 // the bounds, so vmhost checks every instance and every impl of them the
 // linked program has (an impl function's symbol carries its interface,
 // ir.Symbol.Impl), which the kept lowering keeps.
 //
-// A std signature that names a refinement, `Int.pow(n: Int, exp:
+// A std signature that names a subtype, `Int.pow(n: Int, exp:
 // NonNegativeInt)`, has its base's kind (projectShared), a scalar, a
 // Decimal or a type std declares, and its host adapter takes the base's
-// value (internal/hostgen's shape of a refinement is its parent's). A
-// refinement of any other base, a collection or range at fixed arguments
+// value (internal/hostgen's shape of a subtype is its parent's). A
+// subtype of any other base, a collection or range at fixed arguments
 // (`Ratios`, `List<Int>`; `FiniteRange`, `Range<Float>`), a struct or an
 // enum std declares (`FieldBits`, `JsonObject`), has the kind of its first
 // parent as its declaration writes it.

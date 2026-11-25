@@ -31,7 +31,7 @@ pub fn read(dir: String) -> Result<List<Input>, String>
 
     paths
     |> Iter.filter(fn path ->
-        name = String.split(path, "/") |> Iter.last() |> Option.with_default(path)
+        name = String.split(path, "/") |> NonEmptyList.last()
         migrate.is_migration_file(name)
     end)
     |> Iter.sort()

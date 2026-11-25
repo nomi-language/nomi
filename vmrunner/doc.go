@@ -177,9 +177,12 @@
 //
 // # Compiled programs
 //
-// `--no-vm` writes the image alone as a compiled program, <entry>.nomic,
-// whose header imagefile.go lays out. It needs no Go toolchain. It records the exported functions, so a reactor can
-// call them. A nomi-vm with nothing appended runs one by path or framed on
+// `--no-vm` writes the image alone as a compiled program, <entry>.nomic:
+// a header (the magic `NOMIC`, the program format version, flags, the
+// version of the `nomi` that wrote it and the image's length, its integers
+// little-endian, as imagefile.go lays out) and the image. It needs no Go
+// toolchain. It records the exported functions, so a reactor can call
+// them. A nomi-vm with nothing appended runs one by path or framed on
 // stdin, and `nomi run` runs one in process.
 //
 // A field added to an IR node fails TestImage_EveryNodeFieldIsEncoded

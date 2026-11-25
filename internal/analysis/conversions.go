@@ -74,7 +74,7 @@ func (c *checker) recordConversion(n ast.Node, exp, t Type) {
 // type the program declares is rebuilt whenever a part converts, since
 // its value names its type arguments (internal/irbuild, irrelabel.go).
 func conversionCost(want, have Type, flipped bool) ConversionCost {
-	want, have = refinementRunTime(resolveTypeVar(want)), refinementRunTime(resolveTypeVar(have))
+	want, have = subtypeRunTime(resolveTypeVar(want)), subtypeRunTime(resolveTypeVar(have))
 	if want == nil || have == nil || want == have || isEmptyTuple(want) || isEmptyTuple(have) {
 		return ConversionFree
 	}
@@ -180,12 +180,12 @@ func conversionCost(want, have Type, flipped bool) ConversionCost {
 	return worst
 }
 
-// refinementRunTime is t, or for a distinct refinement its base, the value
+// subtypeRunTime is t, or for a distinct subtype its base, the value
 // it is at run time, which a conversion converts: a NonEmptyList<Circle> to
 // a NonEmptyList<Shape> converts the List under it.
-func refinementRunTime(t Type) Type {
-	if refinementOf(t) != nil {
-		return resolveTypeVar(RefinementBase(t))
+func subtypeRunTime(t Type) Type {
+	if subtypeOf(t) != nil {
+		return resolveTypeVar(SubtypeBase(t))
 	}
 	return t
 }
@@ -243,7 +243,7 @@ func conversionParts(want, have Type, box func(Type, Type)) bool {
 // struct's field type, as `Sink{take: f}` expects `(T) -> String`), and
 // converts nothing.
 func convParts(want, have Type, flipped bool, box func(Type, Type)) bool {
-	want, have = refinementRunTime(resolveTypeVar(want)), refinementRunTime(resolveTypeVar(have))
+	want, have = subtypeRunTime(resolveTypeVar(want)), subtypeRunTime(resolveTypeVar(have))
 	if want == nil || have == nil || want == have {
 		return false
 	}
@@ -382,10 +382,10 @@ func argParts(t Type, ws, hs []Type, flipped bool, box func(Type, Type)) bool {
 // anonymous record entering std's Struct; and, entering std's Display, a
 // Decimal or Byte, whose text the machine renders itself, or a tuple or
 // record whose every part the rendering reads off it (displayReadsOff). A
-// std struct enters std's Display and Debug boxed. A distinct refinement
+// std struct enters std's Display and Debug boxed. A distinct subtype
 // enters as its base does, the value it is at run time.
 func entersAsItself(it *InterfaceType, have Type) bool {
-	have = resolveTypeVar(RefinementBase(resolveTypeVar(have)))
+	have = resolveTypeVar(SubtypeBase(resolveTypeVar(have)))
 	if st, ok := have.(*StructType); ok && isStdOrigin(st.Origin) && (isStdInterfaceNamed(it, "Display") || isStdInterfaceNamed(it, "Debug")) {
 		// A std struct's own Display may be a host function or a body the
 		// program never lowers, so it enters std's Display and Debug boxed

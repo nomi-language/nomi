@@ -8,7 +8,7 @@ import (
 )
 
 // std::compress's encode computes from its operands alone, at a cost that
-// grows with their size, as a hash does: a refinement rule may call it, and
+// grows with their size, as a hash does: a subtype rule may call it, and
 // the program's literals are checked as it compiles. Its decode's cost
 // grows with the limit it is given, a value, so a rule that calls it is
 // refused as unbounded, as one calling hash.pbkdf2_sha256 is, and not as
@@ -19,7 +19,7 @@ func TestCompressRules_EncodeIsCheckedAsAHashIsAndDecodeIsUnbounded(t *testing.T
     std::hash
 end
 
-refine Shrinks String when fn s ->
+subtype Shrinks String when fn s ->
     packed = compress.encode(Format.Gzip, String.to_bytes(s))
     Bytes.length(packed) < Bytes.length(String.to_bytes(s)) and Bytes.length(hash.sha256(packed)) == 32
 end
@@ -43,7 +43,7 @@ end
 
 	const decodes = `import std::compress.{self, Format}
 
-refine Packed String when fn s -> compress.decode(Format.Gzip, String.to_bytes(s), max_length: 100) is Ok(_)
+subtype Packed String when fn s -> compress.decode(Format.Gzip, String.to_bytes(s), max_length: 100) is Ok(_)
 
 fn main()
     p: Packed = "x"
@@ -54,7 +54,7 @@ end
 	const want = "the rule of Packed calls a function whose cost grows with its argument ("
 	for _, d := range ds {
 		if strings.HasPrefix(d.Message, want) && strings.Contains(d.Message, "compress/host.decode") &&
-			d.Code == InvalidRefinementCode {
+			d.Code == InvalidSubtypeCode {
 			return
 		}
 	}

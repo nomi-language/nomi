@@ -4,11 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"path/filepath"
 	"slices"
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/parser"
+	"github.com/nomi-language/nomi/internal/pkgcache"
 )
 
 // Writing nomi.toml's effects tables: the package doc, "nomi.toml".
@@ -17,28 +19,30 @@ import (
 const effectListWidth = 80
 
 // The lists of the effects tables, as a change or an addition names
-// them: the key's path below [effects], and for the entries
-// (EntryLists) the table's path, beside the key of the entry. ListSelf and
-// ListDeps name a whole table.
+// them: the key's path in nomi.toml, and for the entries (EntryLists) that
+// path with the entry's own key left out, which is given beside it:
+// [effects.self.modules]'s table, and a [dependencies] entry's `effects` or
+// `effects_in_tests`. ListSelf and ListDependencies name a whole table.
 const (
-	ListSelf           = "self"
-	ListSelfStd        = "self.std"
-	ListSelfStdInTests = "self.std_in_tests"
-	ListSelfModules    = "self.modules"
-	ListDeps           = "deps"
-	ListDepsStd        = "deps.std"
-	ListDepsStdInTests = "deps.std_in_tests"
-	ListDepsPackages   = "deps.packages"
+	ListSelf                       = "effects.self"
+	ListSelfEffects                = "effects.self.effects"
+	ListSelfEffectsInTests         = "effects.self.effects_in_tests"
+	ListSelfModules                = "effects.self.modules"
+	ListDependencies               = "effects.dependencies"
+	ListDependenciesEffects        = "effects.dependencies.effects"
+	ListDependenciesEffectsInTests = "effects.dependencies.effects_in_tests"
+	ListEntryEffects               = "dependencies.effects"
+	ListEntryEffectsInTests        = "dependencies.effects_in_tests"
 )
 
 // EffectChange is one name a list gains or loses from one table to
 // another: List is one of the List constants, Key the key of the entry
 // for one of EntryLists, and Name the std name. Name is "" for a whole
-// table (ListSelf,
-// ListDeps), an entry with no names, and deps.std with no names, whose key
-// one table has and the other lacks. In JSON the key is `module` for an
-// entry of [effects.self.modules], whose keys are the project's modules,
-// and `package` for one of [effects.deps.packages], whose keys are its
+// table (ListSelf, ListDependencies), an entry with no names, and
+// [effects.dependencies]' effects with no names, whose key one table has
+// and the other lacks. In JSON the key is `module` for an entry of
+// [effects.self.modules], whose keys are the project's modules, and
+// `package` for a [dependencies] entry's effects keys, whose keys are its
 // dependencies (effectChangeJSON).
 type EffectChange struct {
 	Change string
@@ -59,7 +63,7 @@ type effectChangeJSON struct {
 
 func (c EffectChange) MarshalJSON() ([]byte, error) {
 	j := effectChangeJSON{Change: c.Change, List: c.List, Name: c.Name}
-	if c.List == ListDepsPackages {
+	if c.List == ListEntryEffects || c.List == ListEntryEffectsInTests {
 		j.Package = c.Key
 	} else {
 		j.Module = c.Key
@@ -87,8 +91,9 @@ func (c EffectChange) Label() string {
 // EffectChanges is what to add to and remove from old, nil for no
 // tables, to make it to: by list, the names to remove after the names to
 // add. A table one has and the other lacks is a change of its own, and so
-// is deps.std when one has it with no names and the other lacks it, since
-// a ceiling that allows nothing is not the same as none. entries_required
+// is [effects.dependencies]' effects when one has it with no names and the
+// other lacks it, since a ceiling that allows nothing is not the same as
+// none. entries_required
 // is not compared.
 func EffectChanges(old, to *Effects) []EffectChange {
 	if old == nil {
@@ -153,15 +158,16 @@ func EffectChanges(old, to *Effects) []EffectChange {
 	}
 	present(ListSelf, old.Self != nil, to.Self != nil, true)
 	os, ts := cmpSelf(old.Self), cmpSelf(to.Self)
-	diff(ListSelfStd, "", os.Std, ts.Std)
-	diff(ListSelfStdInTests, "", os.StdInTests, ts.StdInTests)
+	diff(ListSelfEffects, "", os.Effects, ts.Effects)
+	diff(ListSelfEffectsInTests, "", os.EffectsInTests, ts.EffectsInTests)
 	entries(ListSelfModules)
-	present(ListDeps, old.Deps != nil, to.Deps != nil, true)
-	od, td := cmpDeps(old.Deps), cmpDeps(to.Deps)
-	present(ListDepsStd, od.Std != nil, td.Std != nil, len(od.Std)+len(td.Std) == 0)
-	diff(ListDepsStd, "", od.Std, td.Std)
-	diff(ListDepsStdInTests, "", od.StdInTests, td.StdInTests)
-	entries(ListDepsPackages)
+	present(ListDependencies, old.Dependencies != nil, to.Dependencies != nil, true)
+	od, td := cmpDeps(old.Dependencies), cmpDeps(to.Dependencies)
+	present(ListDependenciesEffects, od.Effects != nil, td.Effects != nil, len(od.Effects)+len(td.Effects) == 0)
+	diff(ListDependenciesEffects, "", od.Effects, td.Effects)
+	diff(ListDependenciesEffectsInTests, "", od.EffectsInTests, td.EffectsInTests)
+	entries(ListEntryEffects)
+	entries(ListEntryEffectsInTests)
 	return append(adds, removes...)
 }
 
@@ -174,9 +180,9 @@ func cmpSelf(s *SelfEffects) *SelfEffects {
 }
 
 // cmpDeps is d, or for no table one that holds nothing.
-func cmpDeps(d *DepsEffects) *DepsEffects {
+func cmpDeps(d *DependenciesEffects) *DependenciesEffects {
 	if d == nil {
-		return &DepsEffects{}
+		return &DependenciesEffects{}
 	}
 	return d
 }
@@ -190,17 +196,18 @@ type effectTable struct {
 }
 
 // WriteEffectTables is data, the nomi.toml in dir, with its
-// [effects.self], [effects.self.modules], [effects.deps]
-// and [effects.deps.packages] tables written as c
-// (writeEffectTable), and the text of those tables as written. Every
-// line outside them is kept byte for byte. A table c has and data lacks
-// goes after the table before it, or before the first table data has, or
-// at the end of the file when data has none; a table data has and c lacks
-// goes. [effects.self.modules] is written when c has the table, or
-// data has it; [effects.deps.packages] when c has an entry, or data
-// has the table. A file with CRLF line endings gets them on each line of
-// the tables. The edited text must parse back to c, or nothing is
-// written.
+// [effects.self], [effects.self.modules] and [effects.dependencies] tables
+// written as c (writeEffectTable), and the effects keys of its
+// [dependencies] entries as c's entries (WriteRequirements, the one writer
+// of that table), and the text of those tables as written: [dependencies]
+// first when an entry changed. Every line outside them is kept byte for
+// byte. A table c has and data lacks goes after the table before it, or
+// before the first table data has, or at the end of the file when data has
+// none; a table data has and c lacks goes. [effects.self.modules] is
+// written when c has the table, or data has it; [effects.dependencies]
+// when c sets a key of it, or data has it. A file with CRLF line endings
+// gets them on each line of the tables. The edited text must parse back to
+// c, or nothing is written.
 func WriteEffectTables(dir string, data []byte, c *Effects) ([]byte, string, error) {
 	was, err := ParseManifestIn(dir, data)
 	if err != nil {
@@ -209,6 +216,10 @@ func WriteEffectTables(dir string, data []byte, c *Effects) ([]byte, string, err
 	old := was.Effects
 	if old == nil {
 		old = &Effects{}
+	}
+	var written, pending []string
+	if data, written, err = writeEntryEffects(data, was.Dependencies, c); err != nil {
+		return nil, "", err
 	}
 	text := string(data)
 	cr := ""
@@ -219,28 +230,20 @@ func WriteEffectTables(dir string, data []byte, c *Effects) ([]byte, string, err
 	tables := []effectTable{
 		{path: []string{"effects", "self"}},
 		{path: []string{"effects", "self", "modules"}},
-		{path: []string{"effects", "deps"}},
-		{path: []string{"effects", "deps", "packages"}},
+		{path: []string{"effects", "dependencies"}},
 	}
 	for i := range tables {
 		tables[i].at = ManifestTableLayout(data, tables[i].path...)
 	}
 	header := func(t effectTable) string { return "[" + strings.Join(t.path, ".") + "]" }
-	// entries writes the table of list's entries, tables[i].
-	entries := func(i int, list string) {
-		tables[i].text = writeEffectTable(lines, tables[i].at, header(tables[i]), entryKeys(c.Entries(list), old.Entries(list)))
-	}
 	if c.Self != nil {
 		tables[0].text = writeEffectTable(lines, tables[0].at, header(tables[0]), selfKeys(c.Self, cmpSelf(old.Self)))
 		if c.Self.Modules != nil || tables[1].at.Header > 0 {
-			entries(1, ListSelfModules)
+			tables[1].text = writeEffectTable(lines, tables[1].at, header(tables[1]), entryKeys(c.Self.Modules, old.Entries(ListSelfModules)))
 		}
 	}
-	if c.Deps != nil {
-		tables[2].text = writeEffectTable(lines, tables[2].at, header(tables[2]), depsKeys(c.Deps, cmpDeps(old.Deps)))
-		if len(c.Deps.Packages) > 0 || tables[3].at.Header > 0 {
-			entries(3, ListDepsPackages)
-		}
+	if d := c.Dependencies; d != nil && (d.Effects != nil || len(d.EffectsInTests) > 0 || d.EntriesRequired || tables[2].at.Header > 0) {
+		tables[2].text = writeEffectTable(lines, tables[2].at, header(tables[2]), depsKeys(d, cmpDeps(old.Dependencies)))
 	}
 	// Each table the file has is replaced by its lines, with the tables
 	// the file lacks that follow it, and the first by those before it too.
@@ -250,7 +253,6 @@ func WriteEffectTables(dir string, data []byte, c *Effects) ([]byte, string, err
 		}
 		return slices.Concat(a, []string{""}, b)
 	}
-	var written, pending []string
 	replace := map[int][]string{}
 	last := -1
 	for i, t := range tables {
@@ -275,7 +277,7 @@ func WriteEffectTables(dir string, data []byte, c *Effects) ([]byte, string, err
 		}
 		return out
 	}
-	if last < 0 {
+	if last < 0 && len(pending) > 0 {
 		if text != "" && !strings.HasSuffix(text, "\n") {
 			text += cr + "\n"
 		}
@@ -312,6 +314,54 @@ func WriteEffectTables(dir string, data []byte, c *Effects) ([]byte, string, err
 	return edited, strings.Join(written, "\n") + "\n", nil
 }
 
+// writeEntryEffects is data with the effects keys of its [dependencies]
+// entries, deps as data holds them, set to c's entries by the one writer of
+// that table (WriteRequirements), and the table's lines as written; data
+// and no lines when no entry changes. An entry's list that holds the same
+// names as the file's keeps the file's order. A key c gives an entry that
+// [dependencies] lacks is an error.
+func writeEntryEffects(data []byte, deps []pkgcache.Requirement, c *Effects) ([]byte, []string, error) {
+	var entries, inTests map[string][]string
+	if c.Dependencies != nil {
+		entries, inTests = c.Dependencies.Entries, c.Dependencies.EntriesInTests
+	}
+	for _, m := range []map[string][]string{entries, inTests} {
+		for _, key := range slices.Sorted(maps.Keys(m)) {
+			if !slices.ContainsFunc(deps, func(r pkgcache.Requirement) bool { return r.Name == key }) {
+				return nil, nil, fmt.Errorf("[dependencies] has no entry %s to hold its effects; add it with nomi add", key)
+			}
+		}
+	}
+	// set is the list for key in m, nil when m has none, and was itself
+	// when it holds the same names.
+	set := func(m map[string][]string, key string, was []string) []string {
+		names, has := m[key]
+		switch {
+		case !has:
+			return nil
+		case was != nil && sameNames(was, names):
+			return was
+		}
+		return append([]string{}, names...)
+	}
+	to := slices.Clone(deps)
+	changed := false
+	for i, r := range to {
+		to[i].Effects = set(entries, r.Name, r.Effects)
+		to[i].EffectsInTests = set(inTests, r.Name, r.EffectsInTests)
+		changed = changed || !to[i].Same(r)
+	}
+	if !changed {
+		return data, nil, nil
+	}
+	edited, err := WriteRequirements(data, to)
+	if err != nil {
+		return nil, nil, err
+	}
+	at := ManifestTableLayout(edited, "dependencies")
+	return edited, runLines(strings.Split(string(edited), "\n"), at.Header, at.Last), nil
+}
+
 // tableKey is a key --write writes in a table: its path as
 // ManifestLines.Key holds it and its text when it is written new, then
 // the names its list holds and held.
@@ -324,25 +374,25 @@ type tableKey struct {
 }
 
 // selfKeys is what [effects.self] holds as c: entries_required as the
-// file has it, std, and std_in_tests when it holds a name.
+// file has it, effects, and effects_in_tests when it holds a name.
 func selfKeys(c, old *SelfEffects) []tableKey {
-	keys := []tableKey{{path: "entries_required", kept: true}, {path: "std", names: c.Std, was: old.Std}}
-	if len(c.StdInTests) > 0 {
-		keys = append(keys, tableKey{path: "std_in_tests", names: c.StdInTests, was: old.StdInTests})
+	keys := []tableKey{{path: "entries_required", kept: true}, {path: "effects", names: c.Effects, was: old.Effects}}
+	if len(c.EffectsInTests) > 0 {
+		keys = append(keys, tableKey{path: "effects_in_tests", names: c.EffectsInTests, was: old.EffectsInTests})
 	}
 	return named(keys)
 }
 
-// depsKeys is what [effects.deps] holds as c: entries_required as the
-// file has it, std when c has a ceiling, and std_in_tests when it holds a
-// name.
-func depsKeys(c, old *DepsEffects) []tableKey {
+// depsKeys is what [effects.dependencies] holds as c: entries_required as
+// the file has it, effects when c has a ceiling, and effects_in_tests when
+// it holds a name.
+func depsKeys(c, old *DependenciesEffects) []tableKey {
 	keys := []tableKey{{path: "entries_required", kept: true}}
-	if c.Std != nil {
-		keys = append(keys, tableKey{path: "std", names: c.Std, was: old.Std})
+	if c.Effects != nil {
+		keys = append(keys, tableKey{path: "effects", names: c.Effects, was: old.Effects})
 	}
-	if len(c.StdInTests) > 0 {
-		keys = append(keys, tableKey{path: "std_in_tests", names: c.StdInTests, was: old.StdInTests})
+	if len(c.EffectsInTests) > 0 {
+		keys = append(keys, tableKey{path: "effects_in_tests", names: c.EffectsInTests, was: old.EffectsInTests})
 	}
 	return named(keys)
 }
@@ -355,7 +405,7 @@ func named(keys []tableKey) []tableKey {
 	return keys
 }
 
-// entryKeys is what a table of entries holds as entries, which held old:
+// entryKeys is what [effects.self.modules] holds as entries, which held old:
 // an entry per key, in key order.
 func entryKeys(entries, old map[string][]string) []tableKey {
 	paths := make([]string, 0, len(entries))
@@ -370,14 +420,12 @@ func entryKeys(entries, old map[string][]string) []tableKey {
 	return keys
 }
 
-// moduleKey is an entry's key as a table of entries writes it new.
+// moduleKey is an entry's key as [effects.self.modules] writes it new.
 func moduleKey(module string) string { return fmt.Sprintf("%q", module) }
 
-// ModuleEntryText is module's entry in a table of entries
-// ([effects.self.modules], [effects.deps.packages]) holding
-// names, as the tables write an entry the file lacks
-// (writeEffectTable): `"pg" = ["std::fs"]`, one name a
-// line when it does not fit on one.
+// ModuleEntryText is module's entry in [effects.self.modules] holding
+// names, as the table writes an entry the file lacks (writeEffectTable):
+// `"pricing" = ["std::fs"]`, one name a line when it does not fit on one.
 func ModuleEntryText(module string, names []string) string {
 	return strings.Join(tomlList(moduleKey(module)+" = ", names, ""), "\n")
 }
@@ -544,7 +592,7 @@ func tomlList(prefix string, names []string, suffix string) []string {
 }
 
 // Clone is a copy of c that shares no list with it. A list or table c
-// leaves out stays left out, and Deps' Modules is a map.
+// leaves out stays left out.
 func (c *Effects) Clone() *Effects {
 	out := &Effects{}
 	cloneEntries := func(entries map[string][]string) map[string][]string {
@@ -556,24 +604,28 @@ func (c *Effects) Clone() *Effects {
 	}
 	if c.Self != nil {
 		s := *c.Self
-		s.Std, s.StdInTests = slices.Clone(c.Self.Std), slices.Clone(c.Self.StdInTests)
+		s.Effects, s.EffectsInTests = slices.Clone(c.Self.Effects), slices.Clone(c.Self.EffectsInTests)
 		if c.Self.Modules != nil {
 			s.Modules = cloneEntries(c.Self.Modules)
 		}
 		out.Self = &s
 	}
-	if c.Deps != nil {
-		d := *c.Deps
-		d.Std, d.StdInTests = slices.Clone(c.Deps.Std), slices.Clone(c.Deps.StdInTests)
-		d.Packages = cloneEntries(c.Deps.Packages)
-		out.Deps = &d
+	if c.Dependencies != nil {
+		d := *c.Dependencies
+		d.Effects, d.EffectsInTests = slices.Clone(c.Dependencies.Effects), slices.Clone(c.Dependencies.EffectsInTests)
+		if c.Dependencies.Entries != nil {
+			d.Entries = cloneEntries(c.Dependencies.Entries)
+		}
+		if c.Dependencies.EntriesInTests != nil {
+			d.EntriesInTests = cloneEntries(c.Dependencies.EntriesInTests)
+		}
+		out.Dependencies = &d
 	}
 	return out
 }
 
-// SetEntry sets the entry for key in list's table of entries (EntryLists)
-// to names, giving c the table, and its own table above it, when it has
-// neither.
+// SetEntry sets the entry for key in list (EntryLists) to names, giving c
+// the table, and its own table above it, when it has neither.
 func (c *Effects) SetEntry(list, key string, names []string) {
 	switch list {
 	case ListSelfModules:
@@ -584,14 +636,18 @@ func (c *Effects) SetEntry(list, key string, names []string) {
 			c.Self.Modules = map[string][]string{}
 		}
 		c.Self.Modules[key] = names
-	case ListDepsPackages:
-		if c.Deps == nil {
-			c.Deps = &DepsEffects{}
+	case ListEntryEffects, ListEntryEffectsInTests:
+		if c.Dependencies == nil {
+			c.Dependencies = &DependenciesEffects{}
 		}
-		if c.Deps.Packages == nil {
-			c.Deps.Packages = map[string][]string{}
+		entries := &c.Dependencies.Entries
+		if list == ListEntryEffectsInTests {
+			entries = &c.Dependencies.EntriesInTests
 		}
-		c.Deps.Packages[key] = names
+		if *entries == nil {
+			*entries = map[string][]string{}
+		}
+		(*entries)[key] = names
 	}
 }
 
@@ -625,19 +681,19 @@ func AllowEffects(path string, data []byte, c *Effects, title string, adds []Eff
 		if isSelf && to.Self == nil {
 			to.Self = &SelfEffects{}
 		}
-		if !isSelf && to.Deps == nil {
-			to.Deps = &DepsEffects{Packages: map[string][]string{}}
+		if !isSelf && to.Dependencies == nil {
+			to.Dependencies = &DependenciesEffects{}
 		}
 		switch a.List {
-		case ListSelfStd:
-			add(&to.Self.Std, a.Name)
-		case ListSelfStdInTests:
-			add(&to.Self.StdInTests, a.Name)
-		case ListDepsStd:
-			add(&to.Deps.Std, a.Name)
-		case ListDepsStdInTests:
-			add(&to.Deps.StdInTests, a.Name)
-		case ListSelfModules, ListDepsPackages:
+		case ListSelfEffects:
+			add(&to.Self.Effects, a.Name)
+		case ListSelfEffectsInTests:
+			add(&to.Self.EffectsInTests, a.Name)
+		case ListDependenciesEffects:
+			add(&to.Dependencies.Effects, a.Name)
+		case ListDependenciesEffectsInTests:
+			add(&to.Dependencies.EffectsInTests, a.Name)
+		case ListSelfModules, ListEntryEffects, ListEntryEffectsInTests:
 			entry := slices.Clone(to.Entries(a.List)[a.Module])
 			add(&entry, a.Name)
 			to.SetEntry(a.List, a.Module, entry)

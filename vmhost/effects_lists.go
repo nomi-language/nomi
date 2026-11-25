@@ -5,7 +5,6 @@ import (
 	"maps"
 	"path/filepath"
 	"slices"
-	"sort"
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/analysis"
@@ -25,9 +24,10 @@ type Effects = analysis.Effects
 // files may have.
 type SelfEffects = analysis.SelfEffects
 
-// DepsEffects is [effects.deps] with [effects.deps.packages]:
-// the effects the files of the modules the project depends on may have.
-type DepsEffects = analysis.DepsEffects
+// DependenciesEffects is [effects.dependencies] with the effects keys of
+// the [dependencies] entries: the effects the files of the packages the
+// project depends on may have.
+type DependenciesEffects = analysis.DependenciesEffects
 
 // manifestPath is the program's nomi.toml, where a diagnostic about its
 // lists goes, and its text, nil for a manifest staged in memory.
@@ -39,20 +39,19 @@ func (p *Program) manifestPath() (string, []byte) {
 	return filepath.Join(p.prog.Root, "nomi.toml"), data
 }
 
-// effectListProblems is a diagnostic for each entry of the program's
-// effects tables, and of the std lists each dependency's own
-// [effects.self] declares, its entries' among them, that names
-// nothing a list can allow: a name that is no std module; a key under
-// [effects.self.modules] that is no module of the project
-// (ownModuleProblem); and a key under [effects.deps.packages] that is not
-// a package the project needs (dependencyProblem). A name that is valid and never reached is
-// not a problem. With entries_required under [effects.self], each
-// module of the project the program holds (ownModules) with no entry is
-// one too, at that key, and under [effects.deps] each dependency with
-// neither an entry nor an [effects.self] of its own
-// (requiredPackages), each with the fix that writes its entry (entryFix).
-// A dependency's own table is read only when the project has an
-// [effects.deps] table.
+// effectListProblems is a diagnostic for each name of the program's
+// effects lists, and of the std lists each dependency's own [effects.self]
+// declares, its entries' among them, that names nothing a list can allow:
+// a name that is no std module, and a key under [effects.self.modules] that
+// is no module of the project (ownModuleProblem). A name that is valid and
+// never reached is not a problem. With entries_required under
+// [effects.self], each module of the project the program holds
+// (ownModules) with no entry is one too, at that key, and under
+// [effects.dependencies] each [dependencies] entry through which the
+// program loads Nomi files (dependencyEntries) with no `effects` key and no
+// [effects.self] in its package's own nomi.toml, each with the fix that
+// writes its entry (entryFix). A dependency's own table is read only when
+// the project holds its dependencies (Effects.Dependencies).
 func (p *Program) effectListProblems() Diagnostics {
 	c := p.effects
 	if c == nil {
@@ -79,67 +78,73 @@ func (p *Program) effectListProblems() Diagnostics {
 	checkNames := func(table, list string, names []string, key ...string) {
 		checkNamesIn(path, data, table, list, names, key...)
 	}
-	// entries checks the entries of list: each key one keyProblem accepts,
-	// each name in an accepted entry a std module.
-	entries := func(list string, keyProblem func(key string) (problem, hint string)) {
-		table := "effects." + list
-		keys := slices.Sorted(maps.Keys(c.Entries(list)))
-		for _, key := range keys {
-			if problem, hint := keyProblem(key); problem != "" {
-				at(path, data, analysis.ManifestKeyLine(data, analysis.EntryKeyPath(list, key)...),
-					fmt.Sprintf("[%s] names %s, %s", table, key, problem), hint)
-				continue
-			}
-			checkNames(table, fmt.Sprintf("%q", key), c.Entries(list)[key], analysis.EntryKeyPath(list, key)...)
-		}
-	}
-	// required is the error of a module entries_required under table finds
-	// with no entry under list, with the fix that writes its entry.
+	// required is the error of a key entries_required under table finds
+	// with no entry in list, with the fix that writes its entry.
 	var tightest *Effects
-	required := func(table, list, module string, hints ...string) {
-		at(path, data, analysis.ManifestKeyLine(data, "effects", table, "entries_required"),
-			fmt.Sprintf("[effects.%s] entries_required: %s has no entry", table, module), hints...)
-		ds[len(ds)-1].Fix = p.entryFix(list, module, &tightest)
+	required := func(table, list, key, message string, hints ...string) {
+		at(path, data, analysis.ManifestKeyLine(data, append(strings.Split(table, "."), "entries_required")...),
+			fmt.Sprintf("[%s] entries_required: %s", table, message), hints...)
+		ds[len(ds)-1].Fix = p.entryFix(list, key, &tightest)
 	}
 	if s := c.Self; s != nil {
-		checkNames("effects.self", "std", s.Std, "effects", "self", "std")
-		checkNames("effects.self", "std_in_tests", s.StdInTests, "effects", "self", "std_in_tests")
+		checkNames(analysis.ListSelf, "effects", s.Effects, "effects", "self", "effects")
+		checkNames(analysis.ListSelf, "effects_in_tests", s.EffectsInTests, "effects", "self", "effects_in_tests")
 		var modules []string
-		entries(analysis.ListSelfModules, func(key string) (string, string) {
+		for _, key := range slices.Sorted(maps.Keys(s.Modules)) {
 			if modules == nil {
 				modules = p.projectModules()
 			}
-			return ownModuleProblem(key, modules)
-		})
+			keyPath := analysis.EntryKeyPath(analysis.ListSelfModules, key)
+			if problem, hint := ownModuleProblem(key, modules); problem != "" {
+				at(path, data, analysis.ManifestKeyLine(data, keyPath...),
+					fmt.Sprintf("[%s] names %s, %s", analysis.ListSelfModules, key, problem), hint)
+				continue
+			}
+			checkNames(analysis.ListSelfModules, fmt.Sprintf("%q", key), s.Modules[key], keyPath...)
+		}
 		if s.EntriesRequired {
 			for _, m := range p.ownModules() {
 				if _, listed := s.Modules[m]; !listed {
-					required("self", analysis.ListSelfModules, m, fmt.Sprintf("add %q under [effects.self.modules] in nomi.toml", m))
+					required(analysis.ListSelf, analysis.ListSelfModules, m, m+" has no entry",
+						fmt.Sprintf("add %q under [effects.self.modules] in nomi.toml", m))
 				}
 			}
 		}
 	}
-	d := c.Deps
+	d := c.Dependencies
 	if d == nil {
 		return ds
 	}
-	checkNames("effects.deps", "std", d.Std, "effects", "deps", "std")
-	checkNames("effects.deps", "std_in_tests", d.StdInTests, "effects", "deps", "std_in_tests")
-	entries(analysis.ListDepsPackages, p.dependencyProblem)
+	checkNames(analysis.ListDependencies, "effects", d.Effects, "effects", "dependencies", "effects")
+	checkNames(analysis.ListDependencies, "effects_in_tests", d.EffectsInTests, "effects", "dependencies", "effects_in_tests")
+	for _, list := range []string{analysis.ListEntryEffects, analysis.ListEntryEffectsInTests} {
+		entries := c.Entries(list)
+		for _, key := range slices.Sorted(maps.Keys(entries)) {
+			keyPath := analysis.EntryKeyPath(list, key)
+			checkNames("dependencies", key+"."+keyPath[2], entries[key], keyPath...)
+		}
+	}
 	for _, m := range p.requiredPackages() {
 		if m.declares() {
 			ownPath := filepath.Join(m.root, "nomi.toml")
 			ownData, _ := analysis.ReadManifest(m.root)
 			own := m.manifest.Effects.Self
-			checkNamesIn(ownPath, ownData, "effects.self", "std", own.Std, "effects", "self", "std")
+			checkNamesIn(ownPath, ownData, analysis.ListSelf, "effects", own.Effects, "effects", "self", "effects")
 			for _, key := range slices.Sorted(maps.Keys(own.Modules)) {
-				checkNamesIn(ownPath, ownData, "effects.self.modules", fmt.Sprintf("%q", key), own.Modules[key], analysis.EntryKeyPath(analysis.ListSelfModules, key)...)
+				checkNamesIn(ownPath, ownData, analysis.ListSelfModules, fmt.Sprintf("%q", key), own.Modules[key], analysis.EntryKeyPath(analysis.ListSelfModules, key)...)
 			}
-			continue
 		}
-		if _, listed := d.Packages[m.path]; d.EntriesRequired && !listed {
-			required("deps", analysis.ListDepsPackages, m.path,
-				fmt.Sprintf("add %q under [effects.deps.packages] in nomi.toml, or give %s an [effects.self] table in its own nomi.toml", m.path, m.path))
+	}
+	if d.EntriesRequired {
+		for _, key := range p.dependencyEntries() {
+			if _, has := d.Entries[key]; has {
+				continue
+			}
+			if m := p.entryPackage(key); m != nil && m.declares() {
+				continue
+			}
+			required(analysis.ListDependencies, analysis.ListEntryEffects, key, fmt.Sprintf("the [dependencies] entry %s has no effects key", key),
+				fmt.Sprintf("add effects = [...] to %s under [dependencies] in nomi.toml, or give %s an [effects.self] table in its own nomi.toml", key, key))
 		}
 	}
 	return ds
@@ -160,33 +165,34 @@ func ownModuleProblem(key string, modules []string) (problem, hint string) {
 	return "which is no module of this project", hint
 }
 
-// entryFix is the fix of a module entries_required finds with no entry
-// under list, one of analysis.EntryLists: the edit to nomi.toml that
-// writes module's entry with what its own files reach from the roots `nomi
-// check` holds to the lists (tightestLists), as `nomi add` writes a
-// dependency's. tightest holds the tightest tables once a fix has walked
-// the program, and is walked once. Nil when the program's nomi.toml is
-// staged in memory, or the edit cannot be written.
-func (p *Program) entryFix(list, module string, tightest **Effects) *parser.Fix {
+// entryFix is the fix of a key entries_required finds with no entry in
+// list, [effects.self.modules] or a [dependencies] entry's `effects`: the
+// edit to nomi.toml that writes key's entry with what the code it holds
+// reaches from the roots `nomi check` holds to the lists (tightestLists),
+// as `nomi add` writes a dependency's, and for a dependency its
+// `effects_in_tests` too when the tests reach more. tightest holds the
+// tightest tables once a fix has walked the program, and is walked once.
+// Nil when the program's nomi.toml is staged in memory, or the edit cannot
+// be written.
+func (p *Program) entryFix(list, key string, tightest **Effects) *parser.Fix {
 	path, data := p.manifestPath()
 	if data == nil || !filepath.IsAbs(path) {
 		return nil
 	}
 	if *tightest == nil {
-		var deps []string
-		for _, m := range p.requiredPackages() {
-			deps = append(deps, m.path)
-		}
-		*tightest = tightestLists(p.walks(p.checkedRoots()), deps, p.ownModules())
+		*tightest = tightestLists(p.walks(p.checkedRoots()), p.dependencyEntries(), p.ownModules())
 	}
-	entry := (*tightest).Entries(list)[module]
+	entry := (*tightest).Entries(list)[key]
 	to := p.effects.Clone()
-	to.SetEntry(list, module, entry)
-	quoted := make([]string, len(entry))
-	for i, n := range entry {
-		quoted[i] = fmt.Sprintf("%q", n)
+	to.SetEntry(list, key, entry)
+	title := fmt.Sprintf("Write %q = [%s] under [%s]", key, tomlNames(entry), list)
+	if list == analysis.ListEntryEffects {
+		title = fmt.Sprintf("Write effects = [%s] on %s under [dependencies]", tomlNames(entry), key)
+		if inTests := (*tightest).Entries(analysis.ListEntryEffectsInTests)[key]; len(inTests) > 0 {
+			to.SetEntry(analysis.ListEntryEffectsInTests, key, inTests)
+			title += fmt.Sprintf(", with effects_in_tests = [%s]", tomlNames(inTests))
+		}
 	}
-	title := fmt.Sprintf("Write %q = [%s] under [effects.%s]", module, strings.Join(quoted, ", "), list)
 	fix, err := analysis.EffectsFix(path, data, title, to)
 	if err != nil {
 		return nil
@@ -194,72 +200,59 @@ func (p *Program) entryFix(list, module string, tightest **Effects) *parser.Fix 
 	return fix
 }
 
-// requiredPaths is the name of each module the project needs
-// (pkgcache.Dep.Name), sorted; nil for a program with no project root.
-func (p *Program) requiredPaths() []string {
-	root := p.prog.Root
-	if root == "" {
-		return nil
+// tomlNames is names quoted and joined as a TOML list holds them.
+func tomlNames(names []string) string {
+	quoted := make([]string, len(names))
+	for i, n := range names {
+		quoted[i] = fmt.Sprintf("%q", n)
 	}
-	var required []string
-	if g, err := pkgcache.Load(root); err == nil && g != nil {
-		for _, d := range g.Deps {
-			required = append(required, d.Name)
-		}
-	}
-	sort.Strings(required)
-	return required
+	return strings.Join(quoted, ", ")
 }
 
-// dependencyProblem is what is wrong with module, a key under
-// [effects.deps.packages], when it is not the name of a module the project
-// needs, with a hint; both are "" when it is one. The project's own name
-// is not one: its own code is [effects.self]'s.
-func (p *Program) dependencyProblem(module string) (problem, hint string) {
-	required := p.requiredPaths()
-	switch {
-	case slices.Contains(required, module):
-		return "", ""
-	case module == p.projectPackage() || module == p.ownName():
-		return "which is this project", "[effects.deps] holds the packages it depends on; its own code is held by [effects.self]"
-	case len(required) == 0:
-		return "which is not a dependency of this project", "the project has no dependencies"
-	}
-	// A dependency is named by its name in the program, the key the
-	// project's [dependencies] gives it, never by its repository or its
-	// own [package].name.
-	if g, err := pkgcache.Load(p.prog.Root); err == nil && g != nil {
-		for _, d := range g.Deps {
-			if d.Name != module && (!d.ID.IsZero() && d.ID.String() == module || d.Self == module) {
-
-				return "which is not a dependency's name in this project", fmt.Sprintf("did you mean %q? a dependency is named by its key under [dependencies]", d.Name)
+// dependencyEntries is the key of each [dependencies] entry of the project
+// through which the program loads Nomi files (requiredPackages'
+// requiredPackage.through), sorted: the entries an `effects` key holds
+// code for, which entries_required asks one of.
+func (p *Program) dependencyEntries() []string {
+	var out []string
+	for _, m := range p.requiredPackages() {
+		for _, key := range m.through {
+			if !slices.Contains(out, key) {
+				out = append(out, key)
 			}
 		}
 	}
-	if near := suggest.Closest(module, required); near != "" {
-		return "which is not a dependency of this project", fmt.Sprintf("did you mean %q?", near)
-	}
-	return "which is not a dependency of this project", "its dependencies are " + strings.Join(required, ", ")
+	slices.Sort(out)
+	return out
 }
 
-// ownName is the project's [package].name, or "".
-func (p *Program) ownName() string {
-	if m := programManifest(p.prog.Root, p.cfg.manifest); m != nil {
-		return m.Name
+// entryPackage is the package the project's [dependencies] entry key names,
+// or nil when the package graph does not hold it.
+func (p *Program) entryPackage(key string) *requiredPackage {
+	if p.prog.Root == "" {
+		return nil
 	}
-	return ""
+	g, err := pkgcache.Load(p.prog.Root)
+	if err != nil || g == nil {
+		return nil
+	}
+	d, ok := g.Named(key)
+	if !ok || d.Dir == "" {
+		return nil
+	}
+	return p.packageAt(filepath.Join(d.Dir, "nomi.toml"))
 }
 
 // hostEffects is the list the host holds the program to (WithEffects),
 // as effects tables that hold the whole program, or nil when the host
-// gave none: Self and Deps' ceiling are WithEffects' names.
+// gave none: Self and Dependencies' ceiling are WithEffects' names.
 func (p *Program) hostEffects() *Effects {
 	if !p.cfg.held {
 		return nil
 	}
 	return &Effects{
-		Self: &analysis.SelfEffects{Std: p.cfg.allowed},
-		Deps: &analysis.DepsEffects{Std: append([]string{}, p.cfg.allowed...)},
+		Self:         &analysis.SelfEffects{Effects: p.cfg.allowed},
+		Dependencies: &analysis.DependenciesEffects{Effects: append([]string{}, p.cfg.allowed...)},
 	}
 }
 

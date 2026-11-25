@@ -58,7 +58,7 @@ import
     equatable.Equatable
     http.{Headers, Method, Origin, Request, Response, Status}
     http::host as http_host
-    int.Int
+    int.{Int, PositiveInt}
     iter.Iter
     lists.List
     net.{self, Connection, DialOptions}
@@ -133,8 +133,9 @@ pub struct AcceptOptions
     protocols: List<String> = []
     /// Headers added to the `101` response.
     headers: Headers = Headers[]
-    /// The largest message, in bytes, once its fragments are joined.
-    max_message_size: Int = 1_048_576
+    /// The largest message, in bytes, once its fragments are joined: a
+    /// `PositiveInt`, since every message is held to it.
+    max_message_size: PositiveInt = 1_048_576
     /// Sends a ping this often, so a peer that has gone is noticed.
     ping_interval: Option<Duration> = None
     /// Ends a receive that sees no frame, a pong included, for this long.
@@ -151,7 +152,7 @@ pub struct ConnectOptions
     headers: Headers = Headers[]
     /// The subprotocols offered, most preferred first.
     protocols:        List<String> = []
-    max_message_size: Int = 1_048_576
+    max_message_size: PositiveInt = 1_048_576
     ping_interval:    Option<Duration> = None
     idle_timeout:     Option<Duration> = None
     /// Offers permessage-deflate, so messages may cross compressed when the
@@ -297,7 +298,7 @@ impl WebSocket
         conn:             Connection,
         client:           Bool,
         protocol:         Option<String> = None,
-        max_message_size: Int = 1_048_576,
+        max_message_size: PositiveInt = 1_048_576,
         compressed:       Bool = False,
     ) -> WebSocket
         handle = http_host.ws_open(

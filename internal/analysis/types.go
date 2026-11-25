@@ -187,10 +187,10 @@ type StructType struct {
 	// its accessors.
 	Opaque           bool
 	OwningSourceFile string
-	// Rule is a struct refinement's rule, its body's last item, on one
+	// Rule is a validated struct's rule, its body's last item, on one
 	// line (RuleText), and empty for a struct with none. Every value of the struct
 	// satisfies it: a literal is checked when the program is compiled, any
-	// other value goes through the generated `try_from` (refinement.go).
+	// other value goes through the generated `try_from` (subtype.go).
 	Rule string
 	// unbuilt is set while the declaration's body is not built yet, on the
 	// declaration and on each instance taken from it (unbuilt_decl.go).
@@ -321,21 +321,21 @@ type DistinctType struct {
 	// Rule is the rule as written after `when`, on one line (`fn port ->
 	// port >= 1`), and empty for a declaration with none.
 	Rule string
-	// Refinement is set for a `refine` declaration, and for the intersection
-	// of refinements `A and B` (Intersection). A refinement's value is a value
+	// Subtype is set for a `subtype` declaration, and for the intersection
+	// of subtypes `A and B` (Intersection). A subtype's value is a value
 	// of Inner: it converts up to Inner and each of Inner's ancestors, and
-	// is Inner at run time (refinement.go). Without it, a distinct type
+	// is Inner at run time (subtype.go). Without it, a distinct type
 	// with a Rule is a validated type: it converts to nothing, and is
 	// built only through a check of its rule.
-	Refinement bool
-	// Intersection is set for `A and B` of refinements, an anonymous refinement
+	Subtype bool
+	// Intersection is set for `A and B` of subtypes, an anonymous subtype
 	// whose parents are its members: TypeArgs holds them, sorted, and Inner
-	// and MoreParents are the same members (NewRefinementIntersection).
+	// and MoreParents are the same members (NewSubtypeIntersection).
 	Intersection bool
-	// MoreParents are a refinement's parents after Inner, its first:
-	// `refine PositiveInt NonNegativeInt and NonZeroInt when ...` holds
+	// MoreParents are a subtype's parents after Inner, its first:
+	// `subtype PositiveInt NonNegativeInt and NonZeroInt when ...` holds
 	// NonZeroInt. Every parent reaches the same base, and a value converts
-	// up to each of them and their ancestors (refinement.go).
+	// up to each of them and their ancestors (subtype.go).
 	MoreParents []Type
 	// unbuilt is set on a declared distinct type (`type UserId Int`) until
 	// its inner type is resolved, and holds what waits on it
@@ -757,7 +757,7 @@ const (
 	// only where the checker says which way it flows (UnifyInto).
 	eqStrict
 	// eqAssign has a as the expected type and b as the actual one. It admits
-	// an embedded type, or a refinement's value, only from b into a's enum
+	// an embedded type, or a subtype's value, only from b into a's enum
 	// or ancestor, at the top, in every tuple element and record field, and
 	// in a type argument by its parameter's variance: from b into a at a
 	// covariant one, from a into b at a contravariant one, and at an
@@ -801,9 +801,9 @@ func typesEqualIn(a, b Type, m eqMode) bool {
 		}
 	}
 
-	// A refinement's value is a value of each of its ancestors, from the
-	// actual side b into the expected a (refinement.go).
-	if m == eqAssign && refinesInto(b, a) {
+	// A subtype's value is a value of each of its ancestors, from the
+	// actual side b into the expected a (subtype.go).
+	if m == eqAssign && subtypeWidensTo(b, a) {
 		return true
 	}
 

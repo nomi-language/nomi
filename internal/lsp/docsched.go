@@ -170,17 +170,18 @@ func (s *Server) publishCurrent(uri string, notify glsp.NotifyFunc) bool {
 	return true
 }
 
-// awaitAnalysis waits until uri's installed analysis is of its latest
-// text, starting a debounced analysis at once rather than after its delay.
-// It reports false when ctx ends or timeout passes first. An untracked
-// document has nothing to wait for.
-func (s *Server) awaitAnalysis(ctx context.Context, uri string, timeout time.Duration) bool {
+// awaitAnalysis waits until uri's installed analysis is one a request of
+// the given freshness answers from: one of its latest text, or for
+// anyAnalysis any finished one. It starts a debounced analysis at once
+// rather than after its delay. It reports false when ctx ends or timeout
+// passes first. An untracked document has nothing to wait for.
+func (s *Server) awaitAnalysis(ctx context.Context, uri string, policy freshness, timeout time.Duration) bool {
 	deadline := time.NewTimer(timeout)
 	defer deadline.Stop()
 	for {
 		installed := s.docs.Installed()
 		snap := s.docs.Snapshot(uri)
-		if snap == nil || snap.Current() {
+		if snap == nil || snap.Current() || policy == anyAnalysis && snap.Analysis != nil {
 			return true
 		}
 		s.flushAnalysis(uri)

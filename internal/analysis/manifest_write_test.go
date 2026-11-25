@@ -21,83 +21,84 @@ func TestWriteEffectTables_RulesForComments(t *testing.T) {
 	app := t.TempDir()
 	tight := func() *Effects {
 		return &Effects{
-			Self: &SelfEffects{Std: []string{"std::fs", "std::io"}, StdInTests: []string{"std::instant"}},
-			Deps: &DepsEffects{Std: []string{"std::fs"}, Packages: map[string][]string{"pricing": {"std::fs"}, "pure": {}}},
+			Self: &SelfEffects{Effects: []string{"std::fs", "std::io"}, EffectsInTests: []string{"std::instant"},
+				Modules: map[string][]string{"pricing": {"std::fs"}, "pure": {}}},
+			Dependencies: &DependenciesEffects{Effects: []string{"std::fs"}},
 		}
 	}
 	withoutPure := tight()
-	delete(withoutPure.Deps.Packages, "pure")
+	delete(withoutPure.Self.Modules, "pure")
 	withKit := tight()
-	withKit.Deps.Packages = map[string][]string{"kit": {}, "pricing": {"std::fs"}}
+	withKit.Self.Modules = map[string][]string{"kit": {}, "pricing": {"std::fs"}}
 	withAll := tight()
-	withAll.Deps.Packages["kit"] = []string{}
+	withAll.Self.Modules["kit"] = []string{}
 	withProcess := tight()
-	withProcess.Self.Std = []string{"std::fs", "std::io", "std::process"}
-	// self, deps and mods are the three tables as tight writes them.
-	self := "[effects.self]\nstd = [\"std::fs\", \"std::io\"]\nstd_in_tests = [\"std::instant\"]\n"
-	deps := "\n[effects.deps]\nstd = [\"std::fs\"]\n"
-	mods := "\n[effects.deps.packages]\n\"pricing\" = [\"std::fs\"]\n\"pure\" = []\n"
+	withProcess.Self.Effects = []string{"std::fs", "std::io", "std::process"}
+	// self, mods and deps are the three tables as tight writes them.
+	self := "[effects.self]\neffects = [\"std::fs\", \"std::io\"]\neffects_in_tests = [\"std::instant\"]\n"
+	mods := "\n[effects.self.modules]\n\"pricing\" = [\"std::fs\"]\n\"pure\" = []\n"
+	deps := "\n[effects.dependencies]\neffects = [\"std::fs\"]\n"
 	cases := []struct {
 		name, before, after string
 		c                   *Effects
 	}{{
 		name: "a list one name per line",
-		before: "[effects.self]\nstd = [\n    # through pricing\n    \"std::fs\",\n    \"std::io\",  # printing\n\n    # to remove\n    \"std::net\", # gone\n]\n" +
-			"std_in_tests = [\"std::instant\"]  # the clock\n" + deps + mods,
-		after: "[effects.self]\nstd = [\n    # through pricing\n    \"std::fs\",\n    \"std::io\",  # printing\n    \"std::process\",\n]\n" +
-			"std_in_tests = [\"std::instant\"]  # the clock\n" + deps + mods,
+		before: "[effects.self]\neffects = [\n    # through pricing\n    \"std::fs\",\n    \"std::io\",  # printing\n\n    # to remove\n    \"std::net\", # gone\n]\n" +
+			"effects_in_tests = [\"std::instant\"]  # the clock\n" + mods + deps,
+		after: "[effects.self]\neffects = [\n    # through pricing\n    \"std::fs\",\n    \"std::io\",  # printing\n    \"std::process\",\n]\n" +
+			"effects_in_tests = [\"std::instant\"]  # the clock\n" + mods + deps,
 		c: withProcess,
 	}, {
 		name: "a list that no longer holds a name, and a list that goes",
-		before: "[effects.self]\nstd = [\"std::fs\", \"std::io\", \"std::net\"]\n# the clock\nstd_in_tests = [\"std::instant\"]\n" +
-			"\n[effects.deps]\nentries_required = false\nstd = [\"std::fs\"]\n# theirs\nstd_in_tests = [\"std::net\"]\n" + mods,
-		after: "[effects.self]\nstd = [\"std::fs\", \"std::io\"]\n# the clock\nstd_in_tests = [\"std::instant\"]\n" +
-			"\n[effects.deps]\nentries_required = false\nstd = [\"std::fs\"]\n" + mods,
+		before: "[effects.self]\neffects = [\"std::fs\", \"std::io\", \"std::net\"]\n# the clock\neffects_in_tests = [\"std::instant\"]\n" + mods +
+			"\n[effects.dependencies]\nentries_required = false\neffects = [\"std::fs\"]\n# theirs\neffects_in_tests = [\"std::net\"]\n",
+		after: "[effects.self]\neffects = [\"std::fs\", \"std::io\"]\n# the clock\neffects_in_tests = [\"std::instant\"]\n" + mods +
+			"\n[effects.dependencies]\nentries_required = false\neffects = [\"std::fs\"]\n",
 		c: tight(),
 	}, {
 		name:   "a comment on a key's line",
-		before: "[effects.self]\nstd = [\"std::io\"]  # what it does\nstd_in_tests = [\"std::instant\", \"std::net\"] # tests\n" + deps + mods,
-		after:  "[effects.self]\nstd = [\"std::io\", \"std::fs\"]  # what it does\nstd_in_tests = [\"std::instant\"] # tests\n" + deps + mods,
+		before: "[effects.self]\neffects = [\"std::io\"]  # what it does\neffects_in_tests = [\"std::instant\", \"std::net\"] # tests\n" + mods + deps,
+		after:  "[effects.self]\neffects = [\"std::io\", \"std::fs\"]  # what it does\neffects_in_tests = [\"std::instant\"] # tests\n" + mods + deps,
 		c:      tight(),
 	}, {
 		name: "a comment no key owns",
-		before: self + deps + "\n[effects.deps.packages]\n# Dependencies, by path.\n\n" +
-			"# computes\n\"pricing\" = []\n# reaches nothing\n\"pure\" = []\n",
-		after: self + deps + "\n[effects.deps.packages]\n# Dependencies, by path.\n\n" +
-			"# computes\n\"pricing\" = [\"std::fs\"]\n",
+		before: self + "\n[effects.self.modules]\n# Modules, by path.\n\n" +
+			"# computes\n\"pricing\" = []\n# reaches nothing\n\"pure\" = []\n" + deps,
+		after: self + "\n[effects.self.modules]\n# Modules, by path.\n\n" +
+			"# computes\n\"pricing\" = [\"std::fs\"]\n" + deps,
 		c: withoutPure,
 	}, {
 		name:   "blank lines a removed key leaves together",
-		before: self + deps + "\n[effects.deps.packages]\n\"kit\" = []\n\n\"pure\" = []\n\n\"pricing\" = [\"std::fs\"]\n",
-		after:  self + deps + "\n[effects.deps.packages]\n\"kit\" = []\n\n\"pricing\" = [\"std::fs\"]\n",
+		before: self + "\n[effects.self.modules]\n\"kit\" = []\n\n\"pure\" = []\n\n\"pricing\" = [\"std::fs\"]\n" + deps,
+		after:  self + "\n[effects.self.modules]\n\"kit\" = []\n\n\"pricing\" = [\"std::fs\"]\n" + deps,
 		c:      withKit,
 	}, {
 		name:   "a key added",
-		before: self + deps + "\n[effects.deps.packages]\n# a kit\n\"kit\" = []\n\n# computes\n\"pricing\" = [\"std::fs\"]\n",
-		after:  self + deps + "\n[effects.deps.packages]\n# a kit\n\"kit\" = []\n\n# computes\n\"pricing\" = [\"std::fs\"]\n\n\"pure\" = []\n",
+		before: self + "\n[effects.self.modules]\n# a kit\n\"kit\" = []\n\n# computes\n\"pricing\" = [\"std::fs\"]\n" + deps,
+		after:  self + "\n[effects.self.modules]\n# a kit\n\"kit\" = []\n\n# computes\n\"pricing\" = [\"std::fs\"]\n\n\"pure\" = []\n" + deps,
 		c:      withAll,
 	}, {
 		name:   "a list grown past the width",
-		before: "[effects.self]\nstd = [\"std::fs\", \"std::io\"] # all of it\n",
-		after: "[effects.self]\nstd = [ # all of it\n    \"std::fs\",\n    \"std::io\",\n    \"std::http\",\n    \"std::instant\",\n" +
+		before: "[effects.self]\neffects = [\"std::fs\", \"std::io\"] # all of it\n",
+		after: "[effects.self]\neffects = [ # all of it\n    \"std::fs\",\n    \"std::io\",\n    \"std::http\",\n    \"std::instant\",\n" +
 			"    \"std::process\",\n    \"std::random\",\n]\n",
-		c: &Effects{Self: &SelfEffects{Std: []string{"std::fs", "std::http", "std::instant", "std::io", "std::process", "std::random"}}},
+		c: &Effects{Self: &SelfEffects{Effects: []string{"std::fs", "std::http", "std::instant", "std::io", "std::process", "std::random"}}},
 	}, {
 		name:   "a table added before the first the file has",
-		before: "[effects.deps]\n# the ceiling\nstd = [\"std::fs\"]\n",
-		after:  self + "\n[effects.deps]\n# the ceiling\nstd = [\"std::fs\"]\n" + mods,
+		before: "[effects.dependencies]\n# the ceiling\neffects = [\"std::fs\"]\n",
+		after:  self + mods + "\n[effects.dependencies]\n# the ceiling\neffects = [\"std::fs\"]\n",
 		c:      tight(),
 	}, {
 		name:   "a table the tables written lack",
-		before: self + deps + mods,
-		after:  self,
+		before: self + mods + deps,
+		after:  self + mods,
 		c:      &Effects{Self: tight().Self},
 	}, {
 		name:   "CRLF line endings",
-		before: "# app\r\n[package]\r\nname = \"app\"\r\n\r\n[effects.self]\r\n# all\r\nstd = [\"std::io\"]\r\n\r\n[effects.deps.packages]\r\n\"pure\" = [] # none\r\n",
-		after: "# app\r\n[package]\r\nname = \"app\"\r\n\r\n[effects.self]\r\n# all\r\nstd = [\"std::io\", \"std::fs\"]\r\nstd_in_tests = [\"std::instant\"]\r\n\r\n" +
-			"[effects.deps]\r\nstd = [\"std::fs\"]\r\n\r\n" +
-			"[effects.deps.packages]\r\n\"pure\" = [] # none\r\n\"pricing\" = [\"std::fs\"]\r\n",
+		before: "# app\r\n[package]\r\nname = \"app\"\r\n\r\n[effects.self]\r\n# all\r\neffects = [\"std::io\"]\r\n\r\n[effects.self.modules]\r\n\"pure\" = [] # none\r\n",
+		after: "# app\r\n[package]\r\nname = \"app\"\r\n\r\n[effects.self]\r\n# all\r\neffects = [\"std::io\", \"std::fs\"]\r\neffects_in_tests = [\"std::instant\"]\r\n\r\n" +
+			"[effects.self.modules]\r\n\"pure\" = [] # none\r\n\"pricing\" = [\"std::fs\"]\r\n\r\n" +
+			"[effects.dependencies]\r\neffects = [\"std::fs\"]\r\n",
 		c: tight(),
 	}}
 	for _, c := range cases {
@@ -121,9 +122,73 @@ func TestWriteEffectTables_RulesForComments(t *testing.T) {
 	}
 }
 
-// [effects.self.modules] is written by the rules of
-// [effects.deps.packages]: after [effects.self] and before
-// [effects.deps], keeping its comments and entries_required, an entry
+// The effects keys of the [dependencies] entries are written by the one
+// writer of that table (WriteRequirements): an entry whose keys change is
+// written again whole, keeping the comment after it, an entry whose keys
+// hold the same names keeps its text and their order, and an entry the
+// tables give no key loses it. The text answered starts with the
+// [dependencies] table when an entry changed. AllowEffects adds a name to
+// an entry's effects, or to its effects_in_tests, which it writes beside
+// effects. An entry the tables give a key that [dependencies] lacks is an
+// error.
+func TestWriteEffectTables_DependencyEntries(t *testing.T) {
+	app := t.TempDir()
+	deps := func(entries, inTests map[string][]string) *Effects {
+		return &Effects{Dependencies: &DependenciesEffects{Effects: []string{"std::fs", "std::http"}, Entries: entries, EntriesInTests: inTests}}
+	}
+	ceiling := "\n[effects.dependencies]\neffects = [\"std::fs\", \"std::http\"]\n"
+	cases := []struct {
+		name, before, after string
+		c                   *Effects
+	}{{
+		name:   "keys written on the entries",
+		before: "[dependencies]\nfetch = { dir = \"../fetch\" } # the client\npricing = { dir = \"../pricing\" }\n",
+		after: "[dependencies]\nfetch = { dir = \"../fetch\", effects = [\"std::http\"], effects_in_tests = [\"std::process\"] } # the client\n" +
+			"pricing = { dir = \"../pricing\", effects = [] }\n" + ceiling,
+		c: deps(map[string][]string{"fetch": {"std::http"}, "pricing": {}}, map[string][]string{"fetch": {"std::process"}}),
+	}, {
+		name:   "the same names keep their order",
+		before: "[dependencies]\nfetch = { dir = \"../fetch\", effects = [\"std::http\", \"std::fs\"] }\n" + ceiling,
+		after:  "[dependencies]\nfetch = { dir = \"../fetch\", effects = [\"std::http\", \"std::fs\"] }\n" + ceiling,
+		c:      deps(map[string][]string{"fetch": {"std::fs", "std::http"}}, nil),
+	}, {
+		name:   "a key the tables lack goes",
+		before: "[dependencies]\nfetch = { dir = \"../fetch\", effects = [\"std::http\"], effects_in_tests = [\"std::fs\"] }\n" + ceiling,
+		after:  "[dependencies]\nfetch = { dir = \"../fetch\", effects = [\"std::http\"] }\n" + ceiling,
+		c:      deps(map[string][]string{"fetch": {"std::http"}}, nil),
+	}}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got, written, err := WriteEffectTables(app, []byte(writeTestModule+"\n"+c.before), c.c)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if want := writeTestModule + "\n" + c.after; string(got) != want {
+				t.Errorf("written:\n%q\nwant:\n%q", got, want)
+			}
+			if c.before != c.after && !strings.HasPrefix(written, "[dependencies]\n") {
+				t.Errorf("the text written does not start with [dependencies]:\n%s", written)
+			}
+		})
+	}
+	before := writeTestModule + "\n[dependencies]\nfetch = { dir = \"../fetch\", effects = [\"std::http\"] }\n" + ceiling
+	was, err := ParseManifestData([]byte(before), "nomi.toml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fix, err := AllowEffects(app+"/nomi.toml", []byte(before), was.Effects, "Allow std::process for fetch in tests in nomi.toml",
+		[]EffectAdd{{List: ListEntryEffectsInTests, Module: "fetch", Name: "std::process"}})
+	if want := "fetch = { dir = \"../fetch\", effects = [\"std::http\"], effects_in_tests = [\"std::process\"] }\n"; err != nil || fix == nil || len(fix.Edits) != 1 || fix.Edits[0].Text != want {
+		t.Errorf("the fix that adds to an entry's effects_in_tests: %+v, %v", fix, err)
+	}
+	_, _, err = WriteEffectTables(app, []byte(before), deps(map[string][]string{"other": {}}, nil))
+	if err == nil || !strings.Contains(err.Error(), "[dependencies] has no entry other") {
+		t.Errorf("an entry for a key [dependencies] lacks: %v", err)
+	}
+}
+
+// [effects.self.modules] is written after [effects.self] and before
+// [effects.dependencies], keeping its comments and entries_required, an entry
 // that goes taking its comment, and a new one going last. It is written
 // when the tables have it, empty or not, and when the file has it, and
 // left out otherwise. AllowEffects adds a name to an entry, giving the
@@ -132,12 +197,12 @@ func TestWriteEffectTables_SelfModules(t *testing.T) {
 	app := t.TempDir()
 	tight := func(entries map[string][]string) *Effects {
 		return &Effects{
-			Self: &SelfEffects{Std: []string{"std::fs", "std::io"}, Modules: entries},
-			Deps: &DepsEffects{Std: []string{}},
+			Self:         &SelfEffects{Effects: []string{"std::fs", "std::io"}, Modules: entries},
+			Dependencies: &DependenciesEffects{Effects: []string{}},
 		}
 	}
-	self := "[effects.self]\nstd = [\"std::fs\", \"std::io\"]\n"
-	deps := "\n[effects.deps]\nstd = []\n"
+	self := "[effects.self]\neffects = [\"std::fs\", \"std::io\"]\n"
+	deps := "\n[effects.dependencies]\neffects = []\n"
 	cases := []struct {
 		name, before, after string
 		c                   *Effects
@@ -148,9 +213,9 @@ func TestWriteEffectTables_SelfModules(t *testing.T) {
 		c:      tight(map[string][]string{"pricing": {}, "main": {"std::io"}}),
 	}, {
 		name: "comments and entries_required kept, an entry gone and one added",
-		before: "[effects.self]\n# every module\nentries_required = true\nstd = [\"std::fs\", \"std::io\"]\n" +
+		before: "[effects.self]\n# every module\nentries_required = true\neffects = [\"std::fs\", \"std::io\"]\n" +
 			"\n[effects.self.modules]\n# prints\n\"main\" = [\"std::io\"] # only\n# gone\n\"old\" = []\n" + deps,
-		after: "[effects.self]\n# every module\nentries_required = true\nstd = [\"std::fs\", \"std::io\"]\n" +
+		after: "[effects.self]\n# every module\nentries_required = true\neffects = [\"std::fs\", \"std::io\"]\n" +
 			"\n[effects.self.modules]\n# prints\n\"main\" = [\"std::io\"] # only\n\"storage\" = [\"std::fs\"]\n" + deps,
 		c: tight(map[string][]string{"main": {"std::io"}, "storage": {"std::fs"}}),
 	}, {
@@ -197,15 +262,15 @@ func TestWriteEffectTables_SelfModules(t *testing.T) {
 // loses.
 func TestEffectChanges_TablesAndCeilings(t *testing.T) {
 	to := &Effects{
-		Self: &SelfEffects{Std: []string{"std::io"}},
-		Deps: &DepsEffects{Std: []string{}, Packages: map[string][]string{"pure": {}}},
+		Self:         &SelfEffects{Effects: []string{"std::io"}},
+		Dependencies: &DependenciesEffects{Effects: []string{}, Entries: map[string][]string{"pure": {}}},
 	}
-	got := EffectChanges(&Effects{Deps: &DepsEffects{Packages: map[string][]string{}}}, to)
+	got := EffectChanges(&Effects{Dependencies: &DependenciesEffects{Entries: map[string][]string{}}}, to)
 	want := []EffectChange{
 		{Change: "add", List: ListSelf},
-		{Change: "add", List: ListSelfStd, Name: "std::io"},
-		{Change: "add", List: ListDepsStd},
-		{Change: "add", List: ListDepsPackages, Key: "pure"},
+		{Change: "add", List: ListSelfEffects, Name: "std::io"},
+		{Change: "add", List: ListDependenciesEffects},
+		{Change: "add", List: ListEntryEffects, Key: "pure"},
 	}
 	if !slices.Equal(got, want) {
 		t.Errorf("changes %+v\nwant %+v", got, want)
@@ -213,21 +278,21 @@ func TestEffectChanges_TablesAndCeilings(t *testing.T) {
 	if got := EffectChanges(to, to.Clone()); len(got) != 0 {
 		t.Errorf("a table and its clone differ by %+v", got)
 	}
-	// An entry under [effects.self.modules] changes as one under
-	// [effects.deps.packages] does, after self's lists and before deps'.
+	// An entry under [effects.self.modules] changes as a [dependencies]
+	// entry's effects do, after self's lists and before the dependencies'.
 	from := &Effects{Self: &SelfEffects{Modules: map[string][]string{"main": {"std::io", "std::net"}, "old": {}}}}
-	into := &Effects{Self: &SelfEffects{Modules: map[string][]string{"main": {"std::io"}, "pricing": {}}}, Deps: &DepsEffects{}}
+	into := &Effects{Self: &SelfEffects{Modules: map[string][]string{"main": {"std::io"}, "pricing": {}}}, Dependencies: &DependenciesEffects{}}
 	got = EffectChanges(from, into)
 	want = []EffectChange{
 		{Change: "add", List: ListSelfModules, Key: "pricing"},
-		{Change: "add", List: ListDeps},
+		{Change: "add", List: ListDependencies},
 		{Change: "remove", List: ListSelfModules, Key: "main", Name: "std::net"},
 		{Change: "remove", List: ListSelfModules, Key: "old"},
 	}
 	if !slices.Equal(got, want) {
 		t.Errorf("changes %+v\nwant %+v", got, want)
 	}
-	if label := want[0].Label(); label != `self.modules "pricing"` {
+	if label := want[0].Label(); label != `effects.self.modules "pricing"` {
 		t.Errorf("label %q", label)
 	}
 	if got := EffectChanges(from, from.Clone()); len(got) != 0 {

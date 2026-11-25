@@ -402,7 +402,7 @@ func (idx *ProjectImplIndex) suppliesOrigin(origin, name, ifaceOrigin, iface str
 // unsuppliedRecordings keeps only the demands whose OWN declaration has no
 // impl of `iface`, out of a bucket that already matched by bare name.
 //
-// Filtering per RECORDING rather than judging the bucket is not a refinement,
+// Filtering per RECORDING rather than judging the bucket is not a subtype,
 // it is the whole mechanism. `ImplManifest[iface][typeName]` is keyed by bare
 // name too, so one bucket holds demands for every same-named type: the
 // `Equatable`/`Error` bucket holds the demands the stdlib raised about its own

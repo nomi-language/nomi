@@ -38,9 +38,9 @@ type InlineValueVariableLookup struct {
 	CaseSensitiveLookup bool           `json:"caseSensitiveLookup"`
 }
 
-func (s *Server) textDocumentInlineValue(_ *glsp.Context, params *InlineValueParams) ([]InlineValueVariableLookup, error) {
+func (s *Server) textDocumentInlineValue(gctx *glsp.Context, params *InlineValueParams) ([]InlineValueVariableLookup, error) {
 	uri := string(params.TextDocument.URI)
-	doc := s.docs.Snapshot(uri)
+	doc := s.requestDoc(gctx, uri)
 	if doc == nil || doc.Analysis == nil {
 		return []InlineValueVariableLookup{}, nil
 	}

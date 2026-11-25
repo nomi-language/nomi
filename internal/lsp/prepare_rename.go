@@ -16,9 +16,9 @@ import (
 // textDocumentPrepareRename answers the identifier under the cursor and
 // its name as the placeholder when rename can rename it, and an error
 // saying why otherwise (VS Code and Neovim show the message).
-func (s *Server) textDocumentPrepareRename(_ *glsp.Context, params *protocol.PrepareRenameParams) (any, error) {
+func (s *Server) textDocumentPrepareRename(gctx *glsp.Context, params *protocol.PrepareRenameParams) (any, error) {
 	uri := string(params.TextDocument.URI)
-	doc := s.docs.Snapshot(uri)
+	doc := s.requestDoc(gctx, uri)
 	if doc == nil || doc.Analysis == nil {
 		return nil, nil
 	}
@@ -40,8 +40,8 @@ var errNothingToRename = errors.New("nothing to rename here")
 // keyword, a literal, punctuation), a keyword's hover-only symbol, a name
 // declared outside this project (the standard library, the prelude,
 // another module), an implicit `it`, an interface method or a function
-// implementing one, and a file's import qualifier, which is the file's
-// name.
+// implementing one, a function that comes with a declaration (a subtype's
+// `try_from`), and a file's import qualifier, which is the file's name.
 func renameTarget(dm *analysis.DocumentManager, doc *analysis.DocSnapshot, pos analysis.Pos) (*analysis.Symbol, protocol.Range, error) {
 	fa := doc.Analysis
 	at, sym, ok := nameAt(fa, pos)
@@ -67,6 +67,14 @@ func renameTarget(dm *analysis.DocumentManager, doc *analysis.DocSnapshot, pos a
 	if target.Kind == analysis.SymbolModule && isImportPathSegment(doc.Nodes, target.Pos) {
 		return nil, protocol.Range{}, fmt.Errorf("'%s' is part of an import path; rename the file to change it", target.Name)
 	}
+	if analysis.IsSynthesizedLine(target.Pos.Line) && target.ImplInterface == "" {
+		// A function the front end wrote for a declaration (a subtype's
+		// `try_from` and `unchecked`): the source holds its uses and no
+		// declaration of it to rename with them, whichever file declares
+		// the type. One that implements an interface (a derive's) is
+		// refused below as any impl's function is.
+		return nil, protocol.Range{}, fmt.Errorf("'%s' is not written in the source: it comes with the declaration of %s, and cannot be renamed", target.Name, target.OwningType)
+	}
 	path := uriToPath(doc.URI)
 	if target.SourceFile != "" {
 		root := dm.FindProjectRoot(path)
@@ -83,7 +91,7 @@ func renameTarget(dm *analysis.DocumentManager, doc *analysis.DocSnapshot, pos a
 		if !isDef && fa.References[target.Pos] != target {
 			return nil, protocol.Range{}, fmt.Errorf("'%s' is declared in the standard library", target.Name)
 		}
-		if textAt(doc.Content, makeLocation("", target.Pos, target.Name).Range) != target.Name {
+		if !analysis.IsSynthesizedLine(target.Pos.Line) && textAt(doc.Content, makeLocation("", target.Pos, target.Name).Range) != target.Name {
 			return nil, protocol.Range{}, fmt.Errorf("'%s' is implicit; name the parameter to rename it", target.Name)
 		}
 	}

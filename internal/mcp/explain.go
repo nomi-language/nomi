@@ -4,15 +4,15 @@ package mcp
 // TestEveryDiagnosticCodeIsExplained holds it to the codes the compiler
 // declares.
 var explanations = map[string]string{
-	"literal-breaks-rule": "A literal stands where a refinement or a validated type is expected (`refine Port Int when fn p -> p >= 1`, " +
+	"literal-breaks-rule": "A literal stands where a subtype or a validated type is expected (`subtype Port Int when fn p -> p >= 1`, " +
 		"`type Email String when is_email`), and the type's rule, or a rule up its chain, is false for it: `Port(0)`, or `0` passed where a " +
 		"`Port` is expected. The rule runs when the program is compiled. Change the literal, or, for a value known only when the program runs, " +
 		"check it with `Port.try_from(x)`, which answers an `Option<Port>`.",
-	"unchecked-literal": "A literal of a refinement or a validated type could not be checked against its rule when the program was compiled, " +
+	"unchecked-literal": "A literal of a subtype or a validated type could not be checked against its rule when the program was compiled, " +
 		"so the program is refused rather than run with a value no rule vouched for. A message that starts `internal:` is a bug in Nomi: " +
 		"the compiler lost the function that checks the rule; report it. Otherwise the rule reaches something the compiler does not " +
 		"support yet; until it does, build the value with the type's `try_from`, which answers an `Option`.",
-	"seeded-hash": "A refinement's rule, a typed literal's handler or a checked literal's `check` can reach a hash: `Hashable.hash`, " +
+	"seeded-hash": "A subtype's rule, a typed literal's handler or a checked literal's `check` can reach a hash: `Hashable.hash`, " +
 		"`String.hash` or `Bytes.hash`, or a derived `Hashable` of a String, a collection or a struct. The compiler runs these once, when it " +
 		"checks the program, and a hash is keyed by a seed each run draws, so the same value can hash to another Int when the program runs " +
 		"and a literal the compiler accepted could break its rule then. Compare the values themselves instead of their hashes. Building a " +
@@ -27,30 +27,32 @@ var explanations = map[string]string{
 		"`NonZeroDecimal`, `NonZeroDuration`; a `Duration` divided by an `Int` takes a `NonZeroInt`), and `<<<` and `>>>` a " +
 		"`NonNegativeInt` count, so a checked program never divides by zero or shifts by a negative count. The operand here is not " +
 		"shown to be one. Check it first: after `if d == 0 then return ...`, or in the `else` of `if d == 0`, `d` is a `NonZeroInt`. " +
-		"Or take the refinement as the parameter's type (`fn per(total: Int, d: NonZeroInt)`), or check a computed value with " +
+		"Or take the subtype as the parameter's type (`fn per(total: Int, d: NonZeroInt)`), or check a computed value with " +
 		"`NonZeroInt.try_from(...)`, which answers an `Option`. A non-zero literal, and a value whose range rules zero out " +
 		"(`n + 1` with `n` a `NonNegativeInt`), pass as they are.",
-	"refinement-impl-makes-base": "A refinement has its base's impls, except those of an interface with a function that makes a value " +
+	"inherited-impl-makes-base": "A subtype has its base's impls, except those of an interface with a function that makes a value " +
 		"of its type: `Parse`, `FromSql`, `Summable`, `Productable`, `Discrete`, `Steppable`, `From`, `TryFrom`. The " +
-		"base's impl makes a value of the base, which no rule of the refinement has checked, so `Parse.parse<Port>(text)` and " +
+		"base's impl makes a value of the base, which no rule of the subtype has checked, so `Parse.parse<Port>(text)` and " +
 		"`Summable.empty_sum<Port>()` are refused. Make a value " +
 		"of the base and check it: `Port.try_from(n)` answers an `Option<Port>`. A call whose type argument nothing pins to the " +
-		"refinement is made at the base instead, so with `ports` a `List<Port>`, `Iter.sum(ports)` is an `Int`. `FromJson` is a " +
-		"reader: it reads a refinement at its base and checks its rules, a value that breaks one being the read's shape error, and a " +
-		"record read from texts reads a field of a refinement with its base's `Parse` and checks it the same way.",
+		"subtype is made at the base instead, so with `ports` a `List<Port>`, `Iter.sum(ports)` is an `Int`. `FromJson` is a " +
+		"reader: it reads a subtype at its base and checks its rules, a value that breaks one being the read's shape error, and a " +
+		"record read from texts reads a field of a subtype with its base's `Parse` and checks it the same way.",
 	"effect-not-allowed": "The project's nomi.toml lists the effects its program may have (files, the network, " +
-		"processes, output and input, the clock, randomness, the environment, tasks, channels and other state it makes) in two tables. " +
+		"processes, output and input, the clock, randomness, the environment, tasks, channels and other state it makes) in two tables " +
+		"and on its `[dependencies]` entries. " +
 		"A function is pure, or it has effects; each effect is named by the std module the code called. " +
-		"`[effects.self]` holds the calls written in the project's own files: `std` lists the effects they may have, by std module " +
-		"(`std::fs`, as an import writes it), and `std_in_tests` adds names for the effects only the tests have. " +
+		"`[effects.self]` holds the calls written in the project's own files: `effects` lists the effects they may have, by std module " +
+		"(`std::fs`, as an import writes it), and `effects_in_tests` adds names for the effects only the tests have. " +
 		"Under `[effects.self.modules]` an entry for one " +
 		"of the project's modules, keyed by the module as its own code imports it (`pricing`, `reports::daily`), lists the std " +
-		"modules whose effects that module's files may have within `std`; an empty entry allows no effects, and `entries_required = true` under " +
-		"`[effects.self]` makes every module the program loads have one. `[effects.deps]` holds the calls written in the " +
-		"files of every package the project depends on: `std` is the most effects any dependency may have, with `std_in_tests` for the " +
-		"tests, and under " +
-		"`[effects.deps.packages]` a dependency's entry lists the effects its own files may have. `entries_required = true` " +
-		"makes every dependency have an entry, or an `[effects.self]` in its own nomi.toml. A table the project leaves out holds " +
+		"modules whose effects that module's files may have within `effects`; an empty entry allows no effects, and `entries_required = true` under " +
+		"`[effects.self]` makes every module the program loads have one. `[effects.dependencies]` holds the calls written in the " +
+		"files of every package the project depends on: `effects` is the most effects any dependency may have, with `effects_in_tests` for the " +
+		"tests. A `[dependencies]` entry's own `effects` key (and `effects_in_tests`) lists the effects the package it names, and every " +
+		"package the project reaches through it, may have; a package reached through several entries may have what any of them allows, " +
+		"and one reached through an entry with no `effects` key is held by `[effects.dependencies]` alone. `entries_required = true` " +
+		"under `[effects.dependencies]` makes every entry have an `effects` key, or its package an `[effects.self]` in its own nomi.toml. A table the project leaves out holds " +
 		"nothing. A dependency whose own nomi.toml has an `[effects.self]` is held to it too; a call over it is " +
 		"`effect-not-declared`. This call has an effect the list the message names does not hold. " +
 		"A call counts when anything can reach it from `main`, the boot, an exported function or a test, even if " +
@@ -58,25 +60,25 @@ var explanations = map[string]string{
 		"function, any `Display` body when a value is displayed. The help's chain says why this one counts. Fix it one of three " +
 		"ways: add the name to the key the help names; remove the call; or change how the program reaches it, following the chain: a call in a `Display` " +
 		"body, an interface implementation or a function value nothing needs counts, so move it out of the code the program reaches. " +
-		"Args are the name, the list it is over (`self`, " +
-		"`self.modules`, `deps`, `deps.packages`, or `host`), the package whose files hold the call (for `self.modules` the entry's " +
+		"Args are the name, the list it is over, by its table (`effects.self`, " +
+		"`effects.self.modules`, `effects.dependencies`, `dependencies` for the entries, or `host`), the package whose files hold the call (for `effects.self.modules` the entry's " +
 		"key), and the names that list allows. A Go program that embeds Nomi can hold it to a list of its own " +
 		"(`vmhost.WithEffects`), which holds the whole program; a call over it says the " +
 		"host allows it, and the fix is the host's. `nomi effects` prints the effects the project's own code and each dependency " +
 		"have, `--why <name>` each call that has an effect, and `--write` writes the tightest tables the program passes.",
 	"effect-not-declared": "A package this project depends on has an `[effects.self]` table in its own nomi.toml: its " +
-		"`std` is the list of effects the package declares for its own files, an entry under its own `[effects.self.modules]` " +
+		"`effects` is the list of effects the package declares for its own files, an entry under its own `[effects.self.modules]` " +
 		"narrows that for one of its modules. The " +
-		"project's nomi.toml has an `[effects.deps]` table, so the package is held to what it declares, as well as to the " +
-		"project's `[effects.deps]` and its entry for the package under `[effects.deps.packages]`. This call, in the " +
-		"package's own files, has an effect the package's own `std`, or its entry for the file's module, does not hold: " +
+		"project's nomi.toml holds its dependencies, so the package is held to what it declares, as well as to the " +
+		"project's `[effects.dependencies]` and the `effects` of the `[dependencies]` entries it is reached through. This call, in the " +
+		"package's own files, has an effect the package's own `effects`, or its entry for the file's module, does not hold: " +
 		"the package declares fewer effects than its code has. The fix is in that package: add the name to " +
-		"`std` or to the entry under `[effects.self]` in its nomi.toml, or remove the call. Nothing in the " +
+		"`effects` or to the entry under `[effects.self]` in its nomi.toml, or remove the call. Nothing in the " +
 		"project's own tables can allow it. When the project's tables do not allow the call either, the help says which. " +
-		"Only the package's own `std` and its " +
-		"entries are read; its `std_in_tests`, `entries_required` and `[effects.deps]` are for its own " +
+		"Only the package's own `effects` and its " +
+		"entries are read; its `effects_in_tests`, `entries_required`, `[effects.dependencies]` and its own `[dependencies]` entries' effects keys are for its own " +
 		"builds. The call counts by the same rules as `effect-not-allowed`: anything that can reach it, even if it never runs. " +
-		"Args are the name, `self` (or `self.modules` over its entry), the package, and the names that list holds.",
+		"Args are the name, `effects.self` (or `effects.self.modules` over its entry), the package, and the names that list holds.",
 	"effects-not-determined": "The project's nomi.toml has an `[effects.self]` table, which holds the project's own code, " +
 		"its public functions among it, to the effects it lists. A public generic function runs at whatever types its callers " +
 		"give it, so `nomi check` reads its body with each type parameter held as its bounds: a call through a " +
@@ -86,7 +88,7 @@ var explanations = map[string]string{
 		"at those types; what it does at other types is not known, so the list cannot hold it. Fix it by giving the " +
 		"function a parameter of interface type in place of the type parameter, or by dropping its `pub` when no other " +
 		"package needs it. " +
-		"Args are the function's name and `self`.",
+		"Args are the function's name and `effects.self`.",
 	"nomi-version": "A package's nomi.toml says, as `[package]`'s `nomi = \"v0.0.2\"`, the lowest nomi release its source needs, and " +
 		"the running nomi is an older release. The package is the project itself or one it depends on, named by its repository, " +
 		"directory and version. Nomi makes no compatibility promise yet, so nothing else is checked: a newer package's files may " +

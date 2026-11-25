@@ -12,7 +12,7 @@ import
     int.{Int, Int64}
     option.Option
     results.Result
-    strings.String
+    strings.{NonEmptyString, String}
 end
 
 /// A new Ed25519 private key.
@@ -31,7 +31,7 @@ host fn private_from_der(der: Bytes) -> Result<Bytes, String>
 host fn private_from_pem(text: String) -> Result<Bytes, String>
 
 /// A private key in a PKCS #8 `PRIVATE KEY` PEM block.
-host fn private_to_pem(der: Bytes) -> String
+host fn private_to_pem(der: Bytes) -> NonEmptyString
 
 /// A private key's kind.
 host fn private_kind(der: Bytes) -> Int
@@ -46,7 +46,7 @@ host fn public_from_der(der: Bytes) -> Result<Bytes, String>
 host fn public_from_pem(text: String) -> Result<Bytes, String>
 
 /// A public key in a PKIX `PUBLIC KEY` PEM block.
-host fn public_to_pem(der: Bytes) -> String
+host fn public_to_pem(der: Bytes) -> NonEmptyString
 
 /// A public key's kind.
 host fn public_kind(der: Bytes) -> Int

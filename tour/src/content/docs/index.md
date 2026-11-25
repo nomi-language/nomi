@@ -24,20 +24,70 @@ hero:
     alt: Nomi Lang
     light: ../../assets/nomi-wordmark.svg
     dark: ../../assets/nomi-wordmark-dark.svg
-  # One way in here; "Pick your way in" below holds all three, one per
-  # reader. Install is for a reader already convinced.
+  # First Steps for a reader new to this kind of language, the Language
+  # Tour for one who wants the language itself, Coming from… for one who
+  # knows another well. "Pick your way in" below says who each is for.
   actions:
     - text: First Steps
       link: /learn/values/
-      variant: primary
-    - text: Install
-      link: /tooling/install/
-      variant: minimal
+      variant: secondary
+    - text: Language Tour
+      link: /introduction/
+      variant: secondary
+    - text: Coming from…
+      link: /coming-from/
+      variant: secondary
 ---
 
 <!-- The home page's sections are plain HTML around Markdown, styled in
 tour.css under "Home page". A blank line after each opening tag lets the
 Markdown inside it render, the live example included. -->
+
+<!-- The install box under the hero's buttons: a tab group as
+cmd/nomi-docgen/tabs.go writes one for docs/install.md's first step, with
+the same key, so a system chosen here is chosen there too. -->
+
+<div class="nomi-home-install">
+
+<div class="nomi-tabgroup" data-tabs="os">
+
+<div class="nomi-tabpanel" data-tab="macOS">
+
+<p class="nomi-tablabel">macOS</p>
+
+```console
+$ curl -fsSL https://nomi-lang.org/install.sh | sh
+```
+
+</div>
+
+<div class="nomi-tabpanel" data-tab="Linux">
+
+<p class="nomi-tablabel">Linux</p>
+
+```console
+$ curl -fsSL https://nomi-lang.org/install.sh | sh
+```
+
+</div>
+
+<div class="nomi-tabpanel" data-tab="Windows">
+
+<p class="nomi-tablabel">Windows</p>
+
+```console
+PS> irm https://nomi-lang.org/install.ps1 | iex
+```
+
+</div>
+
+</div>
+
+<p class="nomi-home-install-more"><a href="/tooling/install/">More ways to install</a></p>
+
+</div>
+
+<div class="nomi-home-waves" aria-hidden="true"><span></span><span></span><span></span></div>
 
 <div class="nomi-home-showcase">
 
@@ -242,7 +292,7 @@ main.nomi:8:5: help: add an arm for each missing variant, or a `_` arm
 
 ## A type can carry its rule
 
-A [refinement](/structs-enums-distinct/#refinements) is the values of another
+A [`subtype`](/structs-enums-distinct/#subtypes) is the values of another
 type that a rule allows. A literal is checked when the program compiles:
 change `8080` to `0` and it won't run. A value known only when the program
 runs, such as text a user typed, goes through `try_from`, which gives back
@@ -255,7 +305,7 @@ that cannot be zero, so `share` needs no check of its own.
 </div>
 
 ```nomi-run
-refine Port Int when fn p -> p >= 1 and p <= 65535
+subtype Port Int when fn p -> p >= 1 and p <= 65535
 
 fn serve(port: Port) -> String
     "listening on ${port}"
@@ -387,12 +437,12 @@ name = "pricing"
 entry_points = ["main"]
 
 [effects.self]
-std = ["std::io"]
+effects = ["std::io"]
 ```
 <!-- expect
 main.nomi:12:8: this package's own code has the effect std::fs, and [effects.self] allows it only std::io
 main.nomi:12:8: help: reached from `main`; `main` calls `saved_rate`
-main.nomi:12:8: help: add "std::fs" to std under [effects.self] in nomi.toml, or remove the call
+main.nomi:12:8: help: add "std::fs" to effects under [effects.self] in nomi.toml, or remove the call
 -->
 
 </div>
@@ -432,7 +482,7 @@ money.
 ## Pick your way in
 
 <div class="nomi-home-paths">
-<a class="nomi-home-path is-primary" href="/learn/values/">
+<a class="nomi-home-path" href="/learn/values/">
 <span class="nomi-home-path-for">New to programming, or to types</span>
 <span class="nomi-home-path-name">First Steps</span>
 <span class="nomi-home-path-what">Seventeen short lessons from the very start, each with a task you check in the page. Good too if types, values that never change or <code>Option</code> are new to you.</span>

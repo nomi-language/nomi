@@ -79,32 +79,27 @@ func (c *checker) checkComparisonOperands(n *ast.Binary) (left, right Type) {
 // against the other type fails and the operand checks cleanly on its own, at
 // a type that differs from the other only by `embeds` in either direction
 // (differsByEmbeds), the operand keeps its own type, as `[c] == [s]` does, and
-// the equality compares the two at the wider type. An operand that fails
-// against the other's type for a refinement in it, a collection literal
-// holding values computed when the program runs, is checked against that
-// type with its refinements erased, as a later arm is. Otherwise the
-// errors of the check against the other type stand.
+// the equality compares the two at the wider type. The other's type is
+// taken with its subtypes erased, the type the comparison compares at,
+// so a literal compared with a value of a subtype is its base's and never
+// breaks the subtype's rule. Otherwise the errors of the check against
+// the other type stand.
 func (c *checker) checkOperandAgainst(operand ast.Node, other Type) Type {
 	other = resolveTypeVar(other)
 	if _, unsolved := other.(*TypeVar); unsolved || other == nil {
 		return c.checkNode(operand)
 	}
+	// A comparison compares its operands as their bases (checkBinary), so a
+	// subtype the other operand gave is no rule for this one:
+	// `chunks == [[p, p], [q]]` with chunks a List<NonEmptyList<Point>>,
+	// and `xs == []` with xs a NonEmptyList, compare Lists.
+	other = eraseSubtypes(other, 0)
 	mark, undeterminedMark := len(c.errors), len(c.undetermined)
 	t := c.checkNodeExpecting(operand, other)
 	if len(c.errors) == mark {
 		return t
 	}
 	c.errors, c.undetermined = c.errors[:mark], c.undetermined[:undeterminedMark]
-	if erased := eraseRefinements(other, 0); !TypesIdentical(erased, other) {
-		// A refinement the other operand gave is no rule for this one, as
-		// for a later arm (earlierArmsExpected): `chunks == [[p, p], [q]]`
-		// with chunks a List<NonEmptyList<Point>> compares Lists, and the
-		// two join at the nearest ancestor they share.
-		if t := c.checkNodeExpecting(operand, erased); len(c.errors) == mark {
-			return t
-		}
-		c.errors, c.undetermined = c.errors[:mark], c.undetermined[:undeterminedMark]
-	}
 	own := c.checkNode(operand)
 	if len(c.errors) == mark && own != nil && !containsTypeVar(own) && !TypesIdentical(own, other) &&
 		(differsByEmbeds(own, other) || differsByEmbeds(other, own)) {

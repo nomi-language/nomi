@@ -63,7 +63,7 @@ fn run() -> Result<Unit, Error>
         "between = " + Duration.to_string(NaiveDateTime.between(start, start + Duration.hours(24)))
     )
 
-    // --- `Int.divide` by a refinement ----------------------------------------
+    // --- `Int.divide` by a subtype ----------------------------------------
     //
     // `impl Divide<Int, Int> for Int` is an unbound `host fn`, and a
     // `NonZeroInt` divisor is an Int, so it reaches the same function.

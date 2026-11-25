@@ -6,7 +6,7 @@ import
     display.Display
     equatable.Equatable
     hashable.Hashable
-    int.{Int, Int64}
+    int.{Int, Int64, NonNegativeInt}
     option.Option.{self, None, Some}
     steppable.Steppable
     strings.String
@@ -27,10 +27,14 @@ end
 pub opaque type Codepoint Int64 when fn n -> n >= 0 and n <= 0x10FFFF and (n < 0xD800 or n > 0xDFFF)
 
 impl Codepoint
-    /// Returns the numeric Unicode scalar value.
+    /// Returns the numeric Unicode scalar value, from `0` through
+    /// `0x10FFFF`, a NonNegativeInt.
     //! assert Codepoint.to_int('A') == 65
     //
-    pub fn to_int(Codepoint(n)) -> Int
+    pub fn to_int(Codepoint(n)) -> NonNegativeInt
+        // The rule holds `n` at 0 or more; the Int64 it is read as says only
+        // its 64 bits.
+        if n < 0 then unreachable "a Codepoint's rule holds it at 0 or more"
         n
     end
 
@@ -68,7 +72,7 @@ impl Codepoint
     //! assert Codepoint.to_digit(one) == None
     //! assert Codepoint.to_digit('x') == None
     //
-    pub fn to_digit(Codepoint(n)) -> Option<Int>
+    pub fn to_digit(Codepoint(n)) -> Option<NonNegativeInt>
         if n >= 48 and n <= 57 then Some(n - 48) else None
     end
 

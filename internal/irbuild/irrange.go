@@ -67,7 +67,7 @@ func (bl *irScalarBuilder) rangeCall(t *ast.Call, args irQualArgs, method string
 		}
 	case "start", "stop", "is_inclusive":
 		// A Range's parts, read off its record with no element method, so
-		// a refinement rule generic over a Comparable element reads them as
+		// a subtype rule generic over a Comparable element reads them as
 		// any body does (ClosedRange, BoundedRange).
 		if len(args.kinds) != 1 {
 			return no()

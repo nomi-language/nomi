@@ -1,0 +1,7 @@
+// `subtype` reads as a declaration keyword, as `type` does. The caret lines
+// below each line name the highlight of the token they point at. The
+// declaration is the file's last, since `nomi fmt` puts a blank line between
+// any other and the comments below it.
+pub subtype Port Int when fn p -> p >= 1
+//  ^^^^^^^ keyword
+//          ^^^^ type

@@ -330,29 +330,29 @@ func (n *SelfType) LineNum() int       { return n.Line }
 func (*SelfType) typeExpr()            {}
 func (n *SelfType) TypeString() string { return "self" }
 
-// RefinementBaseType is the type a refinement's values are built from, in
+// SubtypeBaseType is the type a subtype's values are built from, in
 // the `try_from` and `unchecked` the front end generates for it (spec §4
-// *Refinements*): the base at the end of a distinct refinement's chain
+// *Subtypes*): the base at the end of a distinct subtype's chain
 // of parents (`Float` for `PositiveFloat`), or the record of a struct
-// refinement's fields. No source writes one: the declaring file may not
+// subtype's fields. No source writes one: the declaring file may not
 // import the base's name.
-type RefinementBaseType struct {
+type SubtypeBaseType struct {
 	TriviaCarrier
 	SpanCarrier
-	// Refinement is the refinement's name in its declaring file.
-	Refinement string
-	// Params are a generic refinement's type arguments, the generated
+	// Subtype is the subtype's name in its declaring file.
+	Subtype string
+	// Params are a generic subtype's type arguments, the generated
 	// function's own type parameters: the base of `NonEmptyList<T>`.
-	// Empty for a refinement that is not generic.
+	// Empty for a subtype that is not generic.
 	Params []TypeExpr
 	Line   int
 	Col    int
 }
 
-func (*RefinementBaseType) NodeType() string     { return "RefinementBaseType" }
-func (n *RefinementBaseType) LineNum() int       { return n.Line }
-func (*RefinementBaseType) typeExpr()            {}
-func (n *RefinementBaseType) TypeString() string { return "base(" + n.Refinement + ")" }
+func (*SubtypeBaseType) NodeType() string     { return "SubtypeBaseType" }
+func (n *SubtypeBaseType) LineNum() int       { return n.Line }
+func (*SubtypeBaseType) typeExpr()            {}
+func (n *SubtypeBaseType) TypeString() string { return "base(" + n.Subtype + ")" }
 
 // AnonStructType is an anonymous struct type expression like
 // `{name: String, age: Int}`. It can appear in any type-expression slot
@@ -1515,9 +1515,9 @@ type StructDef struct {
 	// from TriviaCarrier.Trailing (which is for same-line trailing comments
 	// on the StructDef as a whole).
 	EndTrivia []Trivia
-	// Rule is the refinement rule, the body's last item after every
+	// Rule is the subtype rule, the body's last item after every
 	// field (`when fn s -> ...`): a function from the struct to Bool that
-	// every value of it satisfies (spec §4 *Refinements*), a lambda
+	// every value of it satisfies (spec §4 *Subtypes*), a lambda
 	// or a function's name. Nil for a struct with no rule.
 	// RuleLine/RuleCol are the `when` keyword's position. RuleLeading
 	// holds the comments and blank lines above the `when` line, and
@@ -1670,12 +1670,12 @@ func (n *EnumDef) LineNum() int   { return n.Line }
 // ---------------------------------------------------------------------------
 
 // TypeDef defines a distinct-type wrapper, a zero-sized marker or a
-// refinement:
+// subtype:
 //
 //	type Name InnerType            → distinct over InnerType (primitive/tuple/generic)
 //	type Name                      → zero-sized marker
 //	type Name InnerType when rule  → validated distinct type
-//	refine Name Parent when rule  → refinement of Parent
+//	subtype Name Parent when rule  → subtype of Parent
 //
 // Struct (`struct Name {...}`) and enum (`enum Name { A | B }`) shapes
 // have their own AST nodes (StructDef, EnumDef) and are not produced by
@@ -1694,12 +1694,12 @@ type TypeDef struct {
 	// which the inner type may name; empty for a non-generic distinct.
 	TypeParams    []TypeParam
 	InnerTypeExpr TypeExpr // structured inner type, nil for zero-sized
-	// Refinement is set for a `refine` declaration: its values are values of
-	// its parents, InnerTypeExpr and MoreParents (spec §4 *Refinements*).
-	Refinement bool
-	// MoreParents are a refinement's parents after the first, which is
-	// InnerTypeExpr: `refine PositiveInt NonNegativeInt and NonZeroInt
-	// when ...` holds NonZeroInt here. Empty for a refinement of one parent
+	// Subtype is set for a `subtype` declaration: its values are values of
+	// its parents, InnerTypeExpr and MoreParents (spec §4 *Subtypes*).
+	Subtype bool
+	// MoreParents are a subtype's parents after the first, which is
+	// InnerTypeExpr: `subtype PositiveInt NonNegativeInt and NonZeroInt
+	// when ...` holds NonZeroInt here. Empty for a subtype of one parent
 	// and for every `type`, whose `A and B` is its InnerTypeExpr.
 	MoreParents []TypeExpr
 	// WhereClauses bounds the type parameters, written after the inner
@@ -1708,7 +1708,7 @@ type TypeDef struct {
 	WhereClauses []WhereConstraint
 	// Rule is the rule after `when`: a function from the inner type to
 	// Bool that every value of the type satisfies, a lambda or a
-	// function's name (spec §4 *Refinements*, *Validated types*). Optional on
+	// function's name (spec §4 *Subtypes*, *Validated types*). Optional on
 	// both keywords. Nil when the declaration writes none.
 	// RuleLine/RuleCol are the `when` keyword's position.
 	Rule     Node
@@ -1885,28 +1885,28 @@ type BindingElse struct {
 func (*BindingElse) NodeType() string { return "BindingElse" }
 func (n *BindingElse) LineNum() int   { return n.Line }
 
-// UncheckedRefinement builds a value of a refinement from Value, a value of
+// UncheckedSubtype builds a value of a subtype from Value, a value of
 // its base, without evaluating its rule: the body of the `unchecked` the
-// front end generates for a refinement, and the last step of its
-// `try_from` (spec §4 *Refinements*). No source writes one.
-type UncheckedRefinement struct {
+// front end generates for a subtype, and the last step of its
+// `try_from` (spec §4 *Subtypes*). No source writes one.
+type UncheckedSubtype struct {
 	TriviaCarrier
 	SpanCarrier
-	// Refinement is the refinement's name in its declaring file.
-	Refinement string
-	Value      Node
-	Line       int
-	Col        int
+	// Subtype is the subtype's name in its declaring file.
+	Subtype string
+	Value   Node
+	Line    int
+	Col     int
 }
 
-func (*UncheckedRefinement) NodeType() string { return "UncheckedRefinement" }
-func (n *UncheckedRefinement) LineNum() int   { return n.Line }
+func (*UncheckedSubtype) NodeType() string { return "UncheckedSubtype" }
+func (n *UncheckedSubtype) LineNum() int   { return n.Line }
 
-// RefinementRule is the call of a refinement's rule, Rule, on Value that a
-// generated `try_from` makes (spec §4 *Refinements*): a Bool, and
+// SubtypeRule is the call of a subtype's rule, Rule, on Value that a
+// generated `try_from` makes (spec §4 *Subtypes*): a Bool, and
 // False when the rule traps, so `try_from` answers None for a value whose
 // rule traps. No source writes one.
-type RefinementRule struct {
+type SubtypeRule struct {
 	TriviaCarrier
 	SpanCarrier
 	Rule  Node
@@ -1915,30 +1915,30 @@ type RefinementRule struct {
 	Col   int
 }
 
-func (*RefinementRule) NodeType() string { return "RefinementRule" }
-func (n *RefinementRule) LineNum() int   { return n.Line }
+func (*SubtypeRule) NodeType() string { return "SubtypeRule" }
+func (n *SubtypeRule) LineNum() int   { return n.Line }
 
-// RefinementParentCheck is the test a generated `try_from` makes of its
-// argument against the refinement's parent, the type it refines. The front
+// SubtypeParentCheck is the test a generated `try_from` makes of its
+// argument against the subtype's parent, the type it narrows. The front
 // end writes both forms, since a parent declared in another file may or may
-// not be a refinement itself; the checker checks the one that applies and
-// records which (analysis.FileAnalysis.RefinementParents). Refined is
-// `Parent.try_from(value)`, for a parent that is a refinement; Plain is
+// not be a subtype itself; the checker checks the one that applies and
+// records which (analysis.FileAnalysis.SubtypeParents). Subtype is
+// `Parent.try_from(value)`, for a parent that is a subtype; Plain is
 // `Some(value)`, for a parent that is the base. Both are Option<Parent>.
-type RefinementParentCheck struct {
+type SubtypeParentCheck struct {
 	TriviaCarrier
 	SpanCarrier
-	// Parent is the type the refinement refines, as its declaration
+	// Parent is the type the subtype narrows, as its declaration
 	// writes it.
 	Parent  TypeExpr
-	Refined Node
+	Subtype Node
 	Plain   Node
 	Line    int
 	Col     int
 }
 
-func (*RefinementParentCheck) NodeType() string { return "RefinementParentCheck" }
-func (n *RefinementParentCheck) LineNum() int   { return n.Line }
+func (*SubtypeParentCheck) NodeType() string { return "SubtypeParentCheck" }
+func (n *SubtypeParentCheck) LineNum() int   { return n.Line }
 
 type ExprStmt struct {
 	TriviaCarrier

@@ -50,7 +50,7 @@ type Binding struct {
 	// Pure marks a function that computes its answer from its operands
 	// alone and acts on nothing outside the machine: no output, files,
 	// network, clock, the system's entropy, tasks or channels. A crossing
-	// into it may run where an effect may not (a refinement rule, a typed
+	// into it may run where an effect may not (a subtype rule, a typed
 	// literal's handler, a `check`, a debugger's evaluation; the vm package
 	// doc, "Effects"). Unset, the crossing is an effect. What a call costs
 	// does not decide it: a function whose cost grows with an operand's
@@ -68,7 +68,7 @@ type Binding struct {
 	// `wasm/host.compile` and `wasm/host.run` (what the module's code
 	// does). A call into Go is not interrupted, and an
 	// evaluation's steps bound only the size of what it builds, so an
-	// evaluation that must end (a refinement rule, a typed literal's
+	// evaluation that must end (a subtype rule, a typed literal's
 	// handler, a `check`, an editor's or a debugger's evaluation) refuses a
 	// call into one, as unbounded and not as an effect. Only a Pure row sets
 	// it (TestEveryUnboundedRowIsPure).
@@ -78,7 +78,7 @@ type Binding struct {
 	// different answer in another run: `strings.String.hash`,
 	// `bytes.Bytes.hash`, `decimal.Decimal.hash` and
 	// `dynamic.Dynamic.hash`. A call to one is no effect. An evaluation
-	// whose answer the compiler keeps for the program's runs (a refinement
+	// whose answer the compiler keeps for the program's runs (a subtype
 	// rule, a typed literal's handler, a `check`) refuses a call into one,
 	// since its answer could differ when the program runs. Only a Pure row
 	// sets it (TestEverySeededRowIsPure).

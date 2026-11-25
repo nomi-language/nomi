@@ -2,8 +2,8 @@ package main
 
 // `nomi effects` reports the effects a project's programs have, from
 // the roots `nomi check` holds to nomi.toml's [effects.self] and
-// [effects.deps] tables, and with --write writes the tightest tables
-// that pass. The facts are vmhost's (vmhost.Reached, Reach.Tightest, which
+// [effects.dependencies] tables and its [dependencies] entries' effects
+// keys, and with --write writes the tightest lists that pass. The facts are vmhost's (vmhost.Reached, Reach.Tightest, which
 // the same rule as the check derives), so the tables it writes are ones
 // the check passes; this file only prints them and edits nomi.toml.
 
@@ -41,8 +41,7 @@ type effectsArgs struct {
 }
 
 func parseEffectsArgs(args []string) (effectsArgs, error) {
-	parsed := effectsArgs{path: "."}
-	pathSet := false
+	var parsed effectsArgs
 	value := func(i *int, arg, flag string) (string, bool, error) {
 		if v, ok := strings.CutPrefix(arg, flag+"="); ok {
 			return v, true, nil
@@ -97,11 +96,12 @@ func parseEffectsArgs(args []string) (effectsArgs, error) {
 		if isFlag(arg) {
 			return parsed, unknownFlag("nomi effects", arg, effectsUsage)
 		}
-		if pathSet {
+		if parsed.path != "" {
 			return parsed, fmt.Errorf("nomi effects: unexpected argument %q\n%s", arg, effectsUsage)
 		}
-		parsed.path, pathSet = arg, true
+		parsed.path = arg
 	}
+	parsed.path = pathOrHere(parsed.path)
 	var modes []string
 	for flag, on := range map[string]bool{"--check": parsed.check, "--tree": parsed.tree, "--why": parsed.why != "", "--write": parsed.write} {
 		if on {
@@ -181,11 +181,13 @@ func effectsOf(w io.Writer, parsed effectsArgs) error {
 		return nil
 	}
 	tight := r.Tightest()
-	report := effectsReport{r: r, tight: tight, changes: analysis.EffectChanges(r.Lists, tight)}
-	if parsed.check {
-		report.changes = vmhost.HeldChanges(report.changes, r.Lists)
-	}
+	// The report and --check give the differences the lists are held to;
+	// --write writes the tightest tables whole, those the file leaves out
+	// among them.
+	all := analysis.EffectChanges(r.Lists, tight)
+	report := effectsReport{r: r, tight: tight, changes: vmhost.HeldChanges(all, r.Lists), leftOut: vmhost.LeftOutTables(all, r.Lists)}
 	if parsed.write {
+		report.changes = all
 		if report.written, err = writeTightest(r, tight, report.changes); err != nil {
 			return err
 		}
@@ -249,54 +251,62 @@ func reachOf(path string, report io.Writer) (*vmhost.Reach, error) {
 
 // effectsReport is one run's report.
 type effectsReport struct {
-	r       *vmhost.Reach
-	tight   *vmhost.Effects
+	r     *vmhost.Reach
+	tight *vmhost.Effects
+	// changes are how nomi.toml's tables differ from the tightest ones,
+	// those they are held to (vmhost.HeldChanges), and for --write every
+	// one.
 	changes []analysis.EffectChange
+	// leftOut are the tables nomi.toml does not have that the program
+	// would fill (vmhost.LeftOutTables).
+	leftOut []string
 	// written is the text of the tables --write wrote, "" when it wrote
 	// nothing, the tables being current.
 	written string
 }
 
 // writeText prints the effects the programs have: the tightest tables,
-// self's lists for the project's own files and deps' lists with the
-// effects each dependency's own files have, then how nomi.toml's tables
-// differ from them.
+// self's lists for the project's own files and dependencies' lists with the
+// effects the code each [dependencies] entry covers has, then how
+// nomi.toml's tables differ from them.
 func (rep effectsReport) writeText(w io.Writer) {
 	t := rep.tight
 	fmt.Fprintln(w, "self: "+rep.r.Project)
-	fmt.Fprintln(w, effects.Wrapped("  std            ", t.Self.Std))
-	fmt.Fprintln(w, effects.Wrapped("  std_in_tests   ", t.Self.StdInTests))
+	fmt.Fprintln(w, effects.Wrapped("  effects            ", t.Self.Effects))
+	fmt.Fprintln(w, effects.Wrapped("  effects_in_tests   ", t.Self.EffectsInTests))
 	fmt.Fprintln(w)
-	fmt.Fprintln(w, "deps")
-	fmt.Fprintln(w, effects.Wrapped("  std            ", t.Deps.Std))
-	fmt.Fprintln(w, effects.Wrapped("  std_in_tests   ", t.Deps.StdInTests))
-	modules := rep.r.PackageReaches()
-	if len(modules) == 0 {
-		fmt.Fprintln(w, "  packages       (none)")
+	fmt.Fprintln(w, "dependencies")
+	fmt.Fprintln(w, effects.Wrapped("  effects            ", t.Dependencies.Effects))
+	fmt.Fprintln(w, effects.Wrapped("  effects_in_tests   ", t.Dependencies.EffectsInTests))
+	entries := rep.r.PackageReaches()
+	if len(entries) == 0 {
+		fmt.Fprintln(w, "  entries            (none)")
 	} else {
-		fmt.Fprintln(w, "  packages")
+		fmt.Fprintln(w, "  entries")
 	}
-	for _, u := range modules {
-		fmt.Fprintln(w, "    "+u.Path)
+	for _, u := range entries {
+		fmt.Fprintln(w, "    "+u.Key)
 		vmhost.WritePackageReach(w, "      ", u)
 	}
 	fmt.Fprintln(w)
 	rep.writeTable(w, false)
 }
 
-// writeTable prints how nomi.toml's tables differ from the tightest ones:
-// one line for no tables or exact ones, else each name the table lacks
-// (missing) and each it holds that nothing here has (unused), and whether
-// nomi check passes it. The problems nomi check finds in the lists
-// themselves come after (writeListProblems), and then the check fails on
-// them whatever the calls. check is --check's report, which prints no
-// table above it.
+// writeTable prints how nomi.toml's tables differ from the tightest ones
+// they are held to: one line for no tables or exact ones, else each name
+// a list lacks (missing) and each it holds that nothing here has (unused),
+// and whether nomi check passes it. What the file leaves out is a choice,
+// not a difference, and the report, not --check, gives a line for each
+// table it leaves out whose code has effects (writeLeftOut). The problems
+// nomi check finds in the lists themselves come after
+// (writeListProblems), and then the check fails on them whatever the
+// calls. check is --check's report, which prints no table above it.
 func (rep effectsReport) writeTable(w io.Writer, check bool) {
 	switch {
 	case rep.r.Lists == nil && check:
-		fmt.Fprintln(w, "nomi.toml has no [effects.self] or [effects.deps] table, so there is nothing to hold; nomi effects --write writes them")
+		fmt.Fprintln(w, "nomi.toml has no [effects.self] or [effects.dependencies] table, so there is nothing to hold; nomi effects --write writes them")
 	case rep.r.Lists == nil:
-		fmt.Fprintln(w, "nomi.toml has no [effects.self] or [effects.deps] table; nomi effects --write writes these")
+		fmt.Fprintln(w, "nomi.toml has no [effects.self] or [effects.dependencies] table; nomi effects --write writes these")
 	case len(rep.changes) == 0 && check:
 		fmt.Fprintln(w, "nomi.toml's [effects] tables allow exactly the effects the program has")
 	case len(rep.changes) == 0:
@@ -316,8 +326,24 @@ func (rep effectsReport) writeTable(w io.Writer, check bool) {
 			fmt.Fprintln(w, "nomi check passes; an unused name allows an effect nothing here has")
 		}
 	}
+	if !check {
+		rep.writeLeftOut(w)
+	}
 	rep.writeListProblems(w)
 	rep.writeDeclaredLess(w)
+}
+
+// writeLeftOut prints a line for each table nomi.toml leaves out whose
+// code has effects, and so is not held: what --write would start holding.
+func (rep effectsReport) writeLeftOut(w io.Writer) {
+	for _, table := range rep.leftOut {
+		switch table {
+		case analysis.ListSelf:
+			fmt.Fprintln(w, "nomi.toml has no [effects.self] table, so the project's own code is not held; nomi effects --write writes one")
+		case analysis.ListDependencies:
+			fmt.Fprintln(w, "nomi.toml has no [effects.dependencies] table and no [dependencies] entry with an effects key, so the dependencies are not held; nomi effects --write writes them")
+		}
+	}
 }
 
 // writeListProblems prints each problem nomi check finds in the lists
@@ -364,7 +390,7 @@ func (rep effectsReport) writeChanges(w io.Writer, add, remove string) {
 		case name != "":
 		case slices.Contains(analysis.EntryLists, c.List):
 			name = "(an empty entry)"
-		case c.List == analysis.ListSelf || c.List == analysis.ListDeps:
+		case c.List == analysis.ListSelf || c.List == analysis.ListDependencies:
 			name = "(the table)"
 		default:
 			name = "(an empty list)"
@@ -405,9 +431,9 @@ func (rep effectsReport) writeWritten(w io.Writer) {
 
 // effectsJSON is `nomi effects --format json`.
 type effectsJSON struct {
-	Project string   `json:"project"`
-	Self    selfJSON `json:"self"`
-	Deps    depsJSON `json:"deps"`
+	Project      string   `json:"project"`
+	Self         selfJSON `json:"self"`
+	Dependencies depsJSON `json:"dependencies"`
 	// Table is how nomi.toml's tables differ, nil when it has neither.
 	Table *effectsTableJSON `json:"table"`
 	// Written reports that --write wrote nomi.toml.
@@ -419,21 +445,24 @@ type effectsJSON struct {
 
 // selfJSON is the tightest [effects.self].
 type selfJSON struct {
-	Std        []string `json:"std"`
-	StdInTests []string `json:"std_in_tests"`
+	Effects        []string `json:"effects"`
+	EffectsInTests []string `json:"effects_in_tests"`
 }
 
-// depsJSON is the tightest [effects.deps], with the effects each
-// dependency has, from which its entry under [effects.deps.packages] is
-// written.
+// depsJSON is the tightest [effects.dependencies], with the effects the
+// code each [dependencies] entry covers has, which --write writes as the
+// entry's effects keys.
 type depsJSON struct {
-	Std        []string              `json:"std"`
-	StdInTests []string              `json:"std_in_tests"`
-	Packages   []vmhost.PackageReach `json:"packages"`
+	Effects        []string              `json:"effects"`
+	EffectsInTests []string              `json:"effects_in_tests"`
+	Entries        []vmhost.PackageReach `json:"entries"`
 }
 
 type effectsTableJSON struct {
 	Changes []analysis.EffectChange `json:"changes"`
+	// LeftOut is each table nomi.toml does not have whose code has effects,
+	// "effects.self" or "effects.dependencies", which holds nothing.
+	LeftOut []string `json:"left_out"`
 	// Refused is how many calls `nomi check` refuses under the table.
 	Refused int `json:"refused"`
 	// Problems is each problem `nomi check` finds in the lists themselves,
@@ -455,13 +484,13 @@ func (rep effectsReport) writeJSON(w io.Writer) error {
 	}
 	t := rep.tight
 	out := effectsJSON{
-		Project: rep.r.Project,
-		Self:    selfJSON{Std: orEmpty(t.Self.Std), StdInTests: orEmpty(t.Self.StdInTests)},
-		Deps:    depsJSON{Std: orEmpty(t.Deps.Std), StdInTests: orEmpty(t.Deps.StdInTests), Packages: rep.r.PackageReaches()},
-		Written: rep.written != "", DeclaredLess: []declaredLessJSON{},
+		Project:      rep.r.Project,
+		Self:         selfJSON{Effects: orEmpty(t.Self.Effects), EffectsInTests: orEmpty(t.Self.EffectsInTests)},
+		Dependencies: depsJSON{Effects: orEmpty(t.Dependencies.Effects), EffectsInTests: orEmpty(t.Dependencies.EffectsInTests), Entries: rep.r.PackageReaches()},
+		Written:      rep.written != "", DeclaredLess: []declaredLessJSON{},
 	}
 	if rep.r.Lists != nil {
-		out.Table = &effectsTableJSON{Changes: rep.changes, Refused: len(rep.r.NotAllowed(rep.r.Lists)), Problems: []string{}}
+		out.Table = &effectsTableJSON{Changes: rep.changes, LeftOut: orEmpty(rep.leftOut), Refused: len(rep.r.NotAllowed(rep.r.Lists)), Problems: []string{}}
 		for _, d := range rep.r.ListProblems {
 			out.Table.Problems = append(out.Table.Problems, d.String())
 		}
@@ -507,8 +536,8 @@ func writeWhy(w io.Writer, r *vmhost.Reach, name string, asJSON bool) error {
 }
 
 // writeTightest writes tight into the project's nomi.toml as its
-// [effects.self], [effects.self.modules], [effects.deps]
-// and [effects.deps.packages] tables (analysis.WriteEffectTables),
+// [effects.self], [effects.self.modules] and [effects.dependencies] tables
+// and its [dependencies] entries' effects keys (analysis.WriteEffectTables),
 // unless nomi.toml's tables already allow exactly what tight does, and
 // answers the tables' text, or "" when it wrote nothing. Tight has
 // [effects.self.modules] only when nomi.toml has it or asks for it

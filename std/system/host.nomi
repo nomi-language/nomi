@@ -5,7 +5,7 @@
 //# std::system's `Error`.
 
 import
-    int.{Int, PositiveInt}
+    int.{NonNegativeInt, PositiveInt}
     lists.List
     option.Option
     results.Result
@@ -44,11 +44,11 @@ host fn user() -> Result<List<String>, List<String>>
 
 /// The bytes the heap's values occupy, and the bytes the runtime obtained
 /// from the operating system.
-host fn memory() -> (Int, Int)
+host fn memory() -> (NonNegativeInt, NonNegativeInt)
 
 /// The release the binary was built as, None for a build from source.
 host fn nomi_release() -> Option<String>
 
 /// The live tasks, the tasks ever started, the supervisors, the
 /// collector's finished cycles and the nanoseconds of its pauses.
-host fn runtime() -> (Int, Int, Int, Int, Int)
+host fn runtime() -> (NonNegativeInt, NonNegativeInt, NonNegativeInt, NonNegativeInt, NonNegativeInt)

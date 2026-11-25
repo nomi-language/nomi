@@ -33,9 +33,9 @@ type callItemData struct {
 	Name string `json:"name"`
 }
 
-func (s *Server) textDocumentPrepareCallHierarchy(_ *glsp.Context, params *protocol.CallHierarchyPrepareParams) ([]protocol.CallHierarchyItem, error) {
+func (s *Server) textDocumentPrepareCallHierarchy(gctx *glsp.Context, params *protocol.CallHierarchyPrepareParams) ([]protocol.CallHierarchyItem, error) {
 	uri := string(params.TextDocument.URI)
-	doc := s.docs.Snapshot(uri)
+	doc := s.requestDoc(gctx, uri)
 	if doc == nil || doc.Analysis == nil {
 		return nil, nil
 	}

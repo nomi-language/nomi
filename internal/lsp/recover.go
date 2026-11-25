@@ -37,7 +37,7 @@ import (
 
 // faultHook, when set, runs at the start of the work each boundary
 // protects, with the name that boundary logs. It exists so a test can plant
-// a panic; nothing else sets it.
+// a panic or hold the work back; nothing else sets it.
 var faultHook atomic.Pointer[func(where string)]
 
 // fault runs faultHook.

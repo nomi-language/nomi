@@ -710,48 +710,51 @@ func (c *Checker) buildErrors(fa *analysis.FileAnalysis) []analysis.TypeError {
 	return c.kept(fa.TypeErrors)
 }
 
-// AnalyzeStdlibModule analyzes a prepared stdlib module's source as the
-// module moduleKey ("std/<name>"), with the single-file stdlib-aware analysis
-// the LSP uses.
-func (c *Checker) AnalyzeStdlibModule(moduleKey string, nodes []ast.Node) (*analysis.FileAnalysis, error) {
+// AnalyzeStdlibModule analyzes a stdlib module's parsed source, its derives
+// lowered, as the module moduleKey ("std/<name>"), on its own
+// (analysis.CheckStandaloneFile). It answers the module's declarations
+// completed with the impl blocks the front end writes for them, which the
+// analysis is of.
+func (c *Checker) AnalyzeStdlibModule(moduleKey string, nodes []ast.Node) ([]ast.Node, *analysis.FileAnalysis, error) {
 	if c.lib == nil {
-		return nil, nil
+		return nil, nil, nil
 	}
 	if ds := stdDefectDiagnostics(c.lib); ds != nil {
-		return nil, ds
+		return nil, nil, ds
 	}
 	// A module's own source is checked against every other module: its
 	// impl index holds the stdlib's impls.
 	c.lib = c.lib.Complete()
-	fa := analysis.BuildFileWithStdlibAtPath(nodes, nil, c.lib.Modules, c.root, c.Loader(), moduleKey+".nomi")
+	module := strings.TrimPrefix(moduleKey, "std/")
 	// The impl index holds THIS analysis for the module, not the shared
 	// stdlib's analysis of the same file, so an impl the module declares is
 	// typed by the signature in the source being checked. With the shared
 	// copy in its place, an edited `impl Literal for Regex` whose
 	// `from_fragments` returned `Result<Regex, Int>` still typed Regex`(` as
 	// the embedded `Result<Regex, String>`.
-	module := strings.TrimPrefix(moduleKey, "std/")
-	analysis.AttachEditedStdlibImpls(fa, nodes, module, c.lib.Files)
-	var errs []analysis.TypeError
-	errs = append(errs, fa.TypeErrors...)
-	// The JSON derive gates a project build runs over its own files
-	// (Sweep B-bounds).
-	errs = append(errs, analysis.CheckDeriveBounds(fa, nodes, nil)...)
-	errs = append(errs, analysis.BuildTypes(fa, nodes)...)
-	// Again, now that BuildTypes has typed this file's impls: the index's
-	// function types and receiver identities are read off typed symbols.
-	analysis.AttachEditedStdlibImpls(fa, nodes, module, c.lib.Files)
-	errs = append(errs, analysis.CheckTypes(fa, nodes)...)
-	errs = append(errs, analysis.CheckAppRoots(fa, nodes)...)
-	errs = append(errs, analysis.AnalyzeIterSensitivity(fa, nodes)...)
-	errs = append(errs, analysis.CheckConcurrentScope(fa, nodes)...)
-	errs = append(errs, analysis.CheckBootScope(fa, nodes)...)
-	errs = append(errs, analysis.CheckOnceCycles(fa, nodes)...)
-	errs = append(errs, analysis.CheckTaskLifetime(fa, nodes)...)
-	if len(errs) > 0 {
-		return nil, typeDiagnostics(c.diagPath, c.entrySrc, errs)
+	attach := func(fa *analysis.FileAnalysis, completed []ast.Node) {
+		analysis.AttachEditedStdlibImpls(fa, completed, module, c.lib.Files)
 	}
-	return fa, nil
+	checked := analysis.CheckStandaloneFile(analysis.StandaloneFile{
+		Nodes:   nodes,
+		Path:    moduleKey + ".nomi",
+		Root:    c.root,
+		Modules: c.lib.Modules,
+		Loader:  func([]ast.Node) analysis.FileLoader { return c.Loader() },
+		Built: func(fa *analysis.FileAnalysis, completed []ast.Node) []analysis.TypeError {
+			attach(fa, completed)
+			// The JSON derive gates a project build runs over its own
+			// files (Sweep B-bounds).
+			return analysis.CheckDeriveBounds(fa, completed, nil)
+		},
+		// Again, now that the file's impls are typed: the index's function
+		// types and receiver identities are read off typed symbols.
+		Typed: attach,
+	})
+	if errs := append(checked.BuildErrors, checked.CheckErrors...); len(errs) > 0 {
+		return nil, nil, typeDiagnostics(c.diagPath, c.entrySrc, errs)
+	}
+	return checked.Nodes, checked.FA, nil
 }
 
 // Project is a checked entry file plus every other file its import graph
@@ -918,11 +921,7 @@ func (c *Checker) CheckStdlibSource(moduleKey, src string, mode Mode) ([]ast.Nod
 	if err != nil {
 		return nil, nil, err
 	}
-	fa, err := c.AnalyzeStdlibModule(moduleKey, nodes)
-	if err != nil {
-		return nil, nil, err
-	}
-	return nodes, fa, nil
+	return c.AnalyzeStdlibModule(moduleKey, nodes)
 }
 
 // CheckStdlibTest checks the `test` declaration that src, the source of
@@ -1034,7 +1033,7 @@ func (c *Checker) prepareStdlib(src string, mode Mode) ([]ast.Node, error) {
 	if !mode.Tests {
 		StripAttachedTests(nodes)
 	}
-	return analysis.SynthesizeUniversalDebug(nodes), nil
+	return nodes, nil
 }
 
 // StdlibFile reports whether path is a .nomi file of this binary's standard

@@ -186,11 +186,11 @@ test result: ok. 1 passed, 0 failed
   `derive Interface for Type` declarations.
 - `type UserId Int` is a distinct type: `UserId(5)` builds one, and the pattern
   `UserId(n)` opens it.
-- `refine Port Int when fn p -> p >= 1` is an Int. A literal Port is
+- `subtype Port Int when fn p -> p >= 1` is an Int. A literal Port is
   checked when compiling; another Int needs `Port.try_from(n)`, an Option.
   `type Email String when ...` converts to nothing, built alike.
   `PositiveInt` is `NonNegativeInt and NonZeroInt`. `Int.clamp(n, 0..=10)`
-  takes a range refinement.
+  takes a range subtype.
 - With `n` a `NonNegativeInt`, `n + 1` is a `PositiveInt`, `n - 1` an
   Int. After `if d == 0 then return`, `d` is a `NonZeroInt`, as `/`
   needs. Each `d` in `1..=n` is 1 or more, so `n % d` compiles.
@@ -202,7 +202,7 @@ test result: ok. 1 passed, 0 failed
   A function's parameter converts the other way, and a parameter a type
   both holds and takes compares exactly. Where nothing says which way values
   flow (`a + b`, two branches, two list elements), their types must be one,
-  or a refinement and its ancestor, which join as it.
+  or a subtype and its ancestor, which join as it.
 - There are no method calls. `x.name` only reads a field. A function is called
   through its owner:
   - a type: `String.trim(s)`, `Map.get(m, k)`, `Shape.area(shape)`;

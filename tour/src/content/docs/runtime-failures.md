@@ -118,7 +118,7 @@ These fail to compile, or answer with a value instead of stopping:
   `Vector.slice`, `String.slice` and `Bytes.slice` always answer.
 - `Int` arithmetic does not overflow. An `Int` holds a whole number of any
   size.
-- A value of a [refinement](/structs-enums-distinct/#refinements) satisfies
+- A value of a [subtype](/structs-enums-distinct/#subtypes) satisfies
   its rule. The compiler checks a literal, and a value known only at run
   time goes through a check such as `try_from`, which returns an `Option`.
 - A field read off an enum needs that field in every variant

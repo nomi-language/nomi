@@ -126,8 +126,8 @@ func WithHosts(tables ...HostTable) Option {
 // Run, Test and Call hold the program again from their own roots, as they
 // hold it to nomi.toml's lists. The project's own [effects] tables
 // still apply, so the program must satisfy both: neither list widens the
-// other, and an entry under [effects.self.modules] or
-// [effects.deps.packages] still holds that module's calls.
+// other, and an entry under [effects.self.modules] or a [dependencies]
+// entry's effects still holds the calls of the code it covers.
 //
 // It does not confine what it cannot see:
 //

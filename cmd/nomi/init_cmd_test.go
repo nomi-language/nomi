@@ -49,6 +49,17 @@ func TestPackages_InitMakesTheDirectoryAProject(t *testing.T) {
 		t.Errorf("nomi check after nomi init printed %q", out)
 	}
 
+	// One entry point is what `nomi run` runs, so the next command names
+	// no file.
+	app := t.TempDir()
+	mustWrite(t, filepath.Join(app, "app.nomi"), "import std::io\n\nfn main()\n    io.print(\"app\")\nend\n")
+	if out := c.must(app, "init", "app"); out != "wrote nomi.toml\nnext: nomi run" {
+		t.Errorf("nomi init beside one entry printed\n%s", out)
+	}
+	if out := c.must(app, "run"); out != "app" {
+		t.Errorf("nomi run after nomi init printed %q", out)
+	}
+
 	// A go.mod already there names nothing nomi reads, and stays as it is.
 	half := t.TempDir()
 	const goMod = "module example.com/half\n\ngo 1.26\n"

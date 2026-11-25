@@ -39,7 +39,7 @@ import
     option.Option.{self, None, Some}
     remainder.Remainder
     results.Result.{self, Err, Ok}
-    strings.String
+    strings.{NonEmptyString, String}
     subtract.Subtract
     summable.Summable
     unit.Unit
@@ -212,7 +212,7 @@ impl Duration
     //! assert Duration.clock(Duration.milliseconds(1_999)) == "00:00:01"
     //! assert Duration.clock(Duration.milliseconds(1_250), fraction_digits: 3) == "00:00:01.250"
     //
-    pub fn clock(d: Duration, fraction_digits: NonNegativeInt = 0) -> String
+    pub fn clock(d: Duration, fraction_digits: NonNegativeInt = 0) -> NonEmptyString
         Duration(ns) = d
         whole = Int.abs(ns / 1_000_000_000)
         digits = Int.min(fraction_digits, 9)
@@ -343,7 +343,7 @@ derive Comparable for Duration
 //! assert step == Duration.seconds(-1)
 //! assert NonZeroDuration.try_from(Duration.seconds(0)) == None
 //
-pub refine NonZeroDuration Duration when fn d -> Duration.as_nanos(d) != 0
+pub subtype NonZeroDuration Duration when fn d -> Duration.as_nanos(d) != 0
 
 /// A Duration of zero or more: how long something took, or how long to
 /// wait. `Duration.abs` returns one. A typed literal is checked when the
@@ -353,10 +353,10 @@ pub refine NonZeroDuration Duration when fn d -> Duration.as_nanos(d) != 0
 //! assert wait == Duration.seconds(0)
 //! assert NonNegativeDuration.try_from(Duration.seconds(-1)) == None
 //
-pub refine NonNegativeDuration Duration when fn d -> Duration.as_nanos(d) >= 0
+pub subtype NonNegativeDuration Duration when fn d -> Duration.as_nanos(d) >= 0
 
 /// A Duration longer than zero: a schedule's interval, which
-/// `jobs.Schedule.every` takes. It refines both `NonNegativeDuration` and
+/// `jobs.Schedule.every` takes. It is a subtype of both `NonNegativeDuration` and
 /// `NonZeroDuration`, so a PositiveDuration passes wherever either, or a
 /// Duration, is expected. A typed literal is checked when the program is
 /// compiled; `PositiveDuration.try_from(d)` checks a Duration computed at
@@ -368,7 +368,7 @@ pub refine NonNegativeDuration Duration when fn d -> Duration.as_nanos(d) >= 0
 //! assert PositiveDuration.try_from(Duration.seconds(0)) == None
 //! assert PositiveDuration.try_from(Duration.seconds(-1)) == None
 //
-pub refine PositiveDuration NonNegativeDuration and NonZeroDuration when fn d ->
+pub subtype PositiveDuration NonNegativeDuration and NonZeroDuration when fn d ->
     Duration.as_nanos(d) > 0
 end
 

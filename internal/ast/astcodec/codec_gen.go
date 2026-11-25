@@ -497,130 +497,130 @@ func (e *Encoder) value(v any) {
 		} else if e.ptr(v) {
 			e.structRangeLit(v)
 		}
-	case *ast.RefinementBaseType:
-		e.uint(70)
-		if v == nil {
-			e.uint(0)
-		} else if e.ptr(v) {
-			e.structRefinementBaseType(v)
-		}
-	case *ast.RefinementParentCheck:
-		e.uint(71)
-		if v == nil {
-			e.uint(0)
-		} else if e.ptr(v) {
-			e.structRefinementParentCheck(v)
-		}
-	case *ast.RefinementRule:
-		e.uint(72)
-		if v == nil {
-			e.uint(0)
-		} else if e.ptr(v) {
-			e.structRefinementRule(v)
-		}
 	case *ast.Return:
-		e.uint(73)
+		e.uint(70)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structReturn(v)
 		}
 	case *ast.SelfExpr:
-		e.uint(74)
+		e.uint(71)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structSelfExpr(v)
 		}
 	case *ast.SelfType:
-		e.uint(75)
+		e.uint(72)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structSelfType(v)
 		}
 	case *ast.SimpleType:
-		e.uint(76)
+		e.uint(73)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structSimpleType(v)
 		}
 	case *ast.SpanCarrier:
-		e.uint(77)
+		e.uint(74)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structSpanCarrier(v)
 		}
 	case ast.StringExpr:
-		e.uint(78)
+		e.uint(75)
 		e.structStringExpr(&v)
 	case *ast.StringExpr:
-		e.uint(79)
+		e.uint(76)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structStringExpr(v)
 		}
 	case *ast.StringInterp:
-		e.uint(80)
+		e.uint(77)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structStringInterp(v)
 		}
 	case *ast.StringLit:
-		e.uint(81)
+		e.uint(78)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structStringLit(v)
 		}
 	case ast.StringText:
-		e.uint(82)
+		e.uint(79)
 		e.structStringText(&v)
 	case *ast.StringText:
-		e.uint(83)
+		e.uint(80)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structStringText(v)
 		}
 	case *ast.StructDef:
-		e.uint(84)
+		e.uint(81)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structStructDef(v)
 		}
 	case *ast.StructField:
-		e.uint(85)
+		e.uint(82)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structStructField(v)
 		}
 	case *ast.StructLit:
-		e.uint(86)
+		e.uint(83)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structStructLit(v)
 		}
 	case *ast.StructPattern:
-		e.uint(87)
+		e.uint(84)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structStructPattern(v)
 		}
 	case *ast.Subtests:
-		e.uint(88)
+		e.uint(85)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structSubtests(v)
+		}
+	case *ast.SubtypeBaseType:
+		e.uint(86)
+		if v == nil {
+			e.uint(0)
+		} else if e.ptr(v) {
+			e.structSubtypeBaseType(v)
+		}
+	case *ast.SubtypeParentCheck:
+		e.uint(87)
+		if v == nil {
+			e.uint(0)
+		} else if e.ptr(v) {
+			e.structSubtypeParentCheck(v)
+		}
+	case *ast.SubtypeRule:
+		e.uint(88)
+		if v == nil {
+			e.uint(0)
+		} else if e.ptr(v) {
+			e.structSubtypeRule(v)
 		}
 	case *ast.TaggedString:
 		e.uint(89)
@@ -713,12 +713,12 @@ func (e *Encoder) value(v any) {
 		} else if e.ptr(v) {
 			e.structUnary(v)
 		}
-	case *ast.UncheckedRefinement:
+	case *ast.UncheckedSubtype:
 		e.uint(102)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
-			e.structUncheckedRefinement(v)
+			e.structUncheckedSubtype(v)
 		}
 	case *ast.Unreachable:
 		e.uint(103)
@@ -1588,42 +1588,6 @@ func (d *Decoder) value() any {
 	case 70:
 		p, fresh := d.ptr()
 		if p != nil {
-			return p.(*ast.RefinementBaseType)
-		}
-		if !fresh {
-			return (*ast.RefinementBaseType)(nil)
-		}
-		x := new(ast.RefinementBaseType)
-		d.refs = append(d.refs, x)
-		d.structRefinementBaseType(x)
-		return x
-	case 71:
-		p, fresh := d.ptr()
-		if p != nil {
-			return p.(*ast.RefinementParentCheck)
-		}
-		if !fresh {
-			return (*ast.RefinementParentCheck)(nil)
-		}
-		x := new(ast.RefinementParentCheck)
-		d.refs = append(d.refs, x)
-		d.structRefinementParentCheck(x)
-		return x
-	case 72:
-		p, fresh := d.ptr()
-		if p != nil {
-			return p.(*ast.RefinementRule)
-		}
-		if !fresh {
-			return (*ast.RefinementRule)(nil)
-		}
-		x := new(ast.RefinementRule)
-		d.refs = append(d.refs, x)
-		d.structRefinementRule(x)
-		return x
-	case 73:
-		p, fresh := d.ptr()
-		if p != nil {
 			return p.(*ast.Return)
 		}
 		if !fresh {
@@ -1633,7 +1597,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structReturn(x)
 		return x
-	case 74:
+	case 71:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.SelfExpr)
@@ -1645,7 +1609,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structSelfExpr(x)
 		return x
-	case 75:
+	case 72:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.SelfType)
@@ -1657,7 +1621,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structSelfType(x)
 		return x
-	case 76:
+	case 73:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.SimpleType)
@@ -1669,7 +1633,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structSimpleType(x)
 		return x
-	case 77:
+	case 74:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.SpanCarrier)
@@ -1681,11 +1645,11 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structSpanCarrier(x)
 		return x
-	case 78:
+	case 75:
 		var x ast.StringExpr
 		d.structStringExpr(&x)
 		return x
-	case 79:
+	case 76:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.StringExpr)
@@ -1697,7 +1661,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structStringExpr(x)
 		return x
-	case 80:
+	case 77:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.StringInterp)
@@ -1709,7 +1673,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structStringInterp(x)
 		return x
-	case 81:
+	case 78:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.StringLit)
@@ -1721,11 +1685,11 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structStringLit(x)
 		return x
-	case 82:
+	case 79:
 		var x ast.StringText
 		d.structStringText(&x)
 		return x
-	case 83:
+	case 80:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.StringText)
@@ -1737,7 +1701,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structStringText(x)
 		return x
-	case 84:
+	case 81:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.StructDef)
@@ -1749,7 +1713,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structStructDef(x)
 		return x
-	case 85:
+	case 82:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.StructField)
@@ -1761,7 +1725,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structStructField(x)
 		return x
-	case 86:
+	case 83:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.StructLit)
@@ -1773,7 +1737,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structStructLit(x)
 		return x
-	case 87:
+	case 84:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.StructPattern)
@@ -1785,7 +1749,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structStructPattern(x)
 		return x
-	case 88:
+	case 85:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.Subtests)
@@ -1796,6 +1760,42 @@ func (d *Decoder) value() any {
 		x := new(ast.Subtests)
 		d.refs = append(d.refs, x)
 		d.structSubtests(x)
+		return x
+	case 86:
+		p, fresh := d.ptr()
+		if p != nil {
+			return p.(*ast.SubtypeBaseType)
+		}
+		if !fresh {
+			return (*ast.SubtypeBaseType)(nil)
+		}
+		x := new(ast.SubtypeBaseType)
+		d.refs = append(d.refs, x)
+		d.structSubtypeBaseType(x)
+		return x
+	case 87:
+		p, fresh := d.ptr()
+		if p != nil {
+			return p.(*ast.SubtypeParentCheck)
+		}
+		if !fresh {
+			return (*ast.SubtypeParentCheck)(nil)
+		}
+		x := new(ast.SubtypeParentCheck)
+		d.refs = append(d.refs, x)
+		d.structSubtypeParentCheck(x)
+		return x
+	case 88:
+		p, fresh := d.ptr()
+		if p != nil {
+			return p.(*ast.SubtypeRule)
+		}
+		if !fresh {
+			return (*ast.SubtypeRule)(nil)
+		}
+		x := new(ast.SubtypeRule)
+		d.refs = append(d.refs, x)
+		d.structSubtypeRule(x)
 		return x
 	case 89:
 		p, fresh := d.ptr()
@@ -1956,14 +1956,14 @@ func (d *Decoder) value() any {
 	case 102:
 		p, fresh := d.ptr()
 		if p != nil {
-			return p.(*ast.UncheckedRefinement)
+			return p.(*ast.UncheckedSubtype)
 		}
 		if !fresh {
-			return (*ast.UncheckedRefinement)(nil)
+			return (*ast.UncheckedSubtype)(nil)
 		}
-		x := new(ast.UncheckedRefinement)
+		x := new(ast.UncheckedSubtype)
 		d.refs = append(d.refs, x)
-		d.structUncheckedRefinement(x)
+		d.structUncheckedSubtype(x)
 		return x
 	case 103:
 		p, fresh := d.ptr()
@@ -5938,115 +5938,6 @@ func (e *Encoder) StructRangeLit(x *ast.RangeLit) { e.structRangeLit(x) }
 // StructRangeLit reads into *x what Encoder.StructRangeLit wrote.
 func (d *Decoder) StructRangeLit(x *ast.RangeLit) { d.structRangeLit(x) }
 
-func (e *Encoder) structRefinementBaseType(x *ast.RefinementBaseType) {
-	e.structTriviaCarrier(&x.TriviaCarrier)
-	e.structSpanCarrier(&x.SpanCarrier)
-	e.string(string(x.Refinement))
-	e.len(x.Params == nil, len(x.Params))
-	if len(x.Params) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Params)), len(x.Params), "[]ast.TypeExpr") {
-		for i1 := range x.Params {
-			e.value(x.Params[i1])
-		}
-	}
-	e.int(int64(x.Line))
-	e.int(int64(x.Col))
-}
-
-func (d *Decoder) structRefinementBaseType(x *ast.RefinementBaseType) {
-	d.structTriviaCarrier(&x.TriviaCarrier)
-	d.structSpanCarrier(&x.SpanCarrier)
-	x.Refinement = string(d.string())
-	if n2 := d.sharedLen(); n2 == 0 {
-		x.Params = []ast.TypeExpr{}
-	} else if n2 > 0 {
-		if r4, fresh5 := d.ptr(); !fresh5 {
-			x.Params = d.sharedSliceSast_TypeExpr(r4, n2)
-		} else {
-			d.fits(n2)
-			x6 := make([]ast.TypeExpr, n2)
-			d.refs = append(d.refs, x6)
-			for i3 := range x6 {
-				if v7 := d.value(); v7 != nil {
-					x6[i3] = v7.(ast.TypeExpr)
-				}
-			}
-			x.Params = x6
-		}
-	}
-	x.Line = int(d.int())
-	x.Col = int(d.int())
-}
-
-// StructRefinementBaseType writes *x in place.
-func (e *Encoder) StructRefinementBaseType(x *ast.RefinementBaseType) { e.structRefinementBaseType(x) }
-
-// StructRefinementBaseType reads into *x what Encoder.StructRefinementBaseType wrote.
-func (d *Decoder) StructRefinementBaseType(x *ast.RefinementBaseType) { d.structRefinementBaseType(x) }
-
-func (e *Encoder) structRefinementParentCheck(x *ast.RefinementParentCheck) {
-	e.structTriviaCarrier(&x.TriviaCarrier)
-	e.structSpanCarrier(&x.SpanCarrier)
-	e.value(x.Parent)
-	e.value(x.Refined)
-	e.value(x.Plain)
-	e.int(int64(x.Line))
-	e.int(int64(x.Col))
-}
-
-func (d *Decoder) structRefinementParentCheck(x *ast.RefinementParentCheck) {
-	d.structTriviaCarrier(&x.TriviaCarrier)
-	d.structSpanCarrier(&x.SpanCarrier)
-	if v1 := d.value(); v1 != nil {
-		x.Parent = v1.(ast.TypeExpr)
-	}
-	if v2 := d.value(); v2 != nil {
-		x.Refined = v2.(ast.Node)
-	}
-	if v3 := d.value(); v3 != nil {
-		x.Plain = v3.(ast.Node)
-	}
-	x.Line = int(d.int())
-	x.Col = int(d.int())
-}
-
-// StructRefinementParentCheck writes *x in place.
-func (e *Encoder) StructRefinementParentCheck(x *ast.RefinementParentCheck) {
-	e.structRefinementParentCheck(x)
-}
-
-// StructRefinementParentCheck reads into *x what Encoder.StructRefinementParentCheck wrote.
-func (d *Decoder) StructRefinementParentCheck(x *ast.RefinementParentCheck) {
-	d.structRefinementParentCheck(x)
-}
-
-func (e *Encoder) structRefinementRule(x *ast.RefinementRule) {
-	e.structTriviaCarrier(&x.TriviaCarrier)
-	e.structSpanCarrier(&x.SpanCarrier)
-	e.value(x.Rule)
-	e.value(x.Value)
-	e.int(int64(x.Line))
-	e.int(int64(x.Col))
-}
-
-func (d *Decoder) structRefinementRule(x *ast.RefinementRule) {
-	d.structTriviaCarrier(&x.TriviaCarrier)
-	d.structSpanCarrier(&x.SpanCarrier)
-	if v1 := d.value(); v1 != nil {
-		x.Rule = v1.(ast.Node)
-	}
-	if v2 := d.value(); v2 != nil {
-		x.Value = v2.(ast.Node)
-	}
-	x.Line = int(d.int())
-	x.Col = int(d.int())
-}
-
-// StructRefinementRule writes *x in place.
-func (e *Encoder) StructRefinementRule(x *ast.RefinementRule) { e.structRefinementRule(x) }
-
-// StructRefinementRule reads into *x what Encoder.StructRefinementRule wrote.
-func (d *Decoder) StructRefinementRule(x *ast.RefinementRule) { d.structRefinementRule(x) }
-
 func (e *Encoder) structReturn(x *ast.Return) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
@@ -6794,6 +6685,111 @@ func (e *Encoder) StructSubtests(x *ast.Subtests) { e.structSubtests(x) }
 // StructSubtests reads into *x what Encoder.StructSubtests wrote.
 func (d *Decoder) StructSubtests(x *ast.Subtests) { d.structSubtests(x) }
 
+func (e *Encoder) structSubtypeBaseType(x *ast.SubtypeBaseType) {
+	e.structTriviaCarrier(&x.TriviaCarrier)
+	e.structSpanCarrier(&x.SpanCarrier)
+	e.string(string(x.Subtype))
+	e.len(x.Params == nil, len(x.Params))
+	if len(x.Params) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Params)), len(x.Params), "[]ast.TypeExpr") {
+		for i1 := range x.Params {
+			e.value(x.Params[i1])
+		}
+	}
+	e.int(int64(x.Line))
+	e.int(int64(x.Col))
+}
+
+func (d *Decoder) structSubtypeBaseType(x *ast.SubtypeBaseType) {
+	d.structTriviaCarrier(&x.TriviaCarrier)
+	d.structSpanCarrier(&x.SpanCarrier)
+	x.Subtype = string(d.string())
+	if n2 := d.sharedLen(); n2 == 0 {
+		x.Params = []ast.TypeExpr{}
+	} else if n2 > 0 {
+		if r4, fresh5 := d.ptr(); !fresh5 {
+			x.Params = d.sharedSliceSast_TypeExpr(r4, n2)
+		} else {
+			d.fits(n2)
+			x6 := make([]ast.TypeExpr, n2)
+			d.refs = append(d.refs, x6)
+			for i3 := range x6 {
+				if v7 := d.value(); v7 != nil {
+					x6[i3] = v7.(ast.TypeExpr)
+				}
+			}
+			x.Params = x6
+		}
+	}
+	x.Line = int(d.int())
+	x.Col = int(d.int())
+}
+
+// StructSubtypeBaseType writes *x in place.
+func (e *Encoder) StructSubtypeBaseType(x *ast.SubtypeBaseType) { e.structSubtypeBaseType(x) }
+
+// StructSubtypeBaseType reads into *x what Encoder.StructSubtypeBaseType wrote.
+func (d *Decoder) StructSubtypeBaseType(x *ast.SubtypeBaseType) { d.structSubtypeBaseType(x) }
+
+func (e *Encoder) structSubtypeParentCheck(x *ast.SubtypeParentCheck) {
+	e.structTriviaCarrier(&x.TriviaCarrier)
+	e.structSpanCarrier(&x.SpanCarrier)
+	e.value(x.Parent)
+	e.value(x.Subtype)
+	e.value(x.Plain)
+	e.int(int64(x.Line))
+	e.int(int64(x.Col))
+}
+
+func (d *Decoder) structSubtypeParentCheck(x *ast.SubtypeParentCheck) {
+	d.structTriviaCarrier(&x.TriviaCarrier)
+	d.structSpanCarrier(&x.SpanCarrier)
+	if v1 := d.value(); v1 != nil {
+		x.Parent = v1.(ast.TypeExpr)
+	}
+	if v2 := d.value(); v2 != nil {
+		x.Subtype = v2.(ast.Node)
+	}
+	if v3 := d.value(); v3 != nil {
+		x.Plain = v3.(ast.Node)
+	}
+	x.Line = int(d.int())
+	x.Col = int(d.int())
+}
+
+// StructSubtypeParentCheck writes *x in place.
+func (e *Encoder) StructSubtypeParentCheck(x *ast.SubtypeParentCheck) { e.structSubtypeParentCheck(x) }
+
+// StructSubtypeParentCheck reads into *x what Encoder.StructSubtypeParentCheck wrote.
+func (d *Decoder) StructSubtypeParentCheck(x *ast.SubtypeParentCheck) { d.structSubtypeParentCheck(x) }
+
+func (e *Encoder) structSubtypeRule(x *ast.SubtypeRule) {
+	e.structTriviaCarrier(&x.TriviaCarrier)
+	e.structSpanCarrier(&x.SpanCarrier)
+	e.value(x.Rule)
+	e.value(x.Value)
+	e.int(int64(x.Line))
+	e.int(int64(x.Col))
+}
+
+func (d *Decoder) structSubtypeRule(x *ast.SubtypeRule) {
+	d.structTriviaCarrier(&x.TriviaCarrier)
+	d.structSpanCarrier(&x.SpanCarrier)
+	if v1 := d.value(); v1 != nil {
+		x.Rule = v1.(ast.Node)
+	}
+	if v2 := d.value(); v2 != nil {
+		x.Value = v2.(ast.Node)
+	}
+	x.Line = int(d.int())
+	x.Col = int(d.int())
+}
+
+// StructSubtypeRule writes *x in place.
+func (e *Encoder) StructSubtypeRule(x *ast.SubtypeRule) { e.structSubtypeRule(x) }
+
+// StructSubtypeRule reads into *x what Encoder.StructSubtypeRule wrote.
+func (d *Decoder) StructSubtypeRule(x *ast.SubtypeRule) { d.structSubtypeRule(x) }
+
 func (e *Encoder) structTaggedString(x *ast.TaggedString) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
@@ -7464,7 +7460,7 @@ func (e *Encoder) structTypeDef(x *ast.TypeDef) {
 		}
 	}
 	e.value(x.InnerTypeExpr)
-	e.bool(x.Refinement)
+	e.bool(x.Subtype)
 	e.len(x.MoreParents == nil, len(x.MoreParents))
 	if len(x.MoreParents) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.MoreParents)), len(x.MoreParents), "[]ast.TypeExpr") {
 		for i20 := range x.MoreParents {
@@ -7541,7 +7537,7 @@ func (d *Decoder) structTypeDef(x *ast.TypeDef) {
 	if v19 := d.value(); v19 != nil {
 		x.InnerTypeExpr = v19.(ast.TypeExpr)
 	}
-	x.Refinement = bool(d.bool())
+	x.Subtype = bool(d.bool())
 	if n21 := d.sharedLen(); n21 == 0 {
 		x.MoreParents = []ast.TypeExpr{}
 	} else if n21 > 0 {
@@ -7638,19 +7634,19 @@ func (e *Encoder) StructUnary(x *ast.Unary) { e.structUnary(x) }
 // StructUnary reads into *x what Encoder.StructUnary wrote.
 func (d *Decoder) StructUnary(x *ast.Unary) { d.structUnary(x) }
 
-func (e *Encoder) structUncheckedRefinement(x *ast.UncheckedRefinement) {
+func (e *Encoder) structUncheckedSubtype(x *ast.UncheckedSubtype) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
-	e.string(string(x.Refinement))
+	e.string(string(x.Subtype))
 	e.value(x.Value)
 	e.int(int64(x.Line))
 	e.int(int64(x.Col))
 }
 
-func (d *Decoder) structUncheckedRefinement(x *ast.UncheckedRefinement) {
+func (d *Decoder) structUncheckedSubtype(x *ast.UncheckedSubtype) {
 	d.structTriviaCarrier(&x.TriviaCarrier)
 	d.structSpanCarrier(&x.SpanCarrier)
-	x.Refinement = string(d.string())
+	x.Subtype = string(d.string())
 	if v1 := d.value(); v1 != nil {
 		x.Value = v1.(ast.Node)
 	}
@@ -7658,15 +7654,11 @@ func (d *Decoder) structUncheckedRefinement(x *ast.UncheckedRefinement) {
 	x.Col = int(d.int())
 }
 
-// StructUncheckedRefinement writes *x in place.
-func (e *Encoder) StructUncheckedRefinement(x *ast.UncheckedRefinement) {
-	e.structUncheckedRefinement(x)
-}
+// StructUncheckedSubtype writes *x in place.
+func (e *Encoder) StructUncheckedSubtype(x *ast.UncheckedSubtype) { e.structUncheckedSubtype(x) }
 
-// StructUncheckedRefinement reads into *x what Encoder.StructUncheckedRefinement wrote.
-func (d *Decoder) StructUncheckedRefinement(x *ast.UncheckedRefinement) {
-	d.structUncheckedRefinement(x)
-}
+// StructUncheckedSubtype reads into *x what Encoder.StructUncheckedSubtype wrote.
+func (d *Decoder) StructUncheckedSubtype(x *ast.UncheckedSubtype) { d.structUncheckedSubtype(x) }
 
 func (e *Encoder) structUnreachable(x *ast.Unreachable) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
@@ -8551,9 +8543,6 @@ var forms = []any{
 	(*ast.PlaceholderParam)(nil),
 	(*ast.QualifiedType)(nil),
 	(*ast.RangeLit)(nil),
-	(*ast.RefinementBaseType)(nil),
-	(*ast.RefinementParentCheck)(nil),
-	(*ast.RefinementRule)(nil),
 	(*ast.Return)(nil),
 	(*ast.SelfExpr)(nil),
 	(*ast.SelfType)(nil),
@@ -8570,6 +8559,9 @@ var forms = []any{
 	(*ast.StructLit)(nil),
 	(*ast.StructPattern)(nil),
 	(*ast.Subtests)(nil),
+	(*ast.SubtypeBaseType)(nil),
+	(*ast.SubtypeParentCheck)(nil),
+	(*ast.SubtypeRule)(nil),
 	(*ast.TaggedString)(nil),
 	(*ast.Tap)(nil),
 	(*ast.TestDecl)(nil),
@@ -8583,7 +8575,7 @@ var forms = []any{
 	(*ast.TypeDef)(nil),
 	(*ast.TypeIdent)(nil),
 	(*ast.Unary)(nil),
-	(*ast.UncheckedRefinement)(nil),
+	(*ast.UncheckedSubtype)(nil),
 	(*ast.Unreachable)(nil),
 	(*ast.Unwrap)(nil),
 	(*ast.WildcardPattern)(nil),
@@ -8592,4 +8584,4 @@ var forms = []any{
 
 // CodecDigest is a digest of the code above it: a reader keys bytes this
 // codec wrote by it when the writer may be another binary.
-const CodecDigest = "ca4d039ca98411ec"
+const CodecDigest = "66a1a922bfc8f5bb"

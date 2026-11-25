@@ -58,7 +58,7 @@ func referenceFunctions(lib *std.StdLib) []referenceFunction {
 	return out
 }
 
-// effectTableHeader opens the table in docs/tooling.md's "Effects lists"
+// effectTableHeader opens the table in docs/tooling.md's "Functions with effects"
 // that names the functions with effects.
 const effectTableHeader = "| Module | Functions with effects |"
 
@@ -143,7 +143,7 @@ func checkTable(t *testing.T, text, want string) {
 	header := want[:strings.Index(want, "\n")]
 	got := tableAt(text, header)
 	if got == "" {
-		t.Errorf("docs/tooling.md holds no table headed %q; add it under \"What counts as an effect\":\n\n%s", header, want)
+		t.Errorf("docs/tooling.md holds no table headed %q; add it under \"Functions with effects\":\n\n%s", header, want)
 		return
 	}
 	if got != want {

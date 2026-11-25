@@ -135,9 +135,9 @@ func variantDecl(t Type) ([]*TypeParam_, bool) {
 		// type's, as a newtype's is (`type Ids<T> List<T>` is covariant).
 		// A std or host one (`Task<T>`, `Channel<T>`) has no inner type
 		// the program can see.
-		// A generic refinement's, std's among them, is its parents', whose
-		// values its values are (refinement.go).
-		if t.unbuilt != nil || len(t.TypeParamDefs) == 0 || (isStdOrigin(t.Origin) && !t.Refinement) || t.Inner == nil {
+		// A generic subtype's, std's among them, is its parents', whose
+		// values its values are (subtype.go).
+		if t.unbuilt != nil || len(t.TypeParamDefs) == 0 || (isStdOrigin(t.Origin) && !t.Subtype) || t.Inner == nil {
 			return nil, false
 		}
 		return t.TypeParamDefs, true
@@ -336,7 +336,7 @@ func forEachFieldType(t Type, f func(Type)) {
 		if t.Inner != nil {
 			f(t.Inner)
 		}
-		// A refinement's value is a value of each of its parents.
+		// A subtype's value is a value of each of its parents.
 		for _, p := range t.MoreParents {
 			f(p)
 		}

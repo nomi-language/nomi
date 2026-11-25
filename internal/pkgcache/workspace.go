@@ -313,9 +313,13 @@ type UnlistedError struct {
 	Manifest, Decl, Entry string
 }
 
-func (e *UnlistedError) Error() string {
-	return fmt.Sprintf("%s:1: this package is under the workspace %s, which does not list it; add %q to its members, or to its exclude if it keeps a nomi.lock of its own",
-		e.Manifest, e.Decl, e.Entry)
+func (e *UnlistedError) Error() string { return e.Manifest + ":1: " + e.Message() }
+
+// Message is the error's message without its place, the first line of the
+// package's nomi.toml.
+func (e *UnlistedError) Message() string {
+	return fmt.Sprintf("this package is under the workspace %s, which does not list it; add %q to its members, or to its exclude if it keeps a nomi.lock of its own",
+		e.Decl, e.Entry)
 }
 
 // WorkspaceOf answers the workspace that governs the package rooted at

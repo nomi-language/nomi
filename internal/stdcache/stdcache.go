@@ -7,7 +7,9 @@
 // version, so two servers built from different std sources (an old one still
 // running beside a newly installed one) never rewrite each other's files, and
 // an editor buffer opened from one server's directory keeps the text that
-// server analyzed.
+// server analyzed. A directory is written whole into a temporary sibling and
+// renamed into place, and one that lacks a file asked for, which a removal
+// that stopped part way leaves, is written again whole.
 //
 // A version directory's name is a hash of the files it holds, so a file of
 // the directory named for this binary's std (std.CacheVersion) is its
@@ -15,11 +17,16 @@
 // file treats it as that module, and refuses a file of another version's
 // directory or one edited since (frontend.StdlibFile, which finds the
 // directory with Locate).
+//
+// `nomi cache clean std` empties the root, `nomi cache prune std` runs
+// Prune keeping no version, and both refuse a NOMI_STD_CACHE_ROOT whose
+// `std` holds anything but version directories (Foreign).
 package stdcache
 
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"io/fs"
 	"os"
 	"path"
@@ -28,6 +35,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/nomi-language/nomi/internal/artifactcache"
 )
@@ -85,6 +93,17 @@ func IsVersion(name string) bool {
 		}
 	}
 	return true
+}
+
+// Foreign answers the path of the first entry under root, a DefaultRoot,
+// that is no version directory (artifactcache.ForeignEntry), or "".
+func Foreign(root string) (string, error) {
+	return artifactcache.ForeignEntry(root, func(p string, e fs.DirEntry) (string, error) {
+		if e.IsDir() && IsVersion(e.Name()) {
+			return "", nil
+		}
+		return p, nil
+	})
 }
 
 // IsVersionDir reports whether dir is shaped like a version directory under
@@ -154,11 +173,12 @@ func (d *Dir) Location(rel string) string {
 	return filepath.Join(d.root, d.version, filepath.FromSlash(rel))
 }
 
-// Path writes the version directory when it is missing and returns rel's
-// path in it. A failure to write is not reported: the path is returned
-// anyway, and an editor opening it finds no file.
+// Path writes the version directory when it is missing, or lacks rel
+// although rel is one of its files, and returns rel's path in it. A failure
+// to write is not reported: the path is returned anyway, and an editor
+// opening it finds no file.
 func (d *Dir) Path(rel string) string {
-	d.ensure()
+	d.ensure(rel)
 	return d.Location(rel)
 }
 
@@ -167,12 +187,23 @@ func (d *Dir) Path(rel string) string {
 // away from it, and removes what no running server can be reading once per
 // process: other version directories not used for staleAfter, files and
 // directories of the unversioned layout older than that, and temporary
-// directories left for an hour (artifactcache.Prune).
-func (d *Dir) ensure() {
+// directories left for an hour (artifactcache.Prune). A directory that
+// lacks rel, one of the version's files, lost part of what write put there
+// (a removal that stopped part way): it is renamed aside, to a temporary
+// name a prune removes, and written again whole.
+func (d *Dir) ensure(rel string) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	dir := filepath.Join(d.root, d.version)
-	if info, err := os.Stat(dir); err != nil {
+	info, err := os.Stat(dir)
+	if err == nil && d.lacks(rel) {
+		aside := filepath.Join(d.root, fmt.Sprintf("%s%s-%d-%d", artifactcache.TempPrefix, d.version, os.Getpid(), time.Now().UnixNano()))
+		if os.Rename(dir, aside) == nil {
+			_ = artifactcache.RemoveTree(aside)
+			err = os.ErrNotExist
+		}
+	}
+	if err != nil {
 		if d.write(dir) != nil {
 			return
 		}
@@ -181,8 +212,16 @@ func (d *Dir) ensure() {
 	}
 	if !d.pruned {
 		d.pruned = true
-		artifactcache.Prune(d.root, d.version, staleAfter)
+		Prune(d.root, d.version)
 	}
+}
+
+// Prune removes the entries of root, a DefaultRoot, other than keep, that
+// nothing has used for staleAfter, and temporary ones left for an hour
+// (artifactcache.Prune), and answers what it removed. A server runs it
+// once, keeping its own version; `nomi cache prune` runs it keeping none.
+func Prune(root, keep string) artifactcache.Pruned {
+	return artifactcache.Prune(root, keep, staleAfter)
 }
 
 // write materializes the version into a temporary sibling and renames it to
@@ -227,6 +266,19 @@ func (d *Dir) write(dir string) error {
 		return err
 	}
 	return nil
+}
+
+// lacks reports whether rel is a file the version directory holds and is
+// missing from it on disk.
+func (d *Dir) lacks(rel string) bool {
+	if !strings.HasSuffix(rel, ".nomi") {
+		return false
+	}
+	if _, err := fs.Stat(d.files, rel); err != nil {
+		return false
+	}
+	_, err := os.Stat(d.Location(rel))
+	return err != nil
 }
 
 // nomiFiles is every .nomi file in files, sorted.

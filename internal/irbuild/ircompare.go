@@ -303,9 +303,9 @@ func (bl *irScalarBuilder) compareOperands(t *ast.Binary, op ir.CompareOp, lhs i
 // no arm: the checker rejects one written over them, and a generic call
 // that would instantiate one at an interface type, since an interface type
 // meets no Comparable bound (spec §12 *Interface values*). It reaches
-// here only in the instance of a generic refinement's `try_from` that the
+// here only in the instance of a generic subtype's `try_from` that the
 // checker types at its bounds' interfaces for the rule's effect walk
-// (analysis.RefinementRuleCheck), which is never run, and declines. An arm
+// (analysis.SubtypeRuleCheck), which is never run, and declines. An arm
 // that cannot lower its operands, and an operator with no record an arm
 // reads, decline here.
 func (bl *irScalarBuilder) ordering(t *ast.Binary, op ir.CompareOp, lhs, rhs ir.Temp, k kind, rmobile bool) (ir.Temp, bool) {

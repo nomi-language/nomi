@@ -34,7 +34,7 @@ func rangeBacking(v any) (rt.Range[any], error) {
 // `Range.stop` its end as an Option (None when unbounded), and
 // `Range.is_inclusive` whether a bounded range includes its end (False for an
 // unbounded one, the canonical form rangeBacking reads). Each takes no element
-// method, so a refinement rule over a Range of any Comparable reads them.
+// method, so a subtype rule over a Range of any Comparable reads them.
 func rangePartHost(name string) hostFn {
 	return func(_ *Machine, _ ir.Pos, args []any) (any, error) {
 		if len(args) != 1 {

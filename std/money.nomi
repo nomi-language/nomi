@@ -37,7 +37,7 @@ import
     hashable.Hashable
     int.{Int, Int64, PositiveInt}
     iter.Iter
-    lists.List
+    lists.{List, NonEmptyList}
     literals.{Fragment, Literal}
     locale.Locale
     localize.{Localize, NumberParseError}
@@ -452,7 +452,7 @@ impl Money
     //! assert Money.split(Money"-0.05 USD", 2) == [Money"-0.03 USD", Money"-0.02 USD"]
     //! assert Money.split(Money"0.01 EUR", 3) == [Money"0.01 EUR", Money"0.00 EUR", Money"0.00 EUR"]
     //
-    pub fn split(money: Money, n: PositiveInt) -> List<Money>
+    pub fn split(money: Money, n: PositiveInt) -> NonEmptyList<Money>
         Decimal.split(money.amount, n, Currency.minor_digits(money.currency))
         |> Money.all_in(money.currency)
     end
@@ -485,16 +485,14 @@ impl Money
     //! assert Money.allocate(Money"0.125 EUR", [1, 1]) == [Money"0.063 EUR", Money"0.062 EUR"]
     //! assert Money.allocate(Money"-1 USD", [1, 2]) == [Money"-0.34 USD", Money"-0.66 USD"]
     //
-    pub fn allocate(money: Money, ratios: Ratios) -> List<Money>
+    pub fn allocate(money: Money, ratios: Ratios) -> NonEmptyList<Money>
         Decimal.allocate(money.amount, ratios, Currency.minor_digits(money.currency))
         |> Money.all_in(money.currency)
     end
 
     // Each amount of `amounts` in `currency`.
-    fn all_in(amounts: List<Decimal>, currency: Currency) -> List<Money>
-        amounts
-        |> Iter.map(fn amount -> Money{amount:, currency:})
-        |> Iter.to_list()
+    fn all_in(amounts: NonEmptyList<Decimal>, currency: Currency) -> NonEmptyList<Money>
+        NonEmptyList.map(amounts, fn amount -> Money{amount:, currency:})
     end
 end
 

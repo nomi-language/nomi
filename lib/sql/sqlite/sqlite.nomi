@@ -19,7 +19,12 @@
 //# that task runs) and never runs inside it. A statement stops when its
 //# task does. Foreign keys are enforced, and a constraint error names the
 //# constraint as Postgres does (`users_email_key`). A file database waits
-//# up to 5 seconds for a lock another connection holds.
+//# up to 5 seconds for a lock another connection holds. A trap in the
+//# engine, a fault in SQLite's C code that its sandbox held, is
+//# `Error.Engine` with the trap's text. The engine is dead after it: every
+//# later operation of the connection that reaches the engine, `ping` and
+//# `close` included, is `Error.Engine` too (a transaction's `rollback`
+//# still ends it), and after the `close` every one is `Error.Closed`.
 //#
 //# SQLite has no decimal type: it stores a `DECIMAL(p, s)` column's values
 //# as 64-bit floats, exact to 15 digits. A `Decimal` reads back from one at
@@ -135,13 +140,20 @@ fn unopened(e: io.Error) -> sql.Error
     sql.Error.Connection{message: "unable to open database file: ${e}"}
 end
 
+/// The `sql.Error` a failure to open, ping or close the database is:
+/// `Engine` when the engine failed, else `Connection`.
+fn unconnected(f: Failure) -> sql.Error
+    case f
+        .Fault{message:}    -> sql.Error.Engine{message:}
+        .Reported{message:} -> sql.Error.Connection{message:}
+    end
+end
+
 /// A connection to the database `name`, whose files are in `place`.
 fn connected(place: vfs.Place, name: String) -> Result<Conn, sql.Error>
-    e = engine.start(place) |> Result.map_err(fn message -> sql.Error.Connection{message:})?
+    e = engine.start(place) |> Result.map_err(fn message -> sql.Error.Engine{message:})?
     defer on error engine.stop(e)
-
-    handle =
-        engine.open(e, name) |> Result.map_err(fn f -> sql.Error.Connection{message: f.message})?
+    handle = engine.open(e, name) |> Result.map_err(unconnected)?
 
     // A file another connection holds locked is waited for, up to 5 seconds.
     pragmas =
@@ -151,9 +163,7 @@ fn connected(place: vfs.Place, name: String) -> Result<Conn, sql.Error>
             "PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000"
         end
 
-    _ =
-        engine.exec(e, handle, pragmas, [])
-        |> Result.map_err(fn f -> sql.Error.Connection{message: f.message})?
+    _ = engine.exec(e, handle, pragmas, []) |> Result.map_err(unconnected)?
 
     turn = Channel.buffered<Unit>(1)
     _ = Sender.send(turn.sender, Unit)
@@ -268,11 +278,17 @@ impl Conn for SqliteConn
                 // transaction), and a transaction kept open would keep the
                 // turn from every other task.
                 case engine.exec(tx.shared.engine, tx.shared.handle, "ROLLBACK", [])
-                    Err(f) when not String.contains(f.message, "no transaction is active") ->
-                        (ended, Err(failure(tx.shared, f, "", [])))
-
-                    _ ->
+                    Ok(_) ->
                         (ended, Ok(Unit))
+
+                    Err(.Reported{message:}) when String.contains(
+                        message,
+                        "no transaction is active",
+                    ) ->
+                        (ended, Ok(Unit))
+
+                    Err(f) ->
+                        (ended, Err(failure(tx.shared, f, "", [])))
                 end
             else
                 name = "sp${tx.depth}"
@@ -296,7 +312,7 @@ impl Conn for SqliteConn
             if state.closed then
                 Err(sql.Error.Closed)
             else
-                Ok(Unit)
+                engine.alive(conn.shared.engine) |> Result.map_err(unconnected)
             end
         end)
     end
@@ -320,27 +336,29 @@ impl Conn for SqliteConn
                     Ok(Unit)
                 end
 
-            code = engine.close(conn.shared.engine, conn.shared.handle)
+            shut = engine.close(conn.shared.engine, conn.shared.handle)
             engine.stop(conn.shared.engine)
             closed = {..state, closed: True, stack: []}
 
-            case rolled
-                Err(f) ->
-                    (closed, Err(sql.Error.Connection{message: f.message}))
+            case (rolled, shut)
+                (Err(f), _) ->
+                    (closed, Err(unconnected(f)))
 
-                Ok(_) ->
-                    if code == 0 then
-                        (closed, Ok(Unit))
-                    else
-                        (
-                            closed,
-                            Err(
-                                sql.Error.Connection{
-                                    message: "SQLite could not close the database: ${code_name(code)}",
-                                }
-                            ),
-                        )
-                    end
+                (Ok(_), Err(.Reported{code:})) ->
+                    (
+                        closed,
+                        Err(
+                            sql.Error.Connection{
+                                message: "SQLite could not close the database: ${code_name(code)}",
+                            }
+                        ),
+                    )
+
+                (Ok(_), Err(f)) ->
+                    (closed, Err(unconnected(f)))
+
+                (Ok(_), Ok(_)) ->
+                    (closed, Ok(Unit))
             end
         end)
     end
@@ -572,26 +590,31 @@ fn each(
     end
 end
 
-/// The `sql.Error` an SQLite failure is. A constraint error keeps the
+/// The `sql.Error` a failure of the engine is. The engine's own fault is
+/// `Engine`. Of what SQLite reports, a constraint error keeps the
 /// constraint, named as Postgres names it (internal/constraints.nomi); a
 /// statement its task's stop interrupted is a `Timeout`; a file that cannot
 /// be opened or read is a `Connection` error.
 fn failure(shared: Shared, f: Failure, text: String, params: List<Cell>) -> sql.Error
-    if f.code == -1 then return sql.Error.Connection{message: f.message}
+    case f
+        .Fault{message:} ->
+            sql.Error.Engine{message:}
 
-    db = constraints.Db{engine: shared.engine, handle: shared.handle}
+        .Reported{code:, message:} ->
+            db = constraints.Db{engine: shared.engine, handle: shared.handle}
 
-    case constraints.error(db, f.code, f.message, text, params)
-        Some(e) ->
-            e
+            case constraints.error(db, code, message, text, params)
+                Some(e) ->
+                    e
 
-        None ->
-            case f.code &&& 0xff
-                9  -> sql.Error.Timeout
-                10 -> sql.Error.Connection{message: f.message}
-                14 -> sql.Error.Connection{message: f.message}
-                26 -> sql.Error.Connection{message: f.message}
-                _  -> sql.Error.Database{code: code_name(f.code), message: f.message}
+                None ->
+                    case code &&& 0xff
+                        9  -> sql.Error.Timeout
+                        10 -> sql.Error.Connection{message:}
+                        14 -> sql.Error.Connection{message:}
+                        26 -> sql.Error.Connection{message:}
+                        _  -> sql.Error.Database{code: code_name(code), message:}
+                    end
             end
     end
 end

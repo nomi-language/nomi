@@ -104,9 +104,9 @@ func TestEffectHover_StdCall(t *testing.T) {
 		name, manifest, want string
 	}{
 		{"no table", module, "Has effects: `std::fs`."},
-		{"allowed", module + "\n[effects.self]\nstd = [\"std::io\", \"std::fs\"]\n", "Has effects: `std::fs`, which `nomi.toml` allows in `[effects.self]`."},
-		{"held by no table", module + "\n[effects.deps]\nstd = []\n", "Has effects: `std::fs`, which no table in `nomi.toml` holds."},
-		{"refused", module + "\n[effects.self]\nstd = [\"std::io\"]\n", "Has effects: `std::fs`, which `nomi.toml` does not allow in `[effects.self]`."},
+		{"allowed", module + "\n[effects.self]\neffects = [\"std::io\", \"std::fs\"]\n", "Has effects: `std::fs`, which `nomi.toml` allows in `[effects.self]`."},
+		{"held by no table", module + "\n[effects.dependencies]\neffects = []\n", "Has effects: `std::fs`, which no table in `nomi.toml` holds."},
+		{"refused", module + "\n[effects.self]\neffects = [\"std::io\"]\n", "Has effects: `std::fs`, which `nomi.toml` does not allow in `[effects.self]`."},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -124,7 +124,7 @@ func TestEffectHover_StdCall(t *testing.T) {
 }
 
 // A call in a dependency's file, opened beside the entry that reaches it,
-// has the line the entry's lowering found, naming [effects.deps] and
+// has the line the entry's lowering found, naming [effects.dependencies] and
 // the project's entry for the dependency, and so do the dependency's
 // function that makes it and the entry's call of that function. The
 // dependency's file has no roots of its own.
@@ -135,8 +135,7 @@ func TestEffectHover_InADependencysFile(t *testing.T) {
 	main := "import\n    std::io\n    pricing::rules\nend\n\nfn main()\n    io.print(rules.load(\"prices.txt\"))\nend\n"
 	rules := "import std::fs\n\npub fn load(path: String) -> String\n    fs.read_text(path) |> Result.with_default(\"\")\nend\n"
 	dir := writeProject(t, map[string]string{
-		"app/nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.deps]\nstd = [\"std::io\", \"std::fs\"]\n\n[dependencies]\npricing = { dir = \"../pricing\" }\n" +
-			"[effects.deps.packages]\n\"pricing\" = [\"std::fs\"]\n",
+		"app/nomi.toml":      "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.dependencies]\neffects = [\"std::io\", \"std::fs\"]\n\n[dependencies]\npricing = { dir = \"../pricing\", effects = [\"std::fs\"] }\n",
 		"app/main.nomi":      main,
 		"pricing/nomi.toml":  "[package]\nname = \"pricing\"\n",
 		"pricing/rules.nomi": rules,
@@ -146,7 +145,7 @@ func TestEffectHover_InADependencysFile(t *testing.T) {
 	rulesURI := fileuri.FromPath(filepath.Join(dir, "pricing", "rules.nomi"))
 	c.open(mainURI, main)
 	c.open(rulesURI, rules)
-	const line = "Has effects: `std::fs`, which `nomi.toml` allows in `[effects.deps]` and in the entry for `pricing`."
+	const line = "Has effects: `std::fs`, which `nomi.toml` allows in `[effects.dependencies]` and in the entry for `pricing`."
 	waitReachAt(t, s, c, rulesURI, rules, "fs.read_text", line)
 	// The dependency's function, and the entry's call of it, say what the
 	// function can reach.
@@ -288,7 +287,7 @@ func TestEffectHover_FollowsAnUnsavedManifest(t *testing.T) {
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
-	manifest := "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = [\"std::io\"]\n"
+	manifest := "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\neffects = [\"std::io\"]\n"
 	dir := writeProject(t, map[string]string{"main.nomi": effectMain, "nomi.toml": manifest})
 	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
 	manifestURI := fileuri.FromPath(filepath.Join(dir, "nomi.toml"))
@@ -333,17 +332,18 @@ func manifestHoverText(t *testing.T, s *Server, uri string, pos protocol.Positio
 // A hover on a std name in nomi.toml's lists shows the calls that need it
 // in that list, as `nomi effects --why` prints them: the project's own
 // calls under [effects.self], the dependencies' under
-// [effects.deps], and a module's own under its entry. References
-// answer the same calls, at their callees. A name nothing there reaches
+// [effects.dependencies], a module's own under its entry, and those of the
+// code a [dependencies] entry covers under its effects. References answer
+// the same calls, at their callees. A name nothing there reaches
 // says so, and has none.
 func TestEffectHover_ANameInNomiToml(t *testing.T) {
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
 	manifest := "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n" +
-		"[effects.self]\nstd = [\"std::io\", \"std::net\"]\n\n" +
-		"[effects.deps]\nstd = [\"std::fs\", \"std::io\"]\n\n" +
-		"[effects.deps.packages]\n\"pricing\" = [\"std::fs\", \"std::instant\"]\n"
+		"[effects.self]\neffects = [\"std::io\", \"std::net\"]\n\n" +
+		"[effects.dependencies]\neffects = [\"std::fs\", \"std::io\"]\n\n" +
+		"[dependencies]\npricing = { dir = \"../pricing\", effects = [\"std::fs\", \"std::instant\"] }\n"
 	app := manifestProject(t, manifest)
 	uri := fileuri.FromPath(filepath.Join(app, "nomi.toml"))
 	s := NewServer()
@@ -357,8 +357,8 @@ func TestEffectHover_ANameInNomiToml(t *testing.T) {
 		{"nothing in the project's own code", 6, `"std::net"`, "Nothing in this package's own code has the effect std::net."},
 		{"a dependency's call", 9, `"std::fs"`, "```text\n1 call has the effect std::fs:\n  rules.nomi:4:5 in pricing\n    reached from `main`; `main` calls `load`\n```"},
 		{"no dependency's call", 9, `"std::io"`, "No dependency has the effect std::io."},
-		{"in the module's entry", 12, `"std::fs"`, "```text\n1 call has the effect std::fs:\n  rules.nomi:4:5 in pricing\n    reached from `main`; `main` calls `load`\n```"},
-		{"nothing in the module", 12, `"std::instant"`, "Nothing in pricing has the effect std::instant."},
+		{"in a dependency's entry", 12, `"std::fs"`, "```text\n1 call has the effect std::fs:\n  rules.nomi:4:5 in pricing\n    reached from `main`; `main` calls `load`\n```"},
+		{"nothing the entry covers", 12, `"std::instant"`, "Nothing the project reaches through pricing has the effect std::instant."},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

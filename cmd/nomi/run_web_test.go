@@ -42,7 +42,8 @@ func TestParseRunWebArgs(t *testing.T) {
 		{args: []string{"--web", "--port", "x", "a.nomi"}, err: `--port takes a port number; got "x"`},
 		{args: []string{"--web", "--port"}, err: "--port needs a value"},
 		{args: []string{"--web", "a.nomi", "b"}, err: `unexpected argument "b"; a program in the browser takes no arguments`},
-		{args: []string{"--web"}, err: "usage: nomi run"},
+		{args: []string{"--web"}, want: runWebArgs{entry: ".", port: -1}},
+		{args: []string{"--web", "--port", "9000", "--static=site"}, want: runWebArgs{entry: ".", port: 9000, static: "site"}},
 		{args: []string{"--verbose", "a.nomi"}, err: `nomi run: unknown flag "--verbose"`},
 	} {
 		got, err := parseRunWebArgs(c.args)

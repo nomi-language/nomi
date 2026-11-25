@@ -4,18 +4,18 @@
 
 import
     lists.List
-    strings.String
+    strings.{NonEmptyString, String}
 end
 
 /// Go's `path.Clean`.
-host fn clean(p: String) -> String
+host fn clean(p: String) -> NonEmptyString
 
 /// Go's `path.Join`: the parts that are not empty joined with `/`, then
 /// cleaned, or "" when every part is empty.
 host fn join(parts: List<String>) -> String
 
 /// Go's `path.Base` of the cleaned path.
-host fn base(p: String) -> String
+host fn base(p: String) -> NonEmptyString
 
 /// Go's `path.Dir`.
 host fn dir(p: String) -> String

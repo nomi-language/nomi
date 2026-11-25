@@ -53,8 +53,8 @@ func (g *gen) verifySubst(entry substEntry, owner any, f substFrame) {
 // substKindsAgree reports whether projected, the kind the checker's type
 // for a parameter projects to, describes what bound, the kind the frame
 // binds it to, does: the same kind, or one std interface held as a value
-// through its two defs (sameStdIfaceHeld). project gives a refinement its
-// base's kind, so a refinement needs no case here.
+// through its two defs (sameStdIfaceHeld). project gives a subtype its
+// base's kind, so a subtype needs no case here.
 func (g *gen) substKindsAgree(projected, bound kind) bool {
 	return projected == bound || g.sameStdIfaceHeld(projected, bound)
 }

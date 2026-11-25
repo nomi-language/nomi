@@ -60,7 +60,7 @@ func TestPackages_AReleaseRefusesAPackageThatNeedsALaterNomi(t *testing.T) {
 	mustWrite(t, filepath.Join(app, "nomi.toml"), strings.Replace(manifest, releaseTestVersion, later, 1)+"\n[unknown_to_this_nomi]\nkey = 1\n")
 	_, stderr, err = c.run(app, "check", "main.nomi")
 	if want := "error: package app (this project) needs nomi " + later + " or later, and this nomi is " + releaseTestVersion + "; install a newer nomi"; err == nil ||
-		!strings.HasPrefix(stderr, want) || strings.Count(stderr, "error:") != 1 {
-		t.Errorf("nomi check of a project that needs a later nomi: %v\n%s\nwant one error, %s", err, stderr, want)
+		!strings.HasPrefix(stderr, want) || strings.Count(stderr, "error:") != 1 || !strings.Contains(stderr, " --> nomi.toml:3:1\n") {
+		t.Errorf("nomi check of a project that needs a later nomi: %v\n%s\nwant one error, %s, at nomi.toml:3, its nomi line", err, stderr, want)
 	}
 }

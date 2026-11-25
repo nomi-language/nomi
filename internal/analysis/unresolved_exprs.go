@@ -97,10 +97,10 @@ func (w *unresolvedWalk) visit(n ast.Node) bool {
 			w.where[c] = "in " + exprLabel(n)
 		}
 	})
-	if pc, ok := n.(*ast.RefinementParentCheck); ok {
-		// Only the form the checker chose is checked (refinement_check.go).
-		for _, form := range []ast.Node{pc.Refined, pc.Plain} {
-			if form != nil && form != RefinementParentChoice(w.fa, pc) {
+	if pc, ok := n.(*ast.SubtypeParentCheck); ok {
+		// Only the form the checker chose is checked (subtype_check.go).
+		for _, form := range []ast.Node{pc.Subtype, pc.Plain} {
+			if form != nil && form != SubtypeParentChoice(w.fa, pc) {
 				w.skip[form] = true
 			}
 		}

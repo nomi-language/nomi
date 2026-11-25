@@ -600,26 +600,26 @@
 10-generics-and-type-wrappers/bounds_test.nomi:announce	ran
 10-generics-and-type-wrappers/bounds_test.nomi:describe	ran
 10-generics-and-type-wrappers/bounds_test.nomi:describe_alias	ran
-10-generics-and-type-wrappers/collection_refinements_test.nomi:OneScore.try_from	ran
-10-generics-and-type-wrappers/collection_refinements_test.nomi:OneScore.unchecked	ran
-10-generics-and-type-wrappers/collection_refinements_test.nomi:Pair.try_from	ran
-10-generics-and-type-wrappers/collection_refinements_test.nomi:Pair.unchecked	ran
-10-generics-and-type-wrappers/collection_refinements_test.nomi:Row.try_from	ran
-10-generics-and-type-wrappers/collection_refinements_test.nomi:Row.unchecked	ran
-10-generics-and-type-wrappers/collection_refinements_test.nomi:Scores.try_from	ran
-10-generics-and-type-wrappers/collection_refinements_test.nomi:Scores.unchecked	ran
-10-generics-and-type-wrappers/collection_refinements_test.nomi:SmallPair.try_from	ran
-10-generics-and-type-wrappers/collection_refinements_test.nomi:SmallPair.unchecked	ran
-10-generics-and-type-wrappers/collection_refinements_test.nomi:Tags.try_from	ran
-10-generics-and-type-wrappers/collection_refinements_test.nomi:Tags.unchecked	ran
-10-generics-and-type-wrappers/collection_refinements_test.nomi:Word.try_from	ran
-10-generics-and-type-wrappers/collection_refinements_test.nomi:Word.unchecked	ran
-10-generics-and-type-wrappers/collection_refinements_test.nomi:names	ran
-10-generics-and-type-wrappers/collection_refinements_test.nomi:shout	ran
-10-generics-and-type-wrappers/collection_refinements_test.nomi:sum_bound	ran
-10-generics-and-type-wrappers/collection_refinements_test.nomi:sum_of	ran
-10-generics-and-type-wrappers/collection_refinements_test.nomi:total	ran
-10-generics-and-type-wrappers/collection_refinements_test.nomi:width	ran
+10-generics-and-type-wrappers/collection_subtypes_test.nomi:OneScore.try_from	ran
+10-generics-and-type-wrappers/collection_subtypes_test.nomi:OneScore.unchecked	ran
+10-generics-and-type-wrappers/collection_subtypes_test.nomi:Pair.try_from	ran
+10-generics-and-type-wrappers/collection_subtypes_test.nomi:Pair.unchecked	ran
+10-generics-and-type-wrappers/collection_subtypes_test.nomi:Row.try_from	ran
+10-generics-and-type-wrappers/collection_subtypes_test.nomi:Row.unchecked	ran
+10-generics-and-type-wrappers/collection_subtypes_test.nomi:Scores.try_from	ran
+10-generics-and-type-wrappers/collection_subtypes_test.nomi:Scores.unchecked	ran
+10-generics-and-type-wrappers/collection_subtypes_test.nomi:SmallPair.try_from	ran
+10-generics-and-type-wrappers/collection_subtypes_test.nomi:SmallPair.unchecked	ran
+10-generics-and-type-wrappers/collection_subtypes_test.nomi:Tags.try_from	ran
+10-generics-and-type-wrappers/collection_subtypes_test.nomi:Tags.unchecked	ran
+10-generics-and-type-wrappers/collection_subtypes_test.nomi:Word.try_from	ran
+10-generics-and-type-wrappers/collection_subtypes_test.nomi:Word.unchecked	ran
+10-generics-and-type-wrappers/collection_subtypes_test.nomi:names	ran
+10-generics-and-type-wrappers/collection_subtypes_test.nomi:shout	ran
+10-generics-and-type-wrappers/collection_subtypes_test.nomi:sum_bound	ran
+10-generics-and-type-wrappers/collection_subtypes_test.nomi:sum_of	ran
+10-generics-and-type-wrappers/collection_subtypes_test.nomi:total	ran
+10-generics-and-type-wrappers/collection_subtypes_test.nomi:width	ran
 10-generics-and-type-wrappers/covariant_conversion_test.nomi:Store.size for Memory	ran
 10-generics-and-type-wrappers/covariant_conversion_test.nomi:all_shown	ran
 10-generics-and-type-wrappers/covariant_conversion_test.nomi:all_shown	ran
@@ -684,24 +684,24 @@
 10-generics-and-type-wrappers/generic_inherent_impl_test.nomi:Span.swap	ran
 10-generics-and-type-wrappers/generic_inherent_impl_test.nomi:Tree.value_or	ran
 10-generics-and-type-wrappers/generic_inherent_impl_test.nomi:Tree.value_or	ran
-10-generics-and-type-wrappers/generic_refinements_test.nomi:Ascending.try_from	ran
-10-generics-and-type-wrappers/generic_refinements_test.nomi:Ascending.try_from	ran
-10-generics-and-type-wrappers/generic_refinements_test.nomi:Filled.try_from	ran
-10-generics-and-type-wrappers/generic_refinements_test.nomi:Filled.try_from	ran
-10-generics-and-type-wrappers/generic_refinements_test.nomi:Filled.try_from	ran
-10-generics-and-type-wrappers/generic_refinements_test.nomi:IntPair.try_from	ran
-10-generics-and-type-wrappers/generic_refinements_test.nomi:IntPair.unchecked	ran
-10-generics-and-type-wrappers/generic_refinements_test.nomi:Many.head	ran
-10-generics-and-type-wrappers/generic_refinements_test.nomi:Many.try_from	ran
-10-generics-and-type-wrappers/generic_refinements_test.nomi:Many.try_from	ran
-10-generics-and-type-wrappers/generic_refinements_test.nomi:Many.try_from	ran
-10-generics-and-type-wrappers/generic_refinements_test.nomi:Many.try_from	ran
-10-generics-and-type-wrappers/generic_refinements_test.nomi:Run.try_from	ran
-10-generics-and-type-wrappers/generic_refinements_test.nomi:Run.try_from	ran
-10-generics-and-type-wrappers/generic_refinements_test.nomi:Shape.area for Square	ran
-10-generics-and-type-wrappers/generic_refinements_test.nomi:largest	ran
-10-generics-and-type-wrappers/generic_refinements_test.nomi:total_area	ran
-10-generics-and-type-wrappers/generic_refinements_test.nomi:widen	ran
+10-generics-and-type-wrappers/generic_subtypes_test.nomi:Ascending.try_from	ran
+10-generics-and-type-wrappers/generic_subtypes_test.nomi:Ascending.try_from	ran
+10-generics-and-type-wrappers/generic_subtypes_test.nomi:Filled.try_from	ran
+10-generics-and-type-wrappers/generic_subtypes_test.nomi:Filled.try_from	ran
+10-generics-and-type-wrappers/generic_subtypes_test.nomi:Filled.try_from	ran
+10-generics-and-type-wrappers/generic_subtypes_test.nomi:IntPair.try_from	ran
+10-generics-and-type-wrappers/generic_subtypes_test.nomi:IntPair.unchecked	ran
+10-generics-and-type-wrappers/generic_subtypes_test.nomi:Many.head	ran
+10-generics-and-type-wrappers/generic_subtypes_test.nomi:Many.try_from	ran
+10-generics-and-type-wrappers/generic_subtypes_test.nomi:Many.try_from	ran
+10-generics-and-type-wrappers/generic_subtypes_test.nomi:Many.try_from	ran
+10-generics-and-type-wrappers/generic_subtypes_test.nomi:Many.try_from	ran
+10-generics-and-type-wrappers/generic_subtypes_test.nomi:Run.try_from	ran
+10-generics-and-type-wrappers/generic_subtypes_test.nomi:Run.try_from	ran
+10-generics-and-type-wrappers/generic_subtypes_test.nomi:Shape.area for Square	ran
+10-generics-and-type-wrappers/generic_subtypes_test.nomi:largest	ran
+10-generics-and-type-wrappers/generic_subtypes_test.nomi:total_area	ran
+10-generics-and-type-wrappers/generic_subtypes_test.nomi:widen	ran
 10-generics-and-type-wrappers/generics_test.nomi:identity	ran
 10-generics-and-type-wrappers/generics_test.nomi:identity	ran
 10-generics-and-type-wrappers/generics_test.nomi:make_pair	ran
@@ -731,51 +731,54 @@
 10-generics-and-type-wrappers/opaque_types/status.nomi:Status.suspend	ran
 10-generics-and-type-wrappers/opaque_types/status.nomi:Status.suspended_reason	ran
 10-generics-and-type-wrappers/opaque_types/status.nomi:Status.suspended_until	ran
-10-generics-and-type-wrappers/refined_types_test.nomi:Email.unchecked	ran
-10-generics-and-type-wrappers/refined_types_test.nomi:Strict.try_from	ran
-10-generics-and-type-wrappers/refined_types_test.nomi:Strict.unchecked	ran
-10-generics-and-type-wrappers/refined_types_test.nomi:TryFrom.try_from for Email	ran
-10-generics-and-type-wrappers/refined_types_test.nomi:TryFrom.try_from for UserId	ran
-10-generics-and-type-wrappers/refined_types_test.nomi:UserId.unchecked	ran
-10-generics-and-type-wrappers/refined_types_test.nomi:first_error	ran
-10-generics-and-type-wrappers/refined_types_test.nomi:half	ran
-10-generics-and-type-wrappers/refined_types_test.nomi:is_email	ran
-10-generics-and-type-wrappers/refined_types_test.nomi:load	ran
-10-generics-and-type-wrappers/refined_types_test.nomi:smallest	ran
-10-generics-and-type-wrappers/refined_types_test.nomi:swap	ran
-10-generics-and-type-wrappers/refinement_modules/refinement_modules_test.nomi:Hill.try_from	ran
-10-generics-and-type-wrappers/refinement_modules/refinement_modules_test.nomi:Hill.unchecked	ran
-10-generics-and-type-wrappers/refinement_modules/refinement_modules_test.nomi:total	ran
-10-generics-and-type-wrappers/refinement_modules/units.nomi:Height.try_from	ran
-10-generics-and-type-wrappers/refinement_modules/units.nomi:Height.unchecked	ran
-10-generics-and-type-wrappers/refinement_modules/units.nomi:Meters.try_from	ran
-10-generics-and-type-wrappers/refinement_modules/units.nomi:Meters.unchecked	ran
-10-generics-and-type-wrappers/refinement_modules/units.nomi:plus	ran
-10-generics-and-type-wrappers/refinements_test.nomi:Celsius.try_from	ran
-10-generics-and-type-wrappers/refinements_test.nomi:Celsius.unchecked	ran
-10-generics-and-type-wrappers/refinements_test.nomi:Celsius.warmer	ran
-10-generics-and-type-wrappers/refinements_test.nomi:Even.try_from	ran
-10-generics-and-type-wrappers/refinements_test.nomi:Even.unchecked	ran
-10-generics-and-type-wrappers/refinements_test.nomi:Port.try_from	ran
-10-generics-and-type-wrappers/refinements_test.nomi:Port.unchecked	ran
-10-generics-and-type-wrappers/refinements_test.nomi:Span.try_from	ran
-10-generics-and-type-wrappers/refinements_test.nomi:Span.unchecked	ran
-10-generics-and-type-wrappers/refinements_test.nomi:Tag.try_from	ran
-10-generics-and-type-wrappers/refinements_test.nomi:Tag.unchecked	ran
-10-generics-and-type-wrappers/refinements_test.nomi:first_error	ran
-10-generics-and-type-wrappers/refinements_test.nomi:is_tag	ran
-10-generics-and-type-wrappers/refinements_test.nomi:mean	ran
-10-generics-and-type-wrappers/refinements_test.nomi:scale	ran
-10-generics-and-type-wrappers/refinements_test.nomi:serve	ran
-10-generics-and-type-wrappers/refinements_test.nomi:width	ran
-10-generics-and-type-wrappers/std_refinements_test.nomi:Small.try_from	ran
-10-generics-and-type-wrappers/std_refinements_test.nomi:Small.unchecked	ran
-10-generics-and-type-wrappers/std_refinements_test.nomi:divisor	ran
-10-generics-and-type-wrappers/std_refinements_test.nomi:exponent	ran
-10-generics-and-type-wrappers/std_refinements_test.nomi:first_error	ran
-10-generics-and-type-wrappers/std_refinements_test.nomi:literal Duration"1m" at 113:31 failure	ran
-10-generics-and-type-wrappers/std_refinements_test.nomi:literal Duration"1m30s" at 81:31 failure	ran
-10-generics-and-type-wrappers/std_refinements_test.nomi:paced	ran
+10-generics-and-type-wrappers/std_subtypes_test.nomi:Small.try_from	ran
+10-generics-and-type-wrappers/std_subtypes_test.nomi:Small.unchecked	ran
+10-generics-and-type-wrappers/std_subtypes_test.nomi:divisor	ran
+10-generics-and-type-wrappers/std_subtypes_test.nomi:exponent	ran
+10-generics-and-type-wrappers/std_subtypes_test.nomi:first_error	ran
+10-generics-and-type-wrappers/std_subtypes_test.nomi:literal Duration"1m" at 113:31 failure	ran
+10-generics-and-type-wrappers/std_subtypes_test.nomi:literal Duration"1m30s" at 81:31 failure	ran
+10-generics-and-type-wrappers/std_subtypes_test.nomi:paced	ran
+10-generics-and-type-wrappers/subtype_joins_test.nomi:long	ran
+10-generics-and-type-wrappers/subtype_joins_test.nomi:pick	ran
+10-generics-and-type-wrappers/subtype_joins_test.nomi:words	ran
+10-generics-and-type-wrappers/subtype_modules/subtype_modules_test.nomi:Hill.try_from	ran
+10-generics-and-type-wrappers/subtype_modules/subtype_modules_test.nomi:Hill.unchecked	ran
+10-generics-and-type-wrappers/subtype_modules/subtype_modules_test.nomi:total	ran
+10-generics-and-type-wrappers/subtype_modules/units.nomi:Height.try_from	ran
+10-generics-and-type-wrappers/subtype_modules/units.nomi:Height.unchecked	ran
+10-generics-and-type-wrappers/subtype_modules/units.nomi:Meters.try_from	ran
+10-generics-and-type-wrappers/subtype_modules/units.nomi:Meters.unchecked	ran
+10-generics-and-type-wrappers/subtype_modules/units.nomi:plus	ran
+10-generics-and-type-wrappers/subtype_rules_test.nomi:Celsius.try_from	ran
+10-generics-and-type-wrappers/subtype_rules_test.nomi:Celsius.unchecked	ran
+10-generics-and-type-wrappers/subtype_rules_test.nomi:Celsius.warmer	ran
+10-generics-and-type-wrappers/subtype_rules_test.nomi:Even.try_from	ran
+10-generics-and-type-wrappers/subtype_rules_test.nomi:Even.unchecked	ran
+10-generics-and-type-wrappers/subtype_rules_test.nomi:Port.try_from	ran
+10-generics-and-type-wrappers/subtype_rules_test.nomi:Port.unchecked	ran
+10-generics-and-type-wrappers/subtype_rules_test.nomi:Span.try_from	ran
+10-generics-and-type-wrappers/subtype_rules_test.nomi:Span.unchecked	ran
+10-generics-and-type-wrappers/subtype_rules_test.nomi:Tag.try_from	ran
+10-generics-and-type-wrappers/subtype_rules_test.nomi:Tag.unchecked	ran
+10-generics-and-type-wrappers/subtype_rules_test.nomi:first_error	ran
+10-generics-and-type-wrappers/subtype_rules_test.nomi:is_tag	ran
+10-generics-and-type-wrappers/subtype_rules_test.nomi:mean	ran
+10-generics-and-type-wrappers/subtype_rules_test.nomi:scale	ran
+10-generics-and-type-wrappers/subtype_rules_test.nomi:serve	ran
+10-generics-and-type-wrappers/subtype_rules_test.nomi:width	ran
+10-generics-and-type-wrappers/subtypes_test.nomi:Email.unchecked	ran
+10-generics-and-type-wrappers/subtypes_test.nomi:Strict.try_from	ran
+10-generics-and-type-wrappers/subtypes_test.nomi:Strict.unchecked	ran
+10-generics-and-type-wrappers/subtypes_test.nomi:TryFrom.try_from for Email	ran
+10-generics-and-type-wrappers/subtypes_test.nomi:TryFrom.try_from for UserId	ran
+10-generics-and-type-wrappers/subtypes_test.nomi:UserId.unchecked	ran
+10-generics-and-type-wrappers/subtypes_test.nomi:first_error	ran
+10-generics-and-type-wrappers/subtypes_test.nomi:half	ran
+10-generics-and-type-wrappers/subtypes_test.nomi:is_email	ran
+10-generics-and-type-wrappers/subtypes_test.nomi:load	ran
+10-generics-and-type-wrappers/subtypes_test.nomi:smallest	ran
+10-generics-and-type-wrappers/subtypes_test.nomi:swap	ran
 10-generics-and-type-wrappers/type_argument_conversion/routes.nomi:serve	ran
 10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi:Int.hash	ran
 10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi:Named.name for Pt	ran
@@ -1251,13 +1254,13 @@
 12-derives-and-standard-interfaces/ordering/ordering_test.nomi:Comparable.compare for OrderedPoint	ran
 12-derives-and-standard-interfaces/ordering/test_helpers.nomi:has_diagnostic	ran
 12-derives-and-standard-interfaces/ordering/test_helpers.nomi:hover_signature	ran
-12-derives-and-standard-interfaces/refinement_fields_test.nomi:literal Duration"1m" at 18:31 failure	ran
-12-derives-and-standard-interfaces/refinement_fields_test.nomi:literal Duration"1m" at 19:39 failure	ran
-12-derives-and-standard-interfaces/refinement_fields_test.nomi:literal Duration"1m" at 21:68 failure	ran
-12-derives-and-standard-interfaces/refinement_fields_test.nomi:literal Duration"5s" at 20:36 failure	ran
-12-derives-and-standard-interfaces/refinement_fields_test.nomi:refinement_fields_test.Pace.hash	ran
 12-derives-and-standard-interfaces/std_generics_over_program_types_test.nomi:Comparable.compare for Rev	ran
 12-derives-and-standard-interfaces/std_generics_over_program_types_test.nomi:Equatable.equal for Loose	ran
+12-derives-and-standard-interfaces/subtype_fields_test.nomi:literal Duration"1m" at 18:31 failure	ran
+12-derives-and-standard-interfaces/subtype_fields_test.nomi:literal Duration"1m" at 19:39 failure	ran
+12-derives-and-standard-interfaces/subtype_fields_test.nomi:literal Duration"1m" at 21:68 failure	ran
+12-derives-and-standard-interfaces/subtype_fields_test.nomi:literal Duration"5s" at 20:36 failure	ran
+12-derives-and-standard-interfaces/subtype_fields_test.nomi:subtype_fields_test.Pace.hash	ran
 12-derives-and-standard-interfaces/summable_test.nomi:Add.add for Cents	ran
 12-derives-and-standard-interfaces/summable_test.nomi:Summable.empty_sum for Cents	ran
 12-derives-and-standard-interfaces/summable_test.nomi:adds_nothing	ran
@@ -3938,6 +3941,7 @@ std/http.nomi:Debug.inspect for CookieJar	NETWORK: declared in std/http, std/net
 std/http.nomi:Debug.inspect for Entry	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Debug.inspect for Listener	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Debug.inspect for Origin	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Debug.inspect for Part	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Debug.inspect for Route<Unit>	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Debug.inspect for Route<{id: Uuid}>	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Debug.inspect for Route<{key: String}>	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -3977,8 +3981,10 @@ std/http.nomi:Literal.from_fragments for Origin	NETWORK: declared in std/http, s
 std/http.nomi:Method.parse	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Method.text	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Origin.parse	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Part.body	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Part.file_name	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Part.form_name	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Part.headers	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Protocol.is_at_least	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Protocol.parse	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Protocols.unencrypted_http2 default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -4005,7 +4011,6 @@ std/http.nomi:Request.form_file	NETWORK: declared in std/http, std/net or std/tl
 std/http.nomi:Request.form_value	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Request.headers default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Request.host default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
-std/http.nomi:Request.incoming default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Request.limit_body	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Request.local_address default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Request.media_type	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -4353,7 +4358,7 @@ std/jobs.nomi:key_of	ran
 std/jobs.nomi:latest_tick	ran
 std/jobs.nomi:latest_within	ran
 std/jobs.nomi:literal Duration"15m" at 410:41 failure	ran
-std/jobs.nomi:literal Duration"1h" at 1454:37 failure	ran
+std/jobs.nomi:literal Duration"1h" at 1455:37 failure	ran
 std/jobs.nomi:literal Duration"1h" at 335:48 failure	ran
 std/jobs.nomi:minute_field	ran
 std/jobs.nomi:moment_in	ran
@@ -5081,12 +5086,17 @@ std/tls.nomi:ClientConfig.server_name default	NETWORK: declared in std/http, std
 std/tls.nomi:ClientConfig.session_cache default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/tls.nomi:ClientConfig.session_tickets default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/tls.nomi:ClientConfig.verify default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:ClientHello.cipher_suites	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/tls.nomi:ClientHello.of_handle	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:ClientHello.protocols	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:ClientHello.server_name	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/tls.nomi:ClientHello.supports	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:ClientHello.versions	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/tls.nomi:ConnectionState.of_parts	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/tls.nomi:Curve.name	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/tls.nomi:Curve.of_name	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/tls.nomi:Debug.inspect for Certificate	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:Debug.inspect for ClientHello	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/tls.nomi:Display.to_string for ClientAuth	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/tls.nomi:Display.to_string for Curve	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/tls.nomi:Display.to_string for Error	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments

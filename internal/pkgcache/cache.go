@@ -80,8 +80,8 @@ const linkLine = "link"
 // writeRepoFiles writes the list of a repository's files beside its
 // directory dir: the commit its tag named, then each entry, sorted by
 // path, `<sum> <path>` for a regular file and `link <path>` for a link.
-// It is written before dir is renamed into place, and Cached reads a
-// repository only with both.
+// It is written before dir is renamed into place, and Lookup finds a
+// repository Present only with both.
 func writeRepoFiles(dir, commit string, files []RepoFile) error {
 	var b strings.Builder
 	b.WriteString("commit " + commit + "\n")
@@ -160,28 +160,89 @@ func under(p, subdir string) (string, bool) {
 	return strings.CutPrefix(p, subdir+"/")
 }
 
-// Cached answers m's directory in the cache when the cache holds m's
-// repository at its tag and the repository has m's directory, or "". A
-// repository is renamed into place whole, so a directory there is never a
-// partial extraction. A hit marks the repository used (the
+// Held is what the package cache holds of a package's repository at its
+// tag (Lookup).
+type Held int
+
+const (
+	// Absent: neither the repository's tree nor the list of its files.
+	Absent Held = iota
+	// Present: the tree, its list, and the package's directory in the tree.
+	Present
+	// NoDirectory: the tree and its list, and the list holds no file under
+	// the package's directory: the repository has no such package at the
+	// tag.
+	NoDirectory
+	// Incomplete: the tree without its list, the list without its tree, or
+	// a tree that lacks the package's directory although its list holds
+	// files under it. Something removed part of what a fetch installed:
+	// `rm -rf` of the cache removes the list, a file in a writable
+	// directory, and cannot remove the read-only tree.
+	Incomplete
+)
+
+// Lookup answers what the cache holds of m's repository at its tag, and
+// m's directory there when it is Present, or "". A repository is renamed
+// into place whole after its list is written (Install), so a tree with its
+// list is never a partial extraction. A hit marks the repository used (the
 // internal/artifactcache package doc, "Pruning").
-func Cached(cache string, m Package) string {
+func Lookup(cache string, m Package) (string, Held) {
 	repo := RepoDir(cache, m.Repo, m.Version)
-	info, err := os.Stat(repo)
-	if err != nil || !info.IsDir() {
-		return ""
-	}
-	listInfo, err := os.Stat(repo + filesSuffix)
-	if err != nil || listInfo.IsDir() {
-		return ""
+	info, treeErr := os.Lstat(repo)
+	listInfo, listErr := os.Stat(repo + filesSuffix)
+	tree := treeErr == nil && info.IsDir()
+	list := listErr == nil && !listInfo.IsDir()
+	switch {
+	case treeErr != nil && listErr != nil:
+		return "", Absent
+	case !tree || !list:
+		return "", Incomplete
 	}
 	dir := filepath.Join(repo, filepath.FromSlash(m.Subdir))
 	if !isDir(dir) {
-		return ""
+		_, files, err := ReadRepoFiles(repo)
+		if err != nil || filesUnder(files, m.Subdir) {
+			return "", Incomplete
+		}
+		return "", NoDirectory
 	}
 	artifactcache.Touch(repo, info)
 	artifactcache.Touch(repo+filesSuffix, listInfo)
-	return dir
+	return dir, Present
+}
+
+// filesUnder reports whether files records a regular file in subdir's
+// directory, which Install would have put in the tree.
+func filesUnder(files []RepoFile, subdir string) bool {
+	for _, f := range files {
+		if _, ok := under(f.Path, subdir); ok && !f.Link {
+			return true
+		}
+	}
+	return false
+}
+
+// RemoveIncomplete removes the tree the cache holds of m's repository when
+// Lookup still finds the entry Incomplete, so Install can put a fetched
+// copy in its place. It renames the tree aside first, to a temporary name
+// Prune removes if this process stops, so no reader sees part of one. The
+// list stays: Install replaces it. A fetch calls it right before it
+// installs, and checks again here, so a copy another process installed in
+// the meantime stays.
+func RemoveIncomplete(cache string, m Package) error {
+	if _, held := Lookup(cache, m); held != Incomplete {
+		return nil
+	}
+	repo := RepoDir(cache, m.Repo, m.Version)
+	aside := filepath.Join(filepath.Dir(repo),
+		fmt.Sprintf("%s%s-%d-%d", artifactcache.TempPrefix, filepath.Base(repo), os.Getpid(), time.Now().UnixNano()))
+	if err := os.Rename(repo, aside); err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil
+		}
+		return err
+	}
+	return artifactcache.RemoveTree(aside)
 }
 
 // Install puts tmp, repository repo extracted at tag whose tag named
@@ -214,17 +275,42 @@ func Install(cache, repo, tag, commit, tmp string, files []RepoFile) error {
 	return nil
 }
 
+// Foreign answers the path of the first entry under dir that the package
+// cache does not write (artifactcache.ForeignEntry), or "": below the
+// directories of hosts and paths there are only `<path>@<tag>` trees and
+// the `+files` list beside each.
+func Foreign(dir string) (string, error) {
+	return artifactcache.ForeignEntry(dir, func(p string, e fs.DirEntry) (string, error) {
+		name := e.Name()
+		switch {
+		case !strings.Contains(name, "@"):
+			if e.IsDir() {
+				return Foreign(p)
+			}
+		case strings.HasSuffix(name, filesSuffix):
+			if e.Type().IsRegular() {
+				return "", nil
+			}
+		case e.IsDir():
+			return "", nil
+		}
+		return p, nil
+	})
+}
+
 // pruneEvery is how often a process that fetches prunes the package cache.
 const pruneEvery = 24 * time.Hour
 
 // Prune removes from the package cache the repositories nothing has
 // resolved for artifactcache.Unused, and extractions left unfinished for
-// an hour, at most once a day (artifactcache.Due). A repository's entries
-// are `<path>@<tag>` and its list beside it, at any depth under its host,
-// so the walk goes down to them.
-func Prune(cache string) {
-	if !isDir(cache) || !artifactcache.Due(cache, pruneEvery) {
-		return
+// an hour, at most once a day (artifactcache.Due), or now when force is
+// set, and answers what it removed. A repository's entries are
+// `<path>@<tag>` and its list beside it, at any depth under its host, so
+// the walk goes down to them.
+func Prune(cache string, force bool) artifactcache.Pruned {
+	var pruned artifactcache.Pruned
+	if !isDir(cache) || !artifactcache.Due(cache, pruneEvery, force) {
+		return pruned
 	}
 	now := time.Now()
 	var walk func(dir string)
@@ -244,21 +330,10 @@ func Prune(cache string) {
 				continue
 			}
 			if info, err := e.Info(); err == nil && artifactcache.Expired(name, info, artifactcache.Unused, now) {
-				_ = RemoveTree(p)
+				pruned.Remove(p)
 			}
 		}
 	}
 	walk(cache)
-}
-
-// RemoveTree removes path and everything under it, making each directory
-// writable first: the cache keeps an extracted repository read-only.
-func RemoveTree(path string) error {
-	_ = filepath.WalkDir(path, func(p string, d fs.DirEntry, err error) error {
-		if err == nil && d.IsDir() {
-			_ = os.Chmod(p, 0o755)
-		}
-		return nil
-	})
-	return os.RemoveAll(path)
+	return pruned
 }

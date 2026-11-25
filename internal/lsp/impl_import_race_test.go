@@ -45,7 +45,7 @@ func TestRPC_ImplImportCheckWhileSiblingIsRead(t *testing.T) {
 	c := startRPC(t, s, dir)
 	c.open(hopURI, files["hop.nomi"])
 	c.open(declsURI, files["decls.nomi"])
-	c.waitDiagnostics(declsURI)
+	waitAnalyzed(t, s, declsURI)
 	if snap := s.docs.Snapshot(declsURI); snap == nil || snap.Analysis == nil || len(snap.Analysis.ImplImports) == 0 {
 		t.Fatal("decls.nomi has no pending impl-only import; the test does not reach checkDocImplImports")
 	}

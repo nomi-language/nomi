@@ -13,7 +13,7 @@ import
     hashable.Hashable
     int.{Int, Int64, NonNegativeInt, PositiveInt}
     iter.Iter
-    lists.List
+    lists.{List, NonEmptyList}
     locale.Locale
     matcher.Matcher
     option.Option.{self, None, Some}
@@ -489,7 +489,9 @@ impl String
     /// are not in the result. Two matches side by side, or one at either
     /// end, leave an empty string between them, and a string with no match
     /// comes back as the one piece, so `String.split("", ",")` is `[""]`.
-    /// An empty `separator` splits `s` into its code points.
+    /// An empty `separator` splits `s` into its code points, and the empty
+    /// string into one empty piece. There is always a piece, so the result
+    /// is a NonEmptyList, whose first and last pieces are Strings.
     /// `String.join` with the same separator puts the pieces back together.
     //! import std::regex.Regex
     //!
@@ -498,15 +500,23 @@ impl String
     //! assert String.split(",a,", ",") == ["", "a", ""]
     //! assert String.split("abc", "-") == ["abc"]
     //! assert String.split("hello", "") == ["h", "e", "l", "l", "o"]
+    //! assert String.split("", "") == [""]
+    //! assert String.split("", Regex.compile("")!) == [""]
     //! assert String.split("a, b,c", Regex`,\s*`) == ["a", "b", "c"]
     //! assert "one  two\tthree" |> String.split(Regex`\s+`) == ["one", "two", "three"]
+    //! assert "key=value" |> String.split("=") |> NonEmptyList.first() == "key"
     //!
     //! // Named as a value, a generic search function needs its type.
-    //! split: (String, String) -> List<String> = String.split
+    //! split: (String, String) -> NonEmptyList<String> = String.split
     //! assert split("a,b", ",") == ["a", "b"]
     //
-    pub fn split<M>(s: String, separator: M) -> List<String> where M: Matcher
-        M.split_in(separator, s)
+    pub fn split<M>(s: String, separator: M) -> NonEmptyList<String> where M: Matcher
+        // A Matcher of the program's own may give no piece; the text is
+        // then the one piece, as a text with no match is.
+        case NonEmptyList.try_from(M.split_in(separator, s))
+            Some(pieces) -> pieces
+            None         -> [s]
+        end
     end
 
     /// Every non-overlapping match of `needle` in `s`, left to right. With a
@@ -794,7 +804,7 @@ impl String
     //! assert String.to_literal("x\u{202f}y") == "\"x\\u{202f}y\""
     //! assert String.to_literal("$5 {x}") == "\"$5 {x}\""
     //
-    pub host fn to_literal(s: String) -> String
+    pub host fn to_literal(s: String) -> NonEmptyString
 
     /// A typed literal with prefix `tag` and fixed text `s`, as a program
     /// writes it: in double quotes when `s` needs no escape there, in
@@ -806,11 +816,11 @@ impl String
     //! assert String.to_typed_literal("say \"hi\"", "Regex") == "Regex`say \"hi\"`"
     //! assert String.to_typed_literal("a`b\\d", "Regex") == "Regex\"a`b\\\\d\""
     //
-    pub fn to_typed_literal(s: String, tag: String) -> String
+    pub fn to_typed_literal(s: String, tag: String) -> NonEmptyString
         quoted = to_literal(s)
 
         if quoted == "\"${s}\"" or String.contains(s, "`") or String.contains(s, "\n") then
-            tag + quoted
+            NonEmptyString.unchecked(tag + quoted)
         else
             "${tag}`${s}`"
         end
@@ -873,7 +883,72 @@ end
 //! assert NonEmptyString.try_from(String.trim("  ")) == None
 //! assert NonEmptyString.try_from(String.trim(" x ")) == Some("x")
 //
-pub refine NonEmptyString String when fn s -> s != ""
+pub subtype NonEmptyString String when fn s -> s != ""
+
+impl NonEmptyString
+    /// The first character, a grapheme cluster, as `Iter.first` reads it
+    /// with no `Option`.
+    //! assert NonEmptyString.first("héllo") == "h"
+    //! assert NonEmptyString.first("👋🏽!") == "👋🏽"
+    //
+    pub fn first(s: NonEmptyString) -> NonEmptyString
+        NonEmptyString.unchecked(Iter.first(s)!)
+    end
+
+    /// The last character, a grapheme cluster, as `Iter.last` reads it with
+    /// no `Option`.
+    //! assert NonEmptyString.last("café") == "é"
+    //
+    pub fn last(s: NonEmptyString) -> NonEmptyString
+        NonEmptyString.unchecked(Iter.last(s)!)
+    end
+
+    /// `s` in upper case, as `String.uppercase` maps it; each letter maps to
+    /// one or more, so the text stays non-empty.
+    //! assert NonEmptyString.uppercase("hello") == "HELLO"
+    //
+    pub fn uppercase(s: NonEmptyString) -> NonEmptyString
+        NonEmptyString.unchecked(String.uppercase(s))
+    end
+
+    /// `s` in lower case, as `String.lowercase` maps it.
+    //! assert NonEmptyString.lowercase("Hello") == "hello"
+    //
+    pub fn lowercase(s: NonEmptyString) -> NonEmptyString
+        NonEmptyString.unchecked(String.lowercase(s))
+    end
+
+    /// `s` capitalized, as `String.capitalize` does it: the first grapheme
+    /// in title case and the rest lowercased.
+    //! assert NonEmptyString.capitalize("hello WORLD") == "Hello world"
+    //
+    pub fn capitalize(s: NonEmptyString) -> NonEmptyString
+        NonEmptyString.unchecked(String.capitalize(s))
+    end
+
+    /// `s` with its characters in the opposite order, as `String.reverse`
+    /// reverses it.
+    //! assert NonEmptyString.reverse("abc") == "cba"
+    //
+    pub fn reverse(s: NonEmptyString) -> NonEmptyString
+        NonEmptyString.unchecked(String.reverse(s))
+    end
+
+    /// `s` in the Unicode normalization form `form`, as `String.normalize`
+    /// gives it; no code point normalizes to nothing.
+    //! assert NonEmptyString.normalize("é", NormalForm.NFC) == "é"
+    //
+    pub fn normalize(s: NonEmptyString, form: NormalForm) -> NonEmptyString
+        NonEmptyString.unchecked(String.normalize(s, form))
+    end
+
+    /// `count` copies of `s`, at least one, as `String.repeat` writes them.
+    //! assert NonEmptyString.repeat("ab", 2) == "abab"
+    //
+    pub fn repeat(s: NonEmptyString, count: PositiveInt) -> NonEmptyString
+        NonEmptyString.unchecked(String.repeat(s, count))
+    end
+end
 
 /// What a list `String.join_list` writes means: CLDR's list pattern types.
 pub enum ListStyle

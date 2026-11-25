@@ -72,16 +72,19 @@ async function highlight(code, { lang, chip }) {
 
 // A ```console block is a terminal transcript or the compiler's output. It
 // gets no chip, since output is not a language; each line is classed the way
-// `nomi` colours it in a terminal: the `$` prompt, `error:` and `warning:`
+// `nomi` colours it in a terminal: the prompt (`$ `, or PowerShell's `PS> `,
+// PROMPT), `error:` and `warning:`
 // labels, `help:` and `note:` labels, the `-->` location, the source gutter,
 // the underline under the source, and `FAIL`/`ok` result lines.
 function span(cls, value) {
   return { type: "element", tagName: "span", properties: { className: cls }, children: [{ type: "text", value }] };
 }
 
+const PROMPT = /^(\$|PS>) /;
+
 function consoleLine(line, severity) {
   let m;
-  if ((m = /^(\$)( .*?)(\s+#.*)?$/.exec(line))) {
+  if (PROMPT.test(line) && (m = /^(\S+)( .*?)(\s+#.*)?$/.exec(line))) {
     const nodes = [span("con-prompt", m[1]), span("con-cmd", m[2])];
     if (m[3]) nodes.push(span("con-comment", m[3]));
     return { nodes, severity };
@@ -109,16 +112,38 @@ function consoleLine(line, severity) {
   return { nodes: [{ type: "text", value: line }], severity };
 }
 
+// consoleBlock also decides what the block's copy button copies
+// (copyControls in tour-client.mjs), which it carries as data-nomi-commands:
+// the commands alone, each line after a prompt without it and a line after
+// one that ends in `\` as written, since it continues the command. Output
+// lines are left out. A block with no command, only output, carries "",
+// and gets no button.
 function consoleBlock(code) {
   const children = [];
+  const commands = [];
   let severity = null;
+  let continued = false;
   code.split("\n").forEach((line, i) => {
     if (i > 0) children.push({ type: "text", value: "\n" });
-    const out = consoleLine(line, severity);
-    severity = out.severity;
-    children.push(...out.nodes);
+    if (continued) {
+      commands.push(line);
+      children.push(span("con-cmd", line));
+    } else {
+      const out = consoleLine(line, severity);
+      severity = out.severity;
+      children.push(...out.nodes);
+      const prompt = PROMPT.exec(line);
+      if (!prompt) return;
+      commands.push(line.slice(prompt[0].length));
+    }
+    continued = line.endsWith("\\");
   });
-  return { type: "element", tagName: "pre", properties: { className: "nomi-tour nomi-console" }, children };
+  return {
+    type: "element",
+    tagName: "pre",
+    properties: { className: "nomi-tour nomi-console", dataNomiCommands: commands.join("\n") },
+    children,
+  };
 }
 
 // A ```text block is plain text that is neither code nor what a terminal

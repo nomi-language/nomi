@@ -13,7 +13,7 @@ package irbuild
 // no module defines, a fingerprint of every top-level declaration of
 // each file, the typed literals it checks at load (KeptLiteral), so a
 // relinked program checks each one again over the linked modules, the
-// refinement literals and rules of each file (KeptRefinement), which it
+// subtype literals and rules of each file (KeptSubtype), which it
 // checks again too, and the
 // interfaces some body renders through every implementer's Debug, with
 // the files that render and implement each (KeptDebugRendering).
@@ -378,28 +378,28 @@ type KeptUnit struct {
 	// program's closure whether or not the file's lowering names anything
 	// of them.
 	Imports []string
-	// Refinements are the refinement literals the file checks, each with
+	// Subtypes are the subtype literals the file checks, each with
 	// no Build, and Builds the object of a module whose functions are the
-	// Build of each that has one (KeptRefinement.Built), in order; Rules
-	// are the refinements the file declares, each with no Check, and
+	// Build of each that has one (KeptSubtype.Built), in order; Rules
+	// are the subtypes the file declares, each with no Check, and
 	// RuleChecks the indexes of the rules that had one (a generic
-	// refinement's), each the next function of Builds after the literals'.
+	// subtype's), each the next function of Builds after the literals'.
 	// A program relinked from the kept lowering checks every one again
 	// against the rules as they are now, since an edit of another file (a
 	// rule, a function a rule calls) can change the answer.
-	Refinements []KeptRefinement
-	Builds      []byte
-	Rules       []RefinementRuleSite
-	RuleChecks  []int
+	Subtypes   []KeptSubtype
+	Builds     []byte
+	Rules      []SubtypeRuleSite
+	RuleChecks []int
 }
 
-// KeptRefinement is a RefinementSite of a kept unit.
-type KeptRefinement struct {
+// KeptSubtype is a SubtypeSite of a kept unit.
+type KeptSubtype struct {
 	// Site is the site with no Build and no step's Check; Built says it
 	// had a Build, the next function of its unit's Builds, and Checks are
-	// the indexes of the steps that had a Check, a generic refinement's, each
+	// the indexes of the steps that had a Check, a generic subtype's, each
 	// the next function after that.
-	Site   RefinementSite
+	Site   SubtypeSite
 	Built  bool
 	Checks []int
 }
@@ -478,9 +478,9 @@ type keptUnitState struct {
 	imports   []string
 	mod       *ir.Module
 	project   bool
-	// refinements and rules are the unit's file's (gen.refinements).
-	refinements []RefinementSite
-	rules       []RefinementRuleSite
+	// subtypes and rules are the unit's file's (gen.subtypes).
+	subtypes []SubtypeSite
+	rules    []SubtypeRuleSite
 }
 
 // keptStateOf records what Keep needs of a lowering of p, whose first own
@@ -509,7 +509,7 @@ func keptStateOf(p *Program, own int, gens []*gen, reg *typeRegistry, linked *li
 		}
 		project := i < own && !strings.HasPrefix(m.Name, "std/")
 		k.units = append(k.units, keptUnitState{key: m.Name, path: m.Path, nodes: m.Nodes, imports: moduleStdImports(m), mod: gens[i].irMod, project: project,
-			refinements: gens[i].refinements, rules: gens[i].refinementRuleSites})
+			subtypes: gens[i].subtypes, rules: gens[i].subtypeRuleSites})
 		if !project {
 			continue
 		}
@@ -567,7 +567,7 @@ func (r *Result) Keep() (*KeptLowering, error) {
 		if u.project {
 			ku.Decls = DeclFingerprints(u.nodes)
 		}
-		if err := ku.keepRefinements(u.path, u.refinements, u.rules); err != nil {
+		if err := ku.keepSubtypes(u.path, u.subtypes, u.rules); err != nil {
 			return nil, err
 		}
 		out.Units = append(out.Units, ku)
@@ -1034,18 +1034,18 @@ func LowerFileAmong(p *Program, kept *KeptLowering, moved bool, relowering, aske
 	}
 	shared := std.linkedShared(std.irModules, imports, units, listed, insts)
 	libs := append(append(slices.Clip(shared), listed...), insts...)
-	refinements, rules, err := relinkedRefinements(kept, old, l, st.refinements, st.refinementRules)
+	subtypes, rules, err := relinkedSubtypes(kept, old, l, st.subtypes, st.subtypeRules)
 	if err != nil {
 		return nil, err
 	}
 	res = &Result{HasMain: kept.HasMain, IR: units, irLibraries: libs, instMods: insts, Literals: lits,
-		Refinements: refinements, RefinementRules: rules}
+		Subtypes: subtypes, SubtypeRules: rules}
 	if ls != nil {
 		res.linkedMods = ls.units
 	}
 	res.file = &relowered{unit: old, mod: mod, instMods: whole.instMods, decls: DeclFingerprints(f.Nodes), imports: moduleStdImports(f), literals: keptLits,
 		debugRendered: st.debugRendered, debugImplemented: st.debugImplemented,
-		refinements: st.refinements, rules: st.refinementRules}
+		subtypes: st.subtypes, rules: st.subtypeRules}
 	for _, m := range p.Modules[1:] {
 		if m.bodies {
 			res.file.linked = others
@@ -1068,9 +1068,9 @@ type relowered struct {
 	linked []*ir.Module
 	// literals are the program's kept literals with the file's new ones.
 	literals []KeptLiteral
-	// refinements and rules are the file's (Result.perFileTables).
-	refinements []RefinementSite
-	rules       []RefinementRuleSite
+	// subtypes and rules are the file's (Result.perFileTables).
+	subtypes []SubtypeSite
+	rules    []SubtypeRuleSite
 	// debugRendered and debugImplemented are the file's
 	// (KeptDebugRendering).
 	debugRendered, debugImplemented []string
@@ -1123,13 +1123,13 @@ func relinkedLiterals(kept *KeptLowering, old int, decoded []*ir.Module, mod *ir
 	return sites, out, nil
 }
 
-// relinkedRefinements are the refinement literals and rules of the program
+// relinkedSubtypes are the subtype literals and rules of the program
 // LowerFileAmong links, in unit order: each kept unit's from what it kept,
 // its literals' Builds decoded by l, and the relowered file's (the unit at
 // old) from its new lowering. vmhost checks every one again.
-func relinkedRefinements(kept *KeptLowering, old int, l *ir.Linker, fresh []RefinementSite, freshRules []RefinementRuleSite) ([]RefinementSite, []RefinementRuleSite, error) {
-	var sites []RefinementSite
-	var rules []RefinementRuleSite
+func relinkedSubtypes(kept *KeptLowering, old int, l *ir.Linker, fresh []SubtypeSite, freshRules []SubtypeRuleSite) ([]SubtypeSite, []SubtypeRuleSite, error) {
+	var sites []SubtypeSite
+	var rules []SubtypeRuleSite
 	for i, u := range kept.Units {
 		if i == old {
 			sites, rules = append(sites, fresh...), append(rules, freshRules...)
@@ -1139,15 +1139,15 @@ func relinkedRefinements(kept *KeptLowering, old int, l *ir.Linker, fresh []Refi
 		if u.Builds != nil {
 			m, err := decodeObject(l, u.Builds)
 			if err != nil {
-				return nil, nil, fmt.Errorf("irbuild: decoding %s's refinement literals: %w", u.Key, err)
+				return nil, nil, fmt.Errorf("irbuild: decoding %s's subtype literals: %w", u.Key, err)
 			}
 			builds = m.Funcs()
 		}
-		for _, kr := range u.Refinements {
+		for _, kr := range u.Subtypes {
 			s := kr.Site
 			if kr.Built {
 				if len(builds) == 0 {
-					return nil, nil, miss("%s's refinement literals do not hold the record of %s", u.Key, s.Text)
+					return nil, nil, miss("%s's subtype literals do not hold the record of %s", u.Key, s.Text)
 				}
 				s.Build, builds = builds[0], builds[1:]
 			}
@@ -1156,7 +1156,7 @@ func relinkedRefinements(kept *KeptLowering, old int, l *ir.Linker, fresh []Refi
 			}
 			for _, i := range kr.Checks {
 				if len(builds) == 0 || i >= len(s.Steps) {
-					return nil, nil, miss("%s's refinement literals do not hold the check of %s", u.Key, s.Text)
+					return nil, nil, miss("%s's subtype literals do not hold the check of %s", u.Key, s.Text)
 				}
 				s.Steps[i].Check, builds = builds[0], builds[1:]
 			}
@@ -1166,7 +1166,7 @@ func relinkedRefinements(kept *KeptLowering, old int, l *ir.Linker, fresh []Refi
 		rules = append(rules, u.Rules...)
 		for _, i := range u.RuleChecks {
 			if len(builds) == 0 || i >= len(u.Rules) {
-				return nil, nil, miss("%s's refinement literals do not hold the check of its rule %d", u.Key, i)
+				return nil, nil, miss("%s's subtype literals do not hold the check of its rule %d", u.Key, i)
 			}
 			rules[at+i].Check, builds = builds[0], builds[1:]
 		}
@@ -1174,19 +1174,19 @@ func relinkedRefinements(kept *KeptLowering, old int, l *ir.Linker, fresh []Refi
 	return sites, rules, nil
 }
 
-// keepRefinements sets u's Refinements, Builds, Rules and RuleChecks from
+// keepSubtypes sets u's Subtypes, Builds, Rules and RuleChecks from
 // the sites and rules of the file at path.
-func (u *KeptUnit) keepRefinements(path string, sites []RefinementSite, rules []RefinementRuleSite) error {
-	u.Refinements, u.Builds, u.Rules, u.RuleChecks = nil, nil, slices.Clone(rules), nil
+func (u *KeptUnit) keepSubtypes(path string, sites []SubtypeSite, rules []SubtypeRuleSite) error {
+	u.Subtypes, u.Builds, u.Rules, u.RuleChecks = nil, nil, slices.Clone(rules), nil
 	var builds *ir.Module
 	keep := func(f *ir.Func) {
 		if builds == nil {
-			builds = ir.NewModule(path + " refinement literals")
+			builds = ir.NewModule(path + " subtype literals")
 		}
 		builds.AddFunc(f)
 	}
 	for _, s := range sites {
-		kr := KeptRefinement{Site: s, Built: s.Build != nil}
+		kr := KeptSubtype{Site: s, Built: s.Build != nil}
 		kr.Site.Build = nil
 		kr.Site.Steps = slices.Clone(s.Steps)
 		if s.Build != nil {
@@ -1199,7 +1199,7 @@ func (u *KeptUnit) keepRefinements(path string, sites []RefinementSite, rules []
 				keep(st.Check)
 			}
 		}
-		u.Refinements = append(u.Refinements, kr)
+		u.Subtypes = append(u.Subtypes, kr)
 	}
 	for i := range u.Rules {
 		if f := u.Rules[i].Check; f != nil {
@@ -1211,7 +1211,7 @@ func (u *KeptUnit) keepRefinements(path string, sites []RefinementSite, rules []
 	if builds != nil {
 		data, err := ir.EncodeObject(builds)
 		if err != nil {
-			return fmt.Errorf("irbuild: encoding %s's refinement literals: %w", path, err)
+			return fmt.Errorf("irbuild: encoding %s's subtype literals: %w", path, err)
 		}
 		u.Builds = data
 	}
@@ -1260,7 +1260,7 @@ func (r *Result) Rekeep(kept *KeptLowering) (*KeptLowering, error) {
 		}
 		u.Object, u.Files = data, files
 	}
-	if err := u.keepRefinements(u.Path, f.refinements, f.rules); err != nil {
+	if err := u.keepSubtypes(u.Path, f.subtypes, f.rules); err != nil {
 		return nil, err
 	}
 	out.Units[f.unit] = u
@@ -1652,9 +1652,9 @@ func (k *KeptLowering) Encode() []byte {
 			w.str(n)
 			b.Write(sum[:])
 		}
-		w.uv(uint64(len(u.Refinements)))
-		for _, kr := range u.Refinements {
-			w.refinement(kr)
+		w.uv(uint64(len(u.Subtypes)))
+		for _, kr := range u.Subtypes {
+			w.subtype(kr)
 		}
 		w.bytes(u.Builds)
 		w.uv(uint64(len(u.Rules)))
@@ -1750,7 +1750,7 @@ func DecodeKeptLowering(data []byte) (k *KeptLowering, err error) {
 		}
 		rn := r.count()
 		for j := 0; j < rn && r.err == nil; j++ {
-			u.Refinements = append(u.Refinements, r.refinement())
+			u.Subtypes = append(u.Subtypes, r.subtype())
 		}
 		u.Builds = r.bytes()
 		rn = r.count()
@@ -1758,7 +1758,7 @@ func DecodeKeptLowering(data []byte) (k *KeptLowering, err error) {
 			if r.flag() {
 				u.RuleChecks = append(u.RuleChecks, j)
 			}
-			u.Rules = append(u.Rules, RefinementRuleSite{Path: r.str(), Line: int(r.uv()), Col: int(r.uv()), Type: r.str(), Rule: r.str(), TryFrom: r.str(),
+			u.Rules = append(u.Rules, SubtypeRuleSite{Path: r.str(), Line: int(r.uv()), Col: int(r.uv()), Type: r.str(), Rule: r.str(), TryFrom: r.str(),
 				Key: r.str(), Instances: r.str(), Bounds: r.strs(), Unchecked: r.str()})
 		}
 		k.Units = append(k.Units, u)
@@ -1879,7 +1879,7 @@ func (r *keptReader) literal() KeptLiteral {
 	return l
 }
 
-// The kinds of a kept refinement literal's value.
+// The kinds of a kept subtype literal's value.
 const (
 	keptValueNone = iota
 	keptValueInt
@@ -1889,9 +1889,9 @@ const (
 	keptValueBool
 )
 
-// refinement writes kr: its site's position, text, type and value, then
+// subtype writes kr: its site's position, text, type and value, then
 // its steps.
-func (w keptWriter) refinement(kr KeptRefinement) {
+func (w keptWriter) subtype(kr KeptSubtype) {
 	s := kr.Site
 	w.str(s.Path)
 	for _, n := range []int{s.Line, s.Col, s.EndLine, s.EndCol} {
@@ -1936,9 +1936,9 @@ func (w keptWriter) refinement(kr KeptRefinement) {
 	}
 }
 
-// refinement reads what keptWriter.refinement wrote.
-func (r *keptReader) refinement() KeptRefinement {
-	var kr KeptRefinement
+// subtype reads what keptWriter.subtype wrote.
+func (r *keptReader) subtype() KeptSubtype {
+	var kr KeptSubtype
 	s := &kr.Site
 	s.Path = r.str()
 	for _, n := range []*int{&s.Line, &s.Col, &s.EndLine, &s.EndCol} {
@@ -1969,7 +1969,7 @@ func (r *keptReader) refinement() KeptRefinement {
 	}
 	n := r.count()
 	for i := 0; i < n && r.err == nil; i++ {
-		st := RefinementSiteStep{Type: r.str(), Rule: r.str(), TryFrom: r.str(), Key: r.str()}
+		st := SubtypeSiteStep{Type: r.str(), Rule: r.str(), TryFrom: r.str(), Key: r.str()}
 		if r.flag() {
 			kr.Checks = append(kr.Checks, i)
 		}

@@ -13,6 +13,7 @@ import (
 	"github.com/nomi-language/nomi/internal/format"
 	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/parser"
+	"github.com/nomi-language/nomi/rt"
 )
 
 // errFormatFailed is a `nomi fmt` run that already reported each file it
@@ -39,7 +40,7 @@ fmt formats each file, and each .nomi file under each directory, to
 standard output, and with no path formats standard input.
   -w      write each file in place
   -l      list the files that would change
-  -d      print the changes
+  -d      print a unified diff of each file that would change
   -check  list the files that would change, and exit 1 if any would`
 
 // runFmt implements the `nomi fmt` subcommand. It supports:
@@ -48,13 +49,13 @@ standard output, and with no path formats standard input.
 //	nomi fmt -w <paths>...     # write in place
 //	nomi fmt -l <paths>...     # list files that would change
 //	nomi fmt -check <paths>... # list them and exit 1 if there are any
-//	nomi fmt -d <paths>...     # show diff, don't write
+//	nomi fmt -d <paths>...     # print a unified diff of each change
 //	nomi fmt                   # stdin -> stdout
 func runFmt(args []string) error {
 	fset := flag.NewFlagSet("fmt", flag.ContinueOnError)
 	writeInPlace := fset.Bool("w", false, "write result to source file instead of stdout")
 	listChanged := fset.Bool("l", false, "list files that would change")
-	showDiff := fset.Bool("d", false, "show diff instead of writing")
+	showDiff := fset.Bool("d", false, "print a unified diff of each file that would change")
 	check := fset.Bool("check", false, "list files that would change, and exit 1 if any would")
 	fset.SetOutput(os.Stderr)
 	fset.Usage = func() { fmt.Fprintln(os.Stderr, fmtUsage) }
@@ -132,10 +133,7 @@ func runFmt(args []string) error {
 				firstErr = errFormatFailed
 			}
 		case *showDiff:
-			// Minimal diff output: label the file and print the formatted content.
-			// A proper unified diff is a future enhancement.
-			fmt.Printf("--- %s\n", f)
-			fmt.Print(out)
+			fmt.Print(rt.UnifiedDiff(f, src, out))
 		default:
 			fmt.Print(out)
 		}

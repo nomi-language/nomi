@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 // vscodeExtension is the extension's identifier, editors/vscode's
@@ -35,6 +36,27 @@ func vscodeCommand() (string, error) {
 			"then run this again.")
 	}
 	return code, nil
+}
+
+// VSCodeListed reports whether `code --list-extensions` lists Nomi's
+// extension, which only `nomi editor install vscode` installs, since it is
+// on no marketplace. The extension records no version of nomi, so whether
+// it is this version's is unknown.
+func VSCodeListed() bool {
+	code, err := exec.LookPath("code")
+	if err != nil {
+		return false
+	}
+	out, err := exec.Command(code, "--list-extensions").Output()
+	if err != nil {
+		return false
+	}
+	for _, line := range strings.Fields(string(out)) {
+		if strings.EqualFold(line, vscodeExtension) {
+			return true
+		}
+	}
+	return false
 }
 
 func installVSCode(p *plan) error {

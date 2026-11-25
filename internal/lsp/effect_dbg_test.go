@@ -61,7 +61,7 @@ func TestSemanticTokens_ADbgKeywordIsNotMarked(t *testing.T) {
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
-	manifest := "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = [\"std::io\"]\n"
+	manifest := "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\neffects = [\"std::io\"]\n"
 	dir := writeProject(t, map[string]string{"main.nomi": effectDbgMain, "nomi.toml": manifest})
 	s, c := startEffectServer(t, dir, map[string]string{"main.nomi": effectDbgMain})
 	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))

@@ -353,7 +353,7 @@ func TestBuildProject_MalformedManifestSurfacesAsTypeError(t *testing.T) {
 	}
 	found := false
 	for _, e := range entryErrors(fa) {
-		if strings.Contains(e.Message, "nomi.toml") {
+		if filepath.Base(e.File) == "nomi.toml" {
 			found = true
 			break
 		}

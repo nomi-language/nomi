@@ -114,8 +114,8 @@ func TestEmbeddedRunner_AnotherTargetDownloads(t *testing.T) {
 	archive := "nomi_v9.9.9_" + cross.GOOS + "_" + cross.GOARCH + "_runners.tar.gz"
 	data := tarGz(t, map[string][]byte{"./nomi-vm": []byte("plain runner"), "./nomi-vm-nonet": []byte("lean runner")})
 	rel := &fakeRelease{files: map[string][]byte{
-		"/v9.9.9/" + archive:                []byte(data),
-		"/v9.9.9/nomi_v9.9.9_checksums.txt": []byte(sha(data) + "  ./" + archive + "\n"),
+		"/download/v9.9.9/" + archive:                []byte(data),
+		"/download/v9.9.9/nomi_v9.9.9_checksums.txt": []byte(sha(data) + "  ./" + archive + "\n"),
 	}}
 	srv := httptest.NewServer(rel)
 	t.Cleanup(srv.Close)
@@ -125,7 +125,7 @@ func TestEmbeddedRunner_AnotherTargetDownloads(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if data, _ := os.ReadFile(got); string(data) != "lean runner" || !strings.Contains(progress.String(), srv.URL+"/v9.9.9/"+archive) {
+	if data, _ := os.ReadFile(got); string(data) != "lean runner" || !strings.Contains(progress.String(), srv.URL+"/download/v9.9.9/"+archive) {
 		t.Fatalf("got %s holding %q after %q, want the download from %s", got, data, progress.String(), archive)
 	}
 	if *unpacked != 0 {

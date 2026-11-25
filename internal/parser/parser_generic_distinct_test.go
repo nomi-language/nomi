@@ -39,9 +39,9 @@ func TestParseZeroSizedTypeTakesNoTypeParameters(t *testing.T) {
 }
 
 // A generic type's `where` bounds its parameters, after its inner type and
-// any refinement parents and before a `when` rule.
+// any subtype parents and before a `when` rule.
 func TestParseGenericDistinctWhere(t *testing.T) {
-	nodes, err := Parse(lexer.Lex("refine Sorted<T> List<T> where T: Comparable when fn xs -> True\n"))
+	nodes, err := Parse(lexer.Lex("subtype Sorted<T> List<T> where T: Comparable when fn xs -> True\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +52,7 @@ func TestParseGenericDistinctWhere(t *testing.T) {
 	if td.Rule == nil {
 		t.Fatal("no rule after the where clause")
 	}
-	nodes, err = Parse(lexer.Lex("refine Run<T> Many<T> and Sorted<T> where T: Comparable and Hashable when fn xs -> True\n"))
+	nodes, err = Parse(lexer.Lex("subtype Run<T> Many<T> and Sorted<T> where T: Comparable and Hashable when fn xs -> True\n"))
 	if err != nil {
 		t.Fatal(err)
 	}

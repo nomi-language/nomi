@@ -614,9 +614,9 @@ func SynthesizeUniversalDebug(nodes []ast.Node) []ast.Node {
 			// Its Debug is its shape.
 			continue
 		}
-		if explicit[typeName] || isDistinctRefinementDecl(n) {
-			// A distinct refinement has its base's Debug: its value is
-			// the base's at run time (refinement.go).
+		if explicit[typeName] || isDistinctSubtypeDecl(n) {
+			// A distinct subtype has its base's Debug: its value is
+			// the base's at run time (subtype.go).
 			continue
 		}
 		// One impl per name. A second declaration of the same name is a
@@ -626,10 +626,10 @@ func SynthesizeUniversalDebug(nodes []ast.Node) []ast.Node {
 		explicit[typeName] = true
 		synthesized = append(synthesized, synthesizeAutoDebug(n, synthSiteOf(index[i], n))...)
 	}
-	// Each refinement's `try_from` and `unchecked` (refinement_synthesis.go),
+	// Each subtype's `try_from` and `unchecked` (subtype_synthesis.go),
 	// in this pass because it runs wherever a file's declarations are
 	// completed with what the front end writes for them.
-	synthesized = append(synthesized, synthesizeRefinements(nodes, index)...)
+	synthesized = append(synthesized, synthesizeSubtypes(nodes, index)...)
 	if len(synthesized) == 0 {
 		return nodes
 	}
@@ -647,9 +647,9 @@ func SynthesizeUniversalDebug(nodes []ast.Node) []ast.Node {
 // decl's block and the checker checks it there (FileBodies.BlockDebug).
 // It answers nil for every other type declared in a body, whose Debug is
 // its shape (noImplUse), which rt renders as the literal that builds it,
-// and for a distinct refinement, whose Debug is its base's.
+// and for a distinct subtype, whose Debug is its base's.
 func synthesizeBlockDebug(decl ast.Node, index int) *ast.ImplBlock {
-	if _, ok := typeDeclName(decl); !ok || !typeDeclIsOpaque(decl) || isDistinctRefinementDecl(decl) {
+	if _, ok := typeDeclName(decl); !ok || !typeDeclIsOpaque(decl) || isDistinctSubtypeDecl(decl) {
 		return nil
 	}
 	site := synthSite{origin: synthOriginBlock, index: index}
@@ -1075,7 +1075,7 @@ func (s *uniquifyState) typeExpr(te ast.TypeExpr) {
 	switch t := te.(type) {
 	case *ast.SimpleType:
 		t.Line, t.Col = s.bump()
-	case *ast.RefinementBaseType:
+	case *ast.SubtypeBaseType:
 		t.Line, t.Col = s.bump()
 		for _, p := range t.Params {
 			s.typeExpr(p)
@@ -1313,20 +1313,20 @@ func (s *uniquifyState) node(n ast.Node) {
 		for _, stmt := range e.Stmts {
 			s.node(stmt)
 		}
-	case *ast.UncheckedRefinement:
+	case *ast.UncheckedSubtype:
 		e.Line, e.Col = s.bump()
 		s.node(e.Value)
-	case *ast.RefinementRule:
+	case *ast.SubtypeRule:
 		e.Line, e.Col = s.bump()
 		s.node(e.Rule)
 		s.node(e.Value)
-	case *ast.RefinementParentCheck:
+	case *ast.SubtypeParentCheck:
 		e.Line, e.Col = s.bump()
 		if e.Parent != nil {
 			s.typeExpr(e.Parent)
 		}
-		if e.Refined != nil {
-			s.node(e.Refined)
+		if e.Subtype != nil {
+			s.node(e.Subtype)
 		}
 		s.node(e.Plain)
 	default:

@@ -11,9 +11,9 @@ import
     equatable.Equatable
     float.Float
     hashable.Hashable
-    int.{Int, NonNegativeInt}
+    int.{Int, NonNegativeInt, PositiveInt}
     iter.Iter
-    lists.List
+    lists.{List, NonEmptyList}
     option.Option
     option.Option.{None, Some}
     results.Result
@@ -422,13 +422,16 @@ impl Bytes
     /// The parts of `data` between occurrences of `separator`, found from
     /// the left without overlapping. Each part is a slice of `data`, not a
     /// copy. An empty separator splits `data` into its bytes, and an empty
-    /// `data` is one empty part, as `String.split` answers.
+    /// `data` is one empty part, as `String.split` answers. There is always
+    /// a part, so the result is a NonEmptyList.
     //! comma = String.to_bytes(",")
     //! lengths = Bytes.split(String.to_bytes("a,,bc"), comma) |> Iter.map(Bytes.length) |> Iter.to_list()
     //! assert lengths == [1, 0, 2]
     //! assert Bytes.split(Bytes.from_list([]), comma) == [Bytes.from_list([])]
+    //! parts = Bytes.split(String.to_bytes("k=v"), String.to_bytes("="))
+    //! assert NonEmptyList.first(parts) == String.to_bytes("k")
     //
-    pub host fn split(data: Bytes, separator: Bytes) -> List<Bytes>
+    pub host fn split(data: Bytes, separator: Bytes) -> NonEmptyList<Bytes>
 
     /// How many times `needle` occurs in `data` without overlapping, found
     /// from the left. An empty needle occurs before, between and after the
@@ -562,7 +565,7 @@ impl Bytes
     //! assert Bytes.uvarint_at(data, 2) == Some((7, 3))
     //! assert Bytes.uvarint_at(Bytes.from_list([0x80]), 0) == None
     //
-    pub host fn uvarint_at(data: Bytes, index: Int) -> Option<(NonNegativeInt, NonNegativeInt)>
+    pub host fn uvarint_at(data: Bytes, index: Int) -> Option<(NonNegativeInt, PositiveInt)>
 
     /// The zigzag varint starting at `index`, and the index after it: an
     /// unsigned varint (`Bytes.uvarint_at`) whose 0, 1, 2, 3 stand for 0,
@@ -570,7 +573,7 @@ impl Bytes
     //! assert Bytes.varint_at(Bytes.from_list([0x03]), 0) == Some((-2, 1))
     //! assert Bytes.varint_at(Bytes.from_list([0x04]), 0) == Some((2, 1))
     //
-    pub host fn varint_at(data: Bytes, index: Int) -> Option<(Int, NonNegativeInt)>
+    pub host fn varint_at(data: Bytes, index: Int) -> Option<(Int, PositiveInt)>
 
     /// The code point whose UTF-8 encoding starts at `offset` and the
     /// count of its bytes, 1 to 4, or None when `offset` is outside the
@@ -586,7 +589,7 @@ impl Bytes
     //! assert Bytes.code_point_at(data, 6) == None
     //! assert Bytes.code_point_at(Bytes.from_list([0xE2, 0x82]), 0) == None
     //
-    pub host fn code_point_at(data: Bytes, offset: Int) -> Option<(Codepoint, NonNegativeInt)>
+    pub host fn code_point_at(data: Bytes, offset: Int) -> Option<(Codepoint, PositiveInt)>
 
     /// Each byte of `a` XOR the byte of `b` at the same index, or None
     /// when their lengths differ.

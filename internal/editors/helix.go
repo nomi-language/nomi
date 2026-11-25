@@ -20,13 +20,18 @@ var helixEditor = editor{
 	name:      "helix",
 	install:   installHelix,
 	uninstall: uninstallHelix,
-	status: func(version string) []string {
-		cfg, err := host.helixConfig()
-		if err != nil {
-			return []string{err.Error()}
-		}
-		return []string{markerStatus(helixPaths(cfg).grammar, version, "helix"), cfg}
-	},
+	status:    func(version string) []string { return statusOf(findHelix(), version, "helix") },
+	find:      findHelix,
+}
+
+// findHelix is what Helix's configuration directory holds of Nomi support:
+// the marker is in the grammar's copy.
+func findHelix() found {
+	cfg, err := host.helixConfig()
+	if err != nil {
+		return found{err: err}
+	}
+	return markerIn(helixPaths(cfg).grammar, cfg)
 }
 
 // helixDirs are the places in Helix's configuration directory an install

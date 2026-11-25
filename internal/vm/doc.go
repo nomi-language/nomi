@@ -457,7 +457,7 @@
 // record and no call. A Range of any other element calls its linked impls
 // per element. A Range's parts (`Range.start`, `Range.stop`,
 // `Range.is_inclusive`) are pure hosts over its record (rangehosts.go),
-// so a refinement rule that reads them runs when a literal is checked.
+// so a subtype rule that reads them runs when a literal is checked.
 //
 // `Iter.zip` pulls its right side one element per left element. When the
 // right side is the view of a List, a Vector or a `Range<Int>` (its Src),
@@ -550,7 +550,7 @@
 // # Effects
 //
 // [Machine.Effects] answers what stops a function being run where nothing
-// may act on the world and the run must end: a refinement rule, a typed
+// may act on the world and the run must end: a subtype rule, a typed
 // literal's handler, a checked literal's `check`, an editor's evaluation
 // and a debugger's (evaluate.go, debugeval.go). An effect is a crossing
 // into Go that its declaration does not mark pure. Purity is declared

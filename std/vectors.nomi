@@ -2,7 +2,7 @@ import
     add.Add
     averageable.Averageable
     bool.Bool
-    comparable.Comparable
+    comparable.{Comparable, Direction}
     comparable.Ordering.{self, Equal, Greater, Less}
     contains.Contains
     debug.Debug
@@ -11,7 +11,10 @@ import
     hashable.Hashable
     int.{Int, NonNegativeInt, PositiveInt}
     iter.Iter
+    lists.NonEmptyList
+    maps.NonEmptyMap
     option.Option.{self, None, Some}
+    sets.NonEmptySet
     strings.String
     summable.Summable
 end
@@ -46,20 +49,24 @@ impl Vector<T>
 
     /// Returns a new vector with `item` appended to the end, in O(log32 n).
     /// It copies the last block of up to 32 elements, or writes in place
-    /// when the compiler proves nothing reads `vector` again.
+    /// when the compiler proves nothing reads `vector` again. The result
+    /// holds `item`, so it is a NonEmptyVector whatever `vector` held.
     //! assert Vector.push([1, 2], 3) == [1, 2, 3]
+    //! empty: Vector<Int> = []
+    //! assert Vector.push(empty, 3) |> NonEmptyVector.last() == 3
     //
-    pub host fn push<T>(vector: Vector<T>, item: T) -> Vector<T>
+    pub host fn push<T>(vector: Vector<T>, item: T) -> NonEmptyVector<T>
 
     /// `Some` of a new vector with `item` replacing the element at zero-based
     /// `index`, in O(log32 n), or None when the index is outside the vector.
     /// For an index the code knows is in range, `Vector.set(vector, index,
-    /// item)!` returns the new vector and traps on any other index.
+    /// item)!` returns the new vector and traps on any other index. A `Some`
+    /// holds `item`, so it is a NonEmptyVector.
     //! assert Vector.set(["a", "b"], 1, "z") == Some(["a", "z"])
     //! assert Vector.set(["a", "b"], 2, "z") == None
     //! assert Vector.set(["a", "b"], 0, "z")! == ["z", "b"]
     //
-    pub host fn set<T>(vector: Vector<T>, index: Int, item: T) -> Option<Vector<T>>
+    pub host fn set<T>(vector: Vector<T>, index: Int, item: T) -> Option<NonEmptyVector<T>>
 
     /// Concatenates two vectors, in time linear in the length of `b`.
     //! assert Vector.concat([1, 2], [3]) == [1, 2, 3]
@@ -87,6 +94,7 @@ impl Vector<T>
     /// Returns the last element and the vector without it, or None if the
     /// vector is empty: `Vector.next_item` from the other end, which makes
     /// a Vector a stack. O(log32 n): the rest is a slice.
+    /// `NonEmptyVector.pop` returns the pair itself.
     //! assert Vector.pop([1, 2, 3]) == Some((3, [1, 2]))
     //! assert Vector.pop([]) == None
     //
@@ -100,16 +108,17 @@ impl Vector<T>
     /// `Some` of a new vector with `item` at zero-based `index` and the
     /// elements from there on after it, or None when the index is outside
     /// `0` up to the length. At the length it is `Vector.push`, in
-    /// O(log32 n); anywhere else the elements are copied, in O(n).
+    /// O(log32 n); anywhere else the elements are copied, in O(n). A `Some`
+    /// holds `item`, so it is a NonEmptyVector.
     //! assert Vector.insert(["a", "c"], 1, "b") == Some(["a", "b", "c"])
     //! assert Vector.insert(["a"], 1, "b") == Some(["a", "b"])
     //! assert Vector.insert(["a"], 2, "b") == None
     //
-    pub fn insert<T>(vector: Vector<T>, index: Int, item: T) -> Option<Vector<T>>
+    pub fn insert<T>(vector: Vector<T>, index: Int, item: T) -> Option<NonEmptyVector<T>>
         n = Vector.length(vector)
         if index < 0 or index > n then return None
         before = Vector.push(Vector.slice(vector, 0, index), item)
-        Some(Vector.concat(before, Vector.slice(vector, index, n)))
+        Some(NonEmptyVector.concat(before, Vector.slice(vector, index, n)))
     end
 
     /// `Some` of the vector without the element at zero-based `index`, or
@@ -237,9 +246,9 @@ end
 /// A Vector with at least one element, so its first, last, largest and
 /// smallest elements are values rather than `Option`s. A literal is checked
 /// when the program is compiled; `NonEmptyVector.try_from(v)` checks a
-/// Vector computed at run time, and `NonEmptyVector.push(v, item)` builds
-/// one from any Vector. A NonEmptyVector is a Vector and passes wherever one
-/// is expected. It is in the prelude.
+/// Vector computed at run time, and `Vector.push(v, item)` builds one from
+/// any Vector. A NonEmptyVector is a Vector and passes wherever one is
+/// expected. It is in the prelude.
 //! v: NonEmptyVector<Int> = [4, 8, 2]
 //! assert NonEmptyVector.last(v) == 2
 //! assert NonEmptyVector.min(v) == 2
@@ -248,7 +257,7 @@ end
 //! none: Vector<Int> = []
 //! assert NonEmptyVector.try_from(none) == None
 //
-pub refine NonEmptyVector<T> Vector<T> when fn vector -> Vector.length(vector) > 0
+pub subtype NonEmptyVector<T> Vector<T> when fn vector -> Vector.length(vector) > 0
 
 impl NonEmptyVector<T>
     /// A NonEmptyVector of `first` followed by the elements of `rest`, which
@@ -294,12 +303,43 @@ impl NonEmptyVector<T>
         Iter.min(vector)!
     end
 
+    /// The element whose key is largest; the first of several equal ones.
+    //! assert NonEmptyVector.max_by(["bb", "a", "ccc"], String.length) == "ccc"
+    //
+    pub fn max_by<T, K>(vector: NonEmptyVector<T>, key: (T) -> K) -> T where K: Comparable
+        Iter.max_by(vector, key)!
+    end
+
+    /// The element whose key is smallest; the first of several equal ones.
+    //! assert NonEmptyVector.min_by(["bb", "a", "ccc"], String.length) == "a"
+    //
+    pub fn min_by<T, K>(vector: NonEmptyVector<T>, key: (T) -> K) -> T where K: Comparable
+        Iter.min_by(vector, key)!
+    end
+
     /// The arithmetic mean of the elements, rounded as `Iter.mean` rounds;
     /// a value, since there is at least one.
     //! assert NonEmptyVector.mean([2, 4]) == 3.0
     //
     pub fn mean<T, R>(vector: NonEmptyVector<T>) -> R where T: Averageable<R>
         Iter.mean(vector)!
+    end
+
+    /// The arithmetic mean of `key` of each element, rounded as
+    /// `Iter.mean_by` rounds; a value, since there is at least one.
+    //! assert NonEmptyVector.mean_by(["ab", "c"], String.length) == 1.5
+    //
+    pub fn mean_by<T, N, R>(vector: NonEmptyVector<T>, key: (T) -> N) -> R where N: Averageable<R>
+        Iter.mean_by(vector, key)!
+    end
+
+    /// The last element and the vector without it, which may be empty:
+    /// `Vector.pop` with no `Option`. O(log32 n): the rest is a slice.
+    //! assert NonEmptyVector.pop([1, 2, 3]) == (3, Vector[1, 2])
+    //! assert NonEmptyVector.pop(["a"]) == ("a", Vector[])
+    //
+    pub fn pop<T>(vector: NonEmptyVector<T>) -> (T, Vector<T>)
+        Vector.pop(vector)!
     end
 
     /// Combines the elements left to right with `f`, starting from the
@@ -330,16 +370,135 @@ impl NonEmptyVector<T>
         )
     end
 
-    /// The elements of `vector`, which may be empty, then `item`.
-    //! assert NonEmptyVector.push(Vector[1], 2) == Vector[1, 2]
-    //! empty: Vector<Int> = []
-    //! assert NonEmptyVector.push(empty, 2) == Vector[2]
+    /// The elements in reverse order.
+    //! assert NonEmptyVector.reverse([1, 2, 3]) == Vector[3, 2, 1]
     //
-    pub fn push<T>(vector: Vector<T>, item: T) -> NonEmptyVector<T>
-        NonEmptyVector.unchecked(Vector.push(vector, item))
+    pub fn reverse<T>(vector: NonEmptyVector<T>) -> NonEmptyVector<T>
+        NonEmptyVector.unchecked(
+            Iter.reverse(vector)
+            |> Iter.to_vector()
+        )
     end
 
-    /// The elements of `a`, then those of `b`, which may be empty.
+    /// The elements in ascending order, or descending with `.Descending`;
+    /// the sort is stable.
+    //! assert NonEmptyVector.sort([3, 1, 2]) == Vector[1, 2, 3]
+    //! assert NonEmptyVector.sort([3, 1, 2], .Descending) == Vector[3, 2, 1]
+    //
+    pub fn sort<T>(
+        vector:    NonEmptyVector<T>,
+        direction: Direction = Direction.Ascending,
+    ) -> NonEmptyVector<T> where T: Comparable
+        NonEmptyVector.unchecked(
+            Iter.sort(vector, direction)
+            |> Iter.to_vector()
+        )
+    end
+
+    /// The elements sorted by the key `key` returns for each, from the
+    /// least key to the greatest, or from the greatest with `.Descending`,
+    /// as `Iter.sort_by` sorts them; the sort is stable. A call may leave
+    /// `direction` out when `key` is written as a lambda, a capture or a
+    /// field accessor.
+    //! assert NonEmptyVector.sort_by(["bb", "a", "ccc"], &String.length(&1)) == Vector["a", "bb", "ccc"]
+    //! assert NonEmptyVector.sort_by([{k: 2}, {k: 1}], .k) == Vector[{k: 1}, {k: 2}]
+    //!
+    //! longest = NonEmptyVector.sort_by(["bb", "a", "ccc"], .Descending, String.length)
+    //! assert longest == Vector["ccc", "bb", "a"]
+    //
+    pub fn sort_by<T, K>(
+        vector:    NonEmptyVector<T>,
+        direction: Direction = Direction.Ascending,
+        key:       (T) -> K,
+    ) -> NonEmptyVector<T> where K: Comparable
+        NonEmptyVector.unchecked(
+            Iter.sort_by(vector, direction, key)
+            |> Iter.to_vector()
+        )
+    end
+
+    /// The elements in the order `compare` gives, as `Iter.sort_with` sorts
+    /// them; the sort is stable.
+    //! assert NonEmptyVector.sort_with([3, 1, 2], Int.compare) == Vector[1, 2, 3]
+    //
+    pub fn sort_with<T>(vector: NonEmptyVector<T>, compare: (T, T) -> Ordering) -> NonEmptyVector<T>
+        NonEmptyVector.unchecked(
+            Iter.sort_with(vector, compare)
+            |> Iter.to_vector()
+        )
+    end
+
+    /// Each state of a fold from `from`, one per element, as `Iter.scan`
+    /// yields them.
+    //! assert NonEmptyVector.scan([3, 1, 4], 0, fn total, n -> total + n) == Vector[3, 4, 8]
+    //
+    pub fn scan<T, U>(vector: NonEmptyVector<T>, from: U, f: (U, T) -> U) -> NonEmptyVector<U>
+        NonEmptyVector.unchecked(
+            Iter.scan(vector, from, f)
+            |> Iter.to_vector()
+        )
+    end
+
+    /// Pairs the elements of `a` and `b` in order, as `Iter.zip` does, as
+    /// many pairs as the shorter has.
+    //! assert NonEmptyVector.zip([1, 2, 3], ["a", "b"]) == Vector[(1, "a"), (2, "b")]
+    //
+    pub fn zip<T, U>(a: NonEmptyVector<T>, b: NonEmptyVector<U>) -> NonEmptyVector<(T, U)>
+        NonEmptyVector.unchecked(
+            Iter.zip(a, b)
+            |> Iter.to_vector()
+        )
+    end
+
+    /// The elements with `separator` between each two of them.
+    //! assert NonEmptyVector.intersperse([1, 2, 3], 0) == Vector[1, 0, 2, 0, 3]
+    //! assert NonEmptyVector.intersperse([1], 0) == Vector[1]
+    //
+    pub fn intersperse<T>(vector: NonEmptyVector<T>, separator: T) -> NonEmptyVector<T>
+        NonEmptyVector.unchecked(
+            Iter.intersperse(vector, separator)
+            |> Iter.to_vector()
+        )
+    end
+
+    /// The elements grouped by `key_fn`, as `Iter.group_by` groups them; a
+    /// NonEmptyMap, since there is at least one group.
+    //! groups = NonEmptyVector.group_by([1, 2, 3], fn n -> n % 2)
+    //! assert NonEmptyMap.first_entry(groups) == (1, [1, 3])
+    //
+    pub fn group_by<T, K>(
+        vector: NonEmptyVector<T>,
+        key_fn: (T) -> K,
+    ) -> NonEmptyMap<K, NonEmptyList<T>>
+        NonEmptyMap.try_from(Iter.group_by(vector, key_fn))!
+    end
+
+    /// How often each element occurs, as `Iter.frequencies` counts; a
+    /// NonEmptyMap, since there is at least one element.
+    //! assert NonEmptyVector.frequencies(["a", "b", "a"]) == {"a" => 2, "b" => 1}
+    //
+    pub fn frequencies<T>(vector: NonEmptyVector<T>) -> NonEmptyMap<T, PositiveInt>
+        NonEmptyMap.try_from(Iter.frequencies(vector))!
+    end
+
+    /// The elements as a NonEmptyList, in order.
+    //! assert NonEmptyVector.to_list([1, 2]) == [1, 2]
+    //
+    pub fn to_list<T>(vector: NonEmptyVector<T>) -> NonEmptyList<T>
+        NonEmptyList.try_from(Iter.to_list(vector))!
+    end
+
+    /// The distinct elements as a NonEmptySet, in the order each first
+    /// appears.
+    //! assert NonEmptyVector.to_set([2, 1, 2]) == Set[2, 1]
+    //
+    pub fn to_set<T>(vector: NonEmptyVector<T>) -> NonEmptySet<T>
+        NonEmptySet.try_from(Iter.to_set(vector))!
+    end
+
+    /// The elements of `a`, then those of `b`, which may be empty. The
+    /// spread `[..a, ..b]` is a NonEmptyVector too, with the non-empty
+    /// vector on either side.
     //! assert NonEmptyVector.concat([1], Vector[2, 3]) == Vector[1, 2, 3]
     //
     pub fn concat<T>(a: NonEmptyVector<T>, b: Vector<T>) -> NonEmptyVector<T>

@@ -11,7 +11,7 @@ name = "sqlite"
 # out of the driver's entry. Its tests also start processes and tasks and
 # use std's fakes.
 [effects.self]
-std = [
+effects = [
     "std::calendar",
     "std::channels",
     "std::fs",
@@ -20,12 +20,12 @@ std = [
     "std::timer",
     "std::wasm",
 ]
-std_in_tests = [
+effects_in_tests = [
     "std::fs::testing",
     "std::process",
     "std::sql::testing",
     "std::tasks",
 ]
 
-[effects.deps]
-std = []
+[effects.dependencies]
+effects = []

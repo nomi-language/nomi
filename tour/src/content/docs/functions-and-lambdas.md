@@ -413,21 +413,21 @@ a bare `todo` reads the parameter. Write the placeholder with a reason there.
 ## Code that cannot be reached
 
 ```nomi-run
-fn first_field(line: String) -> String
-    case String.split(line, ",") |> Iter.first()
-        Some(field) -> field
-        None        -> unreachable "split always returns at least one part"
+fn letter(n: Int) -> String
+    case Int.to_codepoint(Int.modulo(n, 26) + 97)
+        Some(c) -> Codepoint.to_string(c)
+        None    -> unreachable "97 to 122 are the code points of a to z"
     end
 end
 
 fn main()
-    dbg first_field("a,b")
-    dbg first_field("")
+    dbg letter(0)
+    dbg letter(27)
 end
 ```
 <!-- expect
-dbg line 9: first_field("a,b") = "a"
-dbg line 10: first_field("") = ""
+dbg line 9: letter(0) = "a"
+dbg line 10: letter(27) = "b"
 -->
 
 `unreachable` marks a place your own code guarantees it never gets to, and
@@ -435,10 +435,12 @@ its reason says why. Like `todo`, it fits any type. Unlike `todo`, it is
 finished code: `nomi build` accepts it.
 
 If the program does reach it, the guarantee was wrong, so the program stops
-with `line 4: unreachable: split always returns at least one part`. Use it
-only for what the program itself makes true, as here: `String.split` never
-returns an empty list. Input a user typed makes no such promise, so a
-missing value there needs real handling.
+with `line 4: unreachable: 97 to 122 are the code points of a to z`. Use it
+only for what the program itself makes true, as here: `Int.modulo(n, 26)`
+is 0 to 25. Input a user typed makes no such promise, so a missing value
+there needs real handling. A guarantee a type can carry needs neither:
+`String.split` returns a `NonEmptyList`, so `NonEmptyList.first` reads its
+first piece with no `Option`.
 
 When the guarantee is that one call succeeds, a
 [postfix `!`](/pattern-matching/#calls-that-cannot-fail) says it after the

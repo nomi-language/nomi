@@ -31,9 +31,9 @@ func TestLoweringDiagnostics_EffectNotDeclared(t *testing.T) {
 	}
 	main := "import\n    std::io\n    pricing::rules\nend\n\nfn main()\n    io.print(rules.load(\"prices.txt\"))\nend\n"
 	dir := writeProject(t, map[string]string{
-		"app/nomi.toml":      "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.deps]\nstd = [\"std::io\", \"std::fs\"]\n\n[dependencies]\npricing = { dir = \"../pricing\" }\n",
+		"app/nomi.toml":      "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.dependencies]\neffects = [\"std::io\", \"std::fs\"]\n\n[dependencies]\npricing = { dir = \"../pricing\" }\n",
 		"app/main.nomi":      main,
-		"pricing/nomi.toml":  "[package]\nname = \"pricing\"\n\n[effects.self]\nstd = [\"std::io\"]\n",
+		"pricing/nomi.toml":  "[package]\nname = \"pricing\"\n\n[effects.self]\neffects = [\"std::io\"]\n",
 		"pricing/rules.nomi": "import std::fs\n\npub fn load(path: String) -> String\n    fs.read_text(path) |> Result.with_default(\"\")\nend\n",
 	})
 	diags := loweringDiagnostics(filepath.Join(dir, "app", "main.nomi"), main, nil)
@@ -61,7 +61,7 @@ func TestLoweringDiagnostics_EffectNotAllowed(t *testing.T) {
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
-	manifest := "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = [\"std::io\"]\n"
+	manifest := "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\neffects = [\"std::io\"]\n"
 	dir := writeProject(t, map[string]string{"main.nomi": effectMain, "nomi.toml": manifest})
 	path := filepath.Join(dir, "main.nomi")
 
@@ -71,7 +71,7 @@ func TestLoweringDiagnostics_EffectNotAllowed(t *testing.T) {
 	}
 	d := diags[0]
 	want := "this package's own code has the effect std::fs, and [effects.self] allows it only std::io\nhelp: reached from `main`\n" +
-		"help: add \"std::fs\" to std under [effects.self] in nomi.toml, or remove the call"
+		"help: add \"std::fs\" to effects under [effects.self] in nomi.toml, or remove the call"
 	if d.Message != want {
 		t.Errorf("message = %q, want %q", d.Message, want)
 	}

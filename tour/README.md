@@ -126,6 +126,39 @@ TOML, JSON as JSON, and anything else (data) uncoloured. The build's static rend
 the page shows until the editor opens (`prehighlight.mjs`), colours each file
 the same way (`renderFiles`).
 
+**Copy buttons.** Every code block has one Copy button, made by
+`copyButton` in `src/lib/tour-client.mjs`: a static block's at its top
+right, shown on hover, on focus and always on a touch screen, and a live
+editor's in its controls, where it copies the open file as edited. A
+` ```console ` block copies only its commands, which `rehype-shiki.mjs`
+picks out (each line after a `$ ` or PowerShell `PS> ` prompt, without
+it, and the lines a trailing `\` continues) and carries as
+`data-nomi-commands`; a console block of output alone and a ` ```tree `
+block get no button, and any other block copies its text as written. A
+browser that will not let the page write the clipboard shows no button.
+In the install page's steps and the home page's install box the command
+box is larger and its button always shows.
+
+**Tab groups.** `docs/install.md`, `docs/tooling.md` and `docs/style.md`
+may hold a tab group: `<!-- tabs: <key> -->` on a line of its own, a
+`**Label**` paragraph opening each tab, and `<!-- end tabs -->`. GitHub
+shows the tabs one after another, each under its label. `cmd/nomi-docgen`
+(`tabs.go`, which states the rules and refuses a malformed group) writes
+each group as a `div.nomi-tabgroup` with its key in `data-tabs` and a
+`div.nomi-tabpanel` per tab with its label in `data-tab`; the home page
+writes the same markup by hand for its install box. Without JavaScript
+every panel shows under its label. With it, `tabGroup` in
+`src/lib/tour-client.mjs` gives the group the tab strip a multi-file
+editor has (`tabsNav`: arrow keys, Home and End). A choice is kept per key
+in `localStorage` and every group with that key follows it, on this page
+and later ones; with none kept, an `os` group opens on the reader's system
+(`detectOS`), so its labels are `macOS`, `Linux` and `Windows`. The panels
+share one grid cell and the strip's row is held from first paint, so
+choosing a tab moves nothing below the group. The install page's numbered
+steps are `## 1. Install` headings in `docs/install.md`, which docgen
+writes as an ordered list. `test/tab-groups.test.mjs` holds the client to
+this in headless Chrome.
+
 **Tests.** `npm --prefix tour test` loads recorded, manual and unrecorded
 blocks into headless Chrome with a fake worker and holds them to the rules
 above, and holds a multi-file block's files to their languages (`test/`; the

@@ -143,7 +143,7 @@ func TestIncremental_BodyEditsConcurrentWithRequests(t *testing.T) {
 	}
 	wg.Wait()
 	// The last edit's analysis, once it is installed.
-	if !s.awaitAnalysis(ctx, uri("shapes.nomi"), 10*time.Second) {
+	if !s.awaitAnalysis(ctx, uri("shapes.nomi"), preferCurrent, 10*time.Second) {
 		t.Fatal("the last edit was not analyzed")
 	}
 	bodies, dependents, full, reused := s.docs.ProgramChecks()

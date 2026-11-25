@@ -32,7 +32,7 @@ end
 func TestOnceReach_StdStreams(t *testing.T) {
 	dir := writeProject(t, map[string]string{
 		"main.nomi": onceReachStreams,
-		"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = [\"std::io\"]\n",
+		"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\neffects = [\"std::io\"]\n",
 	})
 	p, err := Load(filepath.Join(dir, "main.nomi"))
 	if err != nil {

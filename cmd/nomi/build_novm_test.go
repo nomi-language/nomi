@@ -232,7 +232,7 @@ func TestBuildNoVM_Refusals(t *testing.T) {
 		{[]string{"build", "echo.nomi", "--vm"}, "nomi build: unknown flag \"--vm\""},
 		{[]string{"build", "--reactor"}, "nomi build: unknown flag \"--reactor\""},
 		{[]string{"build", "echo.nomi", "--reactor"}, "nomi build: unknown flag \"--reactor\""},
-		{[]string{"build"}, buildUsage},
+		{[]string{"build"}, "nomi build: . is not a package (it has no nomi.toml), so it has no entry point to build\n" + buildUsage},
 		{[]string{"build-vm", "echo.nomi"}, "nomi build-vm: the VM carries no program, so it takes no file (echo.nomi). " +
 			"nomi build echo.nomi writes the program with the VM"},
 		{[]string{"build-vm", "--web"}, "nomi build-vm: unknown flag \"--web\""},

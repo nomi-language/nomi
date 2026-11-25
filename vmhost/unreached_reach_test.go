@@ -136,11 +136,11 @@ end
 // The walk from what the checked walks do not reach holds its calls to the
 // lists outside tests, and fills only the places they leave without a
 // line: helper, which only a test reaches, reads as the test walk says,
-// allowed by std_in_tests, though stray's call of it reads refused.
+// allowed by effects_in_tests, though stray's call of it reads refused.
 func TestFunctionReach_AFunctionNothingReachesChangesNoReachedLine(t *testing.T) {
 	dir := writeProject(t, map[string]string{
 		"main.nomi": unreachedTestsMain,
-		"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = [\"std::io\"]\nstd_in_tests = [\"std::fs\"]\n",
+		"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\neffects = [\"std::io\"]\neffects_in_tests = [\"std::fs\"]\n",
 		"go.mod":    "module example.com/app\n\ngo 1.27.0\n",
 	})
 	p, err := Load(filepath.Join(dir, "main.nomi"))

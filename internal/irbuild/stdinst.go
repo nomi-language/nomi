@@ -80,8 +80,8 @@ type stdInst struct {
 	args []kind
 	// types is the checker's type of each of args, or nil (substFrame).
 	types []analysis.Type
-	// reads is where each of args holds the refinements the instance reads,
-	// or nil when it reads none (refinementinst.go).
+	// reads is where each of args holds the subtypes the instance reads,
+	// or nil when it reads none (subtypeinst.go).
 	reads []string
 	// gen builds this instance's body; the signature below was resolved
 	// through it, so the two cannot disagree about an annotation.
@@ -231,8 +231,8 @@ func (s *stdInstances) defaultAccessor(f *stdFunc, tps []string, args []kind, ty
 // instantiateAt is instantiate for f's body (slot -1) or defaultAccessor
 // for its parameter slot's default.
 func (s *stdInstances) instantiateAt(f *stdFunc, tps []string, args []kind, types []analysis.Type, slot int, caller *gen) (*stdInst, string) {
-	reads := refinementReads(tps, types, func() map[string][]*analysis.InterfaceType { return s.stdParamBounds(f) })
-	key := openInstKey(s.dc, stdInstKey(f.decl, args), types) + refinementReadsKey(reads)
+	reads := subtypeReads(tps, types, func() map[string][]*analysis.InterfaceType { return s.stdParamBounds(f) })
+	key := openInstKey(s.dc, stdInstKey(f.decl, args), types) + subtypeReadsKey(reads)
 	if slot >= 0 {
 		key += "\x00default " + strconv.Itoa(slot)
 	}
@@ -983,37 +983,11 @@ func irDefaulted(fd *ast.FuncDef) bool {
 	return false
 }
 
-// writesAPrefix reports whether call t, placed by plan, writes its callee's
-// leading parameters positionally and in order.
-func writesAPrefix(t *ast.Call, plan argPlan) bool {
-	for i, a := range t.Args {
-		if _, named := a.(*ast.NamedArg); named || plan.slots[i] != i {
-			return false
-		}
-	}
-	return true
-}
-
 // stdInstCall lowers the call t to a committed or pending instance, with its
 // arguments typed by the instance's parameters as a direct call's are.
 func (bl *irScalarBuilder) stdInstCall(t *ast.Call, inst *stdInst) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	params := append([]kind(nil), inst.view.params...)
-	args := t.Args
-	var accessors []*stdInst
-	if bl.stdInstPreCall != t && bl.g.leavesDefaults(t, len(params)) {
-		// `Reader.chunks(r)`: each omitted trailing parameter is filled by
-		// the accessor of its default at this instance (fillStdInstDefaults).
-		if plan, _ := bl.g.callPlan(t, len(params)); writesAPrefix(t, plan) {
-			var ok bool
-			if accessors, ok = bl.g.stdDefaultAccessors(inst.f, inst.tps, inst.args, inst.types, plan.defaulted); !ok {
-				return no()
-			}
-		}
-	}
-	if len(args)+len(accessors) != len(params) {
-		return no()
-	}
 	temps := make([]ir.Temp, len(params))
 	if bl.stdInstPreCall == t {
 		// Operands already lowered, in order and forced, by irQualLowerArgs.
@@ -1033,15 +1007,42 @@ func (bl *irScalarBuilder) stdInstCall(t *ast.Call, inst *stdInst) (ir.Temp, kin
 		bl.side(c.Dst(), irScalarSide{k: inst.view.result, deferrable: true})
 		return c.Dst(), inst.view.result, false, true
 	}
-	for i, a := range args {
-		if _, named := a.(*ast.NamedArg); named {
+	if namedArgNode(t.Args) != nil {
+		// namedQualCall places named arguments and fills the slots they
+		// skip, then plans the call written positionally over every slot.
+		return no()
+	}
+	// A call that leaves parameters out, trailing (`Reader.chunks(r)`) or
+	// before a later operand (`NonEmptyList.sort_by(xs, fn n -> n)` past
+	// `direction`), has each written operand at the slot the checker's
+	// record places it at (callPlan), and each slot it leaves out filled
+	// after them by the accessor of its default at this instance
+	// (fillStdInstDefaults). Any other call writes every parameter in order.
+	slots := make([]int, len(t.Args))
+	for i := range slots {
+		slots[i] = i
+	}
+	var accessors []*stdInst
+	if bl.g.leavesDefaults(t, len(params)) {
+		plan, _ := bl.g.callPlan(t, len(params))
+		slots = plan.slots
+		var ok bool
+		if accessors, ok = bl.g.stdDefaultAccessors(inst.f, inst.tps, inst.args, inst.types, plan.defaulted); !ok {
 			return no()
 		}
-		src, k, _, ok := bl.lowerTypedOperand(a, params[i])
+	}
+	args := t.Args
+	if len(args)+len(accessors) != len(params) {
+		return no()
+	}
+	written := irQualArgs{temps: make([]ir.Temp, len(args)), kinds: make([]kind, len(args)), mobile: make([]bool, len(args)), ok: true}
+	for i, a := range args {
+		slot := slots[i]
+		src, k, _, ok := bl.lowerTypedOperand(a, params[slot])
 		if !ok {
 			return no()
 		}
-		src, k, ok = bl.convertTo(a, src, k, params[i])
+		src, k, ok = bl.convertTo(a, src, k, params[slot])
 		if !ok {
 			return no()
 		}
@@ -1053,15 +1054,13 @@ func (bl *irScalarBuilder) stdInstCall(t *ast.Call, inst *stdInst) (ir.Temp, kin
 			bl.side(cp.Dst(), irScalarSide{k: k, copy: irCopyHold})
 			src = cp.Dst()
 		}
-		temps[i] = src
+		temps[slot] = src
+		written.temps[i], written.kinds[i] = src, params[slot]
 	}
 	if bl.qualRecord == t {
 		// Inside an assertion subject, recordedQualCall records the
 		// written operands' rows after the call; a filled default has none.
-		n := len(t.Args)
-		kinds := append([]kind(nil), params[:n]...)
-		mobile := make([]bool, n)
-		bl.qualRecordArgs, bl.qualRecordSeen = irQualArgs{temps: temps[:n], kinds: kinds, mobile: mobile, ok: true}, true
+		bl.qualRecordArgs, bl.qualRecordSeen = written, true
 	}
 	if len(accessors) > 0 {
 		bl.fillStdInstDefaults(t, params, temps, accessors)

@@ -37,7 +37,7 @@ import
     equatable.Equatable
     float.Float
     instant.Instant
-    int.Int
+    int.{Int, NonNegativeInt}
     io.{self, Writer}
     iter.Iter
     json.Json
@@ -61,7 +61,7 @@ impl Level
     /// The level's position from lowest, for comparing two levels.
     //! assert Level.rank(Level.Debug) < Level.rank(Level.Error)
     //
-    pub fn rank(level: Level) -> Int
+    pub fn rank(level: Level) -> NonNegativeInt
         case level
             .Debug -> 0
             .Info  -> 1

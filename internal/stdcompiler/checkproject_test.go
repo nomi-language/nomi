@@ -140,7 +140,7 @@ func TestCheckProjectDiagnosticsArePinned(t *testing.T) {
 		got := stdcompiler.ProjectSpecDiagnostics(
 			specOf("main", map[string]string{"main": "fn main()\n  Unit\nend\n"},
 				new("[module\n")), "")
-		if len(got) != 1 || got[0].Line != 0 || !strings.HasPrefix(got[0].Message, "parse <compiler.Project manifest>: ") {
+		if len(got) != 1 || got[0].Line != 0 || !strings.HasPrefix(got[0].Message, "<compiler.Project manifest>:2: ") {
 			t.Errorf("got %v, want one diagnostic at 0:0 naming the manifest", got)
 		}
 	})

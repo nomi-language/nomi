@@ -142,11 +142,11 @@ end`, 6, []string{"`Right` holds `Left` at `T = List<U>` in `left`", "`Left` hol
 struct Holder<T>
   wrap: Option<Wrap<List<T>>>
 end`, 4, []string{"`Holder` holds `Wrap` at `T = List<T>`", "(Holder → Wrap → Holder)"}},
-		"mutual, through a refinement": {`struct Holder<T>
+		"mutual, through a subtype": {`struct Holder<T>
   some: Option<Filled<T>>
 end
 
-refine Filled<T> List<Holder<List<T>>> when fn xs -> List.length(xs) > 0`, 5, []string{"`Filled` holds `Holder` at `T = List<T>` in `inner`", "(Filled → Holder → Filled)"}},
+subtype Filled<T> List<Holder<List<T>>> when fn xs -> List.length(xs) > 0`, 5, []string{"`Filled` holds `Holder` at `T = List<T>` in `inner`", "(Filled → Holder → Filled)"}},
 	}
 	for name, w := range rejected {
 		errs := polymorphicRecursions(checkUniversalDebugProject(t, w.src+"\n\nfn main()\n  _ = 1\nend\n"))

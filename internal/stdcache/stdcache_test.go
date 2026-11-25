@@ -95,6 +95,44 @@ func TestDir_RewritesARemovedDirectory(t *testing.T) {
 	}
 }
 
+// A version directory that lost one of its files (a removal that stopped
+// part way) is written again whole when a path in it is asked for, and
+// leaves no temporary directory; a path that names no file of the version
+// writes nothing.
+func TestDir_RewritesADirectoryMissingAFile(t *testing.T) {
+	root := t.TempDir()
+	d := New(root, stdFS("a\n"))
+	option := d.Path("option.nomi")
+	strs := d.Location("strings.nomi")
+	if err := os.Remove(strs); err != nil {
+		t.Fatal(err)
+	}
+	if got := d.Path("option.nomi"); got != option {
+		t.Fatalf("path moved from %s to %s", option, got)
+	}
+	if _, err := os.Stat(strs); err == nil {
+		t.Fatal("asking for a file the directory holds rewrote it")
+	}
+	if got := d.Path("strings.nomi"); got != strs {
+		t.Fatalf("path moved from %s to %s", strs, got)
+	}
+	for _, p := range []string{strs, option, d.Location("_fixtures/nested/deeper/module.nomi")} {
+		if _, err := os.Stat(p); err != nil {
+			t.Errorf("not rewritten: %v", err)
+		}
+	}
+	entries, _ := os.ReadDir(root)
+	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), artifactcache.TempPrefix) {
+			t.Errorf("temporary directory %s left behind", e.Name())
+		}
+	}
+	d.Path("std.go")
+	if _, err := os.Stat(d.Location("std.go")); err == nil {
+		t.Error("a path that is no .nomi file of the version wrote it")
+	}
+}
+
 // Pruning removes another version and leftovers of the unversioned layout
 // once they are older than staleAfter, a temporary directory older than an
 // hour, and nothing recent: a version another server touched within

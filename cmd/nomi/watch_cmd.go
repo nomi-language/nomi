@@ -37,9 +37,10 @@ func watchSeparator(w io.Writer, names string) {
 }
 
 // parseRunWatchArgs reads a `nomi run` whose first word is a flag, when its
-// flags before the file include --watch: the file, and every word after it
-// as the program's arguments. watch is false for any other flag set, which
-// is the browser dev loop's (run_web.go).
+// flags before the file include --watch: the file, or with no word after
+// the flags the current directory (pathOrHere), and every word after it as
+// the program's arguments. watch is false for any other flag set, which is
+// the browser dev loop's (run_web.go).
 func parseRunWatchArgs(args []string) (watch bool, entry string, progArgs []string, err error) {
 	i := 0
 	web := false
@@ -66,7 +67,7 @@ func parseRunWatchArgs(args []string) (watch bool, entry string, progArgs []stri
 		return false, "", nil, unknownFlag("nomi run", unknown, runUsage)
 	}
 	if i >= len(args) {
-		return false, "", nil, errors.New(runUsage)
+		return true, programOrHere(""), nil, nil
 	}
 	return true, args[i], args[i+1:], nil
 }

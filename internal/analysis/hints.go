@@ -18,7 +18,7 @@ const (
 // (FileAnalysis.RedundantAscriptions), spanning `as Type`, then each
 // operand in a field's new value that reads the field's current value by
 // its path (FileAnalysis.RestatedPaths), spanning the path, then each call
-// whose Option the value's refinement answers plainly
+// whose Option the value's subtype answers plainly
 // (FileAnalysis.PlainCounterparts), spanning the callee, with a fix when a
 // `!` unwraps it. The program means the same either way. Columns count
 // bytes. The language server publishes them as hints and `nomi check

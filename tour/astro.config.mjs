@@ -67,7 +67,6 @@ const referenceItems = [
 		'hex',
 		'html',
 		'http',
-		'http/host',
 		'http/testing',
 		'instant',
 		'int',

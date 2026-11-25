@@ -14,7 +14,7 @@ import
     equatable.Equatable
     float.Float
     hashable.Hashable
-    lists.List
+    lists.{List, NonEmptyList}
     locale.Locale
     localize.NumberParseError
     multiply.Multiply
@@ -23,7 +23,7 @@ import
     remainder.Remainder
     results.Result.{self, Err, Ok}
     steppable.Steppable
-    strings.String
+    strings.{NonEmptyString, String}
     subtract.Subtract
     summable.Summable
 end
@@ -31,7 +31,7 @@ end
 //# `Int`, the one integer type, and its operations. An Int is exact at any
 //# size: `+`, `-` and `*` never overflow.
 //#
-//# - **Refinements.** `NonZeroInt`, `NonNegativeInt` and `PositiveInt` (all in
+//# - **Subtypes.** `NonZeroInt`, `NonNegativeInt` and `PositiveInt` (all in
 //#   the prelude), `Radix` and `Int64` are Ints that passed a check. `/` and
 //#   `%` take a `NonZeroInt` divisor, `Int.pow` a `NonNegativeInt` exponent
 //#   and `Int.to_digits` a `Radix`, so none of them can fail while the
@@ -448,16 +448,18 @@ impl Int
     pub host fn lcm(a: Int, b: Int) -> NonNegativeInt
 
     /// The digits of `n` in `base`, most significant first: `[1, 2, 3]` for
-    /// `123`, and `[0]` for `0`. The digits are of a `NonNegativeInt`;
-    /// `Int.abs` a value first when its sign does not matter. `base` is a
-    /// `Radix`, 2 or more. `Int.from_digits` reads them back.
+    /// `123`, and `[0]` for `0`, so there is always a digit and the result
+    /// is a NonEmptyList. The digits are of a `NonNegativeInt`; `Int.abs` a
+    /// value first when its sign does not matter. `base` is a `Radix`, 2 or
+    /// more. `Int.from_digits` reads them back.
     //! assert Int.to_digits(123) == [1, 2, 3]
     //! assert Int.to_digits(0) == [0]
     //! assert Int.to_digits(10, 2) == [1, 0, 1, 0]
     //! assert Int.to_digits(255, 16) == [15, 15]
     //! assert Int.to_digits(18_446_744_073_709_551_616, 65_536) == [1, 0, 0, 0, 0]
+    //! assert Int.to_digits(4096) |> NonEmptyList.first() == 4
     //
-    pub fn to_digits(n: NonNegativeInt, base: Radix = 10) -> List<NonNegativeInt>
+    pub fn to_digits(n: NonNegativeInt, base: Radix = 10) -> NonEmptyList<NonNegativeInt>
         int_to_digits(n, base)
     end
 
@@ -498,7 +500,12 @@ impl Int
     //! assert Int.format(7, Locale"en", True, 0) == "7"
     //! assert Int.format(Int.pow(10, 21), Locale"de") == "1.000.000.000.000.000.000.000"
     //
-    pub fn format(n: Int, locale: Locale, grouping = True, min_digits: NonNegativeInt = 1) -> String
+    pub fn format(
+        n:      Int,
+        locale: Locale,
+        grouping = True,
+        min_digits: NonNegativeInt = 1,
+    ) -> NonEmptyString
         int_format(locale, n, grouping, min_digits)
     end
 
@@ -532,11 +539,11 @@ impl Int
     end
 end
 
-host fn int_to_digits(n: Int, base: Int) -> List<NonNegativeInt>
+host fn int_to_digits(n: Int, base: Int) -> NonEmptyList<NonNegativeInt>
 
 host fn int_from_digits(digits: List<Int>, base: Int) -> Option<NonNegativeInt>
 
-host fn int_format(locale: Locale, n: Int, grouping: Bool, min_digits: Int) -> String
+host fn int_format(locale: Locale, n: Int, grouping: Bool, min_digits: Int) -> NonEmptyString
 
 host fn int_parse_in(text: String, locale: Locale, lenient: Bool) -> Result<Int, NumberParseError>
 
@@ -766,7 +773,7 @@ end
 //! assert NonZeroInt.try_from(5) == Some(5)
 //! assert NonZeroInt.try_from(0) == None
 //
-pub refine NonZeroInt Int when fn n -> n != 0
+pub subtype NonZeroInt Int when fn n -> n != 0
 
 /// An Int that is zero or more: a count, an index, an exponent. A literal is
 /// checked when the program is compiled; `NonNegativeInt.try_from(n)` checks
@@ -776,9 +783,9 @@ pub refine NonZeroInt Int when fn n -> n != 0
 //! assert NonNegativeInt.try_from(0) == Some(0)
 //! assert NonNegativeInt.try_from(-1) == None
 //
-pub refine NonNegativeInt Int when fn n -> n >= 0
+pub subtype NonNegativeInt Int when fn n -> n >= 0
 
-/// An Int greater than zero. It is a refinement of both `NonNegativeInt` and
+/// An Int greater than zero. It is a subtype of both `NonNegativeInt` and
 /// `NonZeroInt`, so a PositiveInt passes wherever either, or an Int, is
 /// expected. It is in the prelude.
 //! p: PositiveInt = 4
@@ -788,7 +795,7 @@ pub refine NonNegativeInt Int when fn n -> n >= 0
 //! assert PositiveInt.try_from(-3) == None
 //! assert PositiveInt.try_from(0) == None
 //
-pub refine PositiveInt NonNegativeInt and NonZeroInt when fn n -> n > 0
+pub subtype PositiveInt NonNegativeInt and NonZeroInt when fn n -> n > 0
 
 /// A base to write digits in: an Int of 2 or more, which `Int.to_digits`
 /// and `Int.from_digits` take. A literal is checked when the program is
@@ -796,7 +803,7 @@ pub refine PositiveInt NonNegativeInt and NonZeroInt when fn n -> n > 0
 //! assert Int.to_digits(5, 2) == [1, 0, 1]
 //! assert Radix.try_from(1) == None
 //
-pub refine Radix Int when fn b -> b >= 2
+pub subtype Radix Int when fn b -> b >= 2
 
 /// An Int that fits in a signed 64-bit integer, from
 /// -9223372036854775808 to 9223372036854775807. A std function or field
@@ -809,4 +816,4 @@ pub refine Radix Int when fn b -> b >= 2
 //! assert Int64.try_from(-9223372036854775808) == Some(-9223372036854775808)
 //! assert Int64.try_from(9223372036854775808) == None
 //
-pub refine Int64 Int when fn n -> n >= -9223372036854775808 and n <= 9223372036854775807
+pub subtype Int64 Int when fn n -> n >= -9223372036854775808 and n <= 9223372036854775807

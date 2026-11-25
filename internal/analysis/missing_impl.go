@@ -474,10 +474,10 @@ func bodyTypeHelp(iface, typeName string) string {
 // A bound declared inside a body has no impl at all (bodyInterfaceHelp).
 // An operator interface keeps missingImplHelp's block shape.
 func (c *checker) boundHelp(concrete Type, bound *InterfaceType) string {
-	if sub := c.refinementMissing(concrete, bound); sub != nil {
-		return refinementMakesBaseHelp(sub)
+	if sub := c.subtypeMissing(concrete, bound); sub != nil {
+		return subtypeMakesBaseHelp(sub)
 	}
-	if help, ok := c.refinementReadByKindHelp(concrete, bound); ok {
+	if help, ok := c.subtypeReadByKindHelp(concrete, bound); ok {
 		return help
 	}
 	name := fmt.Sprint(concrete)
@@ -711,12 +711,12 @@ func (c *checker) boundError(line, col int, concrete Type, bound *InterfaceType,
 	if hasPartOfNoType(concrete) {
 		return false
 	}
-	if sub := c.refinementMissing(concrete, bound); sub != nil {
+	if sub := c.subtypeMissing(concrete, bound); sub != nil {
 		required := fmt.Sprintf("`where %s: %s`", param, c.shownInterfaceFor(concrete, bound, true))
 		if !TypesIdentical(sub, concrete) {
 			required += fmt.Sprintf(" at %s", concrete)
 		}
-		c.report(refinementMakesBaseError(line, col, sub, bound, required))
+		c.report(subtypeMakesBaseError(line, col, sub, bound, required))
 		return true
 	}
 	if c.boundsMissOf(concrete, bound) != missNotByBounds {

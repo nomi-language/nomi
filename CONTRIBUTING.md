@@ -53,7 +53,7 @@ VM. The ones a user of `nomi` sets are in the tooling reference's
 | Variable | What it does |
 |---|---|
 | `NOMI_DEBUG_VERSION` | Any value but `0` adds the version of the Go toolchain that built `nomi` to the line `nomi --version` and the REPL print: `nomi 0123456789ab (go1.27.0 darwin/arm64)`. |
-| `NOMI_RELEASE_BASE_URL` | For tests. Where a release `nomi build` downloads the runners it lacks from, in place of the project's GitHub releases. |
+| `NOMI_RELEASE_BASE_URL` | For tests. The releases root, in place of `https://github.com/nomi-language/nomi/releases`, that a release `nomi build` downloads the runners it lacks from and `nomi upgrade` finds and downloads a release from. |
 | `NOMI_DEBUG_STD_BUNDLE` | `1` reports on stderr why a cached standard library lowering or its cached interfaces were not used. |
 | `NOMI_STD_WHOLE` | `1` builds every standard library module when a command starts, as the language server does, rather than only the modules the program imports. |
 | `NOMI_STD_STATE` | `off` builds the standard library's base modules instead of reading them back from the state a previous run kept, and keeps none. |

@@ -24,7 +24,7 @@
 //# directory and reaching nothing outside it. Opening the `Dir` is the call
 //# an effects list names `std::fs`. A library handed a `Dir` reads and
 //# writes only what is under it, and its own code needs no `std::fs`
-//# ([Effects lists](/tooling/projects/#effects-lists)).
+//# ([Effects lists](/tooling/effects/#effects-lists)).
 //#
 //# ```nomi
 //# import

@@ -13,7 +13,7 @@ import (
 // TestUnknownType_IsTheOneError holds that a type name that names nothing
 // is reported once, where it is written, and that nothing reached from it
 // reports again: a field of that type, a derive over the field, a payload,
-// a distinct type's inner type, a refinement's base, a type argument, an
+// a distinct type's inner type, a subtype's base, a type argument, an
 // annotation, and a declaration that holds a type with such a part.
 //
 // Each row was a cascade. `email: Maybe<String>` under `derive FromJson`
@@ -125,8 +125,8 @@ end
 			line: 3, col: 9,
 		},
 		{
-			name: "a refinement's base",
-			src: `refine Port Nope when fn p -> p > 0
+			name: "a subtype's base",
+			src: `subtype Port Nope when fn p -> p > 0
 
 fn open(port: Port) -> Port
     port
@@ -136,7 +136,7 @@ fn main()
     _ = open
 end
 `,
-			line: 1, col: 13,
+			line: 1, col: 14,
 		},
 		{
 			name: "a field set by a literal, read and matched",
@@ -190,14 +190,14 @@ end
 			line: 1, col: 9,
 		},
 		{
-			name: "a refinement of an unknown base as a field under derive FromJson",
+			name: "a subtype of an unknown base as a field under derive FromJson",
 			src: `import std::json.FromJson
 
 struct S
     port: Port
 end
 
-refine Port Nope when fn p -> p > 0
+subtype Port Nope when fn p -> p > 0
 
 derive FromJson for S
 
@@ -206,7 +206,7 @@ fn main()
     _ = s.port
 end
 `,
-			line: 7, col: 13,
+			line: 7, col: 14,
 		},
 		{
 			name: "a struct with a field of an unknown type held by a derived struct",

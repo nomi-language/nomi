@@ -34,7 +34,7 @@ func TestFunctionReach_ADbg(t *testing.T) {
 	const module = "[package]\nname = \"app\"\nentry_points = [\"main\"]\n"
 	dir := writeProject(t, map[string]string{
 		"main.nomi": dbgReachMain,
-		"nomi.toml": module + "\n[effects.self]\nstd = [\"std::io\"]\n",
+		"nomi.toml": module + "\n[effects.self]\neffects = [\"std::io\"]\n",
 	})
 	p, err := Load(filepath.Join(dir, "main.nomi"))
 	if err != nil {

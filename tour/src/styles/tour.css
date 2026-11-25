@@ -869,8 +869,10 @@ pre.nomi-tour {
   min-width: 0;
 }
 
-/* The button that opens a block in the large view. */
-.nomi-expand {
+/* The button that opens a block in the large view, and every block's Copy
+   button (copyButton in tour-client.mjs). */
+.nomi-expand,
+.nomi-copy {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -883,13 +885,280 @@ pre.nomi-tour {
   color: color-mix(in srgb, var(--tour-fg) 70%, transparent);
   cursor: pointer;
 }
-.nomi-expand:hover {
+.nomi-expand:hover,
+.nomi-copy:hover {
   border-color: color-mix(in srgb, var(--sl-color-accent) 45%, transparent);
   color: var(--sl-color-accent);
 }
-.nomi-expand:focus-visible {
+.nomi-expand:focus-visible,
+.nomi-copy:focus-visible {
   outline: 2px solid var(--sl-color-accent);
   outline-offset: 1px;
+}
+/* After a copy the button shows a check and says "Copied". */
+.nomi-copy > svg + svg,
+.nomi-copy-done {
+  display: none;
+}
+.nomi-copy.is-copied {
+  width: auto;
+  gap: 0.3em;
+  padding: 0 0.4em;
+  color: var(--tour-ok);
+}
+/* Starlight gives an element after a sibling in page content a top margin,
+   which would drop the check below the text. */
+button.nomi-copy > svg + svg {
+  margin-top: 0;
+  flex: none;
+}
+.nomi-copy.is-copied > svg:first-child {
+  display: none;
+}
+.nomi-copy.is-copied > svg + svg,
+.nomi-copy.is-copied > .nomi-copy-done {
+  display: inline;
+}
+.nomi-copy-done {
+  font-family: var(--sl-font);
+  font-size: 0.75rem;
+  line-height: 1;
+}
+/* A static block's box (copyControls in tour-client.mjs) holds its Copy
+   button in the top-right corner, with the language chip beside it. The
+   button shows while the pointer is over the block or focus is in it, and
+   always on a screen with no hover. The <pre>'s right padding is the
+   corner's width; a block whose first line reaches into it is-crowded, and
+   its code starts below the corner. */
+.nomi-copyable {
+  position: relative;
+  margin: 1em 0;
+}
+.nomi-copyable > pre,
+.nomi-copyable > .nomi-chip {
+  margin: 0;
+}
+.nomi-copyable > pre {
+  padding-right: calc(1em + 26px);
+}
+.nomi-copyable > .nomi-chip > pre.nomi-tour {
+  padding-right: calc(4.75em + 26px);
+}
+.nomi-copyable.is-crowded pre {
+  padding-top: calc(0.75em + 24px);
+}
+.nomi-copyable > .nomi-chip::before {
+  right: calc(0.45rem + 26px);
+}
+.nomi-copyable:has(.nomi-copy.is-copied) > .nomi-chip::before {
+  visibility: hidden;
+}
+.nomi-copyable > .nomi-copy {
+  position: absolute;
+  z-index: 2;
+  top: 0.4rem;
+  right: 0.45rem;
+  margin: 0;
+  background: var(--tour-bg);
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+}
+.nomi-copyable:hover > .nomi-copy,
+.nomi-copyable:focus-within > .nomi-copy,
+.nomi-copyable > .nomi-copy.is-copied {
+  opacity: 1;
+}
+@media (hover: none) {
+  .nomi-copyable > .nomi-copy {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nomi-copyable > .nomi-copy {
+    transition: none;
+  }
+}
+
+/* A page's tab groups (tabGroup in tour-client.mjs; cmd/nomi-docgen/tabs.go
+   writes them). Without the script every panel shows under its label. With
+   it the strip takes the editor's tabs (tabsNav) in the page's own type, the
+   chosen tab underlined. The panels share one grid cell, so the group is as
+   tall as its tallest panel whichever is chosen, and until the script runs
+   the strip's row is held empty and only the first panel shows: choosing a
+   tab, the script's own choice included, moves nothing below the group. */
+.nomi-tabgroup {
+  --nomi-tabstrip-h: 2.5rem;
+  margin-top: 1.25rem;
+}
+.sl-markdown-content .nomi-tablabel {
+  margin: 1.25rem 0 0;
+  color: var(--sl-color-white);
+  font-weight: 700;
+}
+.sl-markdown-content .nomi-tabpanel:first-child > .nomi-tablabel {
+  margin-top: 0;
+}
+.sl-markdown-content .nomi-tabpanel > * {
+  margin-top: 0.75rem;
+}
+.sl-markdown-content .nomi-tabpanel > :first-child {
+  margin-top: 0;
+}
+@media (scripting: enabled) {
+  .nomi-tabgroup {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: var(--nomi-tabstrip-h) auto;
+  }
+  .nomi-tabgroup:not(.is-ready)::before {
+    content: "";
+    grid-row: 1;
+  }
+  .sl-markdown-content .nomi-tabgroup > * {
+    margin-top: 0;
+  }
+  .nomi-tabgroup > .nomi-tabpanel {
+    grid-row: 2;
+    grid-column: 1;
+    min-width: 0;
+    padding-top: 0.75rem;
+  }
+  .nomi-tabgroup:not(.is-ready) > .nomi-tabpanel ~ .nomi-tabpanel,
+  .nomi-tabgroup > .nomi-tabpanel[hidden] {
+    display: block;
+    visibility: hidden;
+  }
+  .nomi-tabgroup .nomi-tablabel {
+    display: none;
+  }
+  .sl-markdown-content .nomi-tablabel + * {
+    margin-top: 0;
+  }
+}
+.nomi-tabgroup > .nomi-tabs {
+  grid-row: 1;
+  height: var(--nomi-tabstrip-h);
+  overflow-y: hidden;
+  background: none;
+  box-shadow: inset 0 -1px 0 var(--sl-color-hairline);
+  scrollbar-width: thin;
+}
+.nomi-tabgroup .nomi-tab {
+  height: 100%;
+  margin: 0;
+  padding: 0 0.9rem;
+  font-family: var(--sl-font);
+  font-size: var(--sl-text-sm);
+  color: var(--sl-color-gray-3);
+  opacity: 1;
+}
+.nomi-tabgroup .nomi-tab:hover {
+  color: var(--sl-color-white);
+}
+.nomi-tabgroup .nomi-tab.is-active {
+  color: var(--sl-color-white);
+  border-bottom-color: var(--sl-color-accent);
+}
+.nomi-tabgroup .nomi-tab:focus-visible {
+  outline: 2px solid var(--sl-color-accent);
+  outline-offset: -2px;
+  border-radius: 4px 4px 0 0;
+}
+
+/* The command boxes of the install page's steps and the home page's
+   install box: larger type, a command that wraps rather than scrolls, and
+   a Copy button that always shows. */
+:is(.nomi-steps, .nomi-home-install) pre.nomi-console {
+  padding: 0.85rem 1.1rem;
+  font-size: 1rem;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+:is(.nomi-steps, .nomi-home-install) .nomi-copyable > pre {
+  padding-right: calc(1.1rem + 30px);
+}
+:is(.nomi-steps, .nomi-home-install) .nomi-copyable > .nomi-copy {
+  top: 0.75rem;
+  right: 0.6rem;
+  width: 28px;
+  height: 28px;
+  opacity: 1;
+}
+:is(.nomi-steps, .nomi-home-install) .nomi-copyable > .nomi-copy.is-copied {
+  width: auto;
+}
+:is(.nomi-steps, .nomi-home-install) .nomi-copy > svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* The install page's numbered steps (installPage in cmd/nomi-docgen):
+   an ordered list whose items each start with a heading, the step's number
+   in a circle beside it and a line down to the next. On a narrow screen
+   the number sits in the heading's line and the step's content takes the
+   whole width. */
+.sl-markdown-content ol.nomi-steps {
+  counter-reset: nomi-step;
+  list-style: none;
+  margin: 2rem 0 0;
+  padding: 0;
+}
+.sl-markdown-content .nomi-step {
+  counter-increment: nomi-step;
+  position: relative;
+  margin: 0;
+  padding: 0 0 2.25rem 3rem;
+}
+.sl-markdown-content .nomi-step:last-child {
+  padding-bottom: 0;
+}
+.nomi-step::before {
+  content: counter(nomi-step);
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--sl-color-accent-low);
+  color: var(--sl-color-text-accent);
+  font-weight: 700;
+  line-height: 1;
+}
+.nomi-step:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 2.5rem;
+  bottom: 0.5rem;
+  left: calc(1rem - 0.5px);
+  border-left: 1px solid var(--sl-color-hairline-shade);
+}
+.sl-markdown-content .nomi-step > * {
+  margin-top: 0.75rem;
+}
+/* Starlight sizes a heading's line on its anchor-link wrapper; here it is
+   the circle's height, so the two line up. */
+.sl-markdown-content .nomi-step > .sl-heading-wrapper {
+  margin-top: 0;
+  font-size: var(--sl-text-2xl);
+  line-height: 2rem;
+}
+.sl-markdown-content .nomi-step h2 {
+  font-size: inherit;
+  line-height: inherit;
+}
+@media (max-width: 40rem) {
+  .sl-markdown-content .nomi-step {
+    padding-left: 0;
+  }
+  .nomi-step:not(:last-child)::after {
+    display: none;
+  }
+  .sl-markdown-content .nomi-step > .sl-heading-wrapper {
+    padding-left: 2.75rem;
+  }
 }
 
 /* The output area: a header with its heading and a manual block's Run
@@ -1674,8 +1943,6 @@ dialog.nomi-modal::backdrop {
 .hero {
   grid-template-columns: 100%;
   padding-block: 2.5rem 1rem;
-  background: radial-gradient(ellipse 50% 48% at 50% 50%,
-    color-mix(in srgb, var(--sl-color-accent) 24%, transparent), transparent 70%);
 }
 .hero > img {
   order: 0;
@@ -1698,8 +1965,271 @@ dialog.nomi-modal::backdrop {
   max-width: 46ch;
   line-height: 1.55;
 }
+/* The hero's buttons are one group: three segments in one outline, tinted
+   with the accent, each as wide as its text. */
 .hero .actions {
   justify-content: center;
+  flex-wrap: nowrap;
+  gap: 0;
+}
+.hero .actions > .sl-link-button {
+  justify-content: center;
+  padding-inline: 1.25rem;
+  border-radius: 0;
+  white-space: nowrap;
+}
+.hero .actions > .sl-link-button + .sl-link-button {
+  margin-inline-start: -1px;
+}
+.hero .actions > .sl-link-button:first-child {
+  border-start-start-radius: 999rem;
+  border-end-start-radius: 999rem;
+}
+.hero .actions > .sl-link-button:last-child {
+  border-start-end-radius: 999rem;
+  border-end-end-radius: 999rem;
+}
+.hero .actions > .sl-link-button:focus-visible {
+  position: relative;
+  z-index: 1;
+}
+.hero .actions > .sl-link-button {
+  transition: background-color 120ms ease-out;
+}
+.hero .actions > .sl-link-button.secondary {
+  border-color: color-mix(in srgb, var(--sl-color-accent) 45%, transparent);
+  background: var(--sl-color-accent-low);
+}
+.hero .actions > .sl-link-button.secondary:hover {
+  background: color-mix(in srgb, var(--sl-color-accent-low) 70%, var(--sl-color-accent));
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero .actions > .sl-link-button {
+    transition: none;
+  }
+}
+@media (max-width: 30rem) {
+  .hero .actions > .sl-link-button {
+    padding-inline: 0.8rem;
+    font-size: var(--sl-text-sm);
+  }
+}
+
+/* The install command under the hero's buttons: the install page's first
+   step as a tab group of its own, drawn as part of the hero. The command
+   is one outlined pill, like the buttons above it, and one line of small
+   text under it holds the systems, which are the group's tabs, and the
+   link to the install page. Without scripting the panels stack as they do
+   anywhere. */
+.nomi-home-install {
+  max-width: 38rem;
+  margin-inline: auto;
+}
+.sl-markdown-content .nomi-home-install > .nomi-tabgroup {
+  margin-top: 0;
+}
+.nomi-home-install .nomi-copyable {
+  margin: 0;
+}
+.nomi-home-install pre.nomi-console {
+  padding: 0.8rem 1.5rem;
+  border: 1px solid var(--sl-color-white);
+  border-radius: 1.75rem;
+  background: var(--sl-color-black);
+}
+.nomi-home-install .nomi-copyable > pre {
+  padding-right: calc(1.5rem + 30px);
+}
+.nomi-home-install .nomi-copyable > .nomi-copy {
+  top: 50%;
+  right: 0.9rem;
+  translate: 0 -50%;
+  background: var(--sl-color-black);
+}
+.sl-markdown-content .nomi-home-install-more {
+  margin-top: 0.75rem;
+  font-size: var(--sl-text-sm);
+  text-align: center;
+}
+@media (scripting: enabled) {
+  .nomi-home-install {
+    display: grid;
+    grid-template-columns: 1fr auto auto 1fr;
+    grid-template-rows: auto 2rem;
+    align-items: center;
+    row-gap: 0.6rem;
+  }
+  .nomi-home-install > .nomi-tabgroup {
+    display: contents;
+  }
+  .nomi-home-install > .nomi-tabgroup::before {
+    display: none;
+  }
+  .nomi-home-install .nomi-tabpanel {
+    grid-row: 1;
+    grid-column: 1 / -1;
+    padding: 0;
+  }
+  .nomi-home-install .nomi-tabs {
+    grid-row: 2;
+    grid-column: 2;
+    height: auto;
+    box-shadow: none;
+  }
+  .nomi-home-install .nomi-tab {
+    height: auto;
+    padding: 0.25rem 0.5rem;
+    border-bottom: 0;
+  }
+  .nomi-home-install .nomi-tab.is-active {
+    font-weight: 600;
+    text-decoration: underline;
+    text-decoration-color: var(--sl-color-accent);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 0.35em;
+  }
+  .nomi-home-install .nomi-tab:focus-visible {
+    border-radius: 4px;
+  }
+  .sl-markdown-content .nomi-home-install-more {
+    grid-row: 2;
+    grid-column: 3;
+    margin: 0;
+  }
+  .nomi-home-install-more::before {
+    content: "\00b7";
+    margin-inline: 0.35rem 0.85rem;
+    color: var(--sl-color-gray-3);
+  }
+  /* A narrow screen has no room for the systems and the link in one line:
+     the link goes under them. */
+  @media (max-width: 34rem) {
+    .nomi-home-install {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: auto 2rem auto;
+      row-gap: 0.4rem;
+    }
+    .nomi-home-install .nomi-tabpanel,
+    .nomi-home-install .nomi-tabs,
+    .sl-markdown-content .nomi-home-install-more {
+      grid-column: 1;
+    }
+    .nomi-home-install .nomi-tabs {
+      justify-self: center;
+      max-width: 100%;
+    }
+    .sl-markdown-content .nomi-home-install-more {
+      grid-row: 3;
+    }
+    .nomi-home-install-more::before {
+      content: none;
+    }
+  }
+}
+
+/* The waves between the hero and the first example: three lines of swell
+   in the accent, each the tile public/home-wave.svg repeated as a mask, so
+   they take the theme's color, set off from one another and fading out
+   toward both edges. Decoration only. */
+.nomi-home-waves {
+  position: relative;
+  max-width: 72rem;
+  height: 3.25rem;
+  margin-inline: auto;
+  mask-image: linear-gradient(to right, transparent, #000 22%, #000 78%, transparent);
+}
+.sl-markdown-content .nomi-home-waves {
+  margin-top: 3.5rem;
+}
+.nomi-home-waves > span {
+  position: absolute;
+  /* One tile wider than the box, so a drift of one tile shows no seam. */
+  inset-inline: -96px 0;
+  height: 20px;
+  margin: 0;
+  background: var(--sl-color-accent);
+  mask: url("/home-wave.svg") repeat-x;
+  mask-size: 96px 20px;
+}
+.nomi-home-waves > span:nth-child(1) {
+  top: 0;
+  opacity: 0.25;
+  mask-position: 0 0;
+}
+.nomi-home-waves > span:nth-child(2) {
+  top: 14px;
+  opacity: 0.45;
+  mask-position: 32px 0;
+}
+.nomi-home-waves > span:nth-child(3) {
+  top: 28px;
+  opacity: 0.7;
+  mask-position: 64px 0;
+}
+/* The waves drift slowly all the time, each line at its own pace and the
+   middle one the other way. The page's script raises one swell (is-swelling)
+   when the install command is copied and when the pointer or the focus
+   arrives on one of the hero's buttons, and takes the class off when the
+   swell ends. A reader who asked for less motion gets none. */
+@keyframes nomi-wave-drift {
+  to {
+    translate: 96px 0;
+  }
+}
+@keyframes nomi-mark-bob {
+  30% {
+    translate: 0 -9px;
+  }
+  45% {
+    filter: var(--nomi-mark-shade);
+  }
+  60% {
+    translate: 0 3px;
+  }
+  80% {
+    translate: 0 0;
+  }
+}
+@keyframes nomi-wave-swell {
+  35% {
+    scale: 1 1.7;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .nomi-home-waves {
+    transform-origin: center bottom;
+  }
+  .nomi-home-waves > span {
+    animation: nomi-wave-drift 26s linear infinite;
+  }
+  .nomi-home-waves > span:nth-child(2) {
+    animation-duration: 18s;
+    animation-direction: reverse;
+  }
+  .nomi-home-waves > span:nth-child(3) {
+    animation-duration: 12s;
+  }
+  .nomi-home-waves.is-swelling {
+    animation: nomi-wave-swell 900ms ease-in-out;
+  }
+  /* The wordmark rides that swell: up, a little under, and back, while the
+     narwhal leans toward the other theme's accent and returns: the light
+     theme's blue toward the dark theme's lighter one, and the dark theme's
+     back toward the light one's (17 degrees of hue apart). The mark is an
+     image, so the filter is on all of it; a turn of hue leaves its black or
+     white letters as they are, which a change of brightness would not. */
+  .hero > img {
+    --nomi-mark-shade: hue-rotate(-17deg);
+  }
+  .hero > img.light\:sl-hidden {
+    --nomi-mark-shade: hue-rotate(17deg);
+  }
+  .hero > img.is-bobbing {
+    animation: nomi-mark-bob 1200ms ease-in-out;
+  }
+}
+.sl-markdown-content .nomi-home-waves + .nomi-home-showcase {
+  margin-top: 3rem;
 }
 
 .nomi-home-showcase,
@@ -1803,10 +2333,6 @@ dialog.nomi-modal::backdrop {
 .sl-markdown-content a.nomi-home-path:focus-visible {
   border-color: var(--sl-color-accent);
   transform: translateY(-2px);
-}
-.sl-markdown-content a.nomi-home-path.is-primary {
-  border-color: var(--sl-color-accent);
-  background: color-mix(in srgb, var(--sl-color-bg) 85%, var(--sl-color-accent) 15%);
 }
 .nomi-home-path-for {
   color: var(--sl-color-gray-3);

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"sync"
@@ -91,7 +92,7 @@ func (s *Server) publishManifestText(uri, text string) {
 			diags = append(diags, manifestDiagnostic(text, line, message))
 		}
 	}
-	s.publishInputDiagnostics(manifestSource(uri), map[string][]protocol.Diagnostic{uri: diags})
+	s.publishInputDiagnostics(manifestSource(uri), map[string]inputReport{uri: {diags: diags}})
 }
 
 // manifestGraphError is the problem the walk of the package graph a build
@@ -121,23 +122,18 @@ func loweringSource(uri string) string { return "lowering " + uri }
 
 // publishLoweringManifests publishes what uri's last lowering found in each
 // nomi.toml, by its URI; nil clears what it found.
-func (s *Server) publishLoweringManifests(uri string, manifests map[string][]protocol.Diagnostic) {
+func (s *Server) publishLoweringManifests(uri string, manifests map[string]inputReport) {
 	s.publishInputDiagnostics(loweringSource(uri), manifests)
 }
 
 // publishInputDiagnostics records what source says about inputs and
 // publishes each input whose diagnostics changed.
-func (s *Server) publishInputDiagnostics(source string, inputs map[string][]protocol.Diagnostic) {
+func (s *Server) publishInputDiagnostics(source string, inputs map[string]inputReport) {
 	changed := s.inputDiags.update(source, inputs)
 	if s.notify == nil {
 		return
 	}
-	for uri, diags := range changed {
-		s.notify(protocol.ServerTextDocumentPublishDiagnostics, &protocol.PublishDiagnosticsParams{
-			URI:         protocol.DocumentUri(uri),
-			Diagnostics: diags,
-		})
-	}
+	s.notifyInputs(s.notify, changed)
 }
 
 // manifestDiagnostic is an error at line (1-based, 0 for none) of text, a
@@ -162,13 +158,12 @@ func manifestDiagnostic(text string, line int, message string) protocol.Diagnost
 // diagnostic's start, which a code action in the file offers
 // (manifestFixes): the entry of a dependency entries_required finds with
 // none.
-func (s *Server) manifestDiagnostics(problems, err error) (map[string][]protocol.Diagnostic, map[string][]parser.ParseError) {
+func (s *Server) manifestDiagnostics(problems, err error) map[string]inputReport {
 	var ds frontend.Diagnostics
 	if err != nil || !errors.As(problems, &ds) {
-		return nil, nil
+		return nil
 	}
-	var out map[string][]protocol.Diagnostic
-	var fixes map[string][]parser.ParseError
+	var out map[string]inputReport
 	for _, d := range ds {
 		if !filepath.IsAbs(d.Path) || filepath.Base(d.Path) != "nomi.toml" {
 			continue
@@ -184,34 +179,34 @@ func (s *Server) manifestDiagnostics(problems, err error) (map[string][]protocol
 			diag.Code = &protocol.IntegerOrString{Value: d.Code}
 		}
 		if out == nil {
-			out = map[string][]protocol.Diagnostic{}
+			out = map[string]inputReport{}
 		}
-		out[uri] = append(out[uri], diag)
+		report := out[uri]
+		report.diags = append(report.diags, diag)
 		if d.Fix != nil {
-			if fixes == nil {
-				fixes = map[string][]parser.ParseError{}
-			}
 			start := diag.Range.Start
-			fixes[uri] = append(fixes[uri], parser.ParseError{
+			report.fixes = append(report.fixes, parser.ParseError{
 				Line: int(start.Line) + 1, Col: newLineIndex(text).byteCol(start.Line, start.Character),
 				Message: d.Message, Fix: d.Fix,
 			})
 		}
+		out[uri] = report
 	}
-	return out, fixes
+	return out
 }
 
 // manifestCompletion is what completes at pos in text, the nomi.toml at
-// uri: a std module's name inside a list of std names; and as a key under
-// [effects.self.modules] or
-// [effects.deps.packages], each module of the project or dependency
-// with its whole entry, what its own files reach, as the fix of a missing
-// entry writes it (Reach.Entries, analysis.ModuleEntryText). The keys are
-// those the project's programs load files from (Reach.EntryKeys), from
-// what they reach (projectReaches), so none is offered while a program
-// does not check, and none the list or table already names. A name is
-// quoted unless the cursor is inside a string; a key's entry replaces its
-// quotes.
+// uri: a std module's name inside a list of std names; as a key under
+// [effects.self.modules], each module of the project with its whole entry,
+// what its own files reach, as the fix of a missing entry writes it
+// (Reach.Entries, analysis.ModuleEntryText); and at a key's place in a
+// [dependencies] entry's inline table that has no `effects` key, the key
+// with what the code the entry covers reaches (effectsKeyCompletion). The
+// modules are those the project's programs load files from
+// (Reach.EntryKeys), from what they reach (projectReaches), so none is
+// offered while a program does not check, and none the table already
+// names. A name is quoted unless the cursor is inside a string; a key's
+// entry replaces its quotes.
 func (s *Server) manifestCompletion(uri, text string, pos protocol.Position) []protocol.CompletionItem {
 	if isWorkspaceURI(uri) {
 		return workspaceCompletion(text, pos)
@@ -223,9 +218,11 @@ func (s *Server) manifestCompletion(uri, text string, pos protocol.Position) []p
 	var names []string
 	var entries map[string][]string
 	kind := protocol.CompletionItemKindModule
-	switch list := at.list(); {
+	switch list, key := at.list(); {
 	case isStdList(list):
 		names = effects.StdNames()
+	case list == "" && key != "" && strings.Join(at.table, ".") == "dependencies":
+		return effectsKeyCompletion(reach, at, key)
 	case at.entryList() != "":
 		kind = protocol.CompletionItemKindFolder
 		if r := reach(); r != nil {
@@ -278,6 +275,39 @@ func (s *Server) manifestCompletion(uri, text string, pos protocol.Position) []p
 	return items
 }
 
+// effectsKeyWritten finds an `effects` key written in an inline table.
+var effectsKeyWritten = regexp.MustCompile(`(^|[{,\s])effects\s*=`)
+
+// effectsKeyCompletion is the `effects` key, at a key's place in the inline
+// table of key's [dependencies] entry (after its `{` or a comma),
+// with the std names the code the entry covers reaches from a walk from
+// main, as entries_required's fix writes it (Reach.Entries); nothing when
+// the entry has the key already, the place is not a key's, or the
+// project's programs do not check.
+func effectsKeyCompletion(reach func() *vmhost.Reach, at manifestPlace, key string) []protocol.CompletionItem {
+	before := strings.TrimRight(at.lineText[:at.col], " \t")
+	word := len(before)
+	for word > 0 && (before[word-1] == '_' || 'a' <= before[word-1] && before[word-1] <= 'z') {
+		word--
+	}
+	if prev := strings.TrimRight(before[:word], " \t"); !strings.HasSuffix(prev, "{") && !strings.HasSuffix(prev, ",") || effectsKeyWritten.MatchString(at.lineText) {
+		return nil
+	}
+	r := reach()
+	if r == nil || !slices.Contains(r.Dependencies, key) {
+		return nil
+	}
+	quoted := make([]string, 0)
+	for _, n := range r.Entries(analysis.ListEntryEffects)[key] {
+		quoted = append(quoted, fmt.Sprintf("%q", n))
+	}
+	kind := protocol.CompletionItemKindProperty
+	insert := "effects = [" + strings.Join(quoted, ", ") + "]"
+	replace := at.lines.utf16Range(posRange(at.line, word+1, at.line, len(before)+1))
+	return []protocol.CompletionItem{{Label: "effects", Kind: &kind, Detail: &insert,
+		TextEdit: protocol.TextEdit{Range: replace, NewText: insert}}}
+}
+
 // manifestPlace is where a position stands in a nomi.toml's text: its
 // 1-based line, that line's text and the position's byte offset in it,
 // the table the line is in, and the key whose value holds the position,
@@ -308,50 +338,69 @@ func manifestPlaceAt(text string, pos protocol.Position) manifestPlace {
 }
 
 // list is the effects list whose value holds the place, as a change
-// names it (analysis.ListSelfStd): a list of std names, or one of
-// analysis.EntryLists for an entry, whose module is the key. It is
-// "" anywhere else.
-func (at manifestPlace) list() string {
-	switch strings.Join(at.table, ".") {
-	case "effects.self":
+// names it (analysis.ListSelfEffects), and for an entry its key: a list of
+// std names in [effects.self] or [effects.dependencies];
+// [effects.self.modules], whose key is the module; or a [dependencies]
+// entry's `effects` or `effects_in_tests`, in its inline table or its own
+// table, whose key is the entry's. Both are "" anywhere else.
+func (at manifestPlace) list() (list, key string) {
+	table := strings.Join(at.table, ".")
+	switch {
+	case table == analysis.ListSelf || table == analysis.ListDependencies:
 		switch at.key {
-		case "std":
-			return analysis.ListSelfStd
-		case "std_in_tests":
-			return analysis.ListSelfStdInTests
+		case "effects", "effects_in_tests":
+			return table + "." + at.key, ""
 		}
-	case "effects.deps":
-		switch at.key {
-		case "std":
-			return analysis.ListDepsStd
-		case "std_in_tests":
-			return analysis.ListDepsStdInTests
-		}
+	case table == analysis.ListSelfModules && at.key != "":
+		return analysis.ListSelfModules, at.key
+	case table == "dependencies" && at.key != "":
+		return dependencyList(inlineKeyAt(at.lineText[:at.col])), at.key
+	case len(at.table) == 2 && at.table[0] == "dependencies":
+		return dependencyList(at.key), at.table[1]
 	}
-	if list := at.entries(); list != "" && at.key != "" {
-		return list
+	return "", ""
+}
+
+// dependencyList is the list a [dependencies] entry's key holds: `effects` or
+// `effects_in_tests`, or "" for any other key.
+func dependencyList(key string) string {
+	switch key {
+	case "effects":
+		return analysis.ListEntryEffects
+	case "effects_in_tests":
+		return analysis.ListEntryEffectsInTests
 	}
 	return ""
 }
 
-// entries is the list of the table of entries the place is in, one of
-// analysis.EntryLists, or "".
-func (at manifestPlace) entries() string {
-	list, ok := strings.CutPrefix(strings.Join(at.table, "."), "effects.")
-	if !ok || !slices.Contains(analysis.EntryLists, list) {
+// inlineKeyAt is the key of an inline table whose list is open at the end
+// of prefix, the text of a line up to a place (`{ dir = "../x", effects =
+// ["std::`), or "" when no list is open there.
+func inlineKeyAt(prefix string) string {
+	open := strings.LastIndex(prefix, "[")
+	if open < 0 || strings.Contains(prefix[open:], "]") {
 		return ""
 	}
-	return list
+	before, ok := strings.CutSuffix(strings.TrimRight(prefix[:open], " \t"), "=")
+	if !ok {
+		return ""
+	}
+	before = strings.TrimRight(before, " \t")
+	start := len(before)
+	for start > 0 && (before[start-1] == '_' || 'a' <= before[start-1] && before[start-1] <= 'z') {
+		start--
+	}
+	return before[start:]
 }
 
-// entryList is the list of the table of entries whose key the place is
-// on, left of its `=`, where a module of the project or a dependency's path
-// is written; "" anywhere else.
+// entryList is the list of [effects.self.modules] when the place is on a
+// key of that table, left of its `=`, where a module of the project is
+// written; "" anywhere else.
 func (at manifestPlace) entryList() string {
-	if at.key != "" || strings.Contains(at.lineText[:at.col], "=") {
+	if at.key != "" || strings.Contains(at.lineText[:at.col], "=") || strings.Join(at.table, ".") != analysis.ListSelfModules {
 		return ""
 	}
-	return at.entries()
+	return analysis.ListSelfModules
 }
 
 // quoted is the string on the place's line that holds it, without its

@@ -8,9 +8,9 @@ import "testing"
 // already was.
 
 // A comparison compares its operands as the types they are at run time, a
-// refinement as its base, wherever in the operand's type the refinement
+// subtype as its base, wherever in the operand's type the subtype
 // is: in an anonymous struct's field as in a tuple's element.
-func TestComparisonErasesARefinementInsideAnAnonymousStruct(t *testing.T) {
+func TestComparisonErasesASubtypeInsideAnAnonymousStruct(t *testing.T) {
 	head := "fn f(a: NonNegativeInt, b: Int) -> Bool\n  "
 	cases := map[string]string{
 		"tuple (already accepted)": "(a, 1) == (b, 1)",

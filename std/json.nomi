@@ -16,7 +16,7 @@ import
     results.Result
     results.Result.{Err, Ok}
     sets.Set
-    strings.String
+    strings.{NonEmptyString, String}
     vectors.Vector
 end
 
@@ -70,7 +70,7 @@ end
 //! assert JsonObject.fields(object) == {"id" => Json.Int(7)}
 //! assert JsonObject.try_from(Json.Int(7)) == None
 //
-pub refine JsonObject Json when fn json ->
+pub subtype JsonObject Json when fn json ->
     case json
         .Obj(_) -> True
         _       -> False
@@ -116,7 +116,7 @@ impl Json
     //! assert Json.encode(Json.Obj{"ok" => Json.Bool(True), "n" => Json.Int(42)})
     //!     == "{\"ok\":true,\"n\":42}"
     //
-    pub host fn encode(jv: Json) -> String
+    pub host fn encode(jv: Json) -> NonEmptyString
 
     /// Converts a `Json` tree to a `Dynamic` of the same shape: strings,
     /// numbers, booleans, arrays, objects and null.
@@ -166,14 +166,14 @@ impl Json
     //!
     //! assert Json.encode_as({error: "no todo 99"}) == `{"error":"no todo 99"}`
     //
-    pub fn encode_as(value: ToJson) -> String
+    pub fn encode_as(value: ToJson) -> NonEmptyString
         Json.encode(ToJson.to_json(value))
     end
 
     /// The JSON value's kind as a word: `string`, `int`, `float`, `bool`,
     /// `array`, `object` or `null`. A `Json.ShapeError` names it as what it
     /// got, beside the Nomi type it expected: `expected String, got null`.
-    pub fn kind(jv: Json) -> String
+    pub fn kind(jv: Json) -> NonEmptyString
         case jv
             Json.String(_) -> "string"
             Json.Int(_)    -> "int"

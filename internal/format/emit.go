@@ -946,7 +946,7 @@ func emitNode(n ast.Node) Doc {
 	case *ast.ErrorNode:
 		// A run of source the recovering parser could not read. A file
 		// holding one never reaches the formatter (ParseFile fails), but
-		// RenderNode renders nodes from a recovered tree, a refinement's
+		// RenderNode renders nodes from a recovered tree, a subtype's
 		// rule mid-edit among them. The node keeps no source text, so it
 		// renders as a marker.
 		return Text(ErrorNodeText)
@@ -4994,10 +4994,10 @@ func emitStructDef(v *ast.StructDef) Doc {
 	return Concat(parts...)
 }
 
-// emitRefinementRule renders a `type`'s ` when <rule>` on the line its
+// emitSubtypeRule renders a `type`'s ` when <rule>` on the line its
 // header ends on. The rule is an ordinary expression, so a long lambda
 // body breaks as any boolean does. Nothing for a declaration with no rule.
-func emitRefinementRule(rule ast.Node) []Doc {
+func emitSubtypeRule(rule ast.Node) []Doc {
 	if rule == nil {
 		return nil
 	}
@@ -5301,8 +5301,8 @@ func emitTypeAlias(v *ast.TypeAlias) Doc {
 	return Concat(parts...)
 }
 
-// emitTypeDef renders a distinct type or a refinement: `[pub ][opaque ]type Name [InnerType]`,
-// `[pub ]refine Name Parent [and Parent...]`.
+// emitTypeDef renders a distinct type or a subtype: `[pub ][opaque ]type Name [InnerType]`,
+// `[pub ]subtype Name Parent [and Parent...]`.
 // A zero-sized type (`type Expired`) has no inner type. The `opaque`
 // modifier (only valid on distinct types) renders after `pub` when both
 // are present.
@@ -5319,8 +5319,8 @@ func emitTypeDef(v *ast.TypeDef) Doc {
 		parts = append(parts, Text("opaque "))
 	}
 	keyword := "type "
-	if v.Refinement {
-		keyword = "refine "
+	if v.Subtype {
+		keyword = "subtype "
 	}
 	parts = append(parts, Text(keyword), Text(v.Name), emitTypeParams(v.TypeParams))
 	if v.InnerTypeExpr != nil {
@@ -5330,7 +5330,7 @@ func emitTypeDef(v *ast.TypeDef) Doc {
 		parts = append(parts, Text(" and "), emitTypeExpr(parent))
 	}
 	parts = append(parts, emitWhereClause(v.WhereClauses)...)
-	parts = append(parts, emitRefinementRule(v.Rule)...)
+	parts = append(parts, emitSubtypeRule(v.Rule)...)
 	return Concat(parts...)
 }
 

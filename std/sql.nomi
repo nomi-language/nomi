@@ -827,6 +827,17 @@ pub enum Error
     /// The database cannot be reached, or the connection broke.
     Connection {message: String}
 
+    /// The database engine itself failed, in a way no statement or
+    /// connection setting explains: a driver that runs its engine inside
+    /// the program, as the SQLite driver does, answers it when the engine
+    /// traps, a fault in the engine's own code that its sandbox held.
+    /// `message` is the fault. The connection cannot be used after it, so
+    /// the caller needs a new one, and running the statement again is no
+    /// remedy. A driver for a database server, such as the Postgres one,
+    /// never answers it: an error the server reports is one of the other
+    /// variants.
+    Engine {message: String}
+
     /// A constraint rejected the statement. `name` is the constraint's
     /// name, the same on every engine: the name the schema gives it
     /// (`CONSTRAINT name`, or a unique index's name), else the name
@@ -895,11 +906,17 @@ impl Display for Error
     //! }
     //!
     //! assert "${both}" == "unique constraint `users_email_key` on `users.email` failed"
+    //!
+    //! assert "${Error.Engine{message: "the module ran unreachable"}}"
+    //!     == "the database engine failed: the module ran unreachable"
     //
     fn to_string(e: Error) -> String
         case e
             Error.Connection{message:} ->
                 "cannot reach the database: ${message}"
+
+            Error.Engine{message:} ->
+                "the database engine failed: ${message}"
 
             Error.Constraint{kind:, name:, table:, column:} ->
                 "${kind} constraint `${name}`${place(table, column)} failed"

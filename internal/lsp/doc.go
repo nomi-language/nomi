@@ -11,13 +11,21 @@
 // The server never applies an edit computed from an analysis older than
 // the text it edits. didChange stores the text and returns, and the
 // document is analyzed analysisDelay (50 ms) after the last edit
-// (docsched.go). Each request has a freshness (requestFreshness, rpc.go).
+// (docsched.go). Each request that reads the analysis of the document it
+// names has a freshness (requestFreshness, rpc.go), and its handler reads
+// the document through requestDoc, which refuses a request with none.
 // Completion and signature help answer at once from the last finished
 // analysis, with positions mapped into it, since waiting makes menus
-// arrive too late. Hover, definition, implementation, references, symbols,
-// semantic tokens and inlay hints wait up to analysisWait (2 s) for the
-// current analysis, then answer from the older one. Rename and code
-// actions fail with ContentModified rather than answer from an older one.
+// arrive too late. The requests whose answers are ranges in the text
+// (hover, the navigation requests, highlights, symbols, code lenses,
+// links, semantic tokens and hints among them) wait up to analysisWait
+// (2 s) for the current analysis, then answer from the older one. Rename
+// and code actions fail with ContentModified rather than answer from an
+// older one.
+// A document with no finished analysis, just opened or edited before its
+// first analysis started, has nothing older to answer from, so every one
+// of these requests waits up to analysisWait for its first analysis,
+// completion and signature help included.
 //
 // Checking a std module's bodies (std.StdLib.Bodies, which a process's
 // first lowering, an instance of a generic std function and hover's
@@ -105,19 +113,20 @@
 // (manifestDiagnostics). The lists' errors therefore follow the programs
 // of the open documents, as `nomi check` of those files reports them.
 // Completion in nomi.toml offers std module names inside a list of std
-// names (effects.StdNames), and as a key in a table of entries
-// (analysis.EntryLists: under [effects.self.modules] or
-// [effects.deps.packages]) each module of the project or dependency with
-// its whole entry, the effects its own
+// names (effects.StdNames), a [dependencies] entry's `effects` and
+// `effects_in_tests` among them, and as a key under [effects.self.modules]
+// each module of the project with its whole entry, the effects its own
 // files have, in the text the fix of a missing entry writes
 // (analysis.ModuleEntryText over vmhost.Reach.Entries), from the effects
-// the project's programs have (projectReaches, below): the keys they load
-// files from (vmhost.Reach.EntryKeys), less those the table already names
-// (manifestCompletion). The code for the two tables is one, given which
-// table the place is in (manifestPlace.entries).
+// the project's programs have (projectReaches, below): the modules they
+// load files from (vmhost.Reach.EntryKeys), less those the table already
+// names. At a key's place in a [dependencies] entry's inline table with no
+// `effects` key it offers the key with what the code the entry covers has
+// (effectsKeyCompletion).
 // Completion, hover and references find what the cursor is on the same way
-// (manifestPlaceAt): the table, the key whose value holds it, and the
-// string under it.
+// (manifestPlaceAt, manifestPlace.list): the table, the key whose value
+// holds it, the list a [dependencies] entry's inline table has open there,
+// and the string under it.
 //
 // # The effects a project has, in nomi.toml
 //
@@ -136,8 +145,9 @@
 // A hover on a std name shows the calls that list holds it for, as `nomi
 // effects --why` prints them (vmhost.Reach.Why and WriteWhy), at most
 // maxHoverCalls with a count of the rest: the project's own calls under
-// [effects.self], the dependencies' under [effects.deps], and the
-// module's own under its entry (neededBy). A name none of them has says
+// [effects.self], the dependencies' under [effects.dependencies], the
+// module's own under its entry, and those of every package reached
+// through a [dependencies] entry under its effects keys (neededBy). A name none of them has says
 // so (nothingReaches). References answer the same calls, at their callees.
 //
 // Each open nomi.toml has a hint, tagged unnecessary, at each std name its
@@ -145,26 +155,30 @@
 // from its tables to the tightest ones (analysis.EffectChanges) that
 // --check holds them to (vmhost.HeldChanges), each a removal of a name
 // from a list of std names (unusedHints). The message says why: nothing
-// the list holds has the effect, only the tests have a name std holds, or std
-// already allows a name std_in_tests holds. Its fix, offered from the
+// the list holds has the effect, only the tests have a name effects holds, or
+// effects already allows a name effects_in_tests holds. Its fix, offered from the
 // code actions in nomi.toml (manifestFixes), writes the tables without the
 // name with the writer `nomi effects --write` uses
 // (analysis.EffectsFix), moving a name only the tests have to
-// std_in_tests. The hints are published under their own source
+// effects_in_tests. The hints are published under their own source
 // (unusedSource) after each change (reachChanged), the newest refresh
 // winning, and cleared when the file closes. A project with a program
 // that does not check has none.
 //
-// A hover on a key under [effects.self.modules] or
-// [effects.deps.packages] shows the effects the module's own files
-// have as `nomi add` prints them (vmhost.Reach.EntryReaches, vmhost.WritePackageReach),
+// A hover on a key under [effects.self.modules] shows the effects the
+// module's own files have as `nomi add` prints them (vmhost.Reach.EntryReaches, vmhost.WritePackageReach),
 // or that no program imports it yet. The error entries_required reports,
-// in either table, for a module with no entry carries its fix from where
+// for a module with no entry or a [dependencies] entry with no `effects`
+// key, carries its fix from where
 // vmhost builds it (entryFix): the
 // entry with the effects the module has in the lowered program, written as
-// `nomi add` writes it. The lowering keeps the fixes of its errors in a
-// nomi.toml beside them (manifestDiagnostics, loweringChecks.manifestFixes),
-// and the code actions in the file offer them with the hints' fixes.
+// `nomi add` writes it. Every diagnostic published in a nomi.toml or
+// nomi-workspace.toml is kept with its fix (inputReport): the lowering's
+// errors (manifestDiagnostics), the hints, and the error there that stops
+// a build (inputDiagnosticsOf). The code actions in the file offer them
+// (manifestFixes). The error that stops a build is also shown at the top
+// of each Nomi document it stops, naming its file and line, with a fix
+// that edits the manifest (analysis.ErrorsInFile, errorsInDocument).
 //
 // # The effects a call has
 //
@@ -359,4 +373,34 @@
 // parameter's declaration and the binding's, except on a pattern's pun,
 // which declares the binding and offers the field; rename of either side
 // unpuns it (rename.go).
+//
+// # Functions the source does not write
+//
+// A function the front end writes for a declaration (a subtype's, a
+// validated struct's and a validated type's `try_from` and `unchecked`, an
+// opaque type's Debug, a derive's function) stands at a synthesized
+// position (analysis.IsSynthesizedLine), which is no line of any file. The
+// checker records where the source declares it (analysis.WrittenFor: the
+// interface its `derive` names, else the name of the type whose declaration
+// it comes with), and every request that answers a place for a symbol reads
+// that through definitionLocationForSymbol, which answers nothing for a
+// synthesized position with no record. The type's name is the answer and
+// not its `when` rule: every declaration answers its name, a subtype
+// without a rule of its own has no `when`, and `unchecked` does not run
+// the rule.
+//
+// The file is the one that declares the symbol (declaringURI): the file a
+// user file's symbol records, the document itself for a declaration of its
+// own, which a std file open as a document has, and else the std module
+// that declares it.
+//
+// Go-to-definition answers that place. Go-to-implementation lists a derived impl at its `derive` entry, read from
+// the block in the file the impl index names (implLocationFor,
+// shapeBlockLocations), and does not list an impl a type's declaration
+// supplies. Rename refuses such a function (renameTarget): the source holds
+// its uses and no declaration to rename with them. References and
+// highlights answer its uses and leave out its synthesized position.
+// Document and workspace symbols list what the source's top-level nodes
+// declare, so none of these functions. Call hierarchy offers no item for
+// one, since it has no body in the source.
 package lsp

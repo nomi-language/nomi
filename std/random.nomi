@@ -56,7 +56,7 @@ end
 //! assert FiniteRange.try_from(1.0..0.0) == None
 //! assert FiniteRange.try_from(0.0..1.0) == Some(0.0..1.0)
 //
-pub refine FiniteRange BoundedRange<Float> when fn r ->
+pub subtype FiniteRange BoundedRange<Float> when fn r ->
     Float.is_finite(Range.start(r))
         and Float.is_finite(Option.with_default(Range.stop(r), Float.nan()))
 end
@@ -193,8 +193,7 @@ impl Generator<T>
     //! assert big >= huge and big <= huge * 2
     //
     pub fn int(range: BoundedRange<Int>) -> Generator<Int>
-        // A BoundedRange has an end, so the `!` holds.
-        to = Range.stop(range)!
+        to = BoundedRange.stop(range)
         unsafe_int(Range.start(range), if Range.is_inclusive(range) then to else to - 1)
     end
 
@@ -219,8 +218,7 @@ impl Generator<T>
     //! assert y >= low and y < 1.0
     //
     pub fn float(range: FiniteRange) -> Generator<Float>
-        // A FiniteRange has an end, so the `!` holds.
-        unsafe_float(Range.start(range), Range.stop(range)!)
+        unsafe_float(Range.start(range), BoundedRange.stop(range))
     end
 
     /// `True` or `False` with equal probability.

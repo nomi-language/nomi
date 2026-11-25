@@ -1121,12 +1121,12 @@ write `&(not f(&1))`.
 ### 29. Pick the tool by what happens on failure
 
 **Writing a function that cannot take every input.** When some input has
-no answer, pick the first of these that fits (spec §4 *Refinements*, §11
+no answer, pick the first of these that fits (spec §4 *Subtypes*, §11
 *Traps, `Option` and `Result`*; tour:
 [Pattern Matching](/pattern-matching/#optiont-and-resultt-e)):
 
 1. **Type it.** When the requirement is about one argument's value alone
-   and a pure rule can check it, take a refinement: a count is a
+   and a pure rule can check it, take a subtype: a count is a
    `NonNegativeInt`, a buffer size a `PositiveInt`, a list that must have
    an element a `NonEmptyList`. A literal argument is checked when the
    program is compiled. A check narrows a binding (spec §4 *Narrowing*),
@@ -1145,8 +1145,8 @@ no answer, pick the first of these that fits (spec §4 *Refinements*, §11
    size of 0 has none, so `Iter.chunks` takes a `PositiveInt`.
 3. **Return `Option`** when absence is an ordinary outcome that depends on
    the data: a lookup that may miss, `find`, the first element of a list
-   that may be empty. Where a refinement proves the value is there, give that
-   refinement a function that answers it plainly, as `NonEmptyList.first`
+   that may be empty. Where a subtype proves the value is there, give that
+   subtype a function that answers it plainly, as `NonEmptyList.first`
    does.
 4. **Return `Result`** when the failure has a reason worth reporting, or
    comes from outside the program: a parse, input, a file, the network.
@@ -2006,16 +2006,16 @@ callers would read. An opaque type inspects as `<opaque Clock>`, and
 
 When the rule is a test of one value that callers should go on using as
 the type it narrows (a port number, a divisor that is not zero, a
-tolerance that is not negative), declare a refinement instead (spec §4
-*Refinements*; tour:
-[Structs, Enums & Distinct Types](/structs-enums-distinct/#refinements)).
-A parameter typed with the refinement replaces a check that traps or a
+tolerance that is not negative), declare a subtype instead (spec §4
+*Subtypes*; tour:
+[Structs, Enums & Distinct Types](/structs-enums-distinct/#subtypes)).
+A parameter typed with the subtype replaces a check that traps or a
 `Result` the function returns only for that argument: a literal argument
 is checked when the program compiles, and a computed one goes through
 `try_from` where it is made, once:
 
 ```nomi
-pub refine Port Int when fn p -> p >= 1 and p <= 65535
+pub subtype Port Int when fn p -> p >= 1 and p <= 65535
 
 pub fn listen(port: Port) -> String
     "listening on ${port}"
@@ -2024,11 +2024,11 @@ end
 
 Std's `equal_within` takes a `NonNegativeFloat` tolerance, `Int.pow` a
 `NonNegativeInt` exponent and `Money.split` a `PositiveInt` count this
-way. Reach for the prelude's refinements (`NonNegativeInt`,
+way. Reach for the prelude's subtypes (`NonNegativeInt`,
 `PositiveFloat`, `NonEmptyString` and the rest) before declaring one, and
-name a refinement's existing parents with `and` rather than repeating their
+name a subtype's existing parents with `and` rather than repeating their
 rules; a parameter that needs two of them takes `NonNegativeInt and
-NonZeroInt` rather than a new refinement for one function. When the value is
+NonZeroInt` rather than a new subtype for one function. When the value is
 a thing of its own that callers must not mix with other values of its
 base (an email address, a user id), declare a validated type, `type Email
 String when is_email` or `type UserId PositiveInt`, which converts to

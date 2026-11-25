@@ -54,7 +54,7 @@ end
 	}
 }
 
-// A literal over a value a condition narrowed to a refinement (`x > 0` makes x
+// A literal over a value a condition narrowed to a subtype (`x > 0` makes x
 // a PositiveInt) is tested, as the checker records: it matches one value.
 func TestIrrefutablePattern_ALiteralOverANarrowedValueIsTested(t *testing.T) {
 	got := runSourceOutput(t, `import std::io

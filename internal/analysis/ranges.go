@@ -13,25 +13,25 @@ import (
 // Value ranges (spec §4 *Value ranges*). The checker knows, of each value
 // of Int, Decimal, Float and Duration where it can, an interval [lo, hi]
 // its value lies in, with whether it is known to be off zero, and a
-// value's std numeric refinement is the narrowest of NonZero, NonNegative
-// and Positive its range proves (rangeRefinement). The facts come from
-// literals, the declared refinement of a binding, parameter, field or
+// value's std numeric subtype is the narrowest of NonZero, NonNegative
+// and Positive its range proves (rangeSubtype). The facts come from
+// literals, the declared subtype of a binding, parameter, field or
 // result, comparisons with a constant in the code they guard
-// (refinement_narrowing.go), arithmetic (+, -, * and unary - on exact values,
+// (subtype_narrowing.go), arithmetic (+, -, * and unary - on exact values,
 // the absolute value), a few std functions whose results follow from their
 // arguments (callRange), and the elements a std Iter function passes a
 // callback, for the callback's parameter (element_ranges.go). A value
 // whose range comes from literals alone keeps its
-// base type, so `1 + 2` is an Int, and converts where a refinement its range
-// proves is expected (provenRefinement): `k = 60 * 60` passes where a
+// base type, so `1 + 2` is an Int, and converts where a subtype its range
+// proves is expected (provenSubtype): `k = 60 * 60` passes where a
 // PositiveInt is expected. Nothing relates two bindings: `i < n` proves
 // nothing of `i`. Bindings are immutable, so a binding's range holds
 // everywhere it is read and no loop or recursion needs a fixed point.
 //
 // A binding of a List, Vector, Set, Map or String keeps, the same way,
 // whether its value holds something (holdsSomething), and converts where
-// the std non-empty refinement is expected (provenNonEmpty); a `once` takes
-// that refinement as its type (onceRangeType).
+// the std non-empty subtype is expected (provenNonEmpty); a `once` takes
+// that subtype as its type (onceRangeType).
 //
 // A Float's range holds only of a value that is no NaN: a Float of no
 // known range may be NaN, and only `+` of two non-negative values and
@@ -58,7 +58,7 @@ type numRange struct {
 	// != c`; meet applies it to the bounds it meets.
 	excl *big.Rat
 	// typed is set for a range that comes from something other than
-	// literals: a binding's refinement, a comparison, a function's result.
+	// literals: a binding's subtype, a comparison, a function's result.
 	// A value whose range is not typed keeps its base type.
 	typed bool
 }
@@ -453,7 +453,7 @@ func floatSum(a, b numRange) numRange {
 	return numRange{known: true, lo: lo, hi: infBound(), nonZero: lo.open, typed: a.typed || b.typed}
 }
 
-// stdRangeOf is the range a std numeric refinement of fam named name states:
+// stdRangeOf is the range a std numeric subtype of fam named name states:
 // Positive, NonNegative or NonZero.
 func (fam *numericFamily) stdRangeOf(name string) (numRange, bool) {
 	zero := new(big.Rat)
@@ -468,7 +468,7 @@ func (fam *numericFamily) stdRangeOf(name string) (numRange, bool) {
 	return numRange{}, false
 }
 
-// ruleBounds is the bounds an Int refinement's rule states and whether they
+// ruleBounds is the bounds an Int subtype's rule states and whether they
 // are all it states (ast.IntRuleBounds), read from the rule as written
 // (DistinctType.Rule) and kept per rule.
 func ruleBounds(rule string) (min, max *big.Int, exact bool) {
@@ -497,19 +497,19 @@ type ruleBoundsEntry struct {
 var ruleBoundsCache sync.Map
 
 // typeRange is the range t states of a value of fam: the meet of the
-// ranges of the std numeric refinements on its chain and of the bounds the
-// rule of each Int refinement on it states. exact is set when that range is
+// ranges of the std numeric subtypes on its chain and of the bounds the
+// rule of each Int subtype on it states. exact is set when that range is
 // all t's rules say, so a value in it is a t; a NonZeroFloat or another
-// refinement with a rule of another form makes it inexact. A t of another
+// subtype with a rule of another form makes it inexact. A t of another
 // family, or with no fact, gives a range that is not known; typed is set.
 func typeRange(t Type, fam *numericFamily) (r numRange, exact bool) {
-	if t == nil || familyOfBase(RefinementBase(t)) != fam {
+	if t == nil || familyOfBase(SubtypeBase(t)) != fam {
 		return numRange{typed: true}, false
 	}
 	exact = true
 	r = numRange{typed: true}
-	for _, s := range refinementChain(t) {
-		dt := refinementOf(s)
+	for _, s := range subtypeChain(t) {
+		dt := subtypeOf(s)
 		if dt == nil {
 			exact = false
 			continue
@@ -555,16 +555,16 @@ func typeRange(t Type, fam *numericFamily) (r numRange, exact bool) {
 }
 
 // provableTarget reports whether a value of fam whose range is in want's
-// converts to want: every refinement on want's chain is a std numeric refinement
-// of fam or an intersection, or an Int refinement whose only parent is Int and
+// converts to want: every subtype on want's chain is a std numeric subtype
+// of fam or an intersection, or an Int subtype whose only parent is Int and
 // whose rule is literal bounds joined by `and` (std::int's Int64, or a
-// module's `refine Digit Int when fn n -> n >= 0 and n <= 9`).
+// module's `subtype Digit Int when fn n -> n >= 0 and n <= 9`).
 func provableTarget(want Type, fam *numericFamily) bool {
-	if refinementOf(want) == nil {
+	if subtypeOf(want) == nil {
 		return false
 	}
-	for _, s := range refinementChain(want) {
-		dt := refinementOf(s)
+	for _, s := range subtypeChain(want) {
+		dt := subtypeOf(s)
 		if dt == nil {
 			return false
 		}
@@ -624,9 +624,9 @@ func rangeFacts(r numRange) numericFacts {
 	return numericFacts{nonZero: r.nonZero, nonNegative: r.nonNegative()}
 }
 
-// rangeRefinement is the narrowest std numeric refinement of fam a value of
+// rangeSubtype is the narrowest std numeric subtype of fam a value of
 // range r is, nil when r proves none: Positive, NonNegative or NonZero.
-func (c *checker) rangeRefinement(fam *numericFamily, r numRange, near ...Type) Type {
+func (c *checker) rangeSubtype(fam *numericFamily, r numRange, near ...Type) Type {
 	f := rangeFacts(r)
 	if !f.any() {
 		return nil
@@ -830,14 +830,14 @@ func (c *checker) bindingRange(sym *Symbol, fam *numericFamily) numRange {
 // immutable, so the fact holds wherever it is in scope. An annotated
 // binding holds what its type states, as a parameter does.
 func (c *checker) bindRange(sym *Symbol, value ast.Node) {
-	fact := famRange{fam: familyOfBase(RefinementBase(sym.Type))}
+	fact := famRange{fam: familyOfBase(SubtypeBase(sym.Type))}
 	switch {
 	case fact.fam != nil:
 		fact.r = c.exprRange(value, fact.fam)
 		if !fact.r.known {
 			return
 		}
-	case c.holdsSomething(value) && c.nonEmptyRefinementOf(sym.Type) != nil:
+	case c.holdsSomething(value) && c.nonEmptySubtypeOf(sym.Type) != nil:
 		fact.nonEmpty = true
 	default:
 		return
@@ -849,16 +849,16 @@ func (c *checker) bindRange(sym *Symbol, value ast.Node) {
 }
 
 // onceRangeType is the type of a `once` bound to value, checked as ty:
-// the narrowest std numeric refinement value's range proves, the literals'
+// the narrowest std numeric subtype value's range proves, the literals'
 // included, when it is below ty, and for a List, Vector, Set, Map or
 // String whose value holds something (holdsSomething), its std non-empty
-// refinement: `once words = ["a"]` is a NonEmptyList<String>, and `once name
+// subtype: `once words = ["a"]` is a NonEmptyList<String>, and `once name
 // = "Ada"` a NonEmptyString.
 func (c *checker) onceRangeType(value ast.Node, ty Type) Type {
-	fam := familyOfBase(RefinementBase(ty))
+	fam := familyOfBase(SubtypeBase(ty))
 	if fam == nil {
 		if c.holdsSomething(value) {
-			if ne := c.nonEmptyRefinementOf(ty); ne != nil {
+			if ne := c.nonEmptySubtypeOf(ty); ne != nil {
 				return ne
 			}
 		}
@@ -869,20 +869,20 @@ func (c *checker) onceRangeType(value ast.Node, ty Type) Type {
 	return c.typeForRange(fam, r, ty)
 }
 
-// provenRefinement is want when n, checked as have, is of want's family
+// provenSubtype is want when n, checked as have, is of want's family
 // and its range proves want's rules (provableTarget, within), or the std
-// non-empty refinement want names when n holds something (provenNonEmpty):
-// the value converts to it with nothing run, since a refinement is its base
+// non-empty subtype want names when n holds something (provenNonEmpty):
+// the value converts to it with nothing run, since a subtype is its base
 // at run time. Nil otherwise.
-func (c *checker) provenRefinement(n ast.Node, have, want Type) Type {
-	if have == nil || want == nil || refinementOf(want) == nil {
+func (c *checker) provenSubtype(n ast.Node, have, want Type) Type {
+	if have == nil || want == nil || subtypeOf(want) == nil {
 		return nil
 	}
-	if isStdNonEmpty(refinementOf(want)) {
+	if isStdNonEmpty(subtypeOf(want)) {
 		return c.provenNonEmpty(n, have, want)
 	}
-	fam := familyOfBase(RefinementBase(want))
-	if fam == nil || familyOfBase(RefinementBase(have)) != fam || refinesInto(have, want) {
+	fam := familyOfBase(SubtypeBase(want))
+	if fam == nil || familyOfBase(SubtypeBase(have)) != fam || subtypeWidensTo(have, want) {
 		return nil
 	}
 	if _, open := resolveTypeVar(have).(*TypeVar); open {
@@ -898,21 +898,21 @@ func (c *checker) provenRefinement(n ast.Node, have, want Type) Type {
 	return want
 }
 
-// provenNonEmpty is the std non-empty refinement of have, a List, Vector,
-// Set, Map or String, at have's type arguments, when that refinement is
+// provenNonEmpty is the std non-empty subtype of have, a List, Vector,
+// Set, Map or String, at have's type arguments, when that subtype is
 // want's and n's value holds something (holdsSomething): with `names =
 // ["a"]`, `names` passes where a NonEmptyList<String> is expected, and
 // where a generic call's NonEmptyList<T> is, which it solves; `"a${x}"`
 // and a binding of it pass where a NonEmptyString is. The value then
-// meets want as a `once` of the refinement does, its type arguments
+// meets want as a `once` of the subtype does, its type arguments
 // converting or not as theirs do (a List<Circle> as a
 // NonEmptyList<Shape>). Nil otherwise.
 func (c *checker) provenNonEmpty(n ast.Node, have, want Type) Type {
-	proven := c.nonEmptyRefinementOf(have)
+	proven := c.nonEmptySubtypeOf(have)
 	if proven == nil {
 		return nil
 	}
-	if got, need := refinementOf(proven), refinementOf(want); got.Origin != need.Origin || got.Name != need.Name {
+	if got, need := subtypeOf(proven), subtypeOf(want); got.Origin != need.Origin || got.Name != need.Name {
 		return nil
 	}
 	if !c.holdsSomething(n) {

@@ -1,6 +1,7 @@
 package analysis
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 
@@ -38,7 +39,14 @@ func inFile(e TypeError, path string) bool {
 // than the one at path (TypeError.File), in order: what the document whose
 // analysis reported errs shows. An entry's analysis carries the program's
 // errors about every file it reaches, and each of those files shows its own.
+// The one error of a build its packages stopped (stopsBuild) is shown in
+// every file the build stops, since it is why nothing else there is
+// reported: one in another file, a nomi.toml or nomi-workspace.toml, at
+// the file's start (stoppedHere).
 func ErrorsInFile(path string, errs []TypeError) []TypeError {
+	if stopsBuild(errs) && !inFile(errs[0], path) {
+		return []TypeError{stoppedHere(errs[0])}
+	}
 	var out []TypeError
 	for i, e := range errs {
 		if inFile(e, path) {
@@ -55,6 +63,24 @@ func ErrorsInFile(path string, errs []TypeError) []TypeError {
 		return errs
 	}
 	return out
+}
+
+// stoppedHere is e, the error in another file that stopped a build, as a
+// file the build stops shows it: at the file's first line and column, its
+// message led by e's file and line, with that place as a related location,
+// and its fix, which edits e's file, naming that file.
+func stoppedHere(e TypeError) TypeError {
+	shown := e
+	shown.File, shown.Line, shown.Col, shown.EndLine, shown.EndCol = "", 1, 1, 0, 0
+	shown.Message = fmt.Sprintf("%s:%d: %s", e.File, e.Line, e.Message)
+	shown.Related = append([]RelatedInfo{{File: e.File, Line: e.Line, Col: e.Col, EndLine: e.EndLine, EndCol: e.EndCol,
+		Message: "the build stops here"}}, e.Related...)
+	if e.Fix != nil && e.Fix.Path == "" {
+		fix := *e.Fix
+		fix.Path = e.File
+		shown.Fix = &fix
+	}
+	return shown
 }
 
 // errorsNamingFile are the errors of errs that name the file at path as the

@@ -59,7 +59,7 @@ func TestWorkspaceFile_AProblemStopsAMembersBuild(t *testing.T) {
 		{"an unknown key, with no table to list", "members = [\"billing\"]\nfloors = 1\n", nil,
 			":2: nomi-workspace.toml has no key `floors`; its keys are `members`, `exclude`"},
 		{"no members", "exclude = [\"vendor\"]\n", nil,
-			": a workspace needs members, the directories of its packages from here, such as members = [\"billing\", \"lib/*\"]"},
+			":1: a workspace needs members, the directories of its packages from here, such as members = [\"billing\", \"lib/*\"]"},
 		{"a literal entry with no nomi.toml", "members = [\n    \"billing\",\n    \"shop\",\n]\n", nil,
 			":3: members: shop holds no nomi.toml; a member is a package's directory"},
 		{"a nomi.toml beside it", "\nmembers = [\"billing\"]\n",
@@ -77,7 +77,7 @@ func TestWorkspaceFile_AProblemStopsAMembersBuild(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			root, errs := memberBuildErrors(t, c.ws, c.setup)
 			want := filepath.Join(root, pkgcache.WorkspaceName) + c.want
-			if len(errs) != 1 || errs[0].Code != analysis.ManifestCode || !strings.HasPrefix(errs[0].Message, want) {
+			if len(errs) != 1 || errs[0].Code != analysis.ManifestCode || !strings.HasPrefix(placedMessage(errs[0]), want) {
 				t.Fatalf("the member's errors are %+v\nwant one %s error: %s", errs, analysis.ManifestCode, want)
 			}
 		})
@@ -101,7 +101,7 @@ func TestWorkspaceFile_AnUnlistedPackageIsAnError(t *testing.T) {
 	want := filepath.Join(shop, "nomi.toml") + ":1: this package is under the workspace " + filepath.Join(root, pkgcache.WorkspaceName) +
 		", which does not list it; add \"shop\" to its members, or to its exclude if it keeps a nomi.lock of its own"
 	errs := fa.TypeErrors
-	if len(errs) != 1 || errs[0].Code != analysis.ManifestCode || errs[0].Message != want {
+	if len(errs) != 1 || errs[0].Code != analysis.ManifestCode || placedMessage(errs[0]) != want {
 		t.Fatalf("the errors are %+v\nwant one %s error: %s", errs, analysis.ManifestCode, want)
 	}
 	fix := errs[0].Fix

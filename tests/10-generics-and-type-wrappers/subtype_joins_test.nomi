@@ -1,0 +1,78 @@
+// Where a value of a subtype meets a value or a literal of its base,
+// the result is their join, whatever the order: a literal beside a
+// non-empty collection or a positive count is no rule's to break.
+fn words(s: String) -> NonEmptyList<String>
+    case NonEmptyList.try_from(String.split(s, ","))
+        Some(xs) -> xs
+        None     -> [""]
+    end
+end
+
+fn pick<T>(c: Bool, a: T, b: T) -> T
+    if c then a else b
+end
+
+fn long(s: String) -> Bool
+    String.length(s) > 3
+end
+
+test "a literal compared with a value of a subtype is its base's"
+    xs = words("a,b")
+    refute xs == []
+    refute [] == xs
+    assert xs != []
+    refute Some(xs) == Some([])
+    refute (xs, 1) == ([], 1)
+end
+
+test "branches join in either order"
+    xs = words("a")
+    c = long("ab")
+    assert (if c then [] else xs) == ["a"]
+    assert (if c then xs else []) == []
+
+    assert case c
+        True  -> []
+        False -> xs
+    end == ["a"]
+end
+
+test "arguments of one type parameter join in either order"
+    xs = words("a")
+    c = long("ab")
+    assert pick(c, [], xs) == ["a"]
+    assert pick(c, xs, []) == []
+    none: Option<NonEmptyList<String>> = None
+    assert Option.with_default(none, []) == []
+    assert Option.otherwise(Some(xs), Some([])) == Some(["a"])
+    assert Map.put({"k" => xs}, "j", []) == {"k" => ["a"], "j" => []}
+    groups = Iter.group_by([1, 2, 3], fn n -> n % 2)
+    assert Map.get(groups, 5) |> Option.with_default([]) == []
+end
+
+test "a literal beside spreads of a subtype joins with them"
+    xs: List<PositiveInt> = [1, 2]
+    assert [..xs, 0] == [1, 2, 0]
+    assert [0, ..xs] == [0, 1, 2]
+    counts: Map<String, Int> = {"a" => 0}
+    sizes: Map<String, PositiveInt> = {"b" => 1}
+    assert {..counts, ..sizes} == {"a" => 0, "b" => 1}
+    assert {..sizes, ..counts} == {"b" => 1, "a" => 0}
+    assert {..sizes, "c" => 0} == {"b" => 1, "c" => 0}
+end
+
+test "a subtype element reaches a sum as a function value"
+    digits: List<List<NonNegativeInt>> = [[1, 2], [3]]
+    assert Iter.map(digits, Iter.sum) |> Iter.to_list() == [3, 3]
+    assert digits |> Iter.map(Iter.product) |> Iter.to_list() == [2, 3]
+end
+
+test "an operator's operands join in either order"
+    names = Vector.push(Vector["a"], "b")
+    assert names + ["Dorothy"] == Vector["a", "b", "Dorothy"]
+    assert ["Dorothy"] + names == Vector["Dorothy", "a", "b"]
+    ints: List<Int> = [0]
+    positives: List<PositiveInt> = [1]
+    assert ints + positives == [0, 1]
+    assert positives + ints == [1, 0]
+end

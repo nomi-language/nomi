@@ -182,7 +182,7 @@ WebAssembly hosts, build for `wasip1/wasm`:
   inside. `nomi-wasi.js` can load it, and a WASI runner such as wasmtime runs
   its `main` like any command-line program.
 
-[Calling exported functions](/tooling/building/#calling-exported-functions)
+[Embedding](/tooling/embedding/)
 covers `nomi-wasi.js`'s API and the functions a module provides to a host of
 your own.
 

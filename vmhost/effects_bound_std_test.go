@@ -112,7 +112,7 @@ end
 					imports = "import std::fs\n\n"
 				}
 				return map[string]string{
-					"nomi.toml":   "[package]\nname = \"genlib\"\n\n[effects.self]\nstd = " + std + "\n",
+					"nomi.toml":   "[package]\nname = \"genlib\"\n\n[effects.self]\neffects = " + std + "\n",
 					"genlib.nomi": generic,
 					"money.nomi": imports + "pub opaque struct Money\n    cents: Int\nend\n\npub fn make(cents: Int) -> Money\n    Money{cents:}\nend\n\n" +
 						strings.Replace(c.impl, "READ", read, 1),

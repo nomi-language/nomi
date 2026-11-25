@@ -138,7 +138,7 @@ type decoderCall struct {
 func TestEffects_DecodersOfPlainValuesHaveNone(t *testing.T) {
 	dir := t.TempDir()
 	writeFiles(t, dir, map[string]string{
-		"nomi.toml":     "[package]\nname = \"app\"\n\n[effects.self]\nstd = []\n",
+		"nomi.toml":     "[package]\nname = \"app\"\n\n[effects.self]\neffects = []\n",
 		"decoders.nomi": decoders.src,
 	})
 	p, err := vmhost.Load(filepath.Join(dir, "decoders.nomi"))
@@ -159,7 +159,7 @@ func TestEffects_DecodersOfPlainValuesHaveNone(t *testing.T) {
 	}
 }
 
-// A refinement's rule may decode text, since decoding has no effect: a
+// A subtype's rule may decode text, since decoding has no effect: a
 // literal is checked by decoding it when the program is compiled.
 func TestEffects_ARuleMayDecodeText(t *testing.T) {
 	const decls = `import
@@ -167,9 +167,9 @@ func TestEffects_ARuleMayDecodeText(t *testing.T) {
     std::xml
 end
 
-refine CsvText String when fn text -> csv.decode(text) |> Result.is_ok()
+subtype CsvText String when fn text -> csv.decode(text) |> Result.is_ok()
 
-refine XmlText String when fn text -> xml.decode(text) |> Result.is_ok()
+subtype XmlText String when fn text -> xml.decode(text) |> Result.is_ok()
 
 `
 	if _, err := vmhost.LoadSource("main", decls+"fn main()\n    _: CsvText = \"a,b\\n1,2\\n\"\n    _: XmlText = \"<a>b</a>\"\nend\n"); err != nil {

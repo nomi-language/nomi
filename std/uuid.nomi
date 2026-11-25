@@ -109,8 +109,10 @@ impl Uuid
     /// to 8 for the others RFC 9562 defines, 0 for the nil UUID.
     //! assert Uuid.version(Uuid"6ba7b810-9dad-11d1-80b4-00c04fd430c8") == 1
     //
-    pub fn version(id: Uuid) -> Int
-        id.high >>> 12 &&& 15
+    pub fn version(id: Uuid) -> NonNegativeInt
+        // The four bits above the low twelve: `>>> 12 &&& 15`, as a
+        // modulo, whose range the compiler knows.
+        Int.modulo(id.high >>> 12, 16)
     end
 
     /// A version 4 UUID: 122 random bits from the operating system's

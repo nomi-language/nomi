@@ -3,6 +3,7 @@ package analysis
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -66,120 +67,144 @@ type Manifest struct {
 	// each as its literal writes it (`PTS:0`), in the manifest's order. Nil
 	// or empty allows none.
 	CustomCurrencies []string
-	// Effects is the [effects.self] and [effects.deps]
-	// tables: the effects the package's own code, and the code of the
-	// packages it depends on, may have. Nil when the manifest has neither
-	// table, which holds nothing.
+	// Effects is the [effects.self] and [effects.dependencies] tables and
+	// the `effects` keys of the [dependencies] entries: the effects the
+	// package's own code, and the code of the packages it depends on, may
+	// have. Nil when the manifest has none of them, which holds nothing.
 	Effects *Effects
 }
 
-// Effects is nomi.toml's effects tables: the effects the
-// package's own files, and the files of the packages it depends on, may have
-// (vmhost's EffectCallsNotAllowed). A std list's names are `std::` and a
-// std module as an import writes it (`std::fs`), or `std::startup`; a list
-// of dependencies holds their names as [dependencies] writes them. The parser
-// checks each entry's form; whether a std module has functions with
-// effects and a package is one the project requires is the program's to
-// answer (vmhost).
+// Effects is nomi.toml's effects lists: the effects the package's own
+// files, and the files of the packages it depends on, may have (vmhost's
+// EffectCallsNotAllowed). A list's names are `std::` and a std module as an
+// import writes it (`std::fs`), or `std::startup`. The parser checks each
+// name's form; whether a std module has functions with effects, and a key
+// is a module of the project, is the program's to answer (vmhost).
 //
-// When the project has an [effects.deps] table, a dependency's own
-// [effects.self] holds the dependency too: its Std is the list it
-// declares for its own files, and its Modules the entries it declares for
-// its own modules. Its StdInTests, EntriesRequired and Deps are for its
-// own builds and are not read when it is a dependency.
+// When the project holds its dependencies (Dependencies is not nil), a
+// dependency's own [effects.self] holds the dependency too: its Effects is
+// the list it declares for its own files, and its Modules the entries it
+// declares for its own modules. Its EffectsInTests, EntriesRequired and
+// Dependencies are for its own builds and are not read when it is a
+// dependency.
 type Effects struct {
-	// Self is [effects.self] with [effects.self.modules], nil
-	// when the manifest leaves both out, which holds the package's own code
-	// to nothing.
-	Self *SelfEffects
-	// Deps is [effects.deps] with [effects.deps.packages], nil
-	// when the manifest leaves both out, which holds the dependencies to
+	// Self is [effects.self] with [effects.self.modules], nil when the
+	// manifest leaves both out, which holds the package's own code to
 	// nothing.
-	Deps *DepsEffects
+	Self *SelfEffects
+	// Dependencies is [effects.dependencies] with the `effects` and
+	// `effects_in_tests` keys of the [dependencies] entries, nil when the
+	// manifest has neither the table nor such a key, which holds the
+	// dependencies to nothing.
+	Dependencies *DependenciesEffects
 }
 
-// EntryLists is the lists that hold entries, each a table under
-// [effects] keyed by the code an entry is for:
-// [effects.self.modules] by a module of the project as its own code
-// imports it, and [effects.deps.packages] by a dependency's name as
-// [dependencies] names it.
-var EntryLists = []string{ListSelfModules, ListDepsPackages}
+// EntryLists is the lists that hold entries, each keyed by the code an
+// entry is for: [effects.self.modules] by a module of the project as its
+// own code imports it, and the `effects` and `effects_in_tests` keys of
+// the [dependencies] entries by the entry's key, a dependency's name.
+var EntryLists = []string{ListSelfModules, ListEntryEffects, ListEntryEffectsInTests}
 
-// Entries is the table of entries list names, one of EntryLists: each
-// entry's key and its std names, nil when c leaves the table out.
+// Entries is the entries list names, one of EntryLists: each entry's key
+// and its std names, nil when c has no such entry.
 func (c *Effects) Entries(list string) map[string][]string {
 	switch {
 	case list == ListSelfModules && c.Self != nil:
 		return c.Self.Modules
-	case list == ListDepsPackages && c.Deps != nil:
-		return c.Deps.Packages
+	case list == ListEntryEffects && c.Dependencies != nil:
+		return c.Dependencies.Entries
+	case list == ListEntryEffectsInTests && c.Dependencies != nil:
+		return c.Dependencies.EntriesInTests
 	}
 	return nil
 }
 
 // EntryKeyPath is the path of the key of list's entry for key, as
-// ManifestKeyLine reads it: `effects`, the list's table, and the key.
+// ManifestKeyLine reads it: the table of [effects.self.modules] and the
+// key, or for a dependency's entry `dependencies`, the key and the entry's
+// own key (`effects`).
 func EntryKeyPath(list, key string) []string {
-	return append(append([]string{"effects"}, strings.Split(list, ".")...), key)
+	parts := strings.Split(list, ".")
+	if parts[0] == "dependencies" {
+		return []string{"dependencies", key, parts[1]}
+	}
+	return append(parts, key)
 }
 
 // SelfEffects is [effects.self] and [effects.self.modules]:
 // the effects the calls written in the package's own files may have.
 type SelfEffects struct {
-	// Std is the effects its own files may have, by std name. Empty when
-	// the table leaves it out, which allows no std call.
-	Std []string
-	// StdInTests is added to Std when the roots are test cases.
-	StdInTests []string
+	// Effects is the effects its own files may have, by std name. Empty
+	// when the table leaves it out, which allows no std call.
+	Effects []string
+	// EffectsInTests is added to Effects when the roots are test cases.
+	EffectsInTests []string
 	// EntriesRequired is entries_required: every module of the project
 	// whose files the program loads must have an entry under Modules.
 	EntriesRequired bool
 	// Modules is [effects.self.modules]: for a module of the project,
 	// by its import path as the project's own code writes it (`pricing`,
 	// `reports::daily`, `pricing_test`), the std names that module's files
-	// may have, within Std. A module with no entry is held by Std alone.
-	// Nil when the manifest has no such table.
+	// may have, within Effects. A module with no entry is held by Effects
+	// alone. Nil when the manifest has no such table.
 	Modules map[string][]string
 }
 
-// DepsEffects is [effects.deps] and [effects.deps.packages]:
-// the effects the calls written in the files of the packages the project
-// depends on, directly or transitively, may have.
-type DepsEffects struct {
-	// EntriesRequired is entries_required: every dependency whose Nomi
-	// files the program loads must have an entry under Packages or an
-	// [effects.self] of its own.
+// DependenciesEffects is [effects.dependencies] and the effects keys of
+// the [dependencies] entries: the effects the calls written in the files
+// of the packages the project depends on, directly or through other
+// packages, may have.
+type DependenciesEffects struct {
+	// EntriesRequired is entries_required: every [dependencies] entry
+	// through which the program loads Nomi files must have an `effects` key,
+	// or its package an [effects.self] of its own.
 	EntriesRequired bool
-	// Std is the most any dependency's files may have, a ceiling over
+	// Effects is the most any dependency's files may have, a ceiling over
 	// every entry. Nil when the table leaves it out, which sets no
-	// ceiling; empty, not nil, for `std = []`, which allows nothing.
-	Std []string
-	// StdInTests is added to Std when the roots are test cases. The table
-	// sets it only beside Std.
-	StdInTests []string
-	// Packages is [effects.deps.packages]: for a package the project
-	// needs, by its name as [dependencies] names it, the std names that
-	// package's own files may have. A dependency with no entry is held by
-	// Std and its own [effects.self] alone.
-	Packages map[string][]string
+	// ceiling; empty, not nil, for `effects = []`, which allows nothing.
+	Effects []string
+	// EffectsInTests is added to Effects when the roots are test cases. The
+	// table sets it only beside Effects.
+	EffectsInTests []string
+	// Entries is the `effects` key of each [dependencies] entry that has
+	// one, by the entry's key: the most the files of that package, and of
+	// every package the project reaches through it, may have. A package the
+	// project reaches through an entry with no `effects` key is held by
+	// Effects and its own [effects.self] alone (vmhost's standingsOf).
+	Entries map[string][]string
+	// EntriesInTests is the `effects_in_tests` key of each entry that has
+	// one: added to its Entries entry when the roots are test cases. An
+	// entry sets it only beside `effects`.
+	EntriesInTests map[string][]string
 }
 
-// StdFor is the std names s allows its own files, with StdInTests when
-// tests is set.
-func (s *SelfEffects) StdFor(tests bool) []string {
+// EffectsFor is the std names s allows its own files, with EffectsInTests
+// when tests is set.
+func (s *SelfEffects) EffectsFor(tests bool) []string {
 	if tests {
-		return append(slices.Clone(s.Std), s.StdInTests...)
+		return append(slices.Clone(s.Effects), s.EffectsInTests...)
 	}
-	return s.Std
+	return s.Effects
 }
 
-// StdFor is d's ceiling, with StdInTests when tests is set; nil when d sets
-// none.
-func (d *DepsEffects) StdFor(tests bool) []string {
-	if tests && d.Std != nil {
-		return append(slices.Clone(d.Std), d.StdInTests...)
+// EffectsFor is d's ceiling, with EffectsInTests when tests is set; nil
+// when d sets none.
+func (d *DependenciesEffects) EffectsFor(tests bool) []string {
+	if tests && d.Effects != nil {
+		return append(slices.Clone(d.Effects), d.EffectsInTests...)
 	}
-	return d.Std
+	return d.Effects
+}
+
+// EntryFor is the entry for key, a [dependencies] key, with its
+// EntriesInTests entry when tests is set, and whether the entry has an
+// `effects` key.
+func (d *DependenciesEffects) EntryFor(key string, tests bool) ([]string, bool) {
+	entry, has := d.Entries[key]
+	if tests && has {
+		entry = append(slices.Clone(entry), d.EntriesInTests[key]...)
+	}
+	return entry, has
 }
 
 // ToolsDir is the directory under a package's root that holds its tools,
@@ -311,29 +336,35 @@ type manifestFile struct {
 		CustomCurrencies []string `toml:"custom_currencies"`
 	} `toml:"money"`
 	Effects *struct {
-		Self *struct {
-			EntriesRequired bool                `toml:"entries_required"`
-			Std             []string            `toml:"std"`
-			StdInTests      []string            `toml:"std_in_tests"`
-			Modules         map[string][]string `toml:"modules"`
-		} "toml:\"self\" keys:\"`std` lists the effects this package's own code may have, by std module, and `std_in_tests` those its tests may also have, `entries_required` makes every module of the project have an entry, and [effects.self.modules] holds an entry for each of its modules\""
-		Deps *struct {
-			EntriesRequired bool                `toml:"entries_required"`
-			Std             []string            `toml:"std"`
-			StdInTests      []string            `toml:"std_in_tests"`
-			Packages        map[string][]string `toml:"packages"`
-		} "toml:\"deps\" keys:\"`std` and `std_in_tests` list the most effects any dependency may have, `entries_required` makes every dependency have an entry, and [effects.deps.packages] holds an entry for each dependency\""
-	} "toml:\"effects\" keys:\"it holds two tables: [effects.self] is the effects this package's own code may have, and [effects.deps] the effects the code of the packages it depends on may have\""
+		Self         *selfTable         "toml:\"self\" keys:\"`effects` lists the effects this package's own code may have, by std module, and `effects_in_tests` those its tests may also have, `entries_required` makes every module of the project have an entry, and [effects.self.modules] holds an entry for each of its modules\""
+		Dependencies *dependenciesTable "toml:\"dependencies\" keys:\"`effects` and `effects_in_tests` list the most effects any dependency may have, and `entries_required` makes every [dependencies] entry have an `effects` key; a dependency's own allowance is the `effects` key of its [dependencies] entry\""
+	} "toml:\"effects\" keys:\"it holds two tables: [effects.self] is the effects this package's own code may have, and [effects.dependencies] the effects the code of the packages it depends on may have\""
 }
 
-// effectLists checks [effects.self] and [effects.deps]: each
-// std list's names `std::<module>` (effects.NameProblem), each listed
-// once in its list, deps' std_in_tests only beside its std, and each
-// dependency name under [effects.deps.packages] non-empty. A `host:` name is a
-// function an embedding Go program supplies, which a manifest cannot
-// allow.
-func effectLists(raw manifestFile, data []byte, sourceLabel string) (*Effects, error) {
-	if raw.Effects == nil || raw.Effects.Self == nil && raw.Effects.Deps == nil {
+// selfTable is [effects.self] as it decodes, with [effects.self.modules].
+type selfTable struct {
+	EntriesRequired bool                `toml:"entries_required"`
+	Effects         []string            `toml:"effects"`
+	EffectsInTests  []string            `toml:"effects_in_tests"`
+	Modules         map[string][]string `toml:"modules"`
+}
+
+// dependenciesTable is [effects.dependencies] as it decodes.
+type dependenciesTable struct {
+	EntriesRequired bool     `toml:"entries_required"`
+	Effects         []string `toml:"effects"`
+	EffectsInTests  []string `toml:"effects_in_tests"`
+}
+
+// effectLists checks [effects.self], [effects.dependencies] and the
+// effects keys of deps, the [dependencies] entries as pkgcache reads them:
+// each list's names `std::<module>` (effects.NameProblem), each listed once
+// in its list, each `effects_in_tests` only beside its `effects`, and each
+// key under [effects.self.modules] non-empty. A `host:` name is a function
+// an embedding Go program supplies, which a manifest cannot allow.
+func effectLists(raw manifestFile, deps []pkgcache.Requirement, data []byte, sourceLabel string) (*Effects, error) {
+	entryKeys := slices.ContainsFunc(deps, func(r pkgcache.Requirement) bool { return r.Effects != nil || r.EffectsInTests != nil })
+	if (raw.Effects == nil || raw.Effects.Self == nil && raw.Effects.Dependencies == nil) && !entryKeys {
 		return nil, nil
 	}
 	at := func(line int) *ManifestError { return &ManifestError{Path: sourceLabel, Line: line} }
@@ -353,109 +384,135 @@ func effectLists(raw manifestFile, data []byte, sourceLabel string) (*Effects, e
 		}
 		return out, nil
 	}
-	// entries is the table of entries list holds, raw as decoded: each key
-	// non-empty, and each entry a list of std names. writeKey says how a
-	// key is written, for the error at an empty one.
-	entries := func(list string, raw map[string][]string, writeKey string) (map[string][]string, error) {
-		table := "effects." + list
-		out := make(map[string][]string, len(raw))
-		keys := make([]string, 0, len(raw))
-		for key := range raw {
-			keys = append(keys, key)
-		}
-		slices.Sort(keys)
-		for _, key := range keys {
-			if strings.TrimSpace(key) == "" {
-				return nil, at(ManifestKeyLine(data, EntryKeyPath(list, key)...)).with("[%s] has an empty key; %s", table, writeKey)
-			}
-			var err error
-			if out[key], err = check(table, fmt.Sprintf("%q", key), raw[key], EntryKeyPath(list, key)...); err != nil {
-				return nil, err
-			}
-		}
-		return out, nil
-	}
 	c := &Effects{}
 	var err error
-	if s := raw.Effects.Self; s != nil {
+	var self *selfTable
+	var dependencies *dependenciesTable
+	if raw.Effects != nil {
+		self, dependencies = raw.Effects.Self, raw.Effects.Dependencies
+	}
+	if s := self; s != nil {
 		c.Self = &SelfEffects{EntriesRequired: s.EntriesRequired}
 		if s.Modules != nil {
-			if c.Self.Modules, err = entries(ListSelfModules, s.Modules, "write a module as the project's own code imports it, such as \"pricing\""); err != nil {
-				return nil, err
+			c.Self.Modules = make(map[string][]string, len(s.Modules))
+			for _, key := range slices.Sorted(maps.Keys(s.Modules)) {
+				path := EntryKeyPath(ListSelfModules, key)
+				if strings.TrimSpace(key) == "" {
+					return nil, at(ManifestKeyLine(data, path...)).with("[%s] has an empty key; write a module as the project's own code imports it, such as \"pricing\"", ListSelfModules)
+				}
+				if c.Self.Modules[key], err = check(ListSelfModules, fmt.Sprintf("%q", key), s.Modules[key], path...); err != nil {
+					return nil, err
+				}
 			}
 		}
-		if c.Self.Std, err = check("effects.self", "std", s.Std, "effects", "self", "std"); err != nil {
+		if c.Self.Effects, err = check(ListSelf, "effects", s.Effects, "effects", "self", "effects"); err != nil {
 			return nil, err
 		}
-		if c.Self.StdInTests, err = check("effects.self", "std_in_tests", s.StdInTests, "effects", "self", "std_in_tests"); err != nil {
+		if c.Self.EffectsInTests, err = check(ListSelf, "effects_in_tests", s.EffectsInTests, "effects", "self", "effects_in_tests"); err != nil {
 			return nil, err
 		}
 	}
-	if d := raw.Effects.Deps; d != nil {
-		c.Deps = &DepsEffects{EntriesRequired: d.EntriesRequired}
-		if d.Std != nil {
-			if c.Deps.Std, err = check("effects.deps", "std", d.Std, "effects", "deps", "std"); err != nil {
+	if d := dependencies; d != nil || entryKeys {
+		c.Dependencies = &DependenciesEffects{}
+		if d != nil {
+			c.Dependencies.EntriesRequired = d.EntriesRequired
+			if d.Effects != nil {
+				if c.Dependencies.Effects, err = check(ListDependencies, "effects", d.Effects, "effects", "dependencies", "effects"); err != nil {
+					return nil, err
+				}
+			}
+			if d.EffectsInTests != nil && d.Effects == nil {
+				return nil, at(ManifestKeyLine(data, "effects", "dependencies", "effects_in_tests")).with(
+					"[%s] effects_in_tests adds to effects, which the table leaves out; with no effects, no ceiling holds the dependencies", ListDependencies)
+			}
+			if c.Dependencies.EffectsInTests, err = check(ListDependencies, "effects_in_tests", d.EffectsInTests, "effects", "dependencies", "effects_in_tests"); err != nil {
 				return nil, err
 			}
 		}
-		if d.StdInTests != nil && d.Std == nil {
-			return nil, at(ManifestKeyLine(data, "effects", "deps", "std_in_tests")).with(
-				"[effects.deps] std_in_tests adds to std, which the table leaves out; with no std, no ceiling holds the dependencies")
-		}
-		if c.Deps.StdInTests, err = check("effects.deps", "std_in_tests", d.StdInTests, "effects", "deps", "std_in_tests"); err != nil {
-			return nil, err
-		}
-		if c.Deps.Packages, err = entries(ListDepsPackages, d.Packages, "write a dependency's name as [dependencies] names it"); err != nil {
-			return nil, err
+		// Each [dependencies] entry's own effects keys, in the entries'
+		// order (by name).
+		for _, r := range deps {
+			if r.EffectsInTests != nil && r.Effects == nil {
+				return nil, at(ManifestKeyLine(data, EntryKeyPath(ListEntryEffectsInTests, r.Name)...)).with(
+					"[dependencies] %s.effects_in_tests adds to its effects, which the entry leaves out; with no effects, only [%s] holds %s", r.Name, ListDependencies, r.Name)
+			}
+			for _, list := range []struct {
+				key   string
+				names []string
+				into  *map[string][]string
+			}{{"effects", r.Effects, &c.Dependencies.Entries}, {"effects_in_tests", r.EffectsInTests, &c.Dependencies.EntriesInTests}} {
+				if list.names == nil {
+					continue
+				}
+				names, err := check("dependencies", r.Name+"."+list.key, list.names, "dependencies", r.Name, list.key)
+				if err != nil {
+					return nil, err
+				}
+				if *list.into == nil {
+					*list.into = map[string][]string{}
+				}
+				(*list.into)[r.Name] = names
+			}
 		}
 	}
 	return c, nil
 }
 
+// manifestAt is the ManifestError at the line of data, the text of the
+// nomi.toml at path, that writes value in the list at key, or the key's line
+// when value is "" or no line quotes it (manifestLine): where each value
+// error parseManifestData finds is, as an unknown key's is.
+func manifestAt(path string, data []byte, value string, key ...string) *ManifestError {
+	return &ManifestError{Path: path, Line: manifestLine(data, key, value)}
+}
+
 // customCurrencies checks [money].custom_currencies: each entry a custom
 // currency as its literal writes it (`PTS:0`, what Currency.custom accepts),
 // listed once.
-func customCurrencies(raw []string, sourceLabel string) ([]string, error) {
+func customCurrencies(raw []string, data []byte, sourceLabel string) ([]string, error) {
 	if raw == nil {
 		return nil, nil
 	}
 	full := cldrfull.Full()
 	out := make([]string, 0, len(raw))
 	for _, text := range raw {
+		at := manifestAt(sourceLabel, data, text, "money", "custom_currencies")
 		if problem := stdformat.CustomCurrencyProblem(full, text); problem != "" {
-			return nil, fmt.Errorf("%s: [money] custom_currencies: %q is not a custom currency: %s", sourceLabel, text, problem)
+			return nil, at.with("[money] custom_currencies: %q is not a custom currency: %s", text, problem)
 		}
 		if slices.Contains(out, text) {
-			return nil, fmt.Errorf("%s: [money] custom_currencies lists %s twice", sourceLabel, text)
+			return nil, at.with("[money] custom_currencies lists %s twice", text)
 		}
 		out = append(out, text)
 	}
 	return out, nil
 }
 
-// i18nLocales checks [i18n].locales and answers each tag canonical: a
-// well-formed BCP 47 tag, listed once, that is not root (und) and that CLDR
-// has data for, on its own or through a parent other than root.
-func i18nLocales(raw *[]string, sourceLabel string) ([]string, error) {
+// i18nLocales checks the list of locale tags at [i18n].key and answers each
+// tag canonical: a well-formed BCP 47 tag, listed once, that is not root
+// (und) and that CLDR has data for, on its own or through a parent other
+// than root. Each error is at the line that writes its tag.
+func i18nLocales(raw *[]string, key string, data []byte, sourceLabel string) ([]string, error) {
 	if raw == nil {
 		return nil, nil
 	}
 	if len(*raw) == 0 {
-		return nil, fmt.Errorf("%s: [i18n] locales is empty; list the locales the program carries, or remove it to carry every locale", sourceLabel)
+		return nil, manifestAt(sourceLabel, data, "", "i18n", key).with("[i18n] %s is empty; list the locales the program carries, or remove it to carry every locale", key)
 	}
 	full := cldrfull.Full()
 	seen := map[string]string{}
 	out := make([]string, 0, len(*raw))
 	for _, tag := range *raw {
+		at := manifestAt(sourceLabel, data, tag, "i18n", key)
 		a := stdlocale.HostParse(tag)
 		if a.Kind != stdlocale.KindOK {
-			return nil, fmt.Errorf("%s: [i18n] locales: %q is not a locale tag%s", sourceLabel, tag, localeHint(a))
+			return nil, at.with("[i18n] %s: %q is not a locale tag%s", key, tag, localeHint(a))
 		}
 		if prev, dup := seen[a.Value]; dup {
-			return nil, fmt.Errorf("%s: [i18n] locales lists %s twice (%q and %q)", sourceLabel, a.Value, prev, tag)
+			return nil, at.with("[i18n] %s lists %s twice (%q and %q)", key, a.Value, prev, tag)
 		}
 		if a.Value == "und" {
-			return nil, fmt.Errorf("%s: [i18n] locales: und is CLDR's root, which every program carries, not a locale to list", sourceLabel)
+			return nil, at.with("[i18n] %s: und is CLDR's root, which every program carries, not a locale to list", key)
 		}
 		known := false
 		for _, t := range stdlocale.Fallbacks(full, a.Value) {
@@ -465,7 +522,7 @@ func i18nLocales(raw *[]string, sourceLabel string) ([]string, error) {
 			}
 		}
 		if !known {
-			return nil, fmt.Errorf("%s: [i18n] locales: CLDR %s has no data for %s or a parent of it", sourceLabel, full.Version, a.Value)
+			return nil, at.with("[i18n] %s: CLDR %s has no data for %s or a parent of it", key, full.Version, a.Value)
 		}
 		seen[a.Value] = tag
 		out = append(out, a.Value)
@@ -477,26 +534,27 @@ func i18nLocales(raw *[]string, sourceLabel string) ([]string, error) {
 // source_locale, a tag that locales lists when it lists any; partial_locales,
 // tags that locales does not list; and catalogs, a relative directory that
 // stays under the package root.
-func i18nMessageSettings(m *Manifest, raw manifestFile, sourceLabel string) error {
+func i18nMessageSettings(m *Manifest, raw manifestFile, data []byte, sourceLabel string) error {
+	at := func(value, key string) *ManifestError { return manifestAt(sourceLabel, data, value, "i18n", key) }
 	if raw.I18n.SourceLocale != nil {
-		tags, err := i18nLocales(&[]string{*raw.I18n.SourceLocale}, sourceLabel)
+		tags, err := i18nLocales(&[]string{*raw.I18n.SourceLocale}, "source_locale", data, sourceLabel)
 		if err != nil {
-			return errors.New(strings.Replace(err.Error(), "[i18n] locales", "[i18n] source_locale", 1))
+			return err
 		}
 		m.SourceLocale = tags[0]
 	}
 	if raw.I18n.PartialLocales != nil {
 		if m.Locales == nil {
-			return fmt.Errorf("%s: [i18n] partial_locales needs locales: list the locales every phrase is translated into", sourceLabel)
+			return at("", "partial_locales").with("[i18n] partial_locales needs locales: list the locales every phrase is translated into")
 		}
 		if len(*raw.I18n.PartialLocales) > 0 {
-			tags, err := i18nLocales(raw.I18n.PartialLocales, sourceLabel)
+			tags, err := i18nLocales(raw.I18n.PartialLocales, "partial_locales", data, sourceLabel)
 			if err != nil {
-				return errors.New(strings.Replace(err.Error(), "[i18n] locales", "[i18n] partial_locales", 1))
+				return err
 			}
 			for _, t := range tags {
 				if slices.Contains(m.Locales, t) {
-					return fmt.Errorf("%s: [i18n] lists %s in both locales and partial_locales; a locale is complete or partial", sourceLabel, t)
+					return at(t, "partial_locales").with("[i18n] lists %s in both locales and partial_locales; a locale is complete or partial", t)
 				}
 			}
 			m.PartialLocales = tags
@@ -504,18 +562,18 @@ func i18nMessageSettings(m *Manifest, raw manifestFile, sourceLabel string) erro
 	}
 	if raw.I18n.WebEmbedded != nil {
 		if m.Locales == nil {
-			return fmt.Errorf("%s: [i18n] web_embedded needs locales: list the locales the program carries", sourceLabel)
+			return at("", "web_embedded").with("[i18n] web_embedded needs locales: list the locales the program carries")
 		}
 		tags := []string{}
 		if len(*raw.I18n.WebEmbedded) > 0 {
 			var err error
-			if tags, err = i18nLocales(raw.I18n.WebEmbedded, sourceLabel); err != nil {
-				return errors.New(strings.Replace(err.Error(), "[i18n] locales", "[i18n] web_embedded", 1))
+			if tags, err = i18nLocales(raw.I18n.WebEmbedded, "web_embedded", data, sourceLabel); err != nil {
+				return err
 			}
 		}
 		for _, t := range tags {
 			if !slices.Contains(m.CarriedLocales(), t) {
-				return fmt.Errorf("%s: [i18n] web_embedded lists %s, which neither locales nor partial_locales lists", sourceLabel, t)
+				return at(t, "web_embedded").with("[i18n] web_embedded lists %s, which neither locales nor partial_locales lists", t)
 			}
 		}
 		m.WebEmbedded = tags
@@ -523,7 +581,7 @@ func i18nMessageSettings(m *Manifest, raw manifestFile, sourceLabel string) erro
 	if raw.I18n.Catalogs != nil {
 		dir := filepath.ToSlash(filepath.Clean(*raw.I18n.Catalogs))
 		if *raw.I18n.Catalogs == "" || rootedPath(dir) || dir == "." || dir == ".." || strings.HasPrefix(dir, "../") {
-			return fmt.Errorf("%s: [i18n] catalogs %q is not a directory under the package root", sourceLabel, *raw.I18n.Catalogs)
+			return at("", "catalogs").with("[i18n] catalogs %q is not a directory under the package root", *raw.I18n.Catalogs)
 		}
 		m.Catalogs = dir
 	}
@@ -602,7 +660,7 @@ func parseManifestData(data []byte, sourceLabel string, isStd func() bool, tools
 	var raw manifestFile
 	md, err := toml.Decode(string(data), &raw)
 	if err != nil {
-		return nil, fmt.Errorf("parse %s: %w", sourceLabel, err)
+		return nil, notTOML(sourceLabel, err)
 	}
 	// The package's [package] and [dependencies], as the package graph reads
 	// them. A package that needs a later nomi is refused before anything
@@ -610,28 +668,34 @@ func parseManifestData(data []byte, sourceLabel string, isStd func() bool, tools
 	// does not read; any other problem there is reported in its turn.
 	mf, mfErr := pkgcache.ParseManifest(data)
 	if tooOld := (*pkgcache.NomiVersionError)(nil); errors.As(mfErr, &tooOld) {
+		tooOld.Path = sourceLabel
 		return nil, tooOld
 	}
 	if err := unknownManifestKey(data, md.Undecoded(), md, sourceLabel, tools, packageSchema); err != nil {
 		return nil, err
 	}
+	name := manifestAt(sourceLabel, data, "", "package", "name")
+	if name.Line == 0 {
+		name.Line = ManifestKeyLine(data, "package")
+	}
 	if strings.TrimSpace(raw.Package.Name) == "" {
-		return nil, fmt.Errorf("%s: [package] name is required (non-empty, non-whitespace)", sourceLabel)
+		return nil, name.with("[package] name is required (non-empty, non-whitespace)")
 	}
 	if raw.Package.Name == "std" && (isStd == nil || !isStd()) {
-		return nil, fmt.Errorf("%s: [package] name %q is reserved for the standard library; choose a different name", sourceLabel, raw.Package.Name)
+		return nil, name.with("[package] name %q is reserved for the standard library; choose a different name", raw.Package.Name)
 	}
 	seen := map[string]bool{}
 	for _, e := range raw.Package.EntryPoints {
+		at := manifestAt(sourceLabel, data, e, "package", "entry_points")
 		if e == "" {
-			return nil, fmt.Errorf("%s: entry_points contains an empty string — every entry must name a file", sourceLabel)
+			return nil, at.with("entry_points contains an empty string — every entry must name a file")
 		}
 		if seen[e] {
-			return nil, fmt.Errorf("%s: entry_points contains duplicate %q", sourceLabel, e)
+			return nil, at.with("entry_points contains duplicate %q", e)
 		}
 		seen[e] = true
 	}
-	locales, err := i18nLocales(raw.I18n.Locales, sourceLabel)
+	locales, err := i18nLocales(raw.I18n.Locales, "locales", data, sourceLabel)
 	if err != nil {
 		return nil, err
 	}
@@ -651,13 +715,13 @@ func parseManifestData(data []byte, sourceLabel string, isStd func() bool, tools
 		SourceLocale: DefaultSourceLocale,
 		Catalogs:     DefaultCatalogs,
 	}
-	if err := i18nMessageSettings(m, raw, sourceLabel); err != nil {
+	if err := i18nMessageSettings(m, raw, data, sourceLabel); err != nil {
 		return nil, err
 	}
-	if m.CustomCurrencies, err = customCurrencies(raw.Money.CustomCurrencies, sourceLabel); err != nil {
+	if m.CustomCurrencies, err = customCurrencies(raw.Money.CustomCurrencies, data, sourceLabel); err != nil {
 		return nil, err
 	}
-	if m.Effects, err = effectLists(raw, data, sourceLabel); err != nil {
+	if m.Effects, err = effectLists(raw, mf.Requires, data, sourceLabel); err != nil {
 		return nil, err
 	}
 	return m, nil

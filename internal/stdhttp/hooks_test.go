@@ -40,7 +40,7 @@ fn main()
         tls: Some(ServerConfig{
             certificates: [],
             certificate_for: Some(fn hello: ClientHello ->
-                _ = Sender.send(states.sender, "hello ${hello.server_name} ${ClientHello.supports(hello, certificate)}")
+                _ = Sender.send(states.sender, "hello ${ClientHello.server_name(hello)} ${ClientHello.supports(hello, certificate)}")
                 Some(certificate)
             end),
         }),

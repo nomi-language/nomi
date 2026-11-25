@@ -2,8 +2,8 @@
 name = "markdown"
 
 [effects.self]
-std = []
-std_in_tests = ["std::instant"]
+effects = []
+effects_in_tests = ["std::instant"]
 
-[effects.deps]
-std = []
+[effects.dependencies]
+effects = []

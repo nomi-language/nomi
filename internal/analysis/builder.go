@@ -218,8 +218,8 @@ func collectInherentImplBlocks(nodes []ast.Node, modulePath string, out *[]Inher
 			continue
 		}
 		if blk.SynthOriginLine != 0 && IsSynthesizedLine(blk.Line) {
-			// A refinement's generated `try_from` and `unchecked` sit beside
-			// the block its file writes (refinement_synthesis.go).
+			// A subtype's generated `try_from` and `unchecked` sit beside
+			// the block its file writes (subtype_synthesis.go).
 			continue
 		}
 		recv := TypeExprBaseName(blk.Receiver)
@@ -965,10 +965,17 @@ type FileLoader func(projectRoot string, modulePath []string) ([]ast.Node, error
 // The `primitives` parameter is historical naming; today it holds the scope produced by
 // loading `stdlib/prelude.nomi`, whose imports define every name a user file gets implicitly.
 // Pass `nil` for files that should not receive the prelude (stdlib modules themselves).
+//
+// It builds and stops: nothing is typed or checked, and the build completes
+// the declarations in a copy it keeps. Tests call it to look at one pass
+// over a file they build. Code that checks a file on its own calls
+// CheckStandaloneFile, which TestOnlyCheckStandaloneFileBuildsAFileOnItsOwn
+// holds.
 func BuildFileWithStdlib(nodes []ast.Node, primitives *Scope, modules map[string]*Scope, projectRoot string, loader FileLoader) *FileAnalysis {
 	return buildFileWithStdlibAtPath(nodes, primitives, modules, projectRoot, loader, "")
 }
 
+// BuildFileWithStdlibAtPath is BuildFileWithStdlib for the file at filePath.
 func BuildFileWithStdlibAtPath(nodes []ast.Node, primitives *Scope, modules map[string]*Scope, projectRoot string, loader FileLoader, filePath string) *FileAnalysis {
 	return buildFileWithStdlibAtPath(nodes, primitives, modules, projectRoot, loader, filePath)
 }
@@ -1510,7 +1517,7 @@ func (b *builder) buildModule(nodes []ast.Node, scope *Scope) {
 	// "opaque only applies to distinct types with a representation" gets
 	// enforced.
 	b.validateInlineOpaqueDecls(nodes)
-	b.validateRefinementDecls(nodes)
+	b.validateSubtypeDecls(nodes)
 	// Second pass: walk bodies for inner scopes and references.
 	b.buildModuleBodies(nodes, scope)
 	// Unused checks: every use kind is recorded in fa.References by the
@@ -2621,7 +2628,7 @@ func (b *builder) defineSymbolAnnotations(node ast.Node, scope *Scope) {
 		b.walkTypeExpr(n.TypeAnnotation, scope)
 
 	case *ast.ImplBlock:
-		b.releaseWithheldRefinement(n, scope)
+		b.releaseWithheldSubtype(n, scope)
 		// A synthesized block's header errors name the declaration it
 		// was synthesized for, not its synth-band position.
 		from := len(b.file.TypeErrors)
@@ -3165,6 +3172,7 @@ func (b *builder) defineImplBlockStub(n *ast.ImplBlock, scope *Scope) {
 		if sym.OwningType == "" {
 			sym.OwningType = recv
 		}
+		recordWrittenFor(sym, n)
 		// Inherent (`impl T { pub fn f }`) beats interface-impl
 		// (`impl Iface for T { fn f }`) on a name clash for one type — the rule
 		// preferTypeMethodSymbol states for the identity table.
@@ -4528,18 +4536,18 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 	case *ast.Capture:
 		b.walkNode(n.Body, scope)
 
-	case *ast.UncheckedRefinement:
+	case *ast.UncheckedSubtype:
 		b.walkNode(n.Value, scope)
 
-	case *ast.RefinementRule:
+	case *ast.SubtypeRule:
 		b.walkNode(n.Rule, scope)
 		b.walkNode(n.Value, scope)
 
-	case *ast.RefinementParentCheck:
+	case *ast.SubtypeParentCheck:
 		// Both forms of a generated `try_from`'s parent check; the checker
-		// checks the one that applies (refinement_check.go).
+		// checks the one that applies (subtype_check.go).
 		b.walkTypeExpr(n.Parent, scope)
-		b.walkNode(n.Refined, scope)
+		b.walkNode(n.Subtype, scope)
 		b.walkNode(n.Plain, scope)
 
 	case *ast.ConcurrentBlock:

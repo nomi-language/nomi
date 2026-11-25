@@ -19,7 +19,7 @@ import
     ranges.{ClosedRange, Range}
     remainder.Remainder
     results.Result.{self, Err, Ok}
-    strings.String
+    strings.{NonEmptyString, String}
     subtract.Subtract
     summable.Summable
 end
@@ -334,7 +334,11 @@ impl Float
     //! assert Float.format_percent(0.256, Locale"tr") == "%26"
     //! assert Float.format_percent(0.1234, Locale"en", 1) == "12.3%"
     //
-    pub fn format_percent(f: Float, locale: Locale, max_fraction: NonNegativeInt = 0) -> String
+    pub fn format_percent(
+        f:            Float,
+        locale:       Locale,
+        max_fraction: NonNegativeInt = 0,
+    ) -> NonEmptyString
         float_format_percent(locale, f, max_fraction)
     end
 
@@ -425,7 +429,7 @@ host fn float_format(
     grouping:     Bool,
 ) -> String
 
-host fn float_format_percent(locale: Locale, f: Float, max_fraction: Int) -> String
+host fn float_format_percent(locale: Locale, f: Float, max_fraction: Int) -> NonEmptyString
 
 host fn float_parse_in(
     text:    String,
@@ -448,7 +452,7 @@ host fn float_parse_percent_in(
 //! assert NonZeroFloat.try_from(0.0) == Option.None
 //! assert NonZeroFloat.try_from(Float.nan()) == Option.None
 //
-pub refine NonZeroFloat Float when fn x -> x != 0.0 and not Float.is_nan(x)
+pub subtype NonZeroFloat Float when fn x -> x != 0.0 and not Float.is_nan(x)
 
 /// A Float that is zero or more: never negative, and never NaN, which
 /// compares as neither. A literal is checked when the program is compiled;
@@ -461,15 +465,36 @@ pub refine NonZeroFloat Float when fn x -> x != 0.0 and not Float.is_nan(x)
 //! assert NonNegativeFloat.try_from(-0.5) == Option.None
 //! assert NonNegativeFloat.try_from(Float.nan()) == Option.None
 //
-pub refine NonNegativeFloat Float when fn x -> x >= 0.0
+pub subtype NonNegativeFloat Float when fn x -> x >= 0.0
 
-/// A Float greater than zero. It refines both `NonNegativeFloat` and
+/// A Float greater than zero. It is a subtype of both `NonNegativeFloat` and
 /// `NonZeroFloat`, so a PositiveFloat passes wherever either, or a Float,
 /// is expected. It is in the prelude.
 //! assert PositiveFloat.try_from(2.5) == Option.Some(2.5)
 //! assert PositiveFloat.try_from(0.0) == Option.None
 //
-pub refine PositiveFloat NonNegativeFloat and NonZeroFloat when fn x -> x > 0.0
+pub subtype PositiveFloat NonNegativeFloat and NonZeroFloat when fn x -> x > 0.0
+
+impl NonNegativeFloat
+    /// The square root of `x`, as `Float.sqrt` takes it: never NaN, since
+    /// `x` is not negative, and so a NonNegativeFloat too.
+    //! assert NonNegativeFloat.sqrt(2.25) == 1.5
+    //! assert NonNegativeFloat.sqrt(0.0) == 0.0
+    //
+    pub fn sqrt(x: NonNegativeFloat) -> NonNegativeFloat
+        NonNegativeFloat.unchecked(Float.sqrt(x))
+    end
+end
+
+impl PositiveFloat
+    /// The square root of `x`, as `Float.sqrt` takes it: above zero, since
+    /// the root of the least positive Float is still above zero.
+    //! assert PositiveFloat.sqrt(6.25) == 2.5
+    //
+    pub fn sqrt(x: PositiveFloat) -> PositiveFloat
+        PositiveFloat.unchecked(Float.sqrt(x))
+    end
+end
 
 impl Display for Float
     /// Returns `x` as text, what `io.print` and string interpolation write: a

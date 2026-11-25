@@ -59,7 +59,7 @@ end
 //! assert NonEmptyRange.try_from(4..=4) == Some(4..=4)
 //! assert NonEmptyRange.try_from(0.0..=Float.nan()) == None
 //
-pub refine NonEmptyRange<T> Range<T> where T: Comparable when fn r ->
+pub subtype NonEmptyRange<T> Range<T> where T: Comparable when fn r ->
     Range.contains(r, Range.start(r))
 end
 
@@ -71,7 +71,7 @@ end
 //! assert ClosedRange.try_from(0..10) == None
 //! assert ClosedRange.try_from(Range.from(0)) == Some(Range.from(0))
 //
-pub refine ClosedRange<T> NonEmptyRange<T> where T: Comparable when fn r ->
+pub subtype ClosedRange<T> NonEmptyRange<T> where T: Comparable when fn r ->
     Range.is_inclusive(r) or not Range.is_bounded(r)
 end
 
@@ -80,7 +80,18 @@ end
 //! assert BoundedRange.try_from(1..=6) == Some(1..=6)
 //! assert BoundedRange.try_from(Range.from(1)) == None
 //
-pub refine BoundedRange<T> NonEmptyRange<T> where T: Comparable when fn r -> Range.is_bounded(r)
+pub subtype BoundedRange<T> NonEmptyRange<T> where T: Comparable when fn r -> Range.is_bounded(r)
+
+impl BoundedRange<T>
+    /// The range's end, which a BoundedRange has: `Range.stop` with no
+    /// `Option`. Whether the range holds it is `Range.is_inclusive`.
+    //! assert BoundedRange.stop(2..5) == 5
+    //! assert BoundedRange.stop(2..=5) == 5
+    //
+    pub fn stop<T>(r: BoundedRange<T>) -> T where T: Comparable
+        Range.stop(r)!
+    end
+end
 
 impl Range<T>
     /// Returns the range that starts at `n` and has no end, a ClosedRange of
@@ -164,7 +175,8 @@ impl Range<T>
     end
 
     /// The range's end, `None` for an unbounded range. Whether the range
-    /// holds it is `Range.is_inclusive`.
+    /// holds it is `Range.is_inclusive`. `BoundedRange.stop` returns the
+    /// end itself.
     //! assert Range.stop(2..5) == Some(5)
     //! assert Range.stop(2..=5) == Some(5)
     //! assert Range.stop(Range.from(7)) == None

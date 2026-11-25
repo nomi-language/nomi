@@ -23,7 +23,7 @@
 //# A custom currency needs no setup, so a typo makes another one. In a file
 //# of a package (one with a `nomi.toml` above it), a `Currency"…"` or
 //# `Money"…"` literal naming a custom currency must name one its package's
-//# [`[money].custom_currencies`](/tooling/projects/#money) lists, code and
+//# [`[money].custom_currencies`](/tooling/projects/#nomitoml) lists, code and
 //# digits; otherwise it is a compile error at the literal that suggests a
 //# listed entry with the same code or one edit away:
 //# ``typed literal Currency"PST:0": `PST:0` is a custom currency this package
@@ -50,7 +50,7 @@ import
     lists.List
     literals.{Fragment, Literal}
     results.Result.{self, Err, Ok}
-    strings.String
+    strings.{NonEmptyString, String}
 end
 
 /// A currency: an ISO 4217 code, or a custom code with its minor digits.
@@ -169,7 +169,7 @@ impl Currency
     /// The currency's code: `EUR`, or a custom currency's own (`BTC`).
     //! assert Currency.code(Currency"BTC:8") == "BTC"
     //
-    pub fn code(currency: Currency) -> String
+    pub fn code(currency: Currency) -> NonEmptyString
         Currency(text) = currency
         currency_code_of(text)
     end
@@ -246,7 +246,7 @@ host fn currency_check(code: String, digits: Int) -> Int
 
 /// The code of a currency's text: all of an ISO one's (`EUR`), the part
 /// before the `:` of a custom one's (`BTC:8`).
-host fn currency_code_of(text: String) -> String
+host fn currency_code_of(text: String) -> NonEmptyString
 
 /// The minor digits of a currency's text: those after a custom one's `:`,
 /// or an ISO code's as the program's CLDR data gives them; -1 when what

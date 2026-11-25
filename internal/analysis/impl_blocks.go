@@ -182,7 +182,7 @@ func ImplPrecedence(b *ast.ImplBlock) int {
 // ImplBlockArgsAt is the type each of impl block ib's type parameters
 // stands for where ib serves recv, a receiver's type: ib's receiver as the
 // type builder resolved it (ImplBlockTypeArgs), matched against recv, by
-// the parameter's name. A refinement is its parent, whose impls it has
+// the parameter's name. A subtype is its parent, whose impls it has
 // (knownReceiver). fa is the analysis of the file that writes ib. ok is
 // false when fa records no receiver for ib or recv does not match it.
 // The IR builder reads which instance of a block a receiver reaches from
@@ -193,7 +193,7 @@ func ImplBlockArgsAt(fa *FileAnalysis, ib *ast.ImplBlock, recv Type) (map[string
 		return nil, false
 	}
 	recv = resolveTypeVar(recv)
-	for dt := refinementOf(recv); dt != nil && dt.Inner != nil; dt = refinementOf(recv) {
+	for dt := subtypeOf(recv); dt != nil && dt.Inner != nil; dt = subtypeOf(recv) {
 		recv = resolveTypeVar(DistinctInner(dt))
 	}
 	subs := map[*TypeParam_]Type{}

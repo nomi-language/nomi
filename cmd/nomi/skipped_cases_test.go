@@ -524,7 +524,7 @@ type skipEdit struct {
 }
 
 var (
-	declLine     = regexp.MustCompile(`^(pub )?(fn|test|group|struct|enum|impl|interface|type|once|derive|refine) `)
+	declLine     = regexp.MustCompile(`^(pub )?(fn|test|group|struct|enum|impl|interface|type|once|derive|subtype) `)
 	fnLine       = regexp.MustCompile(`^( {4})?(pub )?fn \w+`)
 	testLine     = regexp.MustCompile(`^ *test "`)
 	intToken     = regexp.MustCompile(`(^|[^\w.$])(\d+)([^\w.]|$)`)

@@ -67,7 +67,7 @@ func readsLiteralCell(f *ir.Func) bool {
 }
 
 // topLevelDecl is a line that opens a file-level declaration.
-var topLevelDecl = regexp.MustCompile(`^(pub )?(fn|test|group|struct|enum|impl|interface|type|once|derive|refine) `)
+var topLevelDecl = regexp.MustCompile(`^(pub )?(fn|test|group|struct|enum|impl|interface|type|once|derive|subtype) `)
 
 // movedVariants are src with a blank line added above every file-level
 // declaration, and with every blank line above one taken away: the same

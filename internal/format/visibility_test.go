@@ -26,7 +26,7 @@ private type Meters Int
 
 private opaque type Secret Int
 
-private refine Small Int when fn n -> n < 10
+private subtype Small Int when fn n -> n < 10
 
 private interface Shape
     fn area(s: self) -> Int

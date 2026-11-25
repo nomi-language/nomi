@@ -31,7 +31,7 @@ var seededHashShapes = []struct{ name, expr string }{
 
 const seededHashPoint = "struct Point\n    x: Int\n    y: Int\nend\n\nderive Hashable for Point\n\n"
 
-// The compiler runs a refinement's rule, a typed literal's handler and a
+// The compiler runs a subtype's rule, a typed literal's handler and a
 // checked literal's check once, when it checks the program, and a hash is
 // keyed by a seed each run draws. So one of them that can read a hash is
 // an error with its own code, under every seed, and one that builds a Map
@@ -68,13 +68,13 @@ func TestSeededHash_CompileTimeChecksDoNotReadAHash(t *testing.T) {
 	}
 }
 
-// digestRule is a refinement whose rule reads std::hash's digests, a
+// digestRule is a subtype whose rule reads std::hash's digests, a
 // Hasher, an HMAC and std::checksum's CRC-32. They are fixed functions of
 // their operands, not the run's keyed hash, so the rule is checked at
 // compile time like any pure rule, and answers the same under every seed.
 // crc32 of "4" is even and of "3" odd.
 const digestRule = "import\n    std::checksum\n    std::hash.{self, Algorithm, Hasher}\n    std::io\nend\n\n" +
-	"refine EvenCrc Int when fn n ->\n" +
+	"subtype EvenCrc Int when fn n ->\n" +
 	"    s = String.to_bytes(Int.to_string(n))\n" +
 	"    streamed = Hasher.new(Algorithm.Sha256) |> Hasher.update(s) |> Hasher.finish()\n" +
 	"    checksum.crc32(s) % 2 == 0 and hash.digest(Algorithm.Sha256, s) == hash.sha256(s) and streamed == hash.sha256(s)\n" +
@@ -101,7 +101,7 @@ func seededHashCases(t *testing.T) {
 	t.Helper()
 	for _, shape := range seededHashShapes {
 		rule := "import std::io\n\n" + seededHashPoint +
-			"refine Hashed Int when fn n ->\n    s = Int.to_string(n)\n    " + shape.expr + " % 2 == 0\nend\n\n" +
+			"subtype Hashed Int when fn n ->\n    s = Int.to_string(n)\n    " + shape.expr + " % 2 == 0\nend\n\n" +
 			"fn main()\n    h: Hashed = 2\n    io.inspect(h)\nend\n"
 		wantSeeded(t, "a rule: "+shape.name, rule)
 
@@ -137,7 +137,7 @@ func seededHashCases(t *testing.T) {
 	// A rule that builds a Map and reads it back answers by the keys'
 	// insertion order and equality, never by a hash.
 	const mapped = "import std::io\n\n" +
-		"refine Listed String when fn s ->\n" +
+		"subtype Listed String when fn s ->\n" +
 		"    m = {\"z\" => 1, \"a\" => 2, s => 3, \"m\" => 4}\n" +
 		"    Map.keys(m) == [\"z\", \"a\", s, \"m\"] and Map.get(m, s) == Some(3) and Set.contains(Set[s, \"q\"], s)\n" +
 		"end\n\n" +
@@ -146,21 +146,21 @@ func seededHashCases(t *testing.T) {
 
 	// A rule over std::hash's digests and std::checksum is no seeded hash:
 	// it is checked when the program is, and its literal that fails the
-	// rule is the refinement's own error.
+	// rule is the subtype's own error.
 	digested := runSeededHashProgram(t, digestRule)
 	if want := `(4, None, 4088798008, "4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a")`; digested != want {
 		t.Errorf("a rule over digests prints %q, want %q", digested, want)
 	}
 	fmt.Printf("digest rule: %s\n", digested)
 	odd := literalDiagnostics(t, strings.Replace(digestRule, "e: EvenCrc = 4", "e: EvenCrc = 3", 1))
-	if len(odd) != 1 || odd[0].Code != InvalidRefinementCode {
-		t.Errorf("a literal failing a rule over digests: diagnostics = %v, want one %s", odd, InvalidRefinementCode)
+	if len(odd) != 1 || odd[0].Code != InvalidSubtypeCode {
+		t.Errorf("a literal failing a rule over digests: diagnostics = %v, want one %s", odd, InvalidSubtypeCode)
 	}
 
 	// Int's hash is the Int itself, which no seed keys, past int64's
 	// range too, so a rule may read it.
 	const ints = "import std::io\n\n" +
-		"refine EvenHash Int when fn n -> Hashable.hash(n) % 2 == 0\n\n" +
+		"subtype EvenHash Int when fn n -> Hashable.hash(n) % 2 == 0\n\n" +
 		"fn main()\n" +
 		"    e: EvenHash = 2\n" +
 		"    big = 100000000000000000000 * 3\n" +
@@ -169,9 +169,9 @@ func seededHashCases(t *testing.T) {
 	if got, want := runSeededHashProgram(t, ints), "(2, True, Some(300000000000000000000), None)"; got != want {
 		t.Errorf("a rule over Int's hash prints %q, want %q", got, want)
 	}
-	ds := literalDiagnostics(t, "import std::io\n\nrefine EvenHash Int when fn n -> Hashable.hash(n) % 2 == 0\n\nfn main()\n    o: EvenHash = 3\n    io.inspect(o)\nend\n")
-	if len(ds) != 1 || ds[0].Code != InvalidRefinementCode {
-		t.Errorf("an odd literal of a rule over Int's hash: diagnostics = %v, want one %s", ds, InvalidRefinementCode)
+	ds := literalDiagnostics(t, "import std::io\n\nsubtype EvenHash Int when fn n -> Hashable.hash(n) % 2 == 0\n\nfn main()\n    o: EvenHash = 3\n    io.inspect(o)\nend\n")
+	if len(ds) != 1 || ds[0].Code != InvalidSubtypeCode {
+		t.Errorf("an odd literal of a rule over Int's hash: diagnostics = %v, want one %s", ds, InvalidSubtypeCode)
 	}
 }
 
@@ -195,7 +195,7 @@ func wantSeeded(t *testing.T, name, src string) string {
 // the program, and a refusal names it so.
 func TestSeededHash_TheMessageNamesHashableHash(t *testing.T) {
 	src := "import std::io\n\n" + seededHashPoint +
-		"refine Hashed Int when fn n -> Hashable.hash(Point{x: n, y: 1}) % 2 == 0\n\n" +
+		"subtype Hashed Int when fn n -> Hashable.hash(Point{x: n, y: 1}) % 2 == 0\n\n" +
 		"fn main()\n    h: Hashed = 2\n    io.inspect(h)\nend\n"
 	msg := wantSeeded(t, "a rule over a derived struct's hash", src)
 	if !strings.Contains(msg, "calls Hashable.hash)") {
@@ -212,7 +212,7 @@ func TestSeededHash_AKeyWhoseHashReadsAHashIsRefused(t *testing.T) {
 	src := "import std::io\n\n" +
 		"struct Name\n    text: String\nend\n\n" +
 		"impl Hashable for Name\n    fn hash(n: Name) -> Int\n        String.hash(n.text)\n    end\nend\n\n" +
-		"refine Known String when fn s ->\n" +
+		"subtype Known String when fn s ->\n" +
 		"    m = {Name{text: s} => 1, Name{text: \"a\"} => 2}\n" +
 		"    Map.size(m) == 2 and Set.contains(Set[Name{text: \"b\"}], Name{text: s})\n" +
 		"end\n\n" +

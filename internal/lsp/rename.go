@@ -120,7 +120,7 @@ func collectWorkspaceRename(ctx context.Context, dm *analysis.DocumentManager, c
 // and a new name that is not one identifier.
 func (s *Server) textDocumentRename(gctx *glsp.Context, params *protocol.RenameParams) (*protocol.WorkspaceEdit, error) {
 	uri := string(params.TextDocument.URI)
-	doc := s.docs.Snapshot(uri)
+	doc := s.requestDoc(gctx, uri)
 	if doc == nil || doc.Analysis == nil {
 		return nil, nil
 	}

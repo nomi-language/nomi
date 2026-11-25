@@ -11,7 +11,7 @@ import (
 // instantiation, so each of these was admitted: a polymorphic recursion
 // through a stage, refused where the program was built; a tuple piped into
 // `ToJson.to_json`, which no impl can take, an internal error where it was
-// built; and `Parse.parse<Port>` for a refinement, which ran and made a
+// built; and `Parse.parse<Port>` for a subtype, which ran and made a
 // Port its rule had not checked. Each is now the error the direct call
 // gives.
 func TestPipeStage_IsCheckedAsTheCallItMeans(t *testing.T) {
@@ -41,12 +41,12 @@ end
 
 	rejects(t, `import std::parse.Parse
 
-refine Port Int when fn v -> 1 <= v and v <= 65535
+subtype Port Int when fn v -> 1 <= v and v <= 65535
 
 fn main()
     dbg "80" |> Parse.parse<Port>()
 end
-`, "main.nomi:6:34: Port has no impl of Parse (required by `Parse.parse`): Port is a refinement of Int")
+`, "main.nomi:6:34: Port has no impl of Parse (required by `Parse.parse`): Port is a subtype of Int")
 
 	got := runSourceOutput(t, `import std::parse.Parse
 

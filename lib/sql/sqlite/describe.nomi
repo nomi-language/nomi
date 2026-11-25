@@ -7,7 +7,7 @@
 //# the byte SQLite gave for it.
 
 import
-    sqlite::internal::engine.{self, Cell, Engine}
+    sqlite::internal::engine.{self, Cell, Engine, Failure}
     sqlite::internal::vfs
 end
 
@@ -82,7 +82,7 @@ pub fn describe(migrations: List<Migration>, statements: List<String>) -> Descri
             defer engine.stop(e)
 
             case engine.open(e, ":memory:")
-                Err(f) -> {..none, error: f.message}
+                Err(f) -> {..none, error: reason(f).first}
                 Ok(db) -> described(e, db, migrations, statements, none)
             end
     end
@@ -102,7 +102,8 @@ fn described(
     applied = Iter.try_reduce(migrations, ({}, {}), fn (created, changed), m ->
         case engine.exec(e, db, m.text, [])
             Err(f) ->
-                Err({..none, error: f.message, migration: m.path, offset: f.at})
+                (error, offset) = reason(f)
+                Err({..none, error:, migration: m.path, offset:})
 
             Ok(_) ->
                 Ok(
@@ -238,7 +239,8 @@ fn statement(e: Engine, db: Int, sql: String) -> Statement
 
     case engine.describe(e, db, sql)
         Err(f) ->
-            {..none, error: f.message, offset: f.at}
+            (error, offset) = reason(f)
+            {..none, error:, offset:}
 
         Ok(d) ->
             columns =
@@ -275,5 +277,13 @@ fn statement(e: Engine, db: Int, sql: String) -> Statement
                 |> Iter.to_list()
 
             {..none, columns:, params: d.params, plan:}
+    end
+end
+
+/// A failure's message, and the byte of the SQL it is at (-1 for none).
+fn reason(f: Failure) -> (String, Int)
+    case f
+        .Reported{message:, at:} -> (message, at)
+        .Fault{message:}         -> ("the SQLite engine failed: ${message}", -1)
     end
 end

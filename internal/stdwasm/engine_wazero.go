@@ -44,6 +44,19 @@ func compileEngine(data []byte, sum [sha256.Size]byte, info *moduleInfo) (engine
 	return &wazeroModule{runtime: r, compiled: compiled, info: info}, ""
 }
 
+// instanceConfig is every instance's: anonymous, running no `_start`, and
+// with a source of randomness given, which no instance can read (it would
+// take a WASI import, which nothing serves), so wazero does not seed one
+// of its own for each.
+var instanceConfig = wazero.NewModuleConfig().WithName("").WithStartFunctions().WithRandSource(noRandomness{})
+
+type noRandomness struct{}
+
+func (noRandomness) Read(p []byte) (int, error) {
+	clear(p)
+	return len(p), nil
+}
+
 func (m *wazeroModule) close() { _ = m.runtime.Close(context.Background()) }
 
 // instanceKey carries, in a call's context, the instance whose call it is.
@@ -111,10 +124,15 @@ type wazeroInstance struct {
 
 // limitedMemory is an instance's linear memory, allocated through
 // experimental.WithMemoryAllocator: it grows to the instance's limit and no
-// further, so past it `memory.grow` answers -1 inside the module.
+// further, so past it `memory.grow` answers -1 inside the module. Its
+// buffer comes from spare when one there is large enough, and goes back
+// to it when the instance closes.
 type limitedMemory struct {
-	buf     []byte
-	max     uint64
+	buf []byte
+	max uint64
+	// zero is where the bytes of buf's capacity that are all zero begin:
+	// the memory's size, or past it in a buffer an earlier instance used.
+	zero    uint64
 	refused bool
 }
 
@@ -123,17 +141,84 @@ func (l *limitedMemory) Reallocate(size uint64) []byte {
 		l.refused = true
 		return nil
 	}
+	if l.buf == nil {
+		l.buf, l.zero = spare.take(size)
+	}
 	if size <= uint64(cap(l.buf)) {
+		// The bytes the memory gains are zero, as a new page's are.
+		if from := uint64(len(l.buf)); from < l.zero {
+			clear(l.buf[from:min(size, l.zero)])
+		}
 		l.buf = l.buf[:size]
+		l.zero = max(l.zero, size)
 		return l.buf
 	}
 	grown := make([]byte, size, min(max(size, 2*uint64(cap(l.buf))), l.max))
 	copy(grown, l.buf)
-	l.buf = grown
+	l.buf, l.zero = grown, size
 	return l.buf
 }
 
-func (l *limitedMemory) Free() { l.buf = nil }
+// Free hands the buffer to spare. wazero calls it when the instance
+// closes, after its last call.
+func (l *limitedMemory) Free() {
+	if l.buf != nil {
+		spare.put(l.buf[:l.zero])
+	}
+	l.buf = nil
+}
+
+// spare holds the buffers of closed instances' memories, so a later
+// instance's memory, and `wasm.run`'s above all, takes one instead of
+// allocating megabytes the collector must then reclaim. A buffer's bytes
+// past its length are zero, and an instance clears each byte of it before
+// its memory holds that byte, so nothing one instance wrote reaches
+// another. It holds at most spareBytes of capacity in all.
+var spare buffers
+
+// spareBytes is the most capacity spare holds: 64 MiB.
+const spareBytes = 64 << 20
+
+type buffers struct {
+	mu   sync.Mutex
+	bufs [][]byte
+	held uint64
+	// reused counts the buffers taken, for the tests.
+	reused uint64
+}
+
+// take is the smallest buffer held of at least size bytes of capacity,
+// empty, and where its zero bytes begin; or a new one, all zero.
+func (b *buffers) take(size uint64) ([]byte, uint64) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	best := -1
+	for i, buf := range b.bufs {
+		if uint64(cap(buf)) >= size && (best < 0 || cap(buf) < cap(b.bufs[best])) {
+			best = i
+		}
+	}
+	if best < 0 {
+		return make([]byte, 0, size), 0
+	}
+	buf := b.bufs[best]
+	b.bufs = append(b.bufs[:best], b.bufs[best+1:]...)
+	b.held -= uint64(cap(buf))
+	b.reused++
+	return buf[:0], uint64(len(buf))
+}
+
+// put holds buf, whose bytes past its length are zero, unless that would
+// take spare past spareBytes.
+func (b *buffers) put(buf []byte) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.held+uint64(cap(buf)) > spareBytes {
+		return
+	}
+	b.bufs = append(b.bufs, buf)
+	b.held += uint64(cap(buf))
+}
 
 func (m *wazeroModule) instantiate(limit uint64, host hostFunc) (engineInstance, error) {
 	if err := m.linkImports(); err != nil {
@@ -145,7 +230,7 @@ func (m *wazeroModule) instantiate(limit uint64, host hostFunc) (engineInstance,
 		inst.limited = &limitedMemory{max: min(max, limit)}
 		return inst.limited
 	}))
-	mod, err := m.runtime.InstantiateModule(ctx, m.compiled, wazero.NewModuleConfig().WithName("").WithStartFunctions())
+	mod, err := m.runtime.InstantiateModule(ctx, m.compiled, instanceConfig)
 	if err != nil {
 		return nil, err
 	}

@@ -138,13 +138,14 @@ func (f *fetcher) requirements(own *pkgcache.Manifest) ([]pkgcache.Requirement, 
 	return reqs, nil
 }
 
-// put sets the entry named r.Name in deps to r, and refuses a package
-// another entry already names.
+// put sets the entry named r.Name in deps to r, keeping the effects keys of
+// the entry it replaces, and refuses a package another entry already names.
 func put(deps []pkgcache.Requirement, r pkgcache.Requirement) ([]pkgcache.Requirement, error) {
 	var out []pkgcache.Requirement
 	for _, d := range deps {
 		switch {
 		case d.Name == r.Name:
+			r.Effects, r.EffectsInTests = d.Effects, d.EffectsInTests
 			continue
 		case !r.ID.IsZero() && d.ID == r.ID:
 			return nil, fmt.Errorf("nomi.toml already names %s %s", r.ID, d.Name)

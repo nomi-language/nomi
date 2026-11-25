@@ -124,11 +124,13 @@ back at the end, finish with [`Iter.to_list()`](/reference/iter/#iterto_list).
 this.
 
 A function that needs at least one element takes a
-[`NonEmptyList`](/structs-enums-distinct/#refinements), whose
+[`NonEmptyList`](/structs-enums-distinct/#subtypes), whose
 `NonEmptyList.first` and `NonEmptyList.max` return the element rather than an
 `Option`; `NonEmptyVector`, `NonEmptyMap` and `NonEmptySet` do the same for
-the other collections. `List.first` on a NonEmptyList is still an `Option`,
-and the editor hints `NonEmptyList.first` there.
+the other collections. `Vector.push`, `Set.insert` and `Map.put` return
+these types, since the result holds what they were given, and
+`String.split` returns a `NonEmptyList`. `List.first` on a NonEmptyList is
+still an `Option`, and the editor hints `NonEmptyList.first` there.
 
 ## Vectors
 
@@ -446,7 +448,7 @@ A range whose end is below its start, such as `5..=1`, is empty. To count
 down, step by a negative amount: `Range.step_by(5..=1, -1)` gives 5, 4, 3,
 2 and 1.
 
-A function that needs a range with something in it takes a refinement of
+A function that needs a range with something in it takes a subtype of
 `Range`: `Int.clamp(n, 0..=10)` takes a `ClosedRange` and
 `Generator.int(1..=6)` a `BoundedRange`, so `Int.clamp(n, 10..=0)` is an
 error when the program is compiled. A range computed when it runs goes

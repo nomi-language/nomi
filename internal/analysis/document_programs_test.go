@@ -52,10 +52,10 @@ func renderBuild(b analysis.BuiltForTest) string {
 // through the program kept for its root (buildOpen) gives the language
 // server what analyzing the document on its own gave it (build): the same
 // diagnostics in the same order, syntax errors, nodes, and offered program.
-// Every file of every multi-file corpus project and of orderProject is
-// opened alone in a manager of its own.
+// Every file of every multi-file corpus project, of orderProject and of
+// subtypeRuleProject is opened alone in a manager of its own.
 func TestOpenDocumentProgramsMatchTheirOwnBuilds(t *testing.T) {
-	projects := []incrementalProject{orderIncremental()}
+	projects := []incrementalProject{orderIncremental(), subtypeRuleProject()}
 	corpus, err := corpusProjects()
 	if err != nil {
 		t.Fatal(err)
@@ -78,6 +78,44 @@ func TestOpenDocumentProgramsMatchTheirOwnBuilds(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// subtypeRuleProject is a program whose imported file declares a subtype
+// whose rule does not check, and calls the subtype's `unchecked`. Both are
+// in the impl block the front end writes for the subtype
+// (subtype_synthesis.go), so an analysis of the file reports the rule and
+// resolves the call only when it checks the file's completed declarations.
+func subtypeRuleProject() incrementalProject {
+	return incrementalProject{name: "subtype-rule", entry: "main", texts: map[string]string{
+		"main": `import ports
+
+fn main()
+    _ = ports.fallback()
+end
+`,
+		"ports": `pub subtype Port Int when fn n -> n > "0"
+
+pub fn fallback() -> Port
+    Port.unchecked(80)
+end
+`,
+	}}
+}
+
+// TestOpenDocument_AnImportedFilesSubtypeRuleIsChecked: the file an entry
+// imports, analyzed on its own (build) as a closed file is, reports its
+// subtype's rule, which the program's check reports, and nothing about the
+// call of `unchecked` in the declaring file.
+func TestOpenDocument_AnImportedFilesSubtypeRuleIsChecked(t *testing.T) {
+	p := subtypeRuleProject()
+	dir := writeProject(t, p)
+	uri := fileuri.FromPath(filepath.Join(dir, "ports.nomi"))
+	for _, kept := range []bool{false, true} {
+		b := analysis.BuildForTest(newManager(), uri, p.texts["ports"], kept)
+		if len(b.TypeErrors) != 1 || b.TypeErrors[0].Message != "comparison type mismatch: Int vs String" || b.TypeErrors[0].Line != 1 {
+			t.Errorf("through its program %v: want one error on line 1, `comparison type mismatch: Int vs String`, got:\n%s", kept, renderBuild(b))
+		}
 	}
 }
 

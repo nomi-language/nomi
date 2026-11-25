@@ -47,7 +47,7 @@ func WorkspaceKeys() (keys, tables []string) {
 func workspaceKeys(path string, data []byte) error {
 	md, err := toml.Decode(string(data), &pkgcache.WorkspaceFile{})
 	if err != nil {
-		return fmt.Errorf("parse %s: %w", path, err)
+		return notTOML(path, err)
 	}
 	return unknownManifestKey(data, md.Undecoded(), md, path, nil, workspaceSchema)
 }

@@ -139,8 +139,8 @@ func ImplementsInterface(fa *FileAnalysis, t Type, iface *InterfaceType) bool {
 	if t == nil || fa == nil || iface == nil {
 		return false
 	}
-	if dt := refinementOf(t); dt != nil && dt.Inner != nil && iface.Name != "Debug" {
-		// A refinement has its parent's impls (refinement.go).
+	if dt := subtypeOf(t); dt != nil && dt.Inner != nil && iface.Name != "Debug" {
+		// A subtype has its parent's impls (subtype.go).
 		return ImplementsInterface(fa, DistinctInner(dt), iface)
 	}
 	switch iface.Name {

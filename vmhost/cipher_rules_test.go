@@ -9,7 +9,7 @@ import (
 
 // std::cipher's opening and sealing with a given nonce, std::hash's HKDF
 // and std::key_exchange's agreement compute from their operands alone, so a
-// refinement rule may call them and the program's literals are checked as
+// subtype rule may call them and the program's literals are checked as
 // it compiles. A rule that makes a key from the system's entropy has effects
 // and is refused with the error every rule with effects gets.
 func TestCipherRules_APureCallIsCheckedAndAKeyFromEntropyIsRefused(t *testing.T) {
@@ -19,18 +19,18 @@ func TestCipherRules_APureCallIsCheckedAndAKeyFromEntropyIsRefused(t *testing.T)
     std::key_exchange.{self, Curve, PrivateKey}
 end
 
-refine Opens String when fn s ->
+subtype Opens String when fn s ->
     key = Key.from_bytes(Algorithm.ChaCha20Poly1305, String.to_bytes("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"))!
     nonce = String.to_bytes("nnnnnnnnnnnn")
     sealed = cipher.seal_with_nonce(key, nonce, String.to_bytes(s))!
     cipher.open_with_nonce(key, nonce, sealed) == Ok(String.to_bytes(s))
 end
 
-refine Derived String when fn s ->
+subtype Derived String when fn s ->
     Bytes.length(hash.hkdf_sha256(String.to_bytes(s), String.to_bytes(""), String.to_bytes("label"), 32)!) == 32
 end
 
-refine Agreed String when fn s ->
+subtype Agreed String when fn s ->
     ours = PrivateKey.from_bytes(Curve.X25519, String.to_bytes(s))!
     theirs = PrivateKey.from_bytes(Curve.X25519, String.to_bytes("tttttttttttttttttttttttttttttttt"))!
     key_exchange.shared_secret(ours, PrivateKey.public_key(theirs))
@@ -58,7 +58,7 @@ end
 
 	const fresh = `import std::cipher.{Algorithm, Key}
 
-refine Fresh String when fn s -> String.length(s) > 0 and Key.generate(Algorithm.Aes256Gcm) != Key.generate(Algorithm.Aes256Gcm)
+subtype Fresh String when fn s -> String.length(s) > 0 and Key.generate(Algorithm.Aes256Gcm) != Key.generate(Algorithm.Aes256Gcm)
 
 fn main()
     f: Fresh = "x"
@@ -69,7 +69,7 @@ end
 	const want = "the rule of Fresh has effects ("
 	for _, d := range ds {
 		if strings.HasPrefix(d.Message, want) && strings.HasSuffix(d.Message, "): a rule is a pure function of the value it checks") &&
-			d.Code == InvalidRefinementCode {
+			d.Code == InvalidSubtypeCode {
 			return
 		}
 	}

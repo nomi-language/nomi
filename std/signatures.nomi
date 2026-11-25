@@ -40,7 +40,7 @@ import
     option.Option.{self, None, Some}
     results.Result.{self, Err, Ok}
     signatures::host
-    strings.String
+    strings.{NonEmptyString, String}
 end
 
 /// Which algorithm a key belongs to.
@@ -262,7 +262,7 @@ impl PrivateKey
     //! assert String.starts_with(pem, "-----BEGIN PRIVATE KEY-----\n")
     //! assert PrivateKey.public_key(PrivateKey.from_pem(pem)!) == PrivateKey.public_key(key)
     //
-    pub fn to_pem(key: PrivateKey) -> String
+    pub fn to_pem(key: PrivateKey) -> NonEmptyString
         host.private_to_pem(key.der)
     end
 
@@ -332,7 +332,7 @@ impl PublicKey
     end
 
     /// `key` as PEM: a PKIX `PUBLIC KEY` block.
-    pub fn to_pem(key: PublicKey) -> String
+    pub fn to_pem(key: PublicKey) -> NonEmptyString
         host.public_to_pem(key.der)
     end
 

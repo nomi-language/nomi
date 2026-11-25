@@ -43,6 +43,10 @@ type NomiVersionError struct {
 	// Needs is the release [package].nomi names, and Running the running
 	// nomi's.
 	Needs, Running string
+	// Path is the nomi.toml whose [package].nomi names Needs, set by the
+	// reader that knows the file (readManifest, and analysis's check of a
+	// manifest).
+	Path string
 }
 
 func (e *NomiVersionError) Error() string {

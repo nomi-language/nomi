@@ -54,19 +54,19 @@ end
 }
 
 // A destructuring statement whose head names a type or a variant is a
-// pattern binding, lowered as the pattern is in a `case` arm: a refinement, a
-// distinct over a refinement's base, `_`, a generic distinct, a distinct of a
+// pattern binding, lowered as the pattern is in a `case` arm: a subtype, a
+// distinct over a subtype's base, `_`, a generic distinct, a distinct of a
 // list, and a one-variant enum's positional, struct and embedded variants.
 func TestDistinctDestructuring_StatementsRunAsPatterns(t *testing.T) {
 	got := runSourceOutput(t, `import std::io
 
-refine Port Int when fn p -> p >= 1
+subtype Port Int when fn p -> p >= 1
 
 type Meters Int
 
 derive Comparable for Meters
 
-refine Short Meters when fn m -> m < Meters(100)
+subtype Short Meters when fn m -> m < Meters(100)
 
 type Items List<Int>
 

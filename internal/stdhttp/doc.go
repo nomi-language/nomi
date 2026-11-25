@@ -72,7 +72,11 @@
 // response sent and returns. `Body.Produce` writes through an rt `Writer`
 // that flushes to the client on each write.
 //
-// `request_of` builds the `Request` from the incoming accessors. Go's
+// `request_of` builds the `Request` from the incoming accessors, and puts
+// the `Incoming` in the request's `context` as a value, wrapped in a
+// private struct of std/http, where `Request.extend_read_deadline` finds
+// it: a `Request` stays a plain struct a test builds, and one a test built
+// holds none. Go's
 // `r.URL` holds only the target, so `served_url` adds the scheme (`https`
 // when `in_tls` reports a handshake) and the `Host` header's host (the
 // local address when it is empty), making a served `url` absolute like
@@ -178,8 +182,8 @@
 // (overlaps are fine there; one router refuses them) and asks
 // `CrossOrigin.check`, which runs Go's `CrossOriginProtection.Check`
 // (`std::http::host.cross_origin_check`) over the Nomi request's method, `Host`
-// and headers, not `Request.incoming`, since an earlier middleware may have
-// changed the headers.
+// and headers, not the request Go received, since an earlier middleware may
+// have changed the headers.
 //
 // # TLS and sockets
 //
@@ -289,7 +293,9 @@
 // copying the upstream body, flushing per `flush_interval`.
 // `std::http::host.Handle` (rt.HTTPHandle) holds Go values with no handle type of
 // their own: a ClientHello, a tracer, a read message, a multipart reader
-// and its parts.
+// and its parts. Like every type in std/http/host it is internal to std:
+// the public types that hold one (`Tracer`, `Part`, `tls.ClientHello`) are
+// opaque, and give what a program reads through functions.
 //
 // # WebSocket
 //

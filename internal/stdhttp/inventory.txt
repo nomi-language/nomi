@@ -529,10 +529,10 @@ Form.RemoveAll | mapped | phase 4 | A form is read into memory (`Request.multipa
 NewReader | covered | phase 6 | `http.multipart_parts(r: Reader, boundary) -> Iter<Result<Part, Error>>`
 NewWriter | covered | phase 4 | `Body.Multipart(parts)` for a request; `http.write_multipart(w, boundary, parts)` streams one to a Writer (phase 6)
 Part | covered | phase 6 | `Part` struct
-Part.Header | covered | phase 6 | `Part.headers: Headers`
+Part.Header | covered | phase 6 | `Part.headers(part) -> Headers`
 Part.FormName | covered | phase 6 | `Part.form_name(part) -> Option<String>`
 Part.FileName | covered | phase 6 | `Part.file_name(part) -> Option<String>`
-Part.Read | covered | phase 6 | `Part.body: Reader`
+Part.Read | covered | phase 6 | `Part.body(part) -> Reader`
 Part.Close | mapped | phase 6 | The next part closes the one before
 Reader | mapped | phase 6 | The iterator `http.multipart_parts` answers
 Reader.ReadForm | covered | phase 6 | `http.read_multipart_form(r, boundary, max_memory) -> Result<MultipartForm, Error>`
@@ -574,11 +574,11 @@ Client | covered | phase 5 | `tls.client(conn: Connection, config: ClientConfig)
 Server | covered | phase 5 | `tls.server(conn: Connection, config: ServerConfig) -> Result<Connection, Error>`
 ClientAuthType | covered | phase 5 | `ClientAuth` enum: `NoCertificate`, `Request`, `RequireAny`, `VerifyIfGiven`, `Require`
 ClientAuthType.String | covered | phase 5 | `Display for ClientAuth`
-ClientHelloInfo | covered | phase 6 | `ClientHello` struct passed to `ServerConfig.certificate_for`
-ClientHelloInfo.ServerName | covered | phase 6 | `ClientHello.server_name: String`
-ClientHelloInfo.SupportedProtos | covered | phase 6 | `ClientHello.protocols: List<String>`
-ClientHelloInfo.SupportedVersions | covered | phase 6 | `ClientHello.versions: List<Version>`
-ClientHelloInfo.CipherSuites | covered | phase 6 | `ClientHello.cipher_suites: List<Int>`
+ClientHelloInfo | covered | phase 6 | `ClientHello`, an opaque struct passed to `ServerConfig.certificate_for`
+ClientHelloInfo.ServerName | covered | phase 6 | `ClientHello.server_name(hello) -> String`
+ClientHelloInfo.SupportedProtos | covered | phase 6 | `ClientHello.protocols(hello) -> List<String>`
+ClientHelloInfo.SupportedVersions | covered | phase 6 | `ClientHello.versions(hello) -> List<Version>`
+ClientHelloInfo.CipherSuites | covered | phase 6 | `ClientHello.cipher_suites(hello) -> List<Int>`
 ClientHelloInfo.SupportedCurves | skipped | Read by Go when it picks a curve.
 ClientHelloInfo.SupportedPoints | skipped | Read by Go when it picks a curve.
 ClientHelloInfo.SignatureSchemes | skipped | Read by Go when it picks a scheme.

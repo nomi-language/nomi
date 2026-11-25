@@ -315,10 +315,10 @@ func (g *gen) project(t analysis.Type) kind {
 		return g.localNamed(ty, func(d *typeDef) bool { return d.isEnum })
 
 	case *analysis.DistinctType:
-		if ty.Refinement {
-			// A refinement is its base (refinement.go), a generic
+		if ty.Subtype {
+			// A subtype is its base (subtype.go), a generic
 			// one's at its type arguments.
-			return g.project(analysis.RefinementBase(ty))
+			return g.project(analysis.SubtypeBase(ty))
 		}
 		// A GENERIC std HOST type — `Sender<Int>` — asked FIRST because it is
 		// the one distinct family with type arguments, and the clause below

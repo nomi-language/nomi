@@ -668,3 +668,175 @@ func TestUnknownEditor(t *testing.T) {
 		t.Errorf("install emacs: %v", err)
 	}
 }
+
+// TestRefresh: Refresh rewrites the support nomi wrote from another
+// version, and VS Code's extension when asked and `code` lists it; it leaves
+// this version's support as it is, names a dev extension in one line and
+// changes nothing of it, and installs nothing for an editor with none.
+func TestRefresh(t *testing.T) {
+	s := newSandbox(t)
+	withExtensions(t)
+	s.fake(t, "cc", fakeCC)
+	s.fake(t, "hx", fakeHx)
+	s.fake(t, "code", `if [ "$1" = --list-extensions ]; then echo other.extension; echo `+vscodeExtension+`; fi`)
+	mustRun(t, true, "nvim", Options{Version: "v0.0.1 (aaaaaaaaaaaa)"})
+	mustRun(t, true, "helix", Options{})
+	dir := zedTestDir(s.home)
+	checkout := filepath.Join(s.home, "nomi", "editors", "zed")
+	write(t, filepath.Join(checkout, "extension.toml"), "id = \"nomi\"\n")
+	if err := os.MkdirAll(filepath.Dir(dir), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(checkout, dir); err != nil {
+		t.Fatal(err)
+	}
+	written, others := Found()
+	if len(written) != 2 || written[0].Editor != "helix" || written[0].Version != testVersion ||
+		written[1].Editor != "nvim" || written[1].Version != "v0.0.1 (aaaaaaaaaaaa)" {
+		t.Errorf("found %+v", written)
+	}
+	if len(others) != 1 || others[0] != (Other{"zed", "a dev extension, linked to " + checkout}) {
+		t.Errorf("found others %+v", others)
+	}
+	helixBefore := tree(t, filepath.Join(s.home, ".config", "helix"))
+	if err := os.Remove(s.log); err != nil {
+		t.Fatal(err)
+	}
+
+	var out bytes.Buffer
+	n, err := Refresh(Options{Out: &out, Version: testVersion}, Refreshing{VSCode: true})
+	if err != nil || n != 2 {
+		t.Fatalf("rewrote %d, %v:\n%s", n, err, out.String())
+	}
+	want := "zed: left alone (a dev extension, linked to " + checkout + ")\n" +
+		"Rewrote nvim's Nomi support\n" +
+		"Rewrote vscode's Nomi support\n"
+	if out.String() != want {
+		t.Errorf("Refresh prints\n%s\nwant\n%s", out.String(), want)
+	}
+	if written, _ := Found(); len(written) != 2 || written[1].Version != testVersion {
+		t.Errorf("after Refresh, found %+v", written)
+	}
+	sameTree(t, "helix, from this version", tree(t, filepath.Join(s.home, ".config", "helix")), helixBefore)
+	if target, err := os.Readlink(dir); err != nil || target != checkout {
+		t.Errorf("the dev extension is now %q, %v", target, err)
+	}
+	got := s.logged(t)
+	installedVSIX := slices.ContainsFunc(got, func(l string) bool { return strings.HasPrefix(l, "code --install-extension ") })
+	ranHx := slices.ContainsFunc(got, func(l string) bool { return strings.HasPrefix(l, "hx ") })
+	if !installedVSIX || ranHx {
+		t.Errorf("commands run:\n%s", strings.Join(got, "\n"))
+	}
+
+	out.Reset()
+	if n, err := Refresh(Options{Out: &out, Version: testVersion}, Refreshing{}); err != nil || n != 0 {
+		t.Errorf("a second Refresh rewrote %d, %v:\n%s", n, err, out.String())
+	}
+}
+
+// TestReinstall: Reinstall, which is `nomi editor install --installed`,
+// installs for each editor that has Nomi support in any form and prints
+// each one's steps under its name. With none it says so and changes
+// nothing. Support nomi wrote is rewritten whatever its version, and VS
+// Code's extension when `code` lists it. A dev extension is refused with
+// Install's error while the others are installed, and replaced when the
+// install is forced. A dry run prints the same steps as "would ..." lines
+// and changes nothing.
+func TestReinstall(t *testing.T) {
+	s := newSandbox(t)
+	withExtensions(t)
+	s.fake(t, "cc", fakeCC)
+	reinstall := func(opts Options) (string, error) {
+		var out bytes.Buffer
+		opts.Out, opts.Version = &out, testVersion
+		err := Reinstall(opts)
+		return out.String(), err
+	}
+
+	home := tree(t, s.home)
+	out, err := reinstall(Options{})
+	if want := "No editor has Nomi support. `nomi editor install <editor>` sets one up.\n"; err != nil || out != want {
+		t.Errorf("with no editor set up, Reinstall prints\n%s\n%v\nwant\n%s", out, err, want)
+	}
+	sameTree(t, "with no editor set up", tree(t, s.home), home)
+
+	// Neovim's support from an older nomi, a dev extension in Zed, and VS
+	// Code's extension listed by `code`.
+	s.fake(t, "code", `if [ "$1" = --list-extensions ]; then echo `+vscodeExtension+`; fi`)
+	mustRun(t, true, "nvim", Options{Version: "v0.0.1 (aaaaaaaaaaaa)"})
+	pack := filepath.Join(s.home, ".local", "share", "nvim", "site", "pack", "nomi", "start", "nomi")
+	dir := zedTestDir(s.home)
+	checkout := filepath.Join(s.home, "nomi", "editors", "zed")
+	write(t, filepath.Join(checkout, "extension.toml"), "id = \"nomi\"\n")
+	if err := os.MkdirAll(filepath.Dir(dir), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(checkout, dir); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(s.log); err != nil {
+		t.Fatal(err)
+	}
+
+	home = tree(t, s.home)
+	out, err = reinstall(Options{DryRun: true, Force: true})
+	if err != nil {
+		t.Fatalf("Reinstall, dry: %v\n%s", err, out)
+	}
+	var headers []string
+	for _, line := range strings.Split(strings.TrimSuffix(out, "\n"), "\n") {
+		if strings.HasSuffix(line, ":") {
+			headers = append(headers, line)
+		} else if !strings.HasPrefix(line, "would ") {
+			t.Errorf("a dry Reinstall prints %q", line)
+		}
+	}
+	if want := []string{"nvim:", "zed:", "vscode:"}; !slices.Equal(headers, want) {
+		t.Errorf("a dry Reinstall names %q, want %q", headers, want)
+	}
+	if !strings.Contains(out, "would remove "+dir+"\n") || !strings.Contains(out, "would write "+filepath.Join(pack, markerName)+"\n") {
+		t.Errorf("a dry Reinstall prints\n%s\nwant the steps of each install", out)
+	}
+	sameTree(t, "after a dry Reinstall", tree(t, s.home), home)
+	if got := s.logged(t); !slices.Equal(got, []string{"code --list-extensions"}) {
+		t.Errorf("a dry Reinstall ran %q, want only the listing of VS Code's extensions", got)
+	}
+
+	// Without --force the dev extension is refused, and the others install.
+	out, err = reinstall(Options{})
+	wantErr := "zed: " + dir + " is a dev extension, a link to " + checkout + ", which nomi leaves alone.\n" +
+		"Uninstall it on Zed's extensions page, or run `nomi editor install zed --force` to replace it."
+	if err == nil || err.Error() != wantErr {
+		t.Errorf("Reinstall over a dev extension: %v\nwant\n%s", err, wantErr)
+	}
+	if !strings.HasPrefix(out, "nvim:\nremoved "+pack+"\n") || !strings.Contains(out, "\nzed:\nvscode:\nrun code --install-extension ") {
+		t.Errorf("Reinstall prints\n%s\nwant each editor's steps under its name", out)
+	}
+	if written, _ := Found(); len(written) != 1 || written[0] != (Written{"nvim", testVersion, pack}) {
+		t.Errorf("after Reinstall, found %+v, want Neovim's support from this version", written)
+	}
+	if target, err := os.Readlink(dir); err != nil || target != checkout {
+		t.Errorf("an unforced Reinstall changed the dev extension: %q, %v", target, err)
+	}
+	if got := s.logged(t); !slices.ContainsFunc(got, func(l string) bool { return strings.HasPrefix(l, "code --install-extension ") }) {
+		t.Errorf("Reinstall did not install VS Code's extension:\n%s", strings.Join(got, "\n"))
+	}
+
+	// Forced, it replaces the dev extension, and rewrites support that is
+	// this version's already.
+	if err := os.Remove(filepath.Join(pack, "lsp", "nomi.lua")); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := reinstall(Options{Force: true}); err != nil {
+		t.Fatalf("a forced Reinstall: %v\n%s", err, out)
+	}
+	if info, err := os.Lstat(dir); err != nil || !info.IsDir() || !present(filepath.Join(dir, "extension.wasm")) || !present(filepath.Join(dir, markerName)) {
+		t.Errorf("a forced Reinstall does not replace the link with the extension: %v", err)
+	}
+	if !present(filepath.Join(checkout, "extension.toml")) {
+		t.Error("a forced Reinstall over a link removed what it linked to")
+	}
+	if !present(filepath.Join(pack, "lsp", "nomi.lua")) {
+		t.Error("Reinstall left Neovim's support, from this version, as it was")
+	}
+}

@@ -488,7 +488,7 @@ end
 
 // A migration's version: its file name.
 fn version_of(migration: Migration) -> String
-    String.split(migration.path, "/") |> Iter.last() |> Option.with_default(migration.path)
+    String.split(migration.path, "/") |> NonEmptyList.last()
 end
 
 fn database(error: sql.Error) -> Error

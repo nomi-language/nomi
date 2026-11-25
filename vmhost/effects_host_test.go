@@ -161,7 +161,7 @@ end
 func TestWithEffects_CallIsHeld(t *testing.T) {
 	dir := t.TempDir()
 	files := map[string]string{
-		"nomi.toml": "[package]\nname = \"app\"\n\n[effects.self]\nstd = []\n",
+		"nomi.toml": "[package]\nname = \"app\"\n\n[effects.self]\neffects = []\n",
 		"rules.nomi": `import std::io
 
 pub fn quiet(n: Int) -> Int
@@ -209,7 +209,7 @@ end
 	load := func(allow string, opts ...vmhost.Option) error {
 		dir := t.TempDir()
 		writeFiles(t, dir, map[string]string{
-			"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = [" + allow + "]\n",
+			"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\neffects = [" + allow + "]\n",
 			"main.nomi": main,
 		})
 		_, err := vmhost.Load(filepath.Join(dir, "main.nomi"), opts...)

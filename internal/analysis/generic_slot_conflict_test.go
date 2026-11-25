@@ -152,8 +152,8 @@ func TestGenericSlotConflict_MatchingArgumentsAreAccepted(t *testing.T) {
 		`x = weight((10.0, 1))`,
 		`x = nested(((10.0, "x"), 1))`,
 		`x = rest([(10.0, "x"), (-1.5, "y")])`,
-		// A literal in a list element's refined slot beside a T takes the
-		// refinement, as it does in a tuple argument's.
+		// A literal in a list element's subtype slot beside a T takes the
+		// subtype, as it does in a tuple argument's.
 		`x = weights([(1.0, "x"), (2.5, "y")])`,
 		`x = weight_vector([(1.0, "x"), (2.5, "y")])`,
 		`x = weight_vector(Vector[(1.0, "x")])`,

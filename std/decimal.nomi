@@ -10,7 +10,7 @@ import
     hashable.Hashable
     int.{Int, NonNegativeInt, PositiveInt}
     iter.Iter
-    lists.List
+    lists.{List, NonEmptyList}
     locale.Locale
     localize.NumberParseError
     multiply.Multiply
@@ -220,7 +220,7 @@ impl Decimal
     //! assert Decimal.split(10d, 4, 0) == [3d, 3d, 2d, 2d]
     //! assert Decimal.split(0.125d, 2, 2) == [0.063d, 0.062d]
     //
-    pub fn split(d: Decimal, n: PositiveInt, scale: NonNegativeInt) -> List<Decimal>
+    pub fn split(d: Decimal, n: PositiveInt, scale: NonNegativeInt) -> NonEmptyList<Decimal>
         allocated(
             d,
             Iter.repeat(1)
@@ -245,7 +245,8 @@ impl Decimal
     /// are `Ratios`, so an empty list, a negative ratio, or ratios that are
     /// all zero are compile errors in a literal, and ratios computed when
     /// the program runs go through `Ratios.try_from`. `scale` is a
-    /// `NonNegativeInt`.
+    /// `NonNegativeInt`. There is a part per ratio, so the result is a
+    /// NonEmptyList.
     //! import std::decimal.Ratios
     //!
     //! assert Decimal.allocate(0.05d, [3, 7], 2) == [0.02d, 0.03d]
@@ -257,7 +258,7 @@ impl Decimal
     //! shares = Ratios.try_from(prices)!
     //! assert Decimal.allocate(1d, shares, 2) == [0.75d, 0.25d]
     //
-    pub fn allocate(d: Decimal, ratios: Ratios, scale: NonNegativeInt) -> List<Decimal>
+    pub fn allocate(d: Decimal, ratios: Ratios, scale: NonNegativeInt) -> NonEmptyList<Decimal>
         allocated(d, ratios, scale)
     end
 
@@ -402,7 +403,7 @@ end
 // the larger of `scale` and `d`'s own scale rounded toward zero, and the
 // units left over one each to the nonzero ratios in order. The sign is set
 // apart, so a negative amount splits as its magnitude does.
-fn allocated(d: Decimal, ratios: List<Int>, scale: NonNegativeInt) -> List<Decimal>
+fn allocated(d: Decimal, ratios: List<Int>, scale: NonNegativeInt) -> NonEmptyList<Decimal>
     digits: NonNegativeInt =
         case NonNegativeInt.try_from(Decimal.scale(d))
             Some(own) -> if own > scale then own else scale
@@ -430,6 +431,8 @@ fn allocated(d: Decimal, ratios: List<Int>, scale: NonNegativeInt) -> List<Decim
         Decimal.divide(Int.to_decimal(part), unit, digits, RoundingMode.Down)
     end)
     |> Iter.to_list()
+    // A part per ratio, and Ratios keeps at least one.
+    |> NonEmptyList.try_from()!
 end
 
 host fn decimal_format(
@@ -576,7 +579,7 @@ end
 //! assert 10d / d == 2.5d
 //! assert NonZeroDecimal.try_from(0.00d) == None
 //
-pub refine NonZeroDecimal Decimal when fn d -> d != 0d
+pub subtype NonZeroDecimal Decimal when fn d -> d != 0d
 
 /// A Decimal that is zero or more: an amount, a rate, what `Decimal.sqrt`
 /// takes. A literal is checked when the program is compiled;
@@ -586,15 +589,15 @@ pub refine NonZeroDecimal Decimal when fn d -> d != 0d
 //! assert Decimal.sqrt(r, 1, RoundingMode.HalfEven) == 2.5d
 //! assert NonNegativeDecimal.try_from(-0.01d) == None
 //
-pub refine NonNegativeDecimal Decimal when fn d -> d >= 0d
+pub subtype NonNegativeDecimal Decimal when fn d -> d >= 0d
 
-/// A Decimal greater than zero. It refines both `NonNegativeDecimal` and
+/// A Decimal greater than zero. It is a subtype of both `NonNegativeDecimal` and
 /// `NonZeroDecimal`, so a PositiveDecimal passes wherever either, or a
 /// Decimal, is expected. It is in the prelude.
 //! assert PositiveDecimal.try_from(0.5d) == Some(0.5d)
 //! assert PositiveDecimal.try_from(0d) == None
 //
-pub refine PositiveDecimal NonNegativeDecimal and NonZeroDecimal when fn d -> d > 0d
+pub subtype PositiveDecimal NonNegativeDecimal and NonZeroDecimal when fn d -> d > 0d
 
 /// The ratios `Decimal.allocate` and `Money.allocate` split an amount by: at
 /// least one, none negative, and not all zero, so every part has a share to
@@ -610,7 +613,7 @@ pub refine PositiveDecimal NonNegativeDecimal and NonZeroDecimal when fn d -> d 
 //! assert Ratios.try_from([0, 0]) == None
 //! assert Ratios.try_from([0, 2]) == Some([0, 2])
 //
-pub refine Ratios List<Int> when fn ratios ->
+pub subtype Ratios List<Int> when fn ratios ->
     Iter.all_match(ratios, fn r -> r >= 0) and Iter.any_match(ratios, fn r -> r > 0)
 end
 

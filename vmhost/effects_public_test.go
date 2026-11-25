@@ -23,7 +23,7 @@ func checkedRootsPass(t *testing.T, entry string, files map[string]string) {
 // [effects.self] allows std, with its files and more added.
 func libraryFiles(std string, more map[string]string) map[string]string {
 	files := map[string]string{
-		"nomi.toml": "[package]\nname = \"libroots\"\n\n[effects.self]\nstd = " + std + "\n",
+		"nomi.toml": "[package]\nname = \"libroots\"\n\n[effects.self]\neffects = " + std + "\n",
 		"libroots.nomi": `import std::fs
 
 pub fn load(path: String) -> Result<String, fs.Error>
@@ -45,7 +45,7 @@ func TestEffectRoots_ALibrarysPublicFunctionsAreRoots(t *testing.T) {
 	got, ds := effectDiagnostics(t, "libroots.nomi", libraryFiles("[]", nil))
 	want := "libroots.nomi:4:5: this package's own code has the effect std::fs, and [effects.self] allows it no effects\n" +
 		"libroots.nomi:4:5: help: reached from `load`\n" +
-		"libroots.nomi:4:5: help: add \"std::fs\" to std under [effects.self] in nomi.toml, or remove the call"
+		"libroots.nomi:4:5: help: add \"std::fs\" to effects under [effects.self] in nomi.toml, or remove the call"
 	if got != want {
 		t.Errorf("diagnostics:\n%s\nwant:\n%s", got, want)
 	}
@@ -102,7 +102,7 @@ end
 	got, _ := effectDiagnostics(t, "libroots.nomi", libraryFiles("[]", through))
 	want := "libroots.nomi:8:5: this package's own code has the effect std::fs, and [effects.self] allows it no effects\n" +
 		"libroots.nomi:8:5: help: reached from `size`; `size` calls `read`\n" +
-		"libroots.nomi:8:5: help: add \"std::fs\" to std under [effects.self] in nomi.toml, or remove the call"
+		"libroots.nomi:8:5: help: add \"std::fs\" to effects under [effects.self] in nomi.toml, or remove the call"
 	if got != want {
 		t.Errorf("diagnostics:\n%s\nwant:\n%s", got, want)
 	}
@@ -167,10 +167,10 @@ end
 	got, _ := effectDiagnostics(t, "libroots.nomi", libraryFiles("[]", impls))
 	want := "internal/loud.nomi:13:9: this package's own code has the effect std::fs, and [effects.self] allows it no effects\n" +
 		"internal/loud.nomi:13:9: help: reached from `Display.to_string for Loud`\n" +
-		"internal/loud.nomi:13:9: help: add \"std::fs\" to std under [effects.self] in nomi.toml, or remove the call\n" +
+		"internal/loud.nomi:13:9: help: add \"std::fs\" to effects under [effects.self] in nomi.toml, or remove the call\n" +
 		"libroots.nomi:12:9: this package's own code has the effect std::fs, and [effects.self] allows it no effects\n" +
 		"libroots.nomi:12:9: help: reached from `Display.to_string for Note`\n" +
-		"libroots.nomi:12:9: help: add \"std::fs\" to std under [effects.self] in nomi.toml, or remove the call"
+		"libroots.nomi:12:9: help: add \"std::fs\" to effects under [effects.self] in nomi.toml, or remove the call"
 	if got != want {
 		t.Errorf("diagnostics:\n%s\nwant:\n%s", got, want)
 	}
@@ -198,7 +198,7 @@ end
 	got, _ := effectDiagnostics(t, "libroots.nomi", libraryFiles("[]", impls))
 	want := "libroots.nomi:9:9: this package's own code has the effect std::fs, and [effects.self] allows it no effects\n" +
 		"libroots.nomi:9:9: help: reached from `Display.to_string for Store`\n" +
-		"libroots.nomi:9:9: help: add \"std::fs\" to std under [effects.self] in nomi.toml, or remove the call"
+		"libroots.nomi:9:9: help: add \"std::fs\" to effects under [effects.self] in nomi.toml, or remove the call"
 	if got != want {
 		t.Errorf("diagnostics:\n%s\nwant:\n%s", got, want)
 	}
@@ -210,7 +210,7 @@ end
 func TestEffectRoots_AnAppsUnreachedPublicFunction(t *testing.T) {
 	app := func(std string) map[string]string {
 		return map[string]string{
-			"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = " + std + "\n",
+			"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\neffects = " + std + "\n",
 			"main.nomi": `import
     std::io
     notes
@@ -236,22 +236,22 @@ end
 	got, _ := effectDiagnostics(t, "main.nomi", app(`["std::io"]`))
 	want := "notes.nomi:8:5: this package's own code has the effect std::fs, and [effects.self] allows it only std::io\n" +
 		"notes.nomi:8:5: help: reached from `load`\n" +
-		"notes.nomi:8:5: help: add \"std::fs\" to std under [effects.self] in nomi.toml, or remove the call"
+		"notes.nomi:8:5: help: add \"std::fs\" to effects under [effects.self] in nomi.toml, or remove the call"
 	if got != want {
 		t.Errorf("diagnostics:\n%s\nwant:\n%s", got, want)
 	}
 }
 
 // A dependency's public functions are not roots of the project that needs
-// it: [effects.deps] holds the dependency where the program reaches it.
+// it: [effects.dependencies] holds the dependency where the program reaches it.
 // An app whose entry for pricing allows nothing passes while it calls only
 // pricing's pure function, though pricing's other public function reads a
 // file, and is refused at that call once main calls it.
 func TestEffectRoots_ADependencysPublicFunctionsAreNotRoots(t *testing.T) {
 	files := func(call string) map[string]string {
 		return map[string]string{
-			"app/nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[dependencies]\npricing = { dir = \"../pricing\" }\n\n" +
-				"[effects.self]\nstd = [\"std::io\"]\n\n[effects.deps.packages]\n\"pricing\" = []\n",
+			"app/nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[dependencies]\npricing = { dir = \"../pricing\", effects = [] }\n\n" +
+				"[effects.self]\neffects = [\"std::io\"]\n",
 			"app/main.nomi": `import
     std::io
     pricing::rules
@@ -276,9 +276,9 @@ end
 	}
 	checkedRootsPass(t, "app/main.nomi", files("rate()"))
 	got, _ := effectDiagnostics(t, "app/main.nomi", files(`load("prices.txt")`))
-	want := "pricing/rules.nomi:8:5: pricing has the effect std::fs, and its entry under [effects.deps.packages] allows it no effects\n" +
+	want := "pricing/rules.nomi:8:5: pricing has the effect std::fs, and its entry under [dependencies] allows it no effects\n" +
 		"pricing/rules.nomi:8:5: help: reached from `main`; `main` calls `load`\n" +
-		"pricing/rules.nomi:8:5: help: add \"std::fs\" to \"pricing\" under [effects.deps.packages] in nomi.toml, or remove the call\n" +
+		"pricing/rules.nomi:8:5: help: add \"std::fs\" to effects of pricing under [dependencies] in nomi.toml, or remove the call\n" +
 		"app/main.nomi:7:14: note: your code has the effect std::fs in pricing here: `main` calls `load`"
 	if got != want {
 		t.Errorf("diagnostics:\n%s\nwant:\n%s", got, want)

@@ -39,7 +39,7 @@ func WriteRequirements(data []byte, deps []pkgcache.Requirement) ([]byte, error)
 	if err != nil {
 		return nil, fmt.Errorf("the edited file does not parse (%v); edit its [dependencies] table by hand", err)
 	}
-	if !slices.Equal(m.Requires, sortedRequirements(deps)) {
+	if !slices.EqualFunc(m.Requires, sortedRequirements(deps), pkgcache.Requirement.Same) {
 		return nil, errors.New("the edited file does not hold the dependencies written; edit its [dependencies] table by hand")
 	}
 	return edited, nil
@@ -165,8 +165,9 @@ func writeEntries(data []byte, want, was []tableEntry) ([]byte, error) {
 }
 
 // dependencyValue is d's entry as WriteRequirements writes it: an inline
-// table of its repo, subdir, version or commit, and dir, each when it has
-// one.
+// table of its repo, subdir, version or commit, dir, effects and
+// effects_in_tests, each when it has one, a list on the one line an inline
+// table is written on.
 func dependencyValue(d pkgcache.Requirement) string {
 	var parts []string
 	if d.Repo != "" {
@@ -183,6 +184,18 @@ func dependencyValue(d pkgcache.Requirement) string {
 	}
 	if d.Dir != "" {
 		parts = append(parts, fmt.Sprintf("dir = %q", d.Dir))
+	}
+	for _, key := range []struct {
+		name  string
+		names []string
+	}{{"effects", d.Effects}, {"effects_in_tests", d.EffectsInTests}} {
+		if key.names != nil {
+			quoted := make([]string, len(key.names))
+			for i, n := range key.names {
+				quoted[i] = fmt.Sprintf("%q", n)
+			}
+			parts = append(parts, key.name+" = ["+strings.Join(quoted, ", ")+"]")
+		}
 	}
 	return "{ " + strings.Join(parts, ", ") + " }"
 }

@@ -325,11 +325,8 @@ pub fn rows_affected(tag: String) -> Int
     words = String.split(tag, " ")
     counted = ["INSERT", "UPDATE", "DELETE", "SELECT", "MERGE", "COPY", "FETCH", "MOVE"]
 
-    case (List.first(words), Iter.last(words))
-        (Some(command), Some(count)) when command in counted ->
-            String.to_int(count) |> Option.with_default(0)
-
-        _ ->
-            0
+    case (NonEmptyList.first(words), NonEmptyList.last(words))
+        (command, count) when command in counted -> String.to_int(count) |> Option.with_default(0)
+        _                                        -> 0
     end
 end

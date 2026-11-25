@@ -22,6 +22,27 @@ installs the VS Code extension when `code` is on PATH. An editor that is not
 installed is skipped; `make dev-nvim`, `make dev-helix` and `make dev-zed` run
 one.
 
+`make use-release` and `make use-source` switch this machine between the
+release and the build from this checkout, one `nomi` at a time:
+
+- `make use-release` (`VERSION=v0.0.1` names a release) runs
+  `make clean-legacy`, then `scripts/install.sh` from this checkout in
+  replace mode. `make clean-legacy` removes the binaries older install
+  instructions left in Go's bin directory (`nomi-lsp`, `nomi-vm`,
+  `nomi-runner`, `nomi-docgen`), so `git pull && make use-release` in an
+  old clone moves that machine onto the release. It installs the
+  release in `~/.nomi/bin`, removes each `nomi` on `PATH` built from
+  source, and has the release write the support of every editor that has
+  any, over Zed's dev extension too.
+- `make use-source` removes the `nomi` in `~/.nomi/bin` when its
+  `--version` names a release, then runs `make dev-editors`. Before that it
+  links Zed's extension to `editors/zed` again, when the checkout still
+  holds the `extension.wasm` and `grammars/nomi.wasm` Zed built at the last
+  dev install; otherwise it says to run "zed: install dev extension". Zed
+  takes a link in `extensions/installed` for a dev extension. That is read
+  from Zed's source and has not been tried in a running Zed, so the target
+  names the step inside Zed as the fallback.
+
 Every editor starts the language server as `nomi lsp`, from the `nomi` on
 PATH, and sends a package's `nomi.toml` to it beside the `.nomi` files, and keeps its own TOML highlighting for it: Zed sends every TOML
 buffer, VS Code's client and Neovim's `root_dir` select `nomi.toml` by name,

@@ -194,9 +194,9 @@ func (g *gen) linkName(token any, name string) string {
 	case irBootDefaultToken:
 		return within(g.declLink(t.boot), " startup default")
 	case literalCellKey:
-		// A program file's typed literal cell, which a refinement
+		// A program file's typed literal cell, which a subtype
 		// literal's build reads from outside the file's module
-		// (relinkRefinementFuncs): named by the file's module and the
+		// (relinkSubtypeFuncs): named by the file's module and the
 		// cell's own name, which holds the literal's text and position.
 		// A std module's cells stay unnamed, since a generic std body is
 		// lowered once shared and again per program instance.

@@ -142,14 +142,17 @@ func slotPrefixRepresentable(f *stdFunc, slot int) bool {
 // The accessors above are built beside a body the shared lowering retains,
 // and it retains no generic one: `Iter.sort_by<T, K>(source, direction:
 // Direction = Direction.Ascending, key)` has no default accessor. A call
-// that names `key:` and leaves `direction` out still needs the default as
+// that leaves `direction` out, naming `key:` or writing a lambda after it
+// (`NonEmptyList.sort_by(xs, fn n -> n)`), still needs the default as
 // std/iter means it, where `Direction` is in scope and the checker's
 // records of the default's nodes are; the caller's file may import
 // neither. So the program builds the accessor, in a gen of the declaring
 // module at the call's type arguments (stdInstances.defaultAccessor), with
 // the same builder and over the same prefix as every other accessor, and
 // the call fills the slot with a call to it over the operands before the
-// slot. This holds whether the
+// slot: a named call before it plans the call positionally
+// (fillStdTemplateDefaults), and a positional one as it calls the instance
+// (stdInstCall). This holds whether the
 // function's body is instantiated from std's source or the builder lowers
 // the operation itself, as it does `Iter.sort_by`.
 
@@ -192,7 +195,7 @@ func (bl *irScalarBuilder) fillStdTemplateDefaults(t *ast.Call, f *stdFunc, kind
 	g := bl.g
 	s := g.stdInsts
 	if s == nil {
-		panic("irbuild: fillStdTemplateDefaults: only a body of the shared lowering has no instance table, and no std body names a parameter past the omitted default of another module's generic function (Iter.sort_by is the one such function)")
+		panic("irbuild: fillStdTemplateDefaults: only a body of the shared lowering has no instance table, and no std body names a parameter past the omitted default of another module's generic function")
 	}
 	// The call names the function itself, so every type argument is the
 	// checker's for the call: no receiver selected an impl block.

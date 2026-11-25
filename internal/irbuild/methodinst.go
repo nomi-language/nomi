@@ -192,10 +192,10 @@ func (g *gen) methodInstance(d *implDef, method string, w withheldMember, own []
 		args = append(args, own[i].key())
 	}
 	names := w.typeParamNames()
-	reads := refinementReads(names, ownTypes, func() map[string][]*analysis.InterfaceType {
+	reads := subtypeReads(names, ownTypes, func() map[string][]*analysis.InterfaceType {
 		return analysis.DeclTypeParamBounds(g.srcFA(), w.decl, d.decl)
 	})
-	key := fmt.Sprintf("%p\x00%s\x00%s", d, method, strings.Join(args, "\x00")) + refinementReadsKey(reads)
+	key := fmt.Sprintf("%p\x00%s\x00%s", d, method, strings.Join(args, "\x00")) + subtypeReadsKey(reads)
 	if mi := g.methodInsts[key]; mi != nil {
 		return mi.it
 	}
@@ -254,8 +254,8 @@ func (g *gen) methodInstance(d *implDef, method string, w withheldMember, own []
 		}
 	}
 	// Its linkage name is its block's (implItemLink) with its own type
-	// arguments, an argument that reads a refinement named apart from its
-	// base (writeInstArgs, refinementinst.go).
+	// arguments, an argument that reads a subtype named apart from its
+	// base (writeInstArgs, subtypeinst.go).
 	var inst strings.Builder
 	writeInstArgs(&inst, own, reads)
 	it.instKey = inst.String()

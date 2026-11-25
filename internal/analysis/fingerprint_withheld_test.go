@@ -7,8 +7,8 @@ import (
 )
 
 // withheldBlock is an impl of TryFrom for Code holding one function named
-// fn, withheld (ast.ImplBlock.Withhold) as synthesizeRefinements withholds
-// a refinement's blocks.
+// fn, withheld (ast.ImplBlock.Withhold) as synthesizeSubtypes withholds
+// a subtype's blocks.
 func withheldBlock(fn string) *ast.ImplBlock {
 	ib := &ast.ImplBlock{
 		Interface: &ast.SimpleType{Name: "TryFrom"},

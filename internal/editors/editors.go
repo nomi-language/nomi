@@ -35,6 +35,179 @@ type editor struct {
 	install, uninstall func(p *plan) error
 	// status is what `nomi editor` says of the editor after its name.
 	status func(version string) []string
+	// find is what the editor's directory holds of Nomi support, nil for
+	// VS Code, whose install writes no marker: `code` keeps its extension.
+	find func() found
+}
+
+// found is what an editor's directory holds of Nomi support.
+type found struct {
+	// dir is the directory `nomi editor` names for the editor.
+	dir string
+	// version is what the marker an install writes names, "" when there is
+	// none.
+	version string
+	// other says what holds Nomi support there that nomi did not write,
+	// which an install leaves alone (Zed's dev extension); "" otherwise.
+	other string
+	// err is why the directory is unknown or its marker unreadable.
+	err error
+}
+
+// markerIn is what markerDir's marker says, for the editor whose directory
+// is dir.
+func markerIn(markerDir, dir string) found {
+	data, err := os.ReadFile(filepath.Join(markerDir, markerName))
+	switch {
+	case err != nil && errors.Is(err, fs.ErrNotExist):
+		return found{dir: dir}
+	case err != nil:
+		return found{dir: dir, err: err}
+	}
+	return found{dir: dir, version: strings.TrimSpace(string(data))}
+}
+
+// Written is an editor's Nomi support that `nomi editor install` wrote.
+type Written struct {
+	// Editor is the editor's name.
+	Editor string
+	// Version is the version of nomi that wrote it, as Options.Version
+	// spells it.
+	Version string
+	// Dir is the directory `nomi editor` names for it.
+	Dir string
+}
+
+// Other is an editor's Nomi support that nomi did not write and an install
+// leaves alone, such as Zed's dev extension.
+type Other struct {
+	// Editor is the editor's name, and What says what is there.
+	Editor, What string
+}
+
+// support is one editor's Nomi support.
+type support struct {
+	editor string
+	found
+}
+
+// supports is what each editor's directory holds of Nomi support, for the
+// editors that hold any, in table order: support nomi wrote (version) or
+// support it did not (other). An editor whose directory is unknown or
+// unreadable is left out, and so is VS Code, whose extension records no
+// version (VSCodeListed).
+func supports() []support {
+	var out []support
+	for _, e := range table {
+		if e.find == nil {
+			continue
+		}
+		if f := e.find(); f.err == nil && (f.other != "" || f.version != "") {
+			out = append(out, support{e.name, f})
+		}
+	}
+	return out
+}
+
+// Found answers each editor whose Nomi support `nomi editor install` wrote,
+// and each whose Nomi support nomi did not write, in table order
+// (supports).
+func Found() (written []Written, others []Other) {
+	for _, s := range supports() {
+		if s.other != "" {
+			others = append(others, Other{s.editor, s.other})
+		} else {
+			written = append(written, Written{s.editor, s.version, s.dir})
+		}
+	}
+	return written, others
+}
+
+// Refreshing is which editors' Nomi support Refresh rewrites, and how.
+type Refreshing struct {
+	// VSCode includes VS Code's extension when `code` lists it
+	// (VSCodeListed).
+	VSCode bool
+	// Others includes each editor whose Nomi support nomi did not write,
+	// which its install refuses unless Options.Force is set. Unset, Refresh
+	// names each in a line and leaves it alone.
+	Others bool
+	// Steps prints each install's steps to Options.Out under a line that
+	// names the editor, as `nomi editor install <editor>` prints them, in
+	// place of one line per editor rewritten.
+	Steps bool
+	// Stale says whether support nomi wrote is to be rewritten. Nil, it is
+	// support from a version other than Options.Version.
+	Stale func(Written) bool
+	// Install rewrites one editor, its output to the writer, for a caller
+	// that has another nomi write the files, as `nomi upgrade` does after
+	// it replaces itself. Nil, it is Install by this process.
+	Install func(name string, out io.Writer) error
+}
+
+// Refresh rewrites the Nomi support editors have: of each editor `nomi
+// editor install` wrote that r.Stale picks, of each whose support nomi did
+// not write when r.Others is set, and VS Code's extension when r.VSCode is
+// set and `code` lists it. It answers how many it rewrote. Every editor is
+// tried, and the error names each one not rewritten. Without r.Steps it
+// prints a line to opts.Out per editor rewritten, and what an install
+// prints goes in the error when it fails.
+func Refresh(opts Options, r Refreshing) (int, error) {
+	stale, install := r.Stale, r.Install
+	if stale == nil {
+		stale = func(w Written) bool { return w.Version != opts.Version }
+	}
+	if install == nil {
+		install = func(name string, out io.Writer) error {
+			quiet := opts
+			quiet.Out = out
+			return Install(name, quiet)
+		}
+	}
+	var names []string
+	for _, s := range supports() {
+		switch {
+		case s.other != "" && !r.Others:
+			fmt.Fprintf(opts.Out, "%s: left alone (%s)\n", s.editor, s.other)
+		case s.other != "" || stale(Written{s.editor, s.version, s.dir}):
+			names = append(names, s.editor)
+		}
+	}
+	if r.VSCode && VSCodeListed() {
+		names = append(names, vscodeEditor.name)
+	}
+	rewrote := 0
+	var errs []error
+	for _, name := range names {
+		var log strings.Builder
+		out := io.Writer(&log)
+		if r.Steps {
+			fmt.Fprintf(opts.Out, "%s:\n", name)
+			out = opts.Out
+		}
+		if err := install(name, out); err != nil {
+			errs = append(errs, fmt.Errorf("%s: %s%w", name, log.String(), err))
+			continue
+		}
+		rewrote++
+		if !r.Steps {
+			fmt.Fprintf(opts.Out, "Rewrote %s's Nomi support\n", name)
+		}
+	}
+	return rewrote, errors.Join(errs...)
+}
+
+// Reinstall is `nomi editor install --installed`: it installs for each
+// editor that has Nomi support in any form, as Install does for one, and
+// prints each one's steps. An editor whose support nomi did not write is
+// refused with Install's error unless opts.Force is set, and the others
+// are still installed. With no such editor it says so.
+func Reinstall(opts Options) error {
+	n, err := Refresh(opts, Refreshing{VSCode: true, Others: true, Steps: true, Stale: func(Written) bool { return true }})
+	if n == 0 && err == nil {
+		fmt.Fprintln(opts.Out, "No editor has Nomi support. `nomi editor install <editor>` sets one up.")
+	}
+	return err
 }
 
 // table is every editor, in the order `nomi editor` lists them.
@@ -225,20 +398,25 @@ func (p *plan) writeMarker(dir string) {
 	p.write(filepath.Join(dir, markerName), []byte(p.opts.Version+"\n"))
 }
 
-// markerStatus says whether dir holds an install and from which version:
-// the first line of an editor's status.
-func markerStatus(dir, version, name string) string {
-	data, err := os.ReadFile(filepath.Join(dir, markerName))
+// statusOf is an editor's status for what its directory holds: whether
+// nomi installed its support, from which version, and where it goes.
+func statusOf(f found, version, name string) []string {
+	var first string
 	switch {
-	case err != nil && errors.Is(err, fs.ErrNotExist):
-		return "not installed"
-	case err != nil:
-		return err.Error()
+	case f.dir == "":
+		return []string{f.err.Error()}
+	case f.err != nil:
+		first = f.err.Error()
+	case f.other != "":
+		first = f.other
+	case f.version == "":
+		first = "not installed"
+	case f.version != version:
+		first = fmt.Sprintf("installed from another version (%s); run `nomi editor install %s` again", f.version, name)
+	default:
+		first = "installed, from " + version
 	}
-	if got := strings.TrimSpace(string(data)); got != version {
-		return fmt.Sprintf("installed from another version (%s); run `nomi editor install %s` again", got, name)
-	}
-	return "installed, from " + version
+	return []string{first, f.dir}
 }
 
 // dirs are where each editor reads its files, from the environment of a

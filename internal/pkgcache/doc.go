@@ -158,11 +158,18 @@
 // (Install, ReadRepoFiles), so a package's hash, and whether its directory
 // holds a link (LinkIn), are read without reading its files. pkgfetch extracts into a
 // temporary directory, writes the list, makes the tree read-only and
-// renames it into place, so a directory there is complete (Cached). A
-// resolve that finds a repository marks it used, and Prune removes the
-// repositories nothing has resolved for two weeks, as every Nomi cache
-// prunes (internal/artifactcache package doc, "Pruning"); RemoveTree makes
-// a read-only tree writable to remove it.
+// renames it into place, so a tree with its list is complete. Lookup
+// answers what the cache holds of a package: Absent, Present, NoDirectory
+// (the list names no file under the package's directory) or Incomplete (a
+// tree without its list, a list without its tree, or a tree that lacks the
+// package's directory although the list names files in it), which a fetch
+// repairs (RemoveIncomplete, then Install) and the front end's cache-only
+// reader treats as absent. A resolve that finds a repository marks it
+// used, and Prune removes the repositories nothing has resolved for two
+// weeks, as every Nomi cache prunes (internal/artifactcache package doc,
+// "Pruning"); artifactcache.RemoveTree makes a read-only tree writable to
+// remove it. `nomi cache clean packages` empties the cache, and refuses a
+// NOMI_PACKAGE_CACHE that holds anything a fetch does not write (Foreign).
 //
 // # The walk
 //
@@ -226,15 +233,16 @@
 // dependency's own files, from its own [dependencies] and its own
 // [package].name (NamesAt answers either by directory). A consumer's keys
 // never reach a dependency's files. Each package also has one name in the
-// program (Dep.Name), the first segment of its files' keys and the key of
-// its entry under [effects.deps.packages]: the project's key for a package
-// the project names, else the key of the first package that reaches it,
+// program (Dep.Name), the first segment of its files' keys and the name
+// `nomi effects` gives it: the project's key for a package the project
+// names, else the key of the first package that reaches it,
 // with `~2`, `~3` added when that name is taken by another package or by a
 // file or directory at the project's root (rootNames). A tool of a
 // dependency runs under the project's key for it, and reads its table in
 // the project's nomi.toml by that key (cmd/nomi's `nomi tool`,
-// vmhost.ToolPackageEnv); a dependency's own [package].name (Dep.Self) is
-// only what an effects list that writes it is told to write instead.
+// vmhost.ToolPackageEnv). Graph.Through names the project's own entries a
+// package is reached through, whose `effects` keys hold it (vmhost's
+// standingsOf).
 //
 // # Dir entries
 //

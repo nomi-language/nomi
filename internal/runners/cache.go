@@ -4,9 +4,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/nomi-language/nomi/internal/artifactcache"
 )
 
 // CacheRootEnv lets tests override the cache root so we don't write
@@ -31,7 +35,7 @@ const CacheRootEnv = "NOMI_RUNNER_CACHE_ROOT"
 // without one is judged by the bound instead of by its root, which
 // is how scanCacheEntries reads any unmarked entry.
 func CacheDirForKey(key, compilerRoot, kind string) (string, error) {
-	root, err := cacheRoot()
+	root, err := CacheRoot()
 	if err != nil {
 		return "", err
 	}
@@ -41,7 +45,7 @@ func CacheDirForKey(key, compilerRoot, kind string) (string, error) {
 		return "", fmt.Errorf("creating cache dir %s: %w", dir, err)
 	}
 	_ = recordOrigin(dir, compilerRoot, kind)
-	_, _ = evictCache(root, hash)
+	_, _ = evictCache(root, hash, false)
 	return dir, nil
 }
 
@@ -53,7 +57,7 @@ func cacheKeyHash(key string) string {
 	return hex.EncodeToString(sum[:])[:16]
 }
 
-// cacheRoot returns the absolute path of the builds-cache root,
+// CacheRoot returns the absolute path of the builds-cache root,
 // honoring the NOMI_RUNNER_CACHE_ROOT override.
 //
 // An in-process test that has NOT set the override is refused rather
@@ -65,7 +69,7 @@ func cacheKeyHash(key string) string {
 // test at a time. `testing.Testing()` is false in a subprocess, so
 // tests that exec the real `nomi` binary are unaffected (they pass
 // the override in the child's environment anyway).
-func cacheRoot() (string, error) {
+func CacheRoot() (string, error) {
 	if override := os.Getenv(CacheRootEnv); override != "" {
 		return override, nil
 	}
@@ -79,4 +83,32 @@ func cacheRoot() (string, error) {
 		return "", fmt.Errorf("locating user cache dir: %w", err)
 	}
 	return filepath.Join(uc, "nomi", "builds"), nil
+}
+
+// releasesDir is the directory under the root that holds a directory per
+// release, of the runners it carries or downloads (releaseRunner).
+const releasesDir = "nomi-vm"
+
+// Prune sweeps root, a CacheRoot, now: it evicts the runner builds that
+// eviction's rules remove (evictCache) and the releases' directories
+// nothing has used for artifactcache.Unused (pruneReleases), keeping
+// none for this process, and answers what it removed.
+func Prune(root string) artifactcache.Pruned {
+	pruned, _ := evictCache(root, "", true)
+	pruned.Add(pruneReleases(filepath.Join(root, releasesDir), "", true))
+	return pruned
+}
+
+// Foreign answers the path of the first entry under dir that the runner
+// cache does not write (artifactcache.ForeignEntry), or "": a directory
+// per cache key (CacheDirForKey), the releases' directory, and an entry an
+// eviction is removing.
+func Foreign(dir string) (string, error) {
+	return artifactcache.ForeignEntry(dir, func(p string, e fs.DirEntry) (string, error) {
+		name := e.Name()
+		if e.IsDir() && (isCacheKeyName(name) || name == releasesDir || strings.HasPrefix(name, trashPrefix)) {
+			return "", nil
+		}
+		return p, nil
+	})
 }

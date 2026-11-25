@@ -142,7 +142,7 @@ func (c *stdCore) keepState(lib *StdLib) {
 		stdArtifactDebug("writing %s: %v", path, err)
 		return
 	}
-	artifactcache.Prune(filepath.Dir(path), filepath.Base(path), stdArtifactUnused)
+	artifactcache.Prune(filepath.Dir(path), filepath.Base(path), artifactcache.StdUnused)
 }
 
 // fromState makes c's base modules from the embedded state when c's

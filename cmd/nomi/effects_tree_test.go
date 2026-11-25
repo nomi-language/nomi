@@ -13,8 +13,8 @@ func treeProject(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
 	app := filepath.Join(dir, "app")
-	mustWrite(t, filepath.Join(app, "nomi.toml"), effectsModule+"\n[effects.self]\nstd = [\"std::io\", \"std::fs\"]\n\n"+
-		"[effects.deps]\nentries_required = true\n\n[effects.deps.packages]\n\"pricing\" = []\n"+"\n[dependencies]\npricing = { dir = \"../pricing\" }\n")
+	mustWrite(t, filepath.Join(app, "nomi.toml"), effectsModule+"\n[effects.self]\neffects = [\"std::io\", \"std::fs\"]\n\n"+
+		"[effects.dependencies]\nentries_required = true\n"+"\n[dependencies]\npricing = { dir = \"../pricing\", effects = [] }\n")
 	mustWrite(t, filepath.Join(app, "main.nomi"), `import
     std::fs
     std::io

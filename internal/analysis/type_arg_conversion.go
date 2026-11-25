@@ -106,7 +106,7 @@ func convertibleArgs(t Type) bool {
 // interface value is the value itself (irbuild's erasesUnboxed). That is a
 // builtin Int, Float, Bool or String, a declared struct, a declared enum with
 // no `embeds` variant, and a declared distinct type other than a
-// refinement, which is its base at run time and carries what its base
+// subtype, which is its base at run time and carries what its base
 // carries. A std enum, a std
 // generic struct and a std distinct or host type are not: some enter an
 // interface boxed (an Option, a Set, a Decimal), and the rule names none of
@@ -133,8 +133,8 @@ func carriesOwnType(t Type) bool {
 		}
 		return true
 	case *DistinctType:
-		if t.Refinement && t.Inner != nil {
-			return carriesOwnType(RefinementBase(t))
+		if t.Subtype && t.Inner != nil {
+			return carriesOwnType(SubtypeBase(t))
 		}
 		return !isStdOrigin(t.Origin) && len(t.TypeParams) == 0
 	}

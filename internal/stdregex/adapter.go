@@ -75,9 +75,15 @@ func HostFindAll(re *Regex, input string) []string {
 	return re.re.FindAllString(input, -1)
 }
 
+// HostSplit is Regex's `Matcher.split_in`. The empty string is one empty
+// piece whatever the pattern, as `String.split` promises a piece for every
+// text: Go's Split gives none for "" split by the empty pattern.
 func HostSplit(re *Regex, input string) []string {
 	if re == nil || re.re == nil {
 		return nil
+	}
+	if input == "" {
+		return []string{""}
 	}
 	return re.re.Split(input, -1)
 }

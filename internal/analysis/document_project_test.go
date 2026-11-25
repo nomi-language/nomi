@@ -299,6 +299,9 @@ func TestDocumentManager_APackageThatNeedsALaterNomiIsOneError(t *testing.T) {
 	if len(errs) != 1 || errs[0].Code != analysis.NomiVersionCode || errs[0].Message != want {
 		t.Fatalf("the document's errors are %+v, want one: %s", errs, want)
 	}
+	if manifest := filepath.Join(tmp, "nomi.toml"); errs[0].File != manifest || errs[0].Line != 3 {
+		t.Errorf("the error is at %s:%d; want it at the nomi line of %s, 3", errs[0].File, errs[0].Line, manifest)
+	}
 }
 
 // manifestProject writes a project of three files that import each other

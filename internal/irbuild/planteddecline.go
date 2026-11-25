@@ -46,9 +46,9 @@ func PlantDeclineForTest(callee, reason string) (restore func()) {
 
 // DeclinesPlanted reports whether a test has planted a decline
 // (PlantDeclineForTest, PlantTypeDeclineForTest,
-// PlantMissingRefinementCheckForTest), which no kept program holds.
+// PlantMissingSubtypeCheckForTest), which no kept program holds.
 func DeclinesPlanted() bool {
-	return plantedDecline.Load() != nil || plantedTypeDecline.Load() != nil || plantedMissingRefinementCheck.Load() != nil
+	return plantedDecline.Load() != nil || plantedTypeDecline.Load() != nil || plantedMissingSubtypeCheck.Load() != nil
 }
 
 // plantedTypeDecline is the struct a test made the builder refuse, or nil:
@@ -81,31 +81,31 @@ func plantedRefusal(name string) string {
 	return ""
 }
 
-// plantedMissingRefinementCheck is the refinement whose literals' checks a
+// plantedMissingSubtypeCheck is the subtype whose literals' checks a
 // test made the builder fail to find, or nil: callee is its name.
-var plantedMissingRefinementCheck atomic.Pointer[declinePlant]
+var plantedMissingSubtypeCheck atomic.Pointer[declinePlant]
 
-// PlantMissingRefinementCheckForTest makes the builder find no `try_from`
-// for the refinement named typeName when it lists a literal's checks
-// (refinementSites), as a linkage name built wrong would, until restore is
+// PlantMissingSubtypeCheckForTest makes the builder find no `try_from`
+// for the subtype named typeName when it lists a literal's checks
+// (subtypeSites), as a linkage name built wrong would, until restore is
 // called: a test that such a literal is an internal error at the literal,
 // not let through unchecked, needs no real naming bug. It panics outside a
 // test binary, and is process-wide as PlantDeclineForTest is.
-func PlantMissingRefinementCheckForTest(typeName string) (restore func()) {
+func PlantMissingSubtypeCheckForTest(typeName string) (restore func()) {
 	if !testing.Testing() {
-		panic("irbuild.PlantMissingRefinementCheckForTest called outside a test")
+		panic("irbuild.PlantMissingSubtypeCheckForTest called outside a test")
 	}
 	if typeName == "" {
-		panic("irbuild.PlantMissingRefinementCheckForTest needs a type name")
+		panic("irbuild.PlantMissingSubtypeCheckForTest needs a type name")
 	}
-	prev := plantedMissingRefinementCheck.Swap(&declinePlant{callee: typeName})
-	return func() { plantedMissingRefinementCheck.Store(prev) }
+	prev := plantedMissingSubtypeCheck.Swap(&declinePlant{callee: typeName})
+	return func() { plantedMissingSubtypeCheck.Store(prev) }
 }
 
 // plantedMissingCheck reports whether a test planted a missing check for
-// the refinement named typeName.
+// the subtype named typeName.
 func plantedMissingCheck(typeName string) bool {
-	p := plantedMissingRefinementCheck.Load()
+	p := plantedMissingSubtypeCheck.Load()
 	return p != nil && p.callee == typeName
 }
 

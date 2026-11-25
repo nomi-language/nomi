@@ -16,13 +16,17 @@ var nvimEditor = editor{
 	name:      "nvim",
 	install:   installNvim,
 	uninstall: uninstallNvim,
-	status: func(version string) []string {
-		pack, err := nvimPack()
-		if err != nil {
-			return []string{err.Error()}
-		}
-		return []string{markerStatus(pack, version, "nvim"), pack}
-	},
+	status:    func(version string) []string { return statusOf(findNvim(), version, "nvim") },
+	find:      findNvim,
+}
+
+// findNvim is what Neovim's package directory for Nomi holds.
+func findNvim() found {
+	pack, err := nvimPack()
+	if err != nil {
+		return found{err: err}
+	}
+	return markerIn(pack, pack)
 }
 
 // nvimPack is the package directory the plugin goes in, which Neovim

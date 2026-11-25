@@ -305,10 +305,10 @@ func effectEdits(p cacheProject) []cacheEdit {
 	key, body := p.gen.Edit(projectgen.BodyLeaf, 1)
 	rel := key + ".nomi"
 	return []cacheEdit{
-		{what: "effects allowing std::io", rel: "nomi.toml", text: manifest + "\n[effects.self]\nstd = [\"std::io\"]\n\n[effects.deps]\nstd = [\"std::io\"]\n"},
+		{what: "effects allowing std::io", rel: "nomi.toml", text: manifest + "\n[effects.self]\neffects = [\"std::io\"]\n\n[effects.dependencies]\neffects = [\"std::io\"]\n"},
 		{what: "body edit under the lists", rel: rel, text: body},
 		{what: "body edit under the lists, undone", rel: rel, text: p.files[rel]},
-		{what: "effects allowing nothing", rel: "nomi.toml", text: manifest + "\n[effects.self]\nstd = []\n\n[effects.deps]\nstd = []\n"},
+		{what: "effects allowing nothing", rel: "nomi.toml", text: manifest + "\n[effects.self]\neffects = []\n\n[effects.dependencies]\neffects = []\n"},
 		{what: "body edit under an empty list", rel: rel, text: body},
 		{what: "body edit under an empty list, undone", rel: rel, text: p.files[rel]},
 		{what: "effects removed", rel: "nomi.toml", text: manifest},
@@ -1082,7 +1082,7 @@ func TestArtifactCacheTwoProcessesRace(t *testing.T) {
 // it back runs it, and a body edit relinked under the lists is held to
 // them.
 func TestEffects_TheCacheAnswersForTheListsItWasKeptUnder(t *testing.T) {
-	dir, entry := effectProject(t, effectAllowsIO+"std_in_tests = [\"std::fs\"]\n")
+	dir, entry := effectProject(t, effectAllowsIO+"effects_in_tests = [\"std::fs\"]\n")
 	mustWrite(t, entry, strings.Replace(effectProgram, `    io.print(fs.read_text("notes.txt"))`+"\n", "", 1))
 	cache := newCacheDir(t)
 	for i := 0; i < 2; i++ {
@@ -1096,7 +1096,7 @@ func TestEffects_TheCacheAnswersForTheListsItWasKeptUnder(t *testing.T) {
 	}
 
 	// io taken out of the list.
-	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = []\nstd_in_tests = [\"std::fs\"]\n")
+	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\neffects = []\neffects_in_tests = [\"std::fs\"]\n")
 	for _, cmd := range []string{"run", "check"} {
 		r := runNomiIn(t, dir, cache, cmd, "main.nomi")
 		if r.exit != 1 || r.stdout != "" || !strings.Contains(r.stderr, "error: this package's own code has the effect std::io, and [effects.self] allows it no effects") {
@@ -1105,7 +1105,7 @@ func TestEffects_TheCacheAnswersForTheListsItWasKeptUnder(t *testing.T) {
 	}
 
 	// io put back: the program kept under these lists runs.
-	mustWrite(t, filepath.Join(dir, "nomi.toml"), effectAllowsIO+"std_in_tests = [\"std::fs\"]\n")
+	mustWrite(t, filepath.Join(dir, "nomi.toml"), effectAllowsIO+"effects_in_tests = [\"std::fs\"]\n")
 	if run := runNomiIn(t, dir, cache, "run", "main.nomi"); run.exit != 0 || run.stdout != "started\n" {
 		t.Errorf("nomi run with io put back:\n%s", run)
 	}

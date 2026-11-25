@@ -53,7 +53,7 @@
 // frame. A Go function answers at least one value.
 //
 // An Int position carries the range its declared type admits (IntRange),
-// read off a refinement chain's `when` bounds and an intersection's members.
+// read off a subtype chain's `when` bounds and an intersection's members.
 // A Nomi-to-Go Int position takes a fixed-width Go integer only when that
 // range fits it (fits): std's `Instant.as_nanos` is an `Int64` and fills
 // an int64; a plain `Int` does not, and its Go function takes rt.Int.

@@ -171,9 +171,9 @@ func (fa *FileAnalysis) DisplayOf(t Type) *DisplayRender {
 // displayRenderOf is how a value of type t renders by Display.
 func (fa *FileAnalysis) displayRenderOf(t Type, depth int) *DisplayRender {
 	t = ResolveClosed(t)
-	if refinementOf(t) != nil {
-		// A refinement renders as its base (refinement.go).
-		t = RefinementBase(t)
+	if subtypeOf(t) != nil {
+		// A subtype renders as its base (subtype.go).
+		t = SubtypeBase(t)
 	}
 	r := &DisplayRender{Type: Elaborate(t)}
 	if depth > 32 {

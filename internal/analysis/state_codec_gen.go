@@ -79,7 +79,7 @@ func stateGlobalValues() []any {
 		noProgram,
 		nonEmptyCounts,
 		nullNames,
-		operandRefinementInterfaces,
+		operandSubtypeInterfaces,
 		pendingDefault,
 		preludeImportsCache,
 		preludeImportsCacheErr,
@@ -93,7 +93,7 @@ func stateGlobalValues() []any {
 		stdDebugDecl,
 		stdHandleTypes,
 		stdIndex,
-		stdNonEmptyRefinements,
+		stdNonEmptySubtypes,
 		stdSetDecl,
 		stdVectorDecl,
 		subtestsNameExitless,
@@ -387,7 +387,7 @@ func (e *stateEncoder) stDistinctType(x *DistinctType) {
 	e.stSPTypeParam_(x.TypeParamDefs)
 	e.stSType(x.TypeArgs)
 	e.str(string(x.Rule))
-	e.w.Bool(x.Refinement)
+	e.w.Bool(x.Subtype)
 	e.w.Bool(x.Intersection)
 	e.stSType(x.MoreParents)
 	e.stPunbuiltDecl(x.unbuilt)
@@ -405,7 +405,7 @@ func (d *stateDecoder) stDistinctType(x *DistinctType) {
 	x.TypeParamDefs = d.stSPTypeParam_()
 	x.TypeArgs = d.stSType()
 	x.Rule = string(d.str())
-	x.Refinement = bool(d.w.Bool())
+	x.Subtype = bool(d.w.Bool())
 	x.Intersection = bool(d.w.Bool())
 	x.MoreParents = d.stSType()
 	x.unbuilt = d.stPunbuiltDecl()
@@ -497,9 +497,9 @@ func (e *stateEncoder) stFileBodies(x *FileBodies) {
 	e.stMAPast_PatternBinding_Type(x.BindingFallbacks)
 	e.stMAPast_ExternFunc_string(x.HostJSONForms)
 	e.stMAPast_Binary_POperatorImpl(x.OperatorImpls)
-	e.stMAast_Node_PRefinedLiteral(x.RefinedLiterals)
-	e.stMAPast_TypeDef_PRefinementRuleCheck(x.RefinementRuleChecks)
-	e.stMAPast_RefinementParentCheck_bool(x.RefinementParents)
+	e.stMAast_Node_PSubtypeLiteral(x.SubtypeLiterals)
+	e.stMAPast_TypeDef_PSubtypeRuleCheck(x.SubtypeRuleChecks)
+	e.stMAPast_SubtypeParentCheck_bool(x.SubtypeParents)
 	e.stMAPast_StructLit_PStructType(x.TargetStructs)
 	e.stMAPast_Binary_Past_Call(x.Memberships)
 	e.stMAast_Node_PResolvedCall(x.Calls)
@@ -554,9 +554,9 @@ func (d *stateDecoder) stFileBodies(x *FileBodies) {
 	x.BindingFallbacks = d.stMAPast_PatternBinding_Type()
 	x.HostJSONForms = d.stMAPast_ExternFunc_string()
 	x.OperatorImpls = d.stMAPast_Binary_POperatorImpl()
-	x.RefinedLiterals = d.stMAast_Node_PRefinedLiteral()
-	x.RefinementRuleChecks = d.stMAPast_TypeDef_PRefinementRuleCheck()
-	x.RefinementParents = d.stMAPast_RefinementParentCheck_bool()
+	x.SubtypeLiterals = d.stMAast_Node_PSubtypeLiteral()
+	x.SubtypeRuleChecks = d.stMAPast_TypeDef_PSubtypeRuleCheck()
+	x.SubtypeParents = d.stMAPast_SubtypeParentCheck_bool()
 	x.TargetStructs = d.stMAPast_StructLit_PStructType()
 	x.Memberships = d.stMAPast_Binary_Past_Call()
 	x.Calls = d.stMAast_Node_PResolvedCall()
@@ -2062,42 +2062,6 @@ func (d *stateDecoder) stMAPast_PatternBinding_Type() map[*ast.PatternBinding]Ty
 	return x
 }
 
-func (e *stateEncoder) stMAPast_RefinementParentCheck_bool(x map[*ast.RefinementParentCheck]bool) {
-	if x == nil {
-		e.w.Uint(0)
-		return
-	}
-	if !e.ref(mapPointer(x), 181) {
-		return
-	}
-	e.w.Uint(uint64(len(x)))
-	for k, v := range x {
-		e.stPast_RefinementParentCheck(k)
-		e.w.Bool(v)
-	}
-}
-
-func (d *stateDecoder) stMAPast_RefinementParentCheck_bool() map[*ast.RefinementParentCheck]bool {
-	r, fresh := d.ref()
-	if !fresh {
-		if r == nil {
-			return nil
-		}
-		return r.(map[*ast.RefinementParentCheck]bool)
-	}
-	n := d.count()
-	x := make(map[*ast.RefinementParentCheck]bool, n)
-	d.add(x)
-	for range n {
-		var k *ast.RefinementParentCheck
-		var v bool
-		k = d.stPast_RefinementParentCheck()
-		v = bool(d.w.Bool())
-		x[k] = v
-	}
-	return x
-}
-
 func (e *stateEncoder) stMAPast_StructLit_PStructType(x map[*ast.StructLit]*StructType) {
 	if x == nil {
 		e.w.Uint(0)
@@ -2165,6 +2129,42 @@ func (d *stateDecoder) stMAPast_Subtests_Type() map[*ast.Subtests]Type {
 		var v Type
 		k = d.stPast_Subtests()
 		v = d.stType()
+		x[k] = v
+	}
+	return x
+}
+
+func (e *stateEncoder) stMAPast_SubtypeParentCheck_bool(x map[*ast.SubtypeParentCheck]bool) {
+	if x == nil {
+		e.w.Uint(0)
+		return
+	}
+	if !e.ref(mapPointer(x), 181) {
+		return
+	}
+	e.w.Uint(uint64(len(x)))
+	for k, v := range x {
+		e.stPast_SubtypeParentCheck(k)
+		e.w.Bool(v)
+	}
+}
+
+func (d *stateDecoder) stMAPast_SubtypeParentCheck_bool() map[*ast.SubtypeParentCheck]bool {
+	r, fresh := d.ref()
+	if !fresh {
+		if r == nil {
+			return nil
+		}
+		return r.(map[*ast.SubtypeParentCheck]bool)
+	}
+	n := d.count()
+	x := make(map[*ast.SubtypeParentCheck]bool, n)
+	d.add(x)
+	for range n {
+		var k *ast.SubtypeParentCheck
+		var v bool
+		k = d.stPast_SubtypeParentCheck()
+		v = bool(d.w.Bool())
 		x[k] = v
 	}
 	return x
@@ -2314,7 +2314,7 @@ func (d *stateDecoder) stMAPast_TestDecl_SPSymbol() map[*ast.TestDecl][]*Symbol 
 	return x
 }
 
-func (e *stateEncoder) stMAPast_TypeDef_PRefinementRuleCheck(x map[*ast.TypeDef]*RefinementRuleCheck) {
+func (e *stateEncoder) stMAPast_TypeDef_PSubtypeRuleCheck(x map[*ast.TypeDef]*SubtypeRuleCheck) {
 	if x == nil {
 		e.w.Uint(0)
 		return
@@ -2325,26 +2325,26 @@ func (e *stateEncoder) stMAPast_TypeDef_PRefinementRuleCheck(x map[*ast.TypeDef]
 	e.w.Uint(uint64(len(x)))
 	for k, v := range x {
 		e.stPast_TypeDef(k)
-		e.stPRefinementRuleCheck(v)
+		e.stPSubtypeRuleCheck(v)
 	}
 }
 
-func (d *stateDecoder) stMAPast_TypeDef_PRefinementRuleCheck() map[*ast.TypeDef]*RefinementRuleCheck {
+func (d *stateDecoder) stMAPast_TypeDef_PSubtypeRuleCheck() map[*ast.TypeDef]*SubtypeRuleCheck {
 	r, fresh := d.ref()
 	if !fresh {
 		if r == nil {
 			return nil
 		}
-		return r.(map[*ast.TypeDef]*RefinementRuleCheck)
+		return r.(map[*ast.TypeDef]*SubtypeRuleCheck)
 	}
 	n := d.count()
-	x := make(map[*ast.TypeDef]*RefinementRuleCheck, n)
+	x := make(map[*ast.TypeDef]*SubtypeRuleCheck, n)
 	d.add(x)
 	for range n {
 		var k *ast.TypeDef
-		var v *RefinementRuleCheck
+		var v *SubtypeRuleCheck
 		k = d.stPast_TypeDef()
-		v = d.stPRefinementRuleCheck()
+		v = d.stPSubtypeRuleCheck()
 		x[k] = v
 	}
 	return x
@@ -2890,42 +2890,6 @@ func (d *stateDecoder) stMAast_Node_POperatorUse() map[ast.Node]*OperatorUse {
 	return x
 }
 
-func (e *stateEncoder) stMAast_Node_PRefinedLiteral(x map[ast.Node]*RefinedLiteral) {
-	if x == nil {
-		e.w.Uint(0)
-		return
-	}
-	if !e.ref(mapPointer(x), 177) {
-		return
-	}
-	e.w.Uint(uint64(len(x)))
-	for k, v := range x {
-		e.stast_Node(k)
-		e.stPRefinedLiteral(v)
-	}
-}
-
-func (d *stateDecoder) stMAast_Node_PRefinedLiteral() map[ast.Node]*RefinedLiteral {
-	r, fresh := d.ref()
-	if !fresh {
-		if r == nil {
-			return nil
-		}
-		return r.(map[ast.Node]*RefinedLiteral)
-	}
-	n := d.count()
-	x := make(map[ast.Node]*RefinedLiteral, n)
-	d.add(x)
-	for range n {
-		var k ast.Node
-		var v *RefinedLiteral
-		k = d.stast_Node()
-		v = d.stPRefinedLiteral()
-		x[k] = v
-	}
-	return x
-}
-
 func (e *stateEncoder) stMAast_Node_PResolvedCall(x map[ast.Node]*ResolvedCall) {
 	if x == nil {
 		e.w.Uint(0)
@@ -2957,6 +2921,42 @@ func (d *stateDecoder) stMAast_Node_PResolvedCall() map[ast.Node]*ResolvedCall {
 		var v *ResolvedCall
 		k = d.stast_Node()
 		v = d.stPResolvedCall()
+		x[k] = v
+	}
+	return x
+}
+
+func (e *stateEncoder) stMAast_Node_PSubtypeLiteral(x map[ast.Node]*SubtypeLiteral) {
+	if x == nil {
+		e.w.Uint(0)
+		return
+	}
+	if !e.ref(mapPointer(x), 177) {
+		return
+	}
+	e.w.Uint(uint64(len(x)))
+	for k, v := range x {
+		e.stast_Node(k)
+		e.stPSubtypeLiteral(v)
+	}
+}
+
+func (d *stateDecoder) stMAast_Node_PSubtypeLiteral() map[ast.Node]*SubtypeLiteral {
+	r, fresh := d.ref()
+	if !fresh {
+		if r == nil {
+			return nil
+		}
+		return r.(map[ast.Node]*SubtypeLiteral)
+	}
+	n := d.count()
+	x := make(map[ast.Node]*SubtypeLiteral, n)
+	d.add(x)
+	for range n {
+		var k ast.Node
+		var v *SubtypeLiteral
+		k = d.stast_Node()
+		v = d.stPSubtypeLiteral()
 		x[k] = v
 	}
 	return x
@@ -5308,54 +5308,6 @@ func (d *stateDecoder) stPProjectImplIndex() *ProjectImplIndex {
 	return v.(*ProjectImplIndex)
 }
 
-func (e *stateEncoder) stPRefinedLiteral(x *RefinedLiteral) {
-	if x == nil {
-		e.w.Uint(0)
-		return
-	}
-	if e.ref(unsafe.Pointer(x), 176) {
-		e.stRefinedLiteral(x)
-	}
-}
-
-func (d *stateDecoder) stPRefinedLiteral() *RefinedLiteral {
-	v, fresh := d.ref()
-	if fresh {
-		x := new(RefinedLiteral)
-		d.add(x)
-		d.stRefinedLiteral(x)
-		return x
-	}
-	if v == nil {
-		return nil
-	}
-	return v.(*RefinedLiteral)
-}
-
-func (e *stateEncoder) stPRefinementRuleCheck(x *RefinementRuleCheck) {
-	if x == nil {
-		e.w.Uint(0)
-		return
-	}
-	if e.ref(unsafe.Pointer(x), 179) {
-		e.stRefinementRuleCheck(x)
-	}
-}
-
-func (d *stateDecoder) stPRefinementRuleCheck() *RefinementRuleCheck {
-	v, fresh := d.ref()
-	if fresh {
-		x := new(RefinementRuleCheck)
-		d.add(x)
-		d.stRefinementRuleCheck(x)
-		return x
-	}
-	if v == nil {
-		return nil
-	}
-	return v.(*RefinementRuleCheck)
-}
-
 func (e *stateEncoder) stPResolvedCall(x *ResolvedCall) {
 	if x == nil {
 		e.w.Uint(0)
@@ -5450,6 +5402,54 @@ func (d *stateDecoder) stPStructType() *StructType {
 		return nil
 	}
 	return v.(*StructType)
+}
+
+func (e *stateEncoder) stPSubtypeLiteral(x *SubtypeLiteral) {
+	if x == nil {
+		e.w.Uint(0)
+		return
+	}
+	if e.ref(unsafe.Pointer(x), 176) {
+		e.stSubtypeLiteral(x)
+	}
+}
+
+func (d *stateDecoder) stPSubtypeLiteral() *SubtypeLiteral {
+	v, fresh := d.ref()
+	if fresh {
+		x := new(SubtypeLiteral)
+		d.add(x)
+		d.stSubtypeLiteral(x)
+		return x
+	}
+	if v == nil {
+		return nil
+	}
+	return v.(*SubtypeLiteral)
+}
+
+func (e *stateEncoder) stPSubtypeRuleCheck(x *SubtypeRuleCheck) {
+	if x == nil {
+		e.w.Uint(0)
+		return
+	}
+	if e.ref(unsafe.Pointer(x), 179) {
+		e.stSubtypeRuleCheck(x)
+	}
+}
+
+func (d *stateDecoder) stPSubtypeRuleCheck() *SubtypeRuleCheck {
+	v, fresh := d.ref()
+	if fresh {
+		x := new(SubtypeRuleCheck)
+		d.add(x)
+		d.stSubtypeRuleCheck(x)
+		return x
+	}
+	if v == nil {
+		return nil
+	}
+	return v.(*SubtypeRuleCheck)
 }
 
 func (e *stateEncoder) stPSymbol(x *Symbol) {
@@ -5922,22 +5922,6 @@ func (d *stateDecoder) stPast_PatternBinding() *ast.PatternBinding {
 	return v.(*ast.PatternBinding)
 }
 
-func (e *stateEncoder) stPast_RefinementParentCheck(x *ast.RefinementParentCheck) {
-	if x == nil {
-		e.w.Value(nil)
-		return
-	}
-	e.w.Value(x)
-}
-
-func (d *stateDecoder) stPast_RefinementParentCheck() *ast.RefinementParentCheck {
-	v := d.w.Value()
-	if v == nil {
-		return nil
-	}
-	return v.(*ast.RefinementParentCheck)
-}
-
 func (e *stateEncoder) stPast_StructLit(x *ast.StructLit) {
 	if x == nil {
 		e.w.Value(nil)
@@ -5968,6 +5952,22 @@ func (d *stateDecoder) stPast_Subtests() *ast.Subtests {
 		return nil
 	}
 	return v.(*ast.Subtests)
+}
+
+func (e *stateEncoder) stPast_SubtypeParentCheck(x *ast.SubtypeParentCheck) {
+	if x == nil {
+		e.w.Value(nil)
+		return
+	}
+	e.w.Value(x)
+}
+
+func (d *stateDecoder) stPast_SubtypeParentCheck() *ast.SubtypeParentCheck {
+	v := d.w.Value()
+	if v == nil {
+		return nil
+	}
+	return v.(*ast.SubtypeParentCheck)
 }
 
 func (e *stateEncoder) stPast_TaggedString(x *ast.TaggedString) {
@@ -6339,7 +6339,7 @@ func (d *stateDecoder) stPkeptImplUses() *keptImplUses {
 }
 
 func (e *stateEncoder) stPlainCounterpart(x *PlainCounterpart) {
-	e.str(string(x.Refinement))
+	e.str(string(x.Subtype))
 	e.str(string(x.Func))
 	e.str(string(x.Value))
 	e.str(string(x.Payload))
@@ -6348,7 +6348,7 @@ func (e *stateEncoder) stPlainCounterpart(x *PlainCounterpart) {
 }
 
 func (d *stateDecoder) stPlainCounterpart(x *PlainCounterpart) {
-	x.Refinement = string(d.str())
+	x.Subtype = string(d.str())
 	x.Func = string(d.str())
 	x.Value = string(d.str())
 	x.Payload = string(d.str())
@@ -6755,50 +6755,6 @@ func (d *stateDecoder) stRecording(x *Recording) {
 	x.Arg = int(d.w.Int())
 	x.Tag = string(d.str())
 	d.stImplBound(&x.Bound)
-}
-
-func (e *stateEncoder) stRefinedLiteral(x *RefinedLiteral) {
-	e.stType(x.Type)
-	e.stSRefinementStep(x.Steps)
-}
-
-func (d *stateDecoder) stRefinedLiteral(x *RefinedLiteral) {
-	x.Type = d.stType()
-	x.Steps = d.stSRefinementStep()
-}
-
-func (e *stateEncoder) stRefinementRuleCheck(x *RefinementRuleCheck) {
-	e.stPDistinctType(x.Type)
-	e.stSRefinementRuleTry(x.Tries)
-}
-
-func (d *stateDecoder) stRefinementRuleCheck(x *RefinementRuleCheck) {
-	x.Type = d.stPDistinctType()
-	x.Tries = d.stSRefinementRuleTry()
-}
-
-func (e *stateEncoder) stRefinementRuleTry(x *RefinementRuleTry) {
-	e.stast_Node(x.Check)
-	e.stType(x.Arg)
-}
-
-func (d *stateDecoder) stRefinementRuleTry(x *RefinementRuleTry) {
-	x.Check = d.stast_Node()
-	x.Arg = d.stType()
-}
-
-func (e *stateEncoder) stRefinementStep(x *RefinementStep) {
-	e.stType(x.Type)
-	e.stast_Node(x.TryFrom)
-	e.stast_Node(x.Check)
-	e.stSType(x.Via)
-}
-
-func (d *stateDecoder) stRefinementStep(x *RefinementStep) {
-	x.Type = d.stType()
-	x.TryFrom = d.stast_Node()
-	x.Check = d.stast_Node()
-	x.Via = d.stSType()
 }
 
 func (e *stateEncoder) stRelatedInfo(x *RelatedInfo) {
@@ -7651,74 +7607,6 @@ func (d *stateDecoder) stSRecording() []Recording {
 	return x
 }
 
-func (e *stateEncoder) stSRefinementRuleTry(x []RefinementRuleTry) {
-	e.w.Len(x == nil, len(x))
-	if len(x) == 0 || !e.refSlice(unsafe.Pointer(unsafe.SliceData(x)), len(x), 178) {
-		return
-	}
-	for i := range x {
-		e.stRefinementRuleTry(&x[i])
-	}
-}
-
-func (d *stateDecoder) stSRefinementRuleTry() []RefinementRuleTry {
-	n := d.w.SliceLen()
-	if n < 0 {
-		return nil
-	}
-	if n == 0 {
-		return []RefinementRuleTry{}
-	}
-	if r, fresh := d.ref(); !fresh {
-		x, _ := r.([]RefinementRuleTry)
-		if len(x) != n {
-			d.fail("a shared slice of another length")
-		}
-		return x
-	}
-	d.w.Fits(n)
-	x := make([]RefinementRuleTry, n)
-	d.add(x)
-	for i := range x {
-		d.stRefinementRuleTry(&x[i])
-	}
-	return x
-}
-
-func (e *stateEncoder) stSRefinementStep(x []RefinementStep) {
-	e.w.Len(x == nil, len(x))
-	if len(x) == 0 || !e.refSlice(unsafe.Pointer(unsafe.SliceData(x)), len(x), 175) {
-		return
-	}
-	for i := range x {
-		e.stRefinementStep(&x[i])
-	}
-}
-
-func (d *stateDecoder) stSRefinementStep() []RefinementStep {
-	n := d.w.SliceLen()
-	if n < 0 {
-		return nil
-	}
-	if n == 0 {
-		return []RefinementStep{}
-	}
-	if r, fresh := d.ref(); !fresh {
-		x, _ := r.([]RefinementStep)
-		if len(x) != n {
-			d.fail("a shared slice of another length")
-		}
-		return x
-	}
-	d.w.Fits(n)
-	x := make([]RefinementStep, n)
-	d.add(x)
-	for i := range x {
-		d.stRefinementStep(&x[i])
-	}
-	return x
-}
-
 func (e *stateEncoder) stSRelatedInfo(x []RelatedInfo) {
 	e.w.Len(x == nil, len(x))
 	if len(x) == 0 || !e.refSlice(unsafe.Pointer(unsafe.SliceData(x)), len(x), 30) {
@@ -7783,6 +7671,74 @@ func (d *stateDecoder) stSSstring() [][]string {
 	d.add(x)
 	for i := range x {
 		x[i] = d.stSstring()
+	}
+	return x
+}
+
+func (e *stateEncoder) stSSubtypeRuleTry(x []SubtypeRuleTry) {
+	e.w.Len(x == nil, len(x))
+	if len(x) == 0 || !e.refSlice(unsafe.Pointer(unsafe.SliceData(x)), len(x), 178) {
+		return
+	}
+	for i := range x {
+		e.stSubtypeRuleTry(&x[i])
+	}
+}
+
+func (d *stateDecoder) stSSubtypeRuleTry() []SubtypeRuleTry {
+	n := d.w.SliceLen()
+	if n < 0 {
+		return nil
+	}
+	if n == 0 {
+		return []SubtypeRuleTry{}
+	}
+	if r, fresh := d.ref(); !fresh {
+		x, _ := r.([]SubtypeRuleTry)
+		if len(x) != n {
+			d.fail("a shared slice of another length")
+		}
+		return x
+	}
+	d.w.Fits(n)
+	x := make([]SubtypeRuleTry, n)
+	d.add(x)
+	for i := range x {
+		d.stSubtypeRuleTry(&x[i])
+	}
+	return x
+}
+
+func (e *stateEncoder) stSSubtypeStep(x []SubtypeStep) {
+	e.w.Len(x == nil, len(x))
+	if len(x) == 0 || !e.refSlice(unsafe.Pointer(unsafe.SliceData(x)), len(x), 175) {
+		return
+	}
+	for i := range x {
+		e.stSubtypeStep(&x[i])
+	}
+}
+
+func (d *stateDecoder) stSSubtypeStep() []SubtypeStep {
+	n := d.w.SliceLen()
+	if n < 0 {
+		return nil
+	}
+	if n == 0 {
+		return []SubtypeStep{}
+	}
+	if r, fresh := d.ref(); !fresh {
+		x, _ := r.([]SubtypeStep)
+		if len(x) != n {
+			d.fail("a shared slice of another length")
+		}
+		return x
+	}
+	d.w.Fits(n)
+	x := make([]SubtypeStep, n)
+	d.add(x)
+	for i := range x {
+		d.stSubtypeStep(&x[i])
 	}
 	return x
 }
@@ -8773,6 +8729,50 @@ func (d *stateDecoder) stStructType(x *StructType) {
 	x.OwningSourceFile = string(d.str())
 	x.Rule = string(d.str())
 	x.unbuilt = d.stPunbuiltDecl()
+}
+
+func (e *stateEncoder) stSubtypeLiteral(x *SubtypeLiteral) {
+	e.stType(x.Type)
+	e.stSSubtypeStep(x.Steps)
+}
+
+func (d *stateDecoder) stSubtypeLiteral(x *SubtypeLiteral) {
+	x.Type = d.stType()
+	x.Steps = d.stSSubtypeStep()
+}
+
+func (e *stateEncoder) stSubtypeRuleCheck(x *SubtypeRuleCheck) {
+	e.stPDistinctType(x.Type)
+	e.stSSubtypeRuleTry(x.Tries)
+}
+
+func (d *stateDecoder) stSubtypeRuleCheck(x *SubtypeRuleCheck) {
+	x.Type = d.stPDistinctType()
+	x.Tries = d.stSSubtypeRuleTry()
+}
+
+func (e *stateEncoder) stSubtypeRuleTry(x *SubtypeRuleTry) {
+	e.stast_Node(x.Check)
+	e.stType(x.Arg)
+}
+
+func (d *stateDecoder) stSubtypeRuleTry(x *SubtypeRuleTry) {
+	x.Check = d.stast_Node()
+	x.Arg = d.stType()
+}
+
+func (e *stateEncoder) stSubtypeStep(x *SubtypeStep) {
+	e.stType(x.Type)
+	e.stast_Node(x.TryFrom)
+	e.stast_Node(x.Check)
+	e.stSType(x.Via)
+}
+
+func (d *stateDecoder) stSubtypeStep(x *SubtypeStep) {
+	x.Type = d.stType()
+	x.TryFrom = d.stast_Node()
+	x.Check = d.stast_Node()
+	x.Via = d.stSType()
 }
 
 func (e *stateEncoder) stSymbol(x *Symbol) {
@@ -9911,4 +9911,4 @@ func (d *stateDecoder) stunbuiltDecl(x *unbuiltDecl) {
 }
 
 // stateCodecDigest is a digest of the code above it (StdStateFormat).
-const stateCodecDigest = "eca957086a68b208"
+const stateCodecDigest = "5b8bebcbadf95a11"

@@ -125,7 +125,7 @@ func TestFunctionReach_OwnFunctions(t *testing.T) {
 	const module = "[package]\nname = \"app\"\nentry_points = [\"main\"]\n"
 	dir := writeProject(t, map[string]string{
 		"main.nomi": functionReachMain,
-		"nomi.toml": module + "\n[effects.self]\nstd = [\"std::io\"]\n",
+		"nomi.toml": module + "\n[effects.self]\neffects = [\"std::io\"]\n",
 		"go.mod":    "module example.com/app\n\ngo 1.27.0\n",
 	})
 	p, err := Load(filepath.Join(dir, "main.nomi"))
@@ -165,17 +165,17 @@ func TestFunctionReach_OwnFunctions(t *testing.T) {
 // reaches.
 func TestFunctionReach_ADependencysFunction(t *testing.T) {
 	for _, tc := range []struct {
-		name, app, want string
+		name, app, entry, want string
 	}{
-		{"no tables", "[package]\nname = \"app\"\nentry_points = [\"main\"]\n", "Has effects: `std::fs`."},
-		{"held by deps and its entry", "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.deps]\nstd = [\"std::fs\"]\n\n" +
-			"[effects.deps.packages]\n\"pricing\" = [\"std::fs\"]\n",
-			"Has effects: `std::fs`, which `nomi.toml` allows in `[effects.deps]` and in the entry for `pricing`."},
-		{"refused by its entry", "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.deps.packages]\n\"pricing\" = []\n",
+		{"no tables", "[package]\nname = \"app\"\nentry_points = [\"main\"]\n", "", "Has effects: `std::fs`."},
+		{"held by deps and its entry", "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.dependencies]\neffects = [\"std::fs\"]\n",
+			`effects = ["std::fs"]`,
+			"Has effects: `std::fs`, which `nomi.toml` allows in `[effects.dependencies]` and in the entry for `pricing`."},
+		{"refused by its entry", "[package]\nname = \"app\"\nentry_points = [\"main\"]\n", "effects = []",
 			"Has effects: `std::fs`, which `nomi.toml` does not allow in the entry for `pricing`."},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			dir := writeProject(t, dependencyFiles(tc.app, ""))
+			dir := writeProject(t, withEntry(dependencyFiles(tc.app, ""), tc.entry))
 			p, err := Load(filepath.Join(dir, "app", "main.nomi"))
 			if err != nil {
 				t.Fatal(err)

@@ -187,6 +187,168 @@ func TestDocumentManager_StdlibFileCalendarCivilUnitQualifiedTypeReferences(t *t
 	}
 }
 
+// stdSubtypeDoc is a std file that declares a subtype, a validated struct
+// and a validated opaque type, and calls the functions the front end writes
+// for each (subtype_synthesis.go), as std's own modules do.
+const stdSubtypeDoc = `import
+    std::convert.TryFrom
+    std::int.Int
+    std::option.Option
+end
+
+pub subtype Positive Int when fn n -> n > 0
+
+pub struct Span
+    low: Int
+    high: Int
+    when fn span -> span.low <= span.high
+end
+
+pub opaque type Even Int when fn n -> n % 2 == 0
+
+pub fn one() -> Positive
+    Positive.unchecked(1)
+end
+
+pub fn positive(n: Int) -> Option<Positive>
+    Positive.try_from(n)
+end
+
+pub fn span(low: Int, high: Int) -> Option<Span>
+    Span.try_from({low:, high:})
+end
+
+pub fn unit_span() -> Span
+    Span.unchecked({low: 0, high: 1})
+end
+
+pub fn even(n: Int) -> Option<Even>
+    Even.try_from(n)
+end
+
+pub fn zero() -> Even
+    Even.unchecked(0)
+end
+`
+
+// A std file opened as a document is checked with the impl blocks the front
+// end writes for its declarations, as `nomi check` checks it: a call of a
+// subtype's `unchecked` or `try_from` in the declaring file resolves, and
+// each written function has its type, which hover shows.
+func TestDocumentManager_StdlibFileCallsTheFunctionsWrittenForItsTypes(t *testing.T) {
+	lib := loadStd()
+	dm := analysis.NewDocumentManager()
+	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
+	doc := dm.Open("file:///path/to/std/checked.nomi", stdSubtypeDoc)
+	if doc == nil || doc.Analysis == nil {
+		t.Fatal("expected analyzed document")
+	}
+	if len(doc.Errors) != 0 {
+		t.Fatalf("the fixture does not parse: %v", doc.Errors)
+	}
+	if len(doc.Analysis.TypeErrors) != 0 {
+		t.Fatalf("a std document that calls the functions written for its own types reports:\n%v", doc.Analysis.TypeErrors)
+	}
+	for _, want := range []struct{ typ, fn, sig string }{
+		{"Positive", "try_from", "(Int) -> Option<Positive>"},
+		{"Positive", "unchecked", "(Int) -> Positive"},
+		{"Span", "try_from", "({low: Int, high: Int}) -> Option<Span>"},
+		{"Span", "unchecked", "({low: Int, high: Int}) -> Span"},
+		{"Even", "unchecked", "(Int) -> Even"},
+	} {
+		sym := doc.Analysis.LookupTypeMethod(want.typ, want.fn)
+		if sym == nil {
+			t.Errorf("%s.%s: no function", want.typ, want.fn)
+			continue
+		}
+		if sym.Type == nil || sym.Type.String() != want.sig {
+			t.Errorf("%s.%s: type %v, want %s", want.typ, want.fn, sym.Type, want.sig)
+		}
+	}
+	// Each call names the written function, for hover and go-to-definition.
+	for _, call := range []string{"Positive.unchecked(1)", "Positive.try_from(n)", "Span.try_from(", "Span.unchecked(", "Even.try_from(n)", "Even.unchecked(0)"} {
+		name := "unchecked"
+		if strings.Contains(call, "try_from") {
+			name = "try_from"
+		}
+		pos, ok := posInSource(stdSubtypeDoc, call, name)
+		if !ok {
+			t.Fatalf("could not locate %s", call)
+		}
+		sym := doc.Analysis.SymbolAt(pos)
+		if sym == nil || sym.Name != name || sym.Type == nil {
+			t.Errorf("%s: the symbol at %s is %+v, want the typed function", call, name, sym)
+		}
+	}
+}
+
+// A subtype's rule is checked inside the `try_from` written for it, so a
+// std document reports a rule that does not check, at the rule.
+func TestDocumentManager_StdlibFileChecksASubtypesRule(t *testing.T) {
+	lib := loadStd()
+	dm := analysis.NewDocumentManager()
+	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
+	src := strings.Replace(stdSubtypeDoc, "when fn n -> n > 0", `when fn n -> n > "0"`, 1)
+	doc := dm.Open("file:///path/to/std/checked.nomi", src)
+	if doc == nil || doc.Analysis == nil {
+		t.Fatal("expected analyzed document")
+	}
+	want, ok := posInSource(src, `n > "0"`, `n > "0"`)
+	if !ok {
+		t.Fatal("could not locate the rule")
+	}
+	if len(doc.Analysis.TypeErrors) == 0 {
+		t.Fatal("a std document whose subtype's rule compares an Int with a String reports nothing")
+	}
+	e := doc.Analysis.TypeErrors[0]
+	if len(doc.Analysis.TypeErrors) != 1 || e.Message != "comparison type mismatch: Int vs String" || e.Line != want.Line {
+		t.Fatalf("want one error at the rule (line %d), `comparison type mismatch: Int vs String`, got:\n%v", want.Line, doc.Analysis.TypeErrors)
+	}
+}
+
+// Every std module opened as a document, as go-to-definition into std opens
+// one, reports no error: the std the server was built with checks, and a
+// document's analysis of one of its files is that check's.
+func TestDocumentManager_EveryStdModuleOpensWithNoError(t *testing.T) {
+	_, thisFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("could not locate test file")
+	}
+	repo := filepath.Clean(filepath.Join(filepath.Dir(thisFile), "..", ".."))
+	var paths []string
+	err := filepath.WalkDir(filepath.Join(repo, "std"), func(path string, d os.DirEntry, err error) error {
+		if err == nil && !d.IsDir() && filepath.Ext(path) == ".nomi" {
+			paths = append(paths, path)
+		}
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(paths) == 0 {
+		t.Fatal("found no std module")
+	}
+	lib := loadStd()
+	for _, path := range paths {
+		src, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		dm := analysis.NewDocumentManager()
+		dm.SetEditorFolder(repo)
+		dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
+		doc := dm.Open(fileuri.FromPath(path), string(src))
+		rel, _ := filepath.Rel(repo, path)
+		if doc == nil || doc.Analysis == nil {
+			t.Errorf("%s: no analysis", rel)
+			continue
+		}
+		if len(doc.Errors) > 0 || len(doc.Analysis.TypeErrors) > 0 {
+			t.Errorf("%s as a document reports:\n%v\n%v", rel, doc.Errors, doc.Analysis.TypeErrors)
+		}
+	}
+}
+
 func posInSource(src, containing, token string) (analysis.Pos, bool) {
 	blockOffset := strings.Index(src, containing)
 	if blockOffset < 0 {

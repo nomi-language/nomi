@@ -416,10 +416,10 @@ type gen struct {
 	// irliteralcell.go.
 	literalCells map[*ast.TaggedString]*ir.Symbol
 	literalSites []LiteralSite
-	// refinements and refinementRuleSites are the refinement literals this
-	// unit's file checks and the refinements it declares (refinement.go).
-	refinements         []RefinementSite
-	refinementRuleSites []RefinementRuleSite
+	// subtypes and subtypeRuleSites are the subtype literals this
+	// unit's file checks and the subtypes it declares (subtype.go).
+	subtypes         []SubtypeSite
+	subtypeRuleSites []SubtypeRuleSite
 	// checkSites holds each checked literal whose check site this unit
 	// declared (irchecked.go), and whether it lowered.
 	checkSites map[*ast.TaggedString]bool

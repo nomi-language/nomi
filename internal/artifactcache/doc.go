@@ -27,15 +27,17 @@
 // nothing has used for a limit (Prune), never the one the running process
 // is about to use. The limit is Unused, two weeks, unless a kind keeps
 // less: std's interfaces, state and bundle, keyed by the compiler build,
-// go a day after the last process of that build used them, and a kept
-// program (internal/progcache) after five days. A prune runs where an
-// entry is written, or at most once a day where a directory is only read
-// (Due). The directories and what prunes each:
+// go a day after the last process of that build used them (StdUnused),
+// and a kept program (internal/progcache) after five days. A prune runs
+// where an entry is written, or at most once a day where a directory is
+// only read (Due), and answers what it removed (Pruned). The directories
+// and what prunes each:
 //
-//   - artifacts/std: std/artifact.go, std/state.go and internal/irbuild's
-//     std bundle, when a build writes its own entry.
-//   - artifacts/programs: internal/progcache, at most once an hour, when
-//     it writes a record.
+//   - artifacts/std (StdDir): std/artifact.go, std/state.go and
+//     internal/irbuild's std bundle, when a build writes its own entry.
+//   - artifacts/programs, and beside it each other kind of record a
+//     program keeps (progcache's Entry.Sibling): internal/progcache, at
+//     most once an hour, when it writes a record.
 //   - artifacts/wasm: internal/stdwasm's compiled WebAssembly modules, at
 //     most once a day, when a module compiles.
 //   - builds/ (os.UserCacheDir()/nomi/builds, or NOMI_RUNNER_CACHE_ROOT):
@@ -50,6 +52,20 @@
 //     extracts, each `<path>@<tag>` at any depth under its host, which a
 //     resolve that finds it marks used, at most once a day when a fetch
 //     runs (pkgcache.Prune, which uses Expired).
+//
+// `nomi cache prune` runs each of these prunes now, with its own ages: a
+// prune that waits for Due is forced, which Due answers due and marks
+// done, so the next process does not prune again within the day
+// (progcache.Prune, stdwasm.Prune, runners.Prune, stdcache.Prune and
+// pkgcache.Prune, with Prune here for artifacts/std). It takes no lock:
+// every age is at least an hour past the last use a process marks.
+// `nomi cache clean` empties the artifact, package, runner and std caches
+// (cmd/nomi's cache_cmd.go). Every removal goes through RemoveTree, which
+// makes a read-only tree writable first, and both commands refuse a
+// directory an environment variable names when ForeignEntry finds an
+// entry there of a shape the cache does not write (Foreign here, and
+// pkgcache's, runners' and stdcache's), so a variable that names a
+// project or a home directory removes nothing.
 //
 // A test process runs the same code over os.TempDir()/nomi-test-cache, and
 // internal/parser's tree-sitter tests keep a compiled grammar per checkout

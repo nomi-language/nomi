@@ -18,13 +18,13 @@ const appType = "struct App\n    limit: Int\n    label: String\nend\n\n" +
 
 // A rule that reads an app field, its own body or a function it calls, is
 // an error at its declaration that names the field and says why, and is no
-// effect; a refinement's and a validated struct's alike. A rule that reads
+// effect; a subtype's and a validated struct's alike. A rule that reads
 // none loads.
-func TestRefinement_ARuleThatReadsAnAppFieldIsAnError(t *testing.T) {
+func TestSubtype_ARuleThatReadsAnAppFieldIsAnError(t *testing.T) {
 	for _, tc := range []struct{ name, decls, body, want string }{
-		{"a refinement's rule, through a function",
+		{"a subtype's rule, through a function",
 			"fn below_limit(n: Int) -> Bool\n    n < App.limit\nend\n\n" +
-				"refine Bounded Int when fn n -> below_limit(n)\n\n",
+				"subtype Bounded Int when fn n -> below_limit(n)\n\n",
 			"    b: Bounded = 2\n    io.inspect(b)\n",
 			"the rule of Bounded reads `App.limit`: a rule is checked with the value alone, and an app field exists only while the program runs"},
 		{"a validated struct's rule, two fields",
@@ -35,7 +35,7 @@ func TestRefinement_ARuleThatReadsAnAppFieldIsAnError(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ds := literalDiagnostics(t, appDecls+tc.decls+"fn main()\n"+tc.body+"end\n")
-			if len(ds) != 1 || ds[0].Message != tc.want || ds[0].Code != InvalidRefinementCode {
+			if len(ds) != 1 || ds[0].Message != tc.want || ds[0].Code != InvalidSubtypeCode {
 				t.Fatalf("diagnostics = %v, want one reading %q", ds, tc.want)
 			}
 			if strings.Contains(ds[0].Message, "effect") {
@@ -43,7 +43,7 @@ func TestRefinement_ARuleThatReadsAnAppFieldIsAnError(t *testing.T) {
 			}
 		})
 	}
-	pure := appDecls + "refine Small Int when fn n -> n < 10\n\nfn main()\n    s: Small = 2\n    io.inspect((s, App.limit))\nend\n"
+	pure := appDecls + "subtype Small Int when fn n -> n < 10\n\nfn main()\n    s: Small = 2\n    io.inspect((s, App.limit))\nend\n"
 	if _, err := LoadSource("main", pure); err != nil {
 		t.Fatalf("a rule that reads no app field does not load beside code that does: %v", err)
 	}

@@ -31,7 +31,7 @@ import
     http::host as http_host
     io.{Reader, Writer}
     iter.Iter
-    lists.List
+    lists.{List, NonEmptyList}
     mail.{self, Address, Attachment, Credentials, Error, Mailer, Message, Security, SmtpConfig}
     net.{self, Connection, Listener}
     option.Option.{self, None, Some}
@@ -461,7 +461,7 @@ end
 // The address in `FROM:<a@b>` or `TO:<a@b>`, without parameters after it.
 fn path(argument: String, prefix: String) -> String
     rest = String.drop(argument, String.length(prefix))
-    first = String.split(rest, " ") |> List.first() |> Option.with_default("")
+    first = String.split(rest, " ") |> NonEmptyList.first()
     String.replace(String.replace(first, "<", ""), ">", "")
 end
 

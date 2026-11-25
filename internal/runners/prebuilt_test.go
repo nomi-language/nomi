@@ -220,11 +220,11 @@ func TestDownloadRunner(t *testing.T) {
 		"nomi-vm.exe": []byte("the windows runner"),
 	})
 	rel := &fakeRelease{files: map[string][]byte{
-		"/" + v + "/nomi_v9.9.9_linux_amd64_runners.tar.gz": linux,
-		"/" + v + "/nomi_v9.9.9_windows_amd64_runners.zip":  windows,
-		"/" + v + "/nomi_v9.9.9_checksums.txt": []byte(fmt.Sprintf("%s  ./nomi_v9.9.9_linux_amd64_runners.tar.gz\n%s  ./nomi_v9.9.9_windows_amd64_runners.zip\n%s  ./nomi_v9.9.9_linux_arm64_runners.tar.gz\n",
+		"/download/" + v + "/nomi_v9.9.9_linux_amd64_runners.tar.gz": linux,
+		"/download/" + v + "/nomi_v9.9.9_windows_amd64_runners.zip":  windows,
+		"/download/" + v + "/nomi_v9.9.9_checksums.txt": []byte(fmt.Sprintf("%s  ./nomi_v9.9.9_linux_amd64_runners.tar.gz\n%s  ./nomi_v9.9.9_windows_amd64_runners.zip\n%s  ./nomi_v9.9.9_linux_arm64_runners.tar.gz\n",
 			sha(linux), sha(windows), strings.Repeat("0", 64))),
-		"/" + v + "/nomi_v9.9.9_linux_arm64_runners.tar.gz": linux,
+		"/download/" + v + "/nomi_v9.9.9_linux_arm64_runners.tar.gz": linux,
 	}}
 	srv := httptest.NewServer(rel)
 	defer srv.Close()
@@ -238,7 +238,7 @@ func TestDownloadRunner(t *testing.T) {
 		if got, _ := os.ReadFile(dest); string(got) != "the linux runner" {
 			t.Fatalf("extracted %q", got)
 		}
-		if want := srv.URL + "/v9.9.9/nomi_v9.9.9_linux_amd64_runners.tar.gz"; !strings.Contains(progress.String(), want) {
+		if want := srv.URL + "/download/v9.9.9/nomi_v9.9.9_linux_amd64_runners.tar.gz"; !strings.Contains(progress.String(), want) {
 			t.Fatalf("progress %q does not name %s", progress.String(), want)
 		}
 		// Windows has no executable bit; a file runs by its .exe name.
@@ -275,7 +275,7 @@ func TestDownloadRunner(t *testing.T) {
 	})
 	t.Run("no such release", func(t *testing.T) {
 		err := downloadRunner(srv.URL, "v0.0.1", Target{"linux", "amd64"}, Variant{}, filepath.Join(t.TempDir(), "nomi-vm"), nil)
-		want := srv.URL + "/v0.0.1/nomi_v0.0.1_checksums.txt: HTTP 404"
+		want := srv.URL + "/download/v0.0.1/nomi_v0.0.1_checksums.txt: HTTP 404"
 		if err == nil || !strings.Contains(err.Error(), want) ||
 			!strings.Contains(err.Error(), "check that v0.0.1 is a published release") {
 			t.Fatalf("got %v, want it to name %s", err, want)
@@ -286,9 +286,9 @@ func TestDownloadRunner(t *testing.T) {
 		base := closed.URL
 		closed.Close()
 		err := downloadRunner(base, v, Target{"linux", "amd64"}, Variant{}, filepath.Join(t.TempDir(), "nomi-vm"), nil)
-		if err == nil || !strings.Contains(err.Error(), base+"/v9.9.9/nomi_v9.9.9_checksums.txt") ||
+		if err == nil || !strings.Contains(err.Error(), base+"/download/v9.9.9/nomi_v9.9.9_checksums.txt") ||
 			!strings.Contains(err.Error(), "Connect to the network") ||
-			!strings.Contains(err.Error(), base+"/v9.9.9/nomi_v9.9.9_linux_amd64_runners.tar.gz") {
+			!strings.Contains(err.Error(), base+"/download/v9.9.9/nomi_v9.9.9_linux_amd64_runners.tar.gz") {
 			t.Fatalf("got %v", err)
 		}
 	})
@@ -311,9 +311,9 @@ func TestDownloadRunner_JSWasmBringsItsWasmExec(t *testing.T) {
 	})
 	serve := func(jsArchive []byte) *httptest.Server {
 		rel := &fakeRelease{files: map[string][]byte{
-			"/" + v + "/nomi_v9.9.9_js_wasm_runners.tar.gz":     jsArchive,
-			"/" + v + "/nomi_v9.9.9_wasip1_wasm_runners.tar.gz": wasi,
-			"/" + v + "/nomi_v9.9.9_checksums.txt": []byte(fmt.Sprintf("%s  ./nomi_v9.9.9_js_wasm_runners.tar.gz\n%s  ./nomi_v9.9.9_wasip1_wasm_runners.tar.gz\n",
+			"/download/" + v + "/nomi_v9.9.9_js_wasm_runners.tar.gz":     jsArchive,
+			"/download/" + v + "/nomi_v9.9.9_wasip1_wasm_runners.tar.gz": wasi,
+			"/download/" + v + "/nomi_v9.9.9_checksums.txt": []byte(fmt.Sprintf("%s  ./nomi_v9.9.9_js_wasm_runners.tar.gz\n%s  ./nomi_v9.9.9_wasip1_wasm_runners.tar.gz\n",
 				sha(jsArchive), sha(wasi))),
 		}}
 		srv := httptest.NewServer(rel)
@@ -379,8 +379,8 @@ func TestDownloadRunner_AnArchiveWithoutTheReactorSaysSo(t *testing.T) {
 	const v = "v9.9.9"
 	wasi := tarGz(t, map[string][]byte{"./nomi-vm": []byte("the wasip1 runner")})
 	srv := httptest.NewServer(&fakeRelease{files: map[string][]byte{
-		"/" + v + "/nomi_v9.9.9_wasip1_wasm_runners.tar.gz": wasi,
-		"/" + v + "/nomi_v9.9.9_checksums.txt":              []byte(sha(wasi) + "  ./nomi_v9.9.9_wasip1_wasm_runners.tar.gz\n"),
+		"/download/" + v + "/nomi_v9.9.9_wasip1_wasm_runners.tar.gz": wasi,
+		"/download/" + v + "/nomi_v9.9.9_checksums.txt":              []byte(sha(wasi) + "  ./nomi_v9.9.9_wasip1_wasm_runners.tar.gz\n"),
 	}})
 	defer srv.Close()
 	dir := t.TempDir()
@@ -493,8 +493,8 @@ func compilerArchive(t *testing.T, runner, sum string) (*httptest.Server, *fakeR
 		sum = sha(data)
 	}
 	rel := &fakeRelease{files: map[string][]byte{
-		"/v9.9.9/nomi_v9.9.9_linux_amd64_compiler.tar.gz": data,
-		"/v9.9.9/nomi_v9.9.9_checksums.txt":               []byte(sum + "  ./nomi_v9.9.9_linux_amd64_compiler.tar.gz\n"),
+		"/download/v9.9.9/nomi_v9.9.9_linux_amd64_compiler.tar.gz": data,
+		"/download/v9.9.9/nomi_v9.9.9_checksums.txt":               []byte(sum + "  ./nomi_v9.9.9_linux_amd64_compiler.tar.gz\n"),
 	}}
 	srv := httptest.NewServer(rel)
 	t.Cleanup(srv.Close)
@@ -543,7 +543,7 @@ func TestPrebuilt_TheCompilerRunnerIsDownloaded(t *testing.T) {
 		if data, _ := os.ReadFile(got); got != want || string(data) != "compiler runner" {
 			t.Fatalf("got %s holding %q, want the downloaded runner at %s", got, data, want)
 		}
-		if url := srv.URL + "/v9.9.9/nomi_v9.9.9_linux_amd64_compiler.tar.gz"; !strings.Contains(progress.String(),
+		if url := srv.URL + "/download/v9.9.9/nomi_v9.9.9_linux_amd64_compiler.tar.gz"; !strings.Contains(progress.String(),
 			"nomi: downloading nomi-vm-compiler for linux/amd64 from "+url) {
 			t.Fatalf("progress %q does not name %s", progress.String(), url)
 		}
@@ -598,9 +598,9 @@ func TestPrebuilt_AReleaseWithNoRunnerNeverRunsGo(t *testing.T) {
 		want       []string
 	}{
 		{"no network", base, []string{
-			"no nomi-vm-compiler for linux/amd64 is installed, and downloading it from the v9.9.9 release failed: " + base + "/v9.9.9/nomi_v9.9.9_checksums.txt",
+			"no nomi-vm-compiler for linux/amd64 is installed, and downloading it from the v9.9.9 release failed: " + base + "/download/v9.9.9/nomi_v9.9.9_checksums.txt",
 			"A release nomi builds no runner: it fetches one that is not installed beside it from the release it was cut as",
-			"Connect to the network and re-run, or unpack nomi-vm-compiler from " + base + "/v9.9.9/nomi_v9.9.9_linux_amd64_compiler.tar.gz yourself",
+			"Connect to the network and re-run, or unpack nomi-vm-compiler from " + base + "/download/v9.9.9/nomi_v9.9.9_linux_amd64_compiler.tar.gz yourself",
 		}},
 		{"a release without the archive", "", []string{
 			"the v9.9.9 release's checksum file ", "lists no nomi_v9.9.9_linux_amd64_compiler.tar.gz",
@@ -610,7 +610,7 @@ func TestPrebuilt_AReleaseWithNoRunnerNeverRunsGo(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			if c.base == "" {
 				srv := httptest.NewServer(&fakeRelease{files: map[string][]byte{
-					"/v9.9.9/nomi_v9.9.9_checksums.txt": []byte(strings.Repeat("ab", 32) + "  ./nomi_v9.9.9_linux_amd64_runners.tar.gz\n"),
+					"/download/v9.9.9/nomi_v9.9.9_checksums.txt": []byte(strings.Repeat("ab", 32) + "  ./nomi_v9.9.9_linux_amd64_runners.tar.gz\n"),
 				}})
 				t.Cleanup(srv.Close)
 				c.base = srv.URL
@@ -632,5 +632,57 @@ func TestPrebuilt_AReleaseWithNoRunnerNeverRunsGo(t *testing.T) {
 			}
 			r.noGoRan(t)
 		})
+	}
+}
+
+// TestLatestRelease: the latest release is the tag the releases root's
+// /latest redirects to, and a root that redirects nowhere, or to a page that
+// names no release, is an error that names the URL.
+func TestLatestRelease(t *testing.T) {
+	to := ""
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/latest" || to == "" {
+			http.NotFound(w, r)
+			return
+		}
+		http.Redirect(w, r, to, http.StatusFound)
+	}))
+	t.Cleanup(srv.Close)
+	t.Setenv(releaseBaseURLEnv, srv.URL)
+	to = srv.URL + "/tag/v9.9.9"
+	if got, err := LatestRelease(); err != nil || got != "v9.9.9" {
+		t.Fatalf("got %q, %v, want v9.9.9", got, err)
+	}
+	for _, c := range []string{"", srv.URL + "/tag/main", srv.URL + "/releases"} {
+		to = c
+		if got, err := LatestRelease(); err == nil || !strings.Contains(err.Error(), srv.URL+"/latest") {
+			t.Errorf("redirected to %q: got %q, %v, want an error naming %s/latest", c, got, err, srv.URL)
+		}
+	}
+}
+
+// TestReleaseNomi: a release's nomi is the main archive's, a .tar.gz's
+// nomi or a zip's nomi.exe, and a checksum that does not match answers
+// nothing.
+func TestReleaseNomi(t *testing.T) {
+	linux := tarGz(t, map[string][]byte{"./nomi": []byte("the linux nomi")})
+	windows := zipOf(t, map[string][]byte{"nomi.exe": []byte("the windows nomi")})
+	rel := &fakeRelease{files: map[string][]byte{
+		"/download/v9.9.9/nomi_v9.9.9_linux_amd64.tar.gz": linux,
+		"/download/v9.9.9/nomi_v9.9.9_windows_amd64.zip":  windows,
+		"/download/v9.9.9/nomi_v9.9.9_checksums.txt": []byte(fmt.Sprintf("%s  ./nomi_v9.9.9_linux_amd64.tar.gz\n%s  ./nomi_v9.9.9_windows_amd64.zip\n%s  ./nomi_v9.9.9_linux_arm64.tar.gz\n",
+			sha(linux), sha(windows), strings.Repeat("0", 64))),
+		"/download/v9.9.9/nomi_v9.9.9_linux_arm64.tar.gz": linux,
+	}}
+	srv := httptest.NewServer(rel)
+	t.Cleanup(srv.Close)
+	t.Setenv(releaseBaseURLEnv, srv.URL)
+	for target, want := range map[Target]string{{"linux", "amd64"}: "the linux nomi", {"windows", "amd64"}: "the windows nomi"} {
+		if got, err := ReleaseNomi("v9.9.9", target); err != nil || string(got) != want {
+			t.Errorf("%s: got %q, %v, want %q", target, got, err, want)
+		}
+	}
+	if got, err := ReleaseNomi("v9.9.9", Target{"linux", "arm64"}); err == nil || !strings.Contains(err.Error(), "does not match the release's checksum file") {
+		t.Errorf("a bad checksum: got %q, %v", got, err)
 	}
 }

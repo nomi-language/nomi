@@ -79,8 +79,8 @@ func TestPackages_AddSaysWhatThePackageReaches(t *testing.T) {
 
 // With [effects] tables nomi add also says whether the tables allow
 // every call the program reaches. With entries_required it writes the
-// added package's tightest entry under [effects.deps.packages] and says
-// so, but writes none for a package nothing imports yet.
+// added entry's tightest `effects` key and says so, but writes none for a
+// package nothing imports yet.
 func TestPackages_AddWritesThePackagesEntry(t *testing.T) {
 	c := newModuleCLI(t)
 	work := t.TempDir()
@@ -88,13 +88,13 @@ func TestPackages_AddWritesThePackagesEntry(t *testing.T) {
 	app := filepath.Join(work, "app")
 	reachModules(t, work)
 	manifest := "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n" +
-		"[effects.self]\nstd = [\"std::io\"]\n\n" +
-		"[effects.deps]\nentries_required = true\nstd = [\"std::fs\"]\n"
+		"[effects.self]\neffects = [\"std::io\"]\n\n" +
+		"[effects.dependencies]\nentries_required = true\neffects = [\"std::fs\"]\n"
 	mustWrite(t, filepath.Join(app, "nomi.toml"), manifest)
 
 	mustWrite(t, filepath.Join(app, "main.nomi"), reachMain())
 	want := "added pure from ../pure (import pure)\n\npackages\n  pure\n    not imported yet\n\n" +
-		"once a file imports it, entries_required needs its entry under [effects.deps.packages]; nomi effects --write writes it\n" +
+		"once a file imports it, entries_required needs an effects key on its [dependencies] entry; nomi effects --write writes it\n" +
 		"nomi.toml's [effects] tables allow every effect the program has"
 	if out := c.must(app, "add", "../pure"); out != want {
 		t.Errorf("nomi add of a module nothing imports printed\n%s\nwant\n%s", out, want)
@@ -106,12 +106,12 @@ func TestPackages_AddWritesThePackagesEntry(t *testing.T) {
 
 	mustWrite(t, filepath.Join(app, "main.nomi"), reachMain("fetch"))
 	want = "added fetch from ../fetch (import fetch)\n\npackages\n  fetch\n    std::fs\n\n" +
-		"wrote \"fetch\" = [\"std::fs\"] under [effects.deps.packages] in nomi.toml\n" +
+		"wrote effects = [\"std::fs\"] on fetch under [dependencies] in nomi.toml\n" +
 		"nomi.toml's [effects] tables allow every effect the program has"
 	if out := c.must(app, "add", "../fetch"); out != want {
 		t.Errorf("nomi add of a module that reads files printed\n%s\nwant\n%s", out, want)
 	}
-	if got := mustRead(t, filepath.Join(app, "nomi.toml")); !strings.HasSuffix(got, "[effects.deps.packages]\n\"fetch\" = [\"std::fs\"]\n") {
+	if got := mustRead(t, filepath.Join(app, "nomi.toml")); !strings.Contains(got, "fetch = { dir = \"../fetch\", effects = [\"std::fs\"] }\n") {
 		t.Errorf("nomi.toml after nomi add ../fetch:\n%s", got)
 	}
 
@@ -143,7 +143,7 @@ func TestPackages_UpdateSaysWhatChangedInTheReach(t *testing.T) {
 	mustWrite(t, filepath.Join(app, "main.nomi"), "import\n    std::io\n    greet\nend\n\nfn main()\n    io.print(greet.hello())\nend\n")
 	c.must(app, "add", "example.com/greet")
 	c.must(app, "add", "example.com/idle")
-	mustWrite(t, filepath.Join(app, "nomi.toml"), mustRead(t, filepath.Join(app, "nomi.toml"))+"\n[effects.self]\nstd = [\"std::io\"]\n\n[effects.deps]\nstd = [\"std::fs\"]\n")
+	mustWrite(t, filepath.Join(app, "nomi.toml"), mustRead(t, filepath.Join(app, "nomi.toml"))+"\n[effects.self]\neffects = [\"std::io\"]\n\n[effects.dependencies]\neffects = [\"std::fs\"]\n")
 
 	c.host.Tag("example.com/greet", "v1.1.0", greet("import\n    std::http\n    std::url.Url\nend\n\n"+
 		"pub fn hello() -> String\n    _ = http.get(Url\"https://example.com/greeting\")\n    \"hello\"\nend\n"))
@@ -154,5 +154,48 @@ func TestPackages_UpdateSaysWhatChangedInTheReach(t *testing.T) {
 		"nomi check refuses 1 call under nomi.toml's [effects] tables; nomi effects says how they differ"
 	if out := c.must(app, "update"); out != want {
 		t.Errorf("nomi update printed\n%s\nwant\n%s", out, want)
+	}
+}
+
+// An entry's effects keys stay when nomi add takes its package again and
+// when nomi update moves its version, and go with the entry when nomi
+// remove takes it out.
+func TestPackages_AddAndUpdateKeepAnEntrysEffectsKeys(t *testing.T) {
+	c := newModuleCLI(t)
+	greet := map[string]string{
+		"nomi.toml":  "[package]\nname = \"greet\"\n",
+		"greet.nomi": "import std::fs\n\npub fn hello() -> String\n    fs.read_text(\"greeting.txt\") |> Result.with_default(\"hello\")\nend\n",
+	}
+	c.host.Tag("example.com/greet", "v1.0.0", greet)
+	work := t.TempDir()
+	c.must(work, "new", "app")
+	app := filepath.Join(work, "app")
+	manifest := filepath.Join(app, "nomi.toml")
+	mustWrite(t, filepath.Join(app, "main.nomi"), "import\n    std::io\n    greet\nend\n\nfn main()\n    io.print(greet.hello())\nend\n")
+	c.must(app, "add", "example.com/greet")
+	keys := `effects = ["std::fs"], effects_in_tests = ["std::process"]`
+	entry := func(version string) string {
+		return `greet = { repo = "example.com/greet", version = "` + version + `", ` + keys + ` } # reads its greeting` + "\n"
+	}
+	text := mustRead(t, manifest)
+	text = strings.Replace(text, `greet = { repo = "example.com/greet", version = "v1.0.0" }`+"\n", entry("v1.0.0"), 1)
+	if !strings.Contains(text, entry("v1.0.0")) {
+		t.Fatalf("nomi.toml after nomi add has no entry to give keys to:\n%s", text)
+	}
+	mustWrite(t, manifest, text)
+
+	c.must(app, "add", "example.com/greet@v1.0.0")
+	if got := mustRead(t, manifest); !strings.Contains(got, entry("v1.0.0")) {
+		t.Errorf("nomi add of the same package dropped the entry's effects keys:\n%s", got)
+	}
+	c.host.Tag("example.com/greet", "v1.1.0", greet)
+	c.must(app, "update")
+	if got := mustRead(t, manifest); !strings.Contains(got, entry("v1.1.0")) {
+		t.Errorf("nomi update dropped the entry's effects keys:\n%s", got)
+	}
+	mustWrite(t, filepath.Join(app, "main.nomi"), "import std::io\n\nfn main()\n    io.print(\"hi\")\nend\n")
+	c.must(app, "remove", "greet")
+	if got := mustRead(t, manifest); strings.Contains(got, "greet") || strings.Contains(got, "effects") {
+		t.Errorf("nomi remove left the entry or its keys:\n%s", got)
 	}
 }

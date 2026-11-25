@@ -78,7 +78,7 @@ type stdStructField struct {
 	// std's own source resolves through.
 	nomi string
 	// decl is the field's type as std's declaration writes it, in typeText's
-	// form: `Int64`, `List<AssertionValue>`, `Map<String, String>`. A refinement
+	// form: `Int64`, `List<AssertionValue>`, `Map<String, String>`. A subtype
 	// is written as itself (`month: Int64`), though its kind is its base's.
 	decl string
 	// kindOf is the field's kind, given the def shell of every spec in the
@@ -1141,7 +1141,7 @@ func (s *stdStructSpec) mismatch(decl *ast.StructDef) string {
 			return fmt.Sprintf("%s: field %d is %s in std, %s in the row", row, i, f.Name, want.nomi)
 		}
 		// The written spelling, compared by typeText as every std spec
-		// compares a written type. A widened `List<String>` or a refinement
+		// compares a written type. A widened `List<String>` or a subtype
 		// swapped for its base is a different spelling.
 		if got := typeText(f.TypeAnnotation); got != want.decl {
 			return fmt.Sprintf("%s.%s: std writes `%s`, the row says `%s`", row, f.Name, got, want.decl)

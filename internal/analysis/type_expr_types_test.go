@@ -35,9 +35,9 @@ end
 
 typealias Pairs (Int, Int)
 
-refine Small Int when fn n -> n < 10
+subtype Small Int when fn n -> n < 10
 
-refine Many<T> List<T> when fn xs -> not Iter.is_empty(xs)
+subtype Many<T> List<T> when fn xs -> not Iter.is_empty(xs)
 
 interface Sized
     fn size(x: self) -> Int
@@ -78,15 +78,15 @@ end`
 		{7, "Float", "Float"},                   // enum payload
 		{8, "Option<String>", "Option<String>"}, // enum record field
 		{11, "(Int, Int)", "(Int, Int)"},        // alias target
-		{13, "Int", "Int"},                      // refinement parent
-		{15, "List<T>", "List<T>"},              // generic refinement parent
+		{13, "Int", "Int"},                      // subtype parent
+		{15, "List<T>", "List<T>"},              // generic subtype parent
 		{21, "Sized", "Sized"},                  // impl header interface
 		{21, "Box<T>", "Box<T>"},                // impl header receiver
 		{22, "Box<T>", "Box<T>"},                // impl fn parameter
 		{27, "List<T>", "List<T>"},              // fn parameter
 		{27, "Option<T>", "Option<T>"},          // fn return
 		{27, "Comparable", "Comparable"},        // where bound
-		{31, "Many<Int>", "Many<Int>"},          // generic refinement
+		{31, "Many<Int>", "Many<Int>"},          // generic subtype
 		{36, "Box<Int>", "Box<Int>"},            // binding annotation
 		{36, "Int", "Int"},                      // its argument
 		{37, "Pairs", "(Int, Int)"},             // an alias names its target

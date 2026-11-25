@@ -161,6 +161,15 @@ foreign keys deferred, asks SQLite's `foreign_key_check` which key the
 statement breaks, and rolls the savepoint back. Any other error is
 `sql.Error.Database` with SQLite's result code (`SQLITE_ERROR`) and message.
 
+A trap in the engine is `sql.Error.Engine` with the trap's text
+(`an access was outside the module's memory or table`). It is a fault in
+SQLite's C code that the WebAssembly sandbox held, so nothing outside the
+engine was touched, but the engine has a bug, and its instance is dead.
+Every later operation of the connection that reaches the engine, `ping`
+and `close` included, is `sql.Error.Engine` too, and after the `close` the
+connection is `sql.Error.Closed`. An engine that cannot start is
+`sql.Error.Engine` as well.
+
 ## How it runs
 
 `engine/sqlite3.wasm` is SQLite 3.54.1 compiled with `engine/shim.c` by
@@ -204,11 +213,11 @@ open on a machine compiles it, about half a second.
   `std::calendar` (the machine's zone), `std::channels`, `std::instant`,
   `std::random`, `std::timer` and `std::wasm` in the driver's code, and no
   `std::fs`: the files are reached through the `Dir`, which the program's
-  own `fs.open_dir` opened. Its entry can say so:
+  own `fs.open_dir` opened. Its `[dependencies]` entry can say so:
 
   ```toml
-  [effects.deps.packages]
-  "sqlite" = ["std::calendar", "std::channels", "std::instant", "std::random", "std::timer", "std::wasm"]
+  [dependencies]
+  sqlite = { repo = "github.com/nomi-language/nomi", subdir = "lib/sql/sqlite", version = "v0.0.1", effects = ["std::calendar", "std::channels", "std::instant", "std::random", "std::timer", "std::wasm"] }
   ```
 
   `sqlite.open` and `sqlite.memory` open their directories themselves, so

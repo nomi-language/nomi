@@ -10,7 +10,7 @@ import (
 
 // What a `type` gets, `try_from`, `unchecked` and its TryFrom impl, is
 // decided by what its inner type's name resolves to (spec §4 *Validated
-// types*), so a refinement another file declares, or names through a
+// types*), so a subtype another file declares, or names through a
 // typealias, is one; and a generic validated type implements TryFrom at
 // its parameters.
 
@@ -37,7 +37,7 @@ func runProject(t *testing.T, files map[string]string) string {
 
 const kindsSrc = `import std::duration.{PositiveDuration}
 
-pub refine Small Int when fn n -> n < 10
+pub subtype Small Int when fn n -> n < 10
 
 pub typealias Tiny Small
 
@@ -46,7 +46,7 @@ pub typealias Wait PositiveDuration
 pub type Plain Int
 `
 
-func TestTryFrom_ATypeOverAnotherFilesRefinementImplementsIt(t *testing.T) {
+func TestTryFrom_ATypeOverAnotherFilesSubtypeImplementsIt(t *testing.T) {
 	got := runProject(t, map[string]string{"kinds.nomi": kindsSrc, "main.nomi": `import std::io
 import kinds.{Small, Tiny, Plain}
 
@@ -80,17 +80,17 @@ end
 	}
 }
 
-// Only the alias is imported: the parent check reaches the refinement the
+// Only the alias is imported: the parent check reaches the subtype the
 // alias names by its declaration, or by its std module, which this file
 // has no name for.
-func TestTryFrom_ATypeOverAnImportedAliasOfARefinement(t *testing.T) {
+func TestTryFrom_ATypeOverAnImportedAliasOfASubtype(t *testing.T) {
 	got := runProject(t, map[string]string{"kinds.nomi": kindsSrc, "main.nomi": `import std::io
 import std::duration.{Duration}
 import kinds.{Tiny, Wait}
 
 type Bit Tiny
 
-refine Mid Tiny when fn n -> n > 2
+subtype Mid Tiny when fn n -> n > 2
 
 type Delay Wait
 
@@ -142,14 +142,14 @@ end
 }
 
 // A generic validated type's rule is checked for effects as a generic
-// refinement's is: its `try_from` is in `impl TryFrom<base(Loud)> for
+// subtype's is: its `try_from` is in `impl TryFrom<base(Loud)> for
 // Loud<T>`, whose every instance the check finds.
 func TestTryFrom_AGenericValidatedRuleWithEffectsIsAnError(t *testing.T) {
 	ds := literalDiagnostics(t, "import std::io\n\n"+
 		"type Loud<T> List<T> when fn xs ->\n    io.print(\"checking\")\n    not Iter.is_empty(xs)\nend\n\n"+
 		"fn main()\n    io.inspect(Loud.try_from([1]))\n    io.inspect(Loud([\"a\"]))\nend\n")
 	const want = "the rule of Loud has effects (lambda calls io.print): a rule is a pure function of the value it checks"
-	if len(ds) != 1 || ds[0].Line != 3 || ds[0].Message != want || ds[0].Code != InvalidRefinementCode {
+	if len(ds) != 1 || ds[0].Line != 3 || ds[0].Message != want || ds[0].Code != InvalidSubtypeCode {
 		t.Fatalf("diagnostics = %v, want one at line 3: %q", ds, want)
 	}
 }

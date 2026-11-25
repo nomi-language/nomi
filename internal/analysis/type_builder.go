@@ -142,7 +142,7 @@ func buildTypeShellInScope(fa *FileAnalysis, scope *Scope, node ast.Node) {
 				Opaque:           sym.Opaque,
 				OwningSourceFile: sym.SourceFile,
 				Rule:             RuleText(n.Rule),
-				Refinement:       n.Refinement,
+				Subtype:          n.Subtype,
 				unbuilt:          newUnbuilt(n.TypeParams),
 			}
 		}
@@ -321,7 +321,7 @@ func startFileTyping(fa *FileAnalysis, nodes []ast.Node, aliases *projectAliases
 		case *ast.TypeDef:
 			name, line, col = n.Name, n.Line, n.Col
 			shell = func(sym *Symbol) Type {
-				dt := &DistinctType{Origin: declaredOrigin(fa), Name: n.Name, Rule: RuleText(n.Rule), Refinement: n.Refinement, unbuilt: newUnbuilt(n.TypeParams)}
+				dt := &DistinctType{Origin: declaredOrigin(fa), Name: n.Name, Rule: RuleText(n.Rule), Subtype: n.Subtype, unbuilt: newUnbuilt(n.TypeParams)}
 				if sym != nil {
 					dt.Opaque, dt.OwningSourceFile = sym.Opaque, sym.SourceFile
 				}
@@ -1562,7 +1562,7 @@ func buildTypeDef(fa *FileAnalysis, reg *TypeRegistry, n *ast.TypeDef) []TypeErr
 			}
 		}
 	}
-	// A refinement's parents after the first. One that names a type, or
+	// A subtype's parents after the first. One that names a type, or
 	// reaches dt through the parents of others, is left out, so the graph
 	// of parents stays finite and acyclic.
 	dt.MoreParents = nil
@@ -1854,9 +1854,9 @@ func buildTypeAlias(fa *FileAnalysis, reg *TypeRegistry, n *ast.TypeAlias) []Typ
 		errs = append(errs, applyWhereBoundsToTypeParams(fa, reg, typeParams, n.WhereClauses, "typealias "+n.Name)...)
 	}
 
-	// `typealias Name A and B`: an intersection of refinements, or of
+	// `typealias Name A and B`: an intersection of subtypes, or of
 	// interfaces, which in a `where` bound is a list of bounds.
-	if len(n.Bounds) > 0 && (len(params) > 0 || boundsNameRefinement(n.Bounds, reg)) {
+	if len(n.Bounds) > 0 && (len(params) > 0 || boundsNameSubtype(n.Bounds, reg)) {
 		conj := &ast.ConjunctionType{Members: n.Bounds, Line: n.Line, Col: n.Col}
 		resolved, err := ResolveDeclaredType(conj, reg, typeParams, fa)
 		if err != nil {
@@ -1913,11 +1913,11 @@ func buildTypeAlias(fa *FileAnalysis, reg *TypeRegistry, n *ast.TypeAlias) []Typ
 	return errs
 }
 
-// boundsNameRefinement reports whether a member of a typealias's `A and B`
-// names a refinement, which makes the alias an intersection of refinements.
-func boundsNameRefinement(bounds []ast.TypeExpr, reg *TypeRegistry) bool {
+// boundsNameSubtype reports whether a member of a typealias's `A and B`
+// names a subtype, which makes the alias an intersection of subtypes.
+func boundsNameSubtype(bounds []ast.TypeExpr, reg *TypeRegistry) bool {
 	for _, b := range bounds {
-		if t, err := ResolveTypeExpr(b, reg, nil, nil); err == nil && refinementOf(t) != nil {
+		if t, err := ResolveTypeExpr(b, reg, nil, nil); err == nil && subtypeOf(t) != nil {
 			return true
 		}
 	}

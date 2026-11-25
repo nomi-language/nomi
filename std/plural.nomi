@@ -37,10 +37,9 @@ import
     equatable.Equatable
     hashable.Hashable
     int.Int
-    iter.Iter
-    lists.List
+    lists.NonEmptyList
     locale.Locale
-    sets.Set
+    sets.NonEmptySet
     strings.String
 end
 
@@ -139,28 +138,31 @@ impl PluralCategory
     end
 
     /// The cardinal categories `locale`'s rules can select, `Other` always
-    /// among them.
+    /// among them, so the set is a NonEmptySet.
     //! assert PluralCategory.cardinals(Locale"ja") == [PluralCategory.Other]
     //! assert PluralCategory.cardinals(Locale"en") == [PluralCategory.One, PluralCategory.Other]
     //
-    pub fn cardinals(locale: Locale) -> Set<PluralCategory>
+    pub fn cardinals(locale: Locale) -> NonEmptySet<PluralCategory>
         plural_cardinal_tags(locale)
-        |> Iter.map(fn tag -> PluralCategory.of(tag))
-        |> Iter.to_set()
+        |> NonEmptyList.map(fn tag -> PluralCategory.of(tag))
+        |> NonEmptyList.to_set()
     end
 
-    /// The ordinal categories `locale`'s rules can select.
+    /// The ordinal categories `locale`'s rules can select, `Other` always
+    /// among them, so the set is a NonEmptySet.
     //! assert PluralCategory.ordinals(Locale"en") == [
     //!     PluralCategory.One,
     //!     PluralCategory.Two,
     //!     PluralCategory.Few,
     //!     PluralCategory.Other,
     //! ]
+    //!
+    //! assert PluralCategory.ordinals(Locale"ja") == [PluralCategory.Other]
     //
-    pub fn ordinals(locale: Locale) -> Set<PluralCategory>
+    pub fn ordinals(locale: Locale) -> NonEmptySet<PluralCategory>
         plural_ordinal_tags(locale)
-        |> Iter.map(fn tag -> PluralCategory.of(tag))
-        |> Iter.to_set()
+        |> NonEmptyList.map(fn tag -> PluralCategory.of(tag))
+        |> NonEmptyList.to_set()
     end
 
     // The category at its position in the declaration, as the Go half
@@ -181,6 +183,6 @@ host fn plural_cardinal_tag(locale: Locale, value: String) -> Int
 
 host fn plural_ordinal_tag(locale: Locale, value: Int) -> Int
 
-host fn plural_cardinal_tags(locale: Locale) -> List<Int>
+host fn plural_cardinal_tags(locale: Locale) -> NonEmptyList<Int>
 
-host fn plural_ordinal_tags(locale: Locale) -> List<Int>
+host fn plural_ordinal_tags(locale: Locale) -> NonEmptyList<Int>

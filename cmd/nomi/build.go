@@ -40,7 +40,8 @@ import (
 // A program the front end rejects, or one the VM would block, is refused with
 // the text `nomi run` prints, and nothing is written.
 
-const buildUsage = "usage: nomi build <file|dir> [-o <out>] [--target <os>/<arch> | --web [--static <dir>] | --no-vm] [--allow-unsupported <class>]"
+const buildUsage = "usage: nomi build [file|dir] [-o <out>] [--target <os>/<arch> | --web [--static <dir>] | --no-vm] [--allow-unsupported <class>]\n\n" +
+	"With no file or directory, it builds the package the current directory is\nin: the one entry point its nomi.toml lists."
 
 // errBuildRefused is a build that already reported why on stderr.
 var errBuildRefused = errors.New("build refused")
@@ -134,13 +135,7 @@ func parseBuildArgs(args []string) (buildArgs, error) {
 			return b, fmt.Errorf("nomi build: unexpected argument %q\n%s", arg, buildUsage)
 		}
 	}
-	if b.entry == "" && atWorkspaceRoot() {
-		// The root names its members (projectEntry).
-		b.entry = "."
-	}
-	if b.entry == "" {
-		return b, errors.New(buildUsage)
-	}
+	b.entry = programOrHere(b.entry)
 	if b.noVM {
 		switch {
 		case b.web || b.static != "":

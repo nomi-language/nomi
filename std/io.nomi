@@ -664,7 +664,7 @@ impl Reader
     //! assert run.value == Result.Ok(6)
     //! assert run.output == "hello\n"
     //
-    pub host fn copy_to(r: Reader, w: Writer) -> Result<Int, Error>
+    pub host fn copy_to(r: Reader, w: Writer) -> Result<NonNegativeInt, Error>
 
     /// Closes the stream. A second close is `Closed`, and so is any read
     /// after the first. Closing standard input does nothing.

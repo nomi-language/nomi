@@ -186,7 +186,7 @@ func TestTypeArgumentVariance_UnsoundConversionsAreRefused(t *testing.T) {
 }
 
 // An argument converts by each type parameter's variance as a binding
-// does: a refinement or an embedded type at a contravariant position of a
+// does: a subtype or an embedded type at a contravariant position of a
 // struct or a generic distinct type is refused at the argument (a function
 // that takes only non-negative Ints would be handed -1), and so is one at an
 // invariant position. The same conversions the sound way pass.
@@ -219,15 +219,15 @@ fn natural(n: NonNegativeInt) -> Int
 end
 `
 	refused := map[string]struct{ body, want string }{
-		"a refinement, contravariant distinct": {`ts: Takers<NonNegativeInt> = Takers([natural]); takers(ts)`,
+		"a subtype, contravariant distinct": {`ts: Takers<NonNegativeInt> = Takers([natural]); takers(ts)`,
 			"argument 1: expected Takers<Int>, got Takers<NonNegativeInt>\nhelp: Takers<NonNegativeInt> does not convert to Takers<Int>: Takers's type parameter T is contravariant, since Takers's inner type only takes a T, so it converts only where Int converts to NonNegativeInt"},
 		"an embedded type, contravariant distinct": {`hs: Handlers<Circle> = Handlers([fn c: Circle -> Int.to_string(c.r)]); handlers(hs)`,
 			"argument 1: expected Handlers<Shape>, got Handlers<Circle>\nhelp: Handlers<Circle> does not convert to Handlers<Shape>: Handlers's type parameter T is contravariant"},
 		"an embedded type, contravariant struct": {`s = Sink{take: fn c: Circle -> Int.to_string(c.r)}; sink(s)`,
 			"argument 1: expected Sink<Shape>, got Sink<Circle>\nhelp: Sink<Circle> does not convert to Sink<Shape>: Sink's type parameter T is contravariant"},
-		"a refinement, invariant struct": {`c: Cell<NonNegativeInt> = Cell{get: fn -> 1, put: fn _ -> Unit}; cell(c)`,
+		"a subtype, invariant struct": {`c: Cell<NonNegativeInt> = Cell{get: fn -> 1, put: fn _ -> Unit}; cell(c)`,
 			"argument 1: expected Cell<Int>, got Cell<NonNegativeInt>\nhelp: Cell<NonNegativeInt> does not convert to Cell<Int>: Cell's type parameter T is invariant"},
-		"a refinement, contravariant, named argument": {`ts: Takers<NonNegativeInt> = Takers([natural]); takers(_ts: ts)`,
+		"a subtype, contravariant, named argument": {`ts: Takers<NonNegativeInt> = Takers([natural]); takers(_ts: ts)`,
 			"argument '_ts': expected Takers<Int>, got Takers<NonNegativeInt>"},
 	}
 	for name, tc := range refused {
@@ -237,11 +237,11 @@ end
 		})
 	}
 	for name, body := range map[string]string{
-		"a refinement, contravariant distinct, narrowing":     `ts: Takers<Int> = Takers([fn n: Int -> n]); natural_takers(ts)`,
+		"a subtype, contravariant distinct, narrowing":        `ts: Takers<Int> = Takers([fn n: Int -> n]); natural_takers(ts)`,
 		"an embedded type, contravariant distinct, narrowing": `hs: Handlers<Shape> = Handlers([radius]); circle_handlers(hs)`,
 		"an embedded type, contravariant struct, narrowing":   `s = Sink{take: radius}; circle_sink(s)`,
 		"an embedded type, covariant distinct":                `xs: Ids<Circle> = Ids([Circle{r: 1}]); ids(xs)`,
-		"a refinement of a covariant argument":                `xs = NonEmptyList.try_from([Circle{r: 1}])!; shapes(xs)`,
+		"a subtype of a covariant argument":                   `xs = NonEmptyList.try_from([Circle{r: 1}])!; shapes(xs)`,
 	} {
 		t.Run(name, func(t *testing.T) {
 			src := decls + "\nfn main()\n  " + body + "\nend\n"

@@ -183,6 +183,10 @@ func TestManifestDocument_WorkspaceChangeRechecksMembers(t *testing.T) {
 			msg = m
 		}
 	}
+	appToml := filepath.Join(root, "app", "nomi.toml")
+	if want := appToml + ":1: this package is under the workspace"; !strings.HasPrefix(msg, want) {
+		t.Errorf("main.nomi shows %q; want the error of the package's nomi.toml, %s...", msg, want)
+	}
 	diag := protocol.Diagnostic{Range: protocol.Range{End: protocol.Position{Character: 1}}, Message: msg}
 	actions := c.codeActions(uri, diag)
 	if len(actions) != 1 || actions[0].Edit == nil || len(actions[0].Edit.Changes[protocol.DocumentUri(wsURI)]) != 1 {
@@ -190,6 +194,22 @@ func TestManifestDocument_WorkspaceChangeRechecksMembers(t *testing.T) {
 	}
 	if want := `Add "app" to the workspace's members`; actions[0].Title != want {
 		t.Errorf("the fix is titled %q; want %q", actions[0].Title, want)
+	}
+	// The package's nomi.toml shows the error at its first line, with the
+	// same fix.
+	appTomlURI := fileuri.FromPath(appToml)
+	var inToml []protocol.Diagnostic
+	for deadline := time.Now().Add(30 * time.Second); ; time.Sleep(5 * time.Millisecond) {
+		if inToml = manifestDiags(s, appTomlURI); len(inToml) == 1 && inToml[0].Range.Start.Line == 0 && strings.HasPrefix(inToml[0].Message, "this package is under the workspace") {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("app/nomi.toml holds %s; want the unlisted package's error at line 1", renderDiagnostics(inToml))
+		}
+	}
+	if fromToml := c.codeActions(appTomlURI, inToml[0]); len(fromToml) != 1 || fromToml[0].Title != actions[0].Title ||
+		!slices.Equal(fromToml[0].Edit.Changes[protocol.DocumentUri(wsURI)], actions[0].Edit.Changes[protocol.DocumentUri(wsURI)]) {
+		t.Fatalf("app/nomi.toml offers %+v; want the fix main.nomi offers, %+v", fromToml, actions)
 	}
 	e := actions[0].Edit.Changes[protocol.DocumentUri(wsURI)][0]
 	edited := applyFixEdit(t, unlisted, parser.Edit{

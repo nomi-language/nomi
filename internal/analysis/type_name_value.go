@@ -167,12 +167,12 @@ func (c *checker) distinctCtorValue(n ast.Node) (Type, bool) {
 		return nil, false
 	}
 	refused := c.checkOpaqueConstructor(n, dt)
-	if dt.Refinement || checkedDistinctOf(dt) != nil {
-		// The call form of a refinement or a validated type takes a literal;
+	if dt.Subtype || checkedDistinctOf(dt) != nil {
+		// The call form of a subtype or a validated type takes a literal;
 		// as a function it would take any value unchecked
-		// (refinement_check.go). An opaque one outside its file has no
+		// (subtype_check.go). An opaque one outside its file has no
 		// function to name instead.
-		base := refinementBaseOf(dt)
+		base := subtypeBaseOf(dt)
 		if !refused {
 			line, col := startOf(n)
 			c.report(TypeError{Line: line, Col: col, Message: fmt.Sprintf(

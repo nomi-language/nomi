@@ -375,17 +375,35 @@ end
 
 /// What a client asked for when it started a handshake, for
 /// `ServerConfig.certificate_for`.
-pub struct ClientHello
-    /// The host the client named (SNI); "" when it named none.
-    server_name: String
-    /// The application protocols it offers (ALPN).
+pub opaque struct ClientHello
+    server_name:   String
     protocols:     List<String>
     versions:      List<Version>
-    cipher_suites: List<Int>
+    cipher_suites: List<NonNegativeInt>
     handle:        http_host.Handle
 end
 
 impl ClientHello
+    /// The host the client named (SNI); "" when it named none.
+    pub fn server_name(hello: ClientHello) -> String
+        hello.server_name
+    end
+
+    /// The application protocols it offers (ALPN).
+    pub fn protocols(hello: ClientHello) -> List<String>
+        hello.protocols
+    end
+
+    /// The TLS versions it offers.
+    pub fn versions(hello: ClientHello) -> List<Version>
+        hello.versions
+    end
+
+    /// The IDs of the cipher suites it offers, each 0 to 65535.
+    pub fn cipher_suites(hello: ClientHello) -> List<NonNegativeInt>
+        hello.cipher_suites
+    end
+
     fn of_handle(handle: http_host.Handle) -> ClientHello
         (name, protocols, versions, suites) =
             case http_host.hello_parts(handle)
@@ -399,7 +417,11 @@ impl ClientHello
             versions: versions
             |> Iter.flat_map(fn v -> String.to_int(v) |> Option.flat_map(Version.of_number))
             |> Iter.to_list(),
-            cipher_suites: suites |> Iter.flat_map(String.to_int) |> Iter.to_list(),
+            cipher_suites: suites
+            |> Iter.flat_map(fn s ->
+                String.to_int(s) |> Option.flat_map(fn n -> NonNegativeInt.try_from(n))
+            end)
+            |> Iter.to_list(),
             handle:,
         }
     end

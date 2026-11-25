@@ -64,7 +64,7 @@ const wasmUpper = "0061736d01000000010c0260017f017f60027f7f017e03030200010503010
 // instance is std::wasm, named where it is made.
 func TestWasm_OnlyAnInstanceIsAnEffect(t *testing.T) {
 	dir := t.TempDir()
-	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[package]\nname = \"fx\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = []\n")
+	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[package]\nname = \"fx\"\nentry_points = [\"main\"]\n\n[effects.self]\neffects = []\n")
 	program := func(body string) string {
 		return "import\n    std::hex\n    std::wasm.{self, Instance}\nend\n\n" +
 			"once upper = wasm.compile(hex.decode(\"" + wasmUpper + "\")!)!\n\n" +
@@ -96,7 +96,7 @@ func TestWasm_ARuleRefusesAModuleRun(t *testing.T) {
 		"    upper = wasm.compile(hex.decode(\""+wasmUpper+"\")!)!\n"+
 		"    wasm.run(upper, \"upper\", String.to_bytes(text)) |> Result.map(Bytes.to_string_lossy) |> Result.with_default(\"\")\n"+
 		"end\n\n"+
-		"refine Shouted String when fn s -> shout(s) == s\n\n"+
+		"subtype Shouted String when fn s -> shout(s) == s\n\n"+
 		"fn main()\n    loud: Shouted = \"HI\"\n    io.print(loud)\nend\n")
 	r := runNomiIn(t, dir, t.TempDir(), "check", "main.nomi")
 	want := "the rule of Shouted calls a function whose cost grows with its argument (compile calls wasm/host.compile; run calls wasm/host.run): a rule must be bounded"

@@ -21,8 +21,8 @@ type Dep struct {
 	// version its entry writes, which may be none.
 	Package
 	// Name is the package's name in the program: the first segment of each
-	// of its files' keys, and the key of its entry under
-	// [effects.deps.packages]. It is the project's name for the package when
+	// of its files' keys, and the name `nomi effects` and the effects lists'
+	// errors give it. It is the project's name for the package when
 	// the project names it, and otherwise the name the first package that
 	// reaches it gives it, with a `~2` suffix (`~3`, ...) when another
 	// package or a file at the project's root already has that name.
@@ -41,12 +41,8 @@ type Dep struct {
 	// Via is the Name of the package whose [dependencies] first reached
 	// this one, "" for a package the project names.
 	Via string
-	// Self is the package's own [package].name, which names it in the
-	// project only when the project's key for it is the same: an effects
-	// list that writes it is told the key (Name).
-	Self string
 	// Names is each name the package's own files import a package by, its
-	// own [package].name (Self) among them, and that package's Name.
+	// own [package].name among them, and that package's Name.
 	Names map[string]string
 }
 
@@ -96,6 +92,40 @@ func (g *Graph) At(dir string) (Dep, bool) {
 		}
 	}
 	return Dep{}, false
+}
+
+// Through is the Name of each package the project's nomi.toml names
+// (Direct) through whose [dependencies], at any depth, the project reaches
+// the dependency named name, sorted: name itself when the project names
+// it, and each other entry that leads to it too. Nil for a name the graph
+// does not hold.
+func (g *Graph) Through(name string) []string {
+	var out []string
+	for _, top := range g.Deps {
+		if !top.Direct {
+			continue
+		}
+		seen := map[string]bool{top.Name: true}
+		queue := []string{top.Name}
+		for len(queue) > 0 && !seen[name] {
+			d, ok := g.Named(queue[0])
+			queue = queue[1:]
+			if !ok {
+				continue
+			}
+			for _, next := range d.Names {
+				if !seen[next] {
+					seen[next] = true
+					queue = append(queue, next)
+				}
+			}
+		}
+		if seen[name] {
+			out = append(out, top.Name)
+		}
+	}
+	slices.Sort(out)
+	return out
 }
 
 // Materialize answers the root directory of m's files in the package cache,
@@ -693,7 +723,6 @@ func explore(root string, mf *Manifest, ws *Workspace, selected map[string]strin
 		it.owner[r.Name] = name
 		dep.Nomi = file != nil
 		if file != nil {
-			dep.Self = file.Name
 			if file.Name != "" {
 				dep.Names[file.Name] = name
 			}
@@ -769,7 +798,8 @@ func cacheOnly(m Package) (string, error) {
 	if err != nil {
 		return "", nil
 	}
-	return Cached(cache, m), nil
+	dir, _ := Lookup(cache, m)
+	return dir, nil
 }
 
 // CacheOnly is the Materialize that reads the package cache and never

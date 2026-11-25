@@ -307,7 +307,7 @@ type FileBodies struct {
 	// Nil until the first record.
 	RestatedPaths map[*ast.FieldAccess]string
 	// PlainCounterparts holds each call whose Option result the value's
-	// refinement answers plainly, `List.first(names)` for a NonEmptyList
+	// subtype answers plainly, `List.first(names)` for a NonEmptyList
 	// `names` (notePlainCounterpart). The editor shows a hint naming
 	// `NonEmptyList.first`. Nil until the first record.
 	PlainCounterparts map[*ast.Call]*PlainCounterpart
@@ -389,23 +389,23 @@ type FileBodies struct {
 	// (operator_impls.go). The editor's hover names it and go-to-definition
 	// opens its function. Nil until the first record.
 	OperatorImpls map[*ast.Binary]*OperatorImpl
-	// RefinedLiterals maps each literal the checker typed as a refinement
-	// (`p: Port = 8080`, `Port(8080)`, a struct refinement's literal with
-	// literal fields) to that refinement. The compiler evaluates its rules on
-	// the literal when it builds the program (refinement.go). Nil until the
+	// SubtypeLiterals maps each literal the checker typed as a subtype
+	// (`p: Port = 8080`, `Port(8080)`, a validated struct's literal with
+	// literal fields) to that subtype. The compiler evaluates its rules on
+	// the literal when it builds the program (subtype.go). Nil until the
 	// first record.
-	RefinedLiterals map[ast.Node]*RefinedLiteral
-	// RefinementRuleChecks maps each generic refinement the file declares
+	SubtypeLiterals map[ast.Node]*SubtypeLiteral
+	// SubtypeRuleChecks maps each generic subtype the file declares
 	// to the call of its `try_from` at witness type arguments, whose
 	// instance the compiler checks is pure whether or not a literal of it
-	// is checked (recordRefinementRuleCheck). Nil until the first record.
-	RefinementRuleChecks map[*ast.TypeDef]*RefinementRuleCheck
-	// RefinementParents records, for each parent check of a generated
-	// `try_from` (ast.RefinementParentCheck), whether the parent is itself a
-	// refinement, so the check is the parent's `try_from`, or the base, so
-	// it is `Some(value)` (refinement_synthesis.go). Nil until the first
+	// is checked (recordSubtypeRuleCheck). Nil until the first record.
+	SubtypeRuleChecks map[*ast.TypeDef]*SubtypeRuleCheck
+	// SubtypeParents records, for each parent check of a generated
+	// `try_from` (ast.SubtypeParentCheck), whether the parent is itself a
+	// subtype, so the check is the parent's `try_from`, or the base, so
+	// it is `Some(value)` (subtype_synthesis.go). Nil until the first
 	// record.
-	RefinementParents map[*ast.RefinementParentCheck]bool
+	SubtypeParents map[*ast.SubtypeParentCheck]bool
 	// TargetStructs maps a brace literal with no type name and no spread
 	// (`{street: "1 Main", city: "Bath"}`) to the nominal struct it builds
 	// because the position expected that struct (checkTargetTypedStructLit).

@@ -56,7 +56,8 @@ import (
 //go:embed web/nomi-dev.js
 var webDevJS []byte
 
-const runUsage = "usage: nomi run [--profile[=<file>]] <file|dir> [args]\n       nomi run --watch <file|dir> [args]\n       nomi run --web [--port N] [--open] [--static <dir>] <file|dir>"
+const runUsage = "usage: nomi run [--profile[=<file>]] [file|dir] [args]\n       nomi run --watch [file|dir] [args]\n       nomi run --web [--port N] [--open] [--static <dir>] [file|dir]\n\n" +
+	"With no file or directory, it runs the package the current directory is\nin: the one entry point its nomi.toml lists. The program's arguments follow a\nfile or directory, as in nomi run . a b."
 
 const (
 	// webFirstPort is where `nomi run --web` starts looking for a free port.
@@ -76,7 +77,8 @@ type runWebArgs struct {
 }
 
 // parseRunWebArgs reads the arguments of a `nomi run` whose first word is a
-// flag: the browser dev loop's flags and one program file, in any order.
+// flag: the browser dev loop's flags and one program file, in any order, or
+// with no file the current directory (pathOrHere).
 func parseRunWebArgs(args []string) (runWebArgs, error) {
 	r := runWebArgs{port: -1}
 	web := false
@@ -127,9 +129,7 @@ func parseRunWebArgs(args []string) (runWebArgs, error) {
 	if !web {
 		return r, fmt.Errorf("nomi run: --port, --open and --static need --web\n%s", runUsage)
 	}
-	if r.entry == "" {
-		return r, errors.New(runUsage)
-	}
+	r.entry = programOrHere(r.entry)
 	return r, nil
 }
 

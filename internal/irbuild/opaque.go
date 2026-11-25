@@ -100,7 +100,7 @@ type opaqueSpec struct {
 	// TestOpaqueDefsArePackageNeutral enforces it.
 	inner kind
 	// decl is the inner type as std's declaration writes it (typeText). A
-	// refinement is written as itself (`opaque type Codepoint Int64`), though
+	// subtype is written as itself (`opaque type Codepoint Int64`), though
 	// inner is its base's kind.
 	decl string
 	// goType is rt's Go type, held as the TYPE rather than as its spelling for
@@ -147,8 +147,8 @@ type opaqueSpec struct {
 // this file's header gives for sharing an opaque def, so `Option<Codepoint>`
 // is a kind a call site in another gen compares equal to. See stdprelude.go.
 //
-// std/int's `NonZeroInt` and `PositiveInt` are refinements, which have no
-// representation of their own and so no row (refinement.go).
+// std/int's `NonZeroInt` and `PositiveInt` are subtypes, which have no
+// representation of their own and so no row (subtype.go).
 var opaqueSpecs = []opaqueSpec{
 	{origin: "std/duration", nomi: "Duration", form: formOpaque, inner: kindInt, decl: "Int", goType: reflect.TypeFor[rt.Duration]()},
 	{origin: "std/instant", nomi: "Instant", form: formOpaque, inner: kindInt, decl: "Int", goType: reflect.TypeFor[rt.Instant]()},

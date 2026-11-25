@@ -45,8 +45,13 @@ end
 
 A failure to read is an `image.Error`: `UnsupportedFormat` for bytes that
 are no JPEG, PNG or WebP, `Corrupt{message:}` for one that starts as an
-image and does not decode, and `TooLarge{width:, height:}` for one whose
-header declares more pixels than allowed. A JPEG must reach its
+image and does not decode, `TooLarge{width:, height:}` for one whose
+header declares more pixels than allowed, and `Trapped{message:}` when the
+bytes set off a fault in the decoder's C code itself, such as a read past
+a buffer. The engine's sandbox holds such a fault, so the caller gets an
+`Err` and nothing outside the call is touched, but it is a bug in the
+decoder, kept apart from `Corrupt` so it can be seen and reported. No
+file is known to cause one. A JPEG must reach its
 end-of-image marker and a PNG its last chunk, with every chunk's checksum
 matching, so a file cut short or damaged in transit is `Corrupt`. Sizes
 are `image.Pixels` (at least 1), crop offsets `image.Offset` (at least 0)
@@ -101,18 +106,18 @@ them about half as large again.
 
 The module imports nothing, not even WASI. Each call runs in a fresh
 instance through `wasm.run`, which acts on nothing, so the package's
-functions are pure, and an app's effects list gives it no effects:
+functions are pure, and an app's `[dependencies]` entry gives it no effects:
 
 ```toml
-[effects.deps.packages]
-"image" = []
+[dependencies]
+image = { repo = "github.com/nomi-language/nomi", subdir = "lib/image", version = "v0.0.1", effects = [] }
 ```
 
 An `Image` holds its pixels, 8-bit RGBA. `decode` takes them out of the
 engine, and `fit`, `fill`, `crop` and the encoders hand them back in: on a
 12-megapixel image that copy is about 48 MB each way, 9 to 17 ms a call.
-A call on a small image costs about 0.3 ms, most of it making the
-instance. The module compiles once a process, from the artifact cache
+A call on a small image costs about 0.2 ms. The module compiles once a
+process, from the artifact cache
 after the first: about 10 ms, and 0.2 to 0.3 s the first time on a
 machine. The engine is 490 KB.
 

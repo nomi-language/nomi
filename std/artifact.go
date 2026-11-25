@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/artifactcache"
@@ -63,9 +62,6 @@ const (
 	// stdArtifactVersion versions the layout above; the interfaces and the
 	// facts carry versions of their own.
 	stdArtifactVersion = 3
-	// stdArtifactUnused is how long a cached artifact no process has used
-	// is kept: each build of the compiler writes its own.
-	stdArtifactUnused = 24 * time.Hour
 )
 
 // StdArtifact makes the stdlib's artifact in this process, for a binary to
@@ -257,7 +253,7 @@ func stdArtifactPath() string {
 		return ""
 	}
 	sum := sha256.Sum256([]byte(fmt.Sprintf("%s\x00%d\x00%t", id, stdArtifactVersion, FixturesLoaded())))
-	return filepath.Join(root, "std", hex.EncodeToString(sum[:16])+".iface")
+	return filepath.Join(root, artifactcache.StdDir, hex.EncodeToString(sum[:16])+".iface")
 }
 
 // readStdArtifact answers the embedded artifact or the cached one, and
@@ -302,5 +298,5 @@ func writeStdArtifact(art *stdArtifact) {
 		stdArtifactDebug("writing %s: %v", path, err)
 		return
 	}
-	artifactcache.Prune(filepath.Dir(path), filepath.Base(path), stdArtifactUnused)
+	artifactcache.Prune(filepath.Dir(path), filepath.Base(path), artifactcache.StdUnused)
 }

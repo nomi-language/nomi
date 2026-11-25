@@ -2,6 +2,7 @@ package vmhost
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/nomi-language/nomi/internal/ir"
 	"github.com/nomi-language/nomi/internal/vm"
@@ -132,10 +133,12 @@ func refusedBy(s standing) string {
 	switch s.List {
 	case OverSelf:
 		return "[effects.self]"
-	case OverDeps:
-		return "[effects.deps]"
+	case OverDependencies:
+		return "[effects.dependencies]"
+	case OverSelfEntry:
+		return "the entry for " + s.Entry
 	case OverEntry:
-		return "the entry for " + s.Package
+		return strings.ReplaceAll(entriesText(s.Through), "`", "")
 	}
 	return s.Package + "'s own [effects.self]"
 }

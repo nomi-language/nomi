@@ -65,7 +65,7 @@ func TestIRStdMethodCall_HostBodiesStayOutsideRetainedCalls(t *testing.T) {
 	}
 }
 
-func TestIRStdMethodCall_RefinementsAndConversions(t *testing.T) {
+func TestIRStdMethodCall_SubtypesAndConversions(t *testing.T) {
 	verifyLambdaProgram(t, `import
     std::io std::duration.Duration std::instant.Instant
 end

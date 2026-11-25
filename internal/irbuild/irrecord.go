@@ -37,7 +37,7 @@ func (bl *irScalarBuilder) recordMake(t *ast.StructLit) (ir.Temp, kind, bool, bo
 // checker recorded for it, or want, the kind of the position, where the
 // builder made it. Each field's value is lowered against its field type
 // (`{a: []}` recorded as `{a: List<Int>}`). A record with neither, which
-// only a body the builder writes holds (a refinement literal's fields), is
+// only a body the builder writes holds (a subtype literal's fields), is
 // its fields' own kinds, and noteUnrecordedKind counts it.
 func (bl *irScalarBuilder) recordMakeOf(t *ast.StructLit, want kind) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }

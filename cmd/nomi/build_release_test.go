@@ -350,7 +350,7 @@ end
 	t.Run("not installed and no release", func(t *testing.T) {
 		out := exe(filepath.Join(t.TempDir(), "nested"))
 		got := runProcess(t, releaseEnv(t, t.TempDir()), dir, "", exe(filepath.Join(b.install, "nomi")), "build", entry, "-o", out)
-		archive := fmt.Sprintf("%s/%s/nomi_%s_%s_%s_compiler", unreachableRelease, releaseTestVersion, releaseTestVersion, runtime.GOOS, runtime.GOARCH)
+		archive := fmt.Sprintf("%s/download/%s/nomi_%s_%s_%s_compiler", unreachableRelease, releaseTestVersion, releaseTestVersion, runtime.GOOS, runtime.GOARCH)
 		if got.exit == 0 || !strings.Contains(got.stderr, "no nomi-vm-compiler for "+runtime.GOOS+"/"+runtime.GOARCH+" is installed") ||
 			!strings.Contains(got.stderr, archive) || strings.Contains(got.stderr, "Install Go") || strings.Contains(got.stderr, "Go toolchain") {
 			t.Fatalf("exit %d, want the refusal to name %s and suggest no Go:\n%s", got.exit, archive, got.transcript())
@@ -411,8 +411,8 @@ func localRelease(t *testing.T, b fakeReleaseBuild, corruptSum bool) (*httptest.
 		sum = strings.Repeat("0", 64)
 	}
 	files := map[string][]byte{
-		"/" + releaseTestVersion + "/" + archive:                                    data,
-		"/" + releaseTestVersion + "/nomi_" + releaseTestVersion + "_checksums.txt": []byte(sum + "  ./" + archive + "\n"),
+		"/download/" + releaseTestVersion + "/" + archive:                                    data,
+		"/download/" + releaseTestVersion + "/nomi_" + releaseTestVersion + "_checksums.txt": []byte(sum + "  ./" + archive + "\n"),
 	}
 	var requests atomic.Int64
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -441,7 +441,7 @@ func TestBuildFromRelease_CrossTargetDownloadsTheRunner(t *testing.T) {
 	entry := filepath.Join(dir, "hello.nomi")
 	mustWrite(t, entry, releaseHello)
 	goos, goarch := crossTarget()
-	archive := fmt.Sprintf("/%s/nomi_%s_%s_%s_runners.tar.gz", releaseTestVersion, releaseTestVersion, goos, goarch)
+	archive := fmt.Sprintf("/download/%s/nomi_%s_%s_%s_runners.tar.gz", releaseTestVersion, releaseTestVersion, goos, goarch)
 
 	t.Run("download, then cache", func(t *testing.T) {
 		srv, requests := localRelease(t, b, false)
@@ -507,7 +507,7 @@ func TestBuildFromRelease_CrossTargetDownloadsTheRunner(t *testing.T) {
 		closed.Close()
 		got := runProcess(t, releaseEnv(t, t.TempDir(), "NOMI_RELEASE_BASE_URL="+base), dir, "", nomi,
 			"build", "--target", b.cross, entry, "-o", filepath.Join(t.TempDir(), "hello"))
-		if got.exit == 0 || !strings.Contains(got.stderr, base+"/"+releaseTestVersion+"/nomi_"+releaseTestVersion+"_checksums.txt") ||
+		if got.exit == 0 || !strings.Contains(got.stderr, base+"/download/"+releaseTestVersion+"/nomi_"+releaseTestVersion+"_checksums.txt") ||
 			!strings.Contains(got.stderr, "Connect to the network and re-run") {
 			t.Fatalf("exit %d:\n%s", got.exit, got.transcript())
 		}
@@ -552,10 +552,10 @@ func wasmRelease(t *testing.T, b fakeReleaseBuild) *httptest.Server {
 		}
 		archive := fmt.Sprintf("nomi_%s_%s_runners.tar.gz", releaseTestVersion, strings.ReplaceAll(target, "/", "_"))
 		data := tarGzFiles(t, members)
-		files["/"+releaseTestVersion+"/"+archive] = data
+		files["/download/"+releaseTestVersion+"/"+archive] = data
 		fmt.Fprintf(&sums, "%s  ./%s\n", sha256Hex(data), archive)
 	}
-	files["/"+releaseTestVersion+"/nomi_"+releaseTestVersion+"_checksums.txt"] = []byte(sums.String())
+	files["/download/"+releaseTestVersion+"/nomi_"+releaseTestVersion+"_checksums.txt"] = []byte(sums.String())
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		d, ok := files[r.URL.Path]
 		if !ok {

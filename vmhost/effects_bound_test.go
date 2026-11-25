@@ -39,7 +39,7 @@ where T: Make
 end
 `, "genlib.nomi:13:22: this package's own code has the effect std::fs, and [effects.self] allows it no effects\n" +
 		"genlib.nomi:13:22: help: reached from `built`; `built` calls `make` through an interface, and any implementation of it counts, including `Make.make for Config`\n" +
-		"genlib.nomi:13:22: help: add \"std::fs\" to std under [effects.self] in nomi.toml, or remove the call"},
+		"genlib.nomi:13:22: help: add \"std::fs\" to effects under [effects.self] in nomi.toml, or remove the call"},
 	{"a std interface's function that takes no value of the type", `import
     std::fs
     std::sql.{FromSql, Value}
@@ -62,7 +62,7 @@ where T: FromSql
 end
 `, "genlib.nomi:12:13: this package's own code has the effect std::fs, and [effects.self] allows it no effects\n" +
 		"genlib.nomi:12:13: help: reached from `read_value`; `read_value` calls `from_sql` through an interface, and any implementation of it counts, including `FromSql.from_sql for Path`\n" +
-		"genlib.nomi:12:13: help: add \"std::fs\" to std under [effects.self] in nomi.toml, or remove the call"},
+		"genlib.nomi:12:13: help: add \"std::fs\" to effects under [effects.self] in nomi.toml, or remove the call"},
 }
 
 // A use of a type parameter's bound that no one value of the type parameter
@@ -131,14 +131,14 @@ where T: Make
 end
 `, "impls.nomi:13:13: this package's own code has the effect std::fs, and [effects.self] allows it no effects\n" +
 			"impls.nomi:13:13: help: reached from `built`; `built` calls `make` through an interface, and any implementation of it counts, including `Make.make for Token`\n" +
-			"impls.nomi:13:13: help: add \"std::fs\" to std under [effects.self] in nomi.toml, or remove the call"},
+			"impls.nomi:13:13: help: add \"std::fs\" to effects under [effects.self] in nomi.toml, or remove the call"},
 		{"a std interface's", "    std::sql.{FromSql, Value}\n", `pub fn read_value<T>(v: Value) -> Result<T, String>
 where T: FromSql
     T.from_sql(v)
 end
 `, "impls.nomi:24:13: this package's own code has the effect std::fs, and [effects.self] allows it no effects\n" +
 			"impls.nomi:24:13: help: reached from `read_value`; `read_value` calls `from_sql` through an interface, and any implementation of it counts, including `FromSql.from_sql for Path`\n" +
-			"impls.nomi:24:13: help: add \"std::fs\" to std under [effects.self] in nomi.toml, or remove the call"},
+			"impls.nomi:24:13: help: add \"std::fs\" to effects under [effects.self] in nomi.toml, or remove the call"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -202,7 +202,7 @@ func TestAbstractBodies_HoldACallThroughTheBound(t *testing.T) {
 // allows nothing.
 func consumerFiles(appSelf string) map[string]string {
 	return map[string]string{
-		"genlib/nomi.toml": "[package]\nname = \"genlib\"\n\n[effects.self]\nstd = []\n",
+		"genlib/nomi.toml": "[package]\nname = \"genlib\"\n\n[effects.self]\neffects = []\n",
 		"genlib/genlib.nomi": `pub interface Make
     fn make() -> self
 end
@@ -212,8 +212,8 @@ where T: Make
     T.make()
 end
 `,
-		"app/nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[dependencies]\ngenlib = { dir = \"../genlib\" }\n\n[effects.self]\nstd = " +
-			appSelf + "\n\n[effects.deps]\nstd = []\n",
+		"app/nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[dependencies]\ngenlib = { dir = \"../genlib\" }\n\n[effects.self]\neffects = " +
+			appSelf + "\n\n[effects.dependencies]\neffects = []\n",
 		"app/main.nomi": `import
     std::fs
     std::io
@@ -244,13 +244,13 @@ end
 // written. The consumer's impl reads a file, and the consumer's own
 // [effects.self] holds it, reached from main through the instance of the
 // library's function at the consumer's type; the library's list, and the
-// consumer's [effects.deps], hold none of it.
+// consumer's [effects.dependencies], hold none of it.
 func TestEffectRoots_AConsumersImplementationIsTheConsumers(t *testing.T) {
 	checkedRootsPass(t, "genlib/genlib.nomi", consumerFiles(`["std::io"]`))
 	got, ds := effectDiagnostics(t, "app/main.nomi", consumerFiles(`["std::io"]`))
 	want := "app/main.nomi:13:22: this package's own code has the effect std::fs, and [effects.self] allows it only std::io\n" +
 		"app/main.nomi:13:22: help: reached from `main`; `main` calls `built`; `built` calls `Make.make for Config`\n" +
-		"app/main.nomi:13:22: help: add \"std::fs\" to std under [effects.self] in nomi.toml, or remove the call"
+		"app/main.nomi:13:22: help: add \"std::fs\" to effects under [effects.self] in nomi.toml, or remove the call"
 	if got != want {
 		t.Errorf("diagnostics:\n%s\nwant:\n%s", got, want)
 	}

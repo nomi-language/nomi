@@ -48,7 +48,7 @@ are `and`, `or` and `not`. `not` binds looser than a comparison, so
 `not a == b` is `not (a == b)`. An [`Int`](/reference/int/) is a whole number
 of any size, so arithmetic never overflows. `/` on `Int` drops the remainder,
 rounding toward zero, and `%` gives the remainder. Their divisor is a
-[`NonZeroInt`](/structs-enums-distinct/#refinements), so a division by zero
+[`NonZeroInt`](/structs-enums-distinct/#subtypes), so a division by zero
 does not compile.
 
 The bitwise operators are `&&&`, `|||`, `^^^`, prefix `~~~`, `<<<` and
@@ -133,7 +133,7 @@ dbg line 9: 19.99d + 5.00d + 2.50d + 0.99d = 28.48d
 binary, so `0.1 + 0.2` is not quite `0.3`. To compare a computed Float, give
 the difference you accept: `Float.equal_within(0.1 + 0.2, 0.3, 1e-9)` is
 `True`. The tolerance is a
-[`NonNegativeFloat`](/structs-enums-distinct/#refinements), so a negative
+[`NonNegativeFloat`](/structs-enums-distinct/#subtypes), so a negative
 literal there fails to compile.
 
 A `Float` follows IEEE 754, so dividing by zero doesn't stop the program:

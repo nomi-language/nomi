@@ -214,7 +214,7 @@ func TestPackages_NewAndInitJoinTheWorkspace(t *testing.T) {
 	c := newModuleCLI(t)
 	root := rootWorkspace(t)
 	out := c.must(root, "new", "gamma")
-	if want := "wrote gamma/nomi.toml, gamma/main.nomi and gamma/AGENTS.md\nadded gamma to the members of nomi-workspace.toml\nnext: cd gamma && nomi run main.nomi"; out != want {
+	if want := "wrote gamma/nomi.toml, gamma/main.nomi and gamma/AGENTS.md\nadded gamma to the members of nomi-workspace.toml\nnext: cd gamma && nomi run"; out != want {
 		t.Errorf("nomi new at the root printed\n%s\nwant\n%s", out, want)
 	}
 	out = c.must(filepath.Join(root, "libs"), "new", "beta")

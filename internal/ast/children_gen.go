@@ -235,18 +235,6 @@ func generatedChildren(n Node, fn func(Node)) bool {
 		if n != nil {
 			childrenOfRangeLit(n, fn)
 		}
-	case *RefinementBaseType:
-		if n != nil {
-			childrenOfRefinementBaseType(n, fn)
-		}
-	case *RefinementParentCheck:
-		if n != nil {
-			childrenOfRefinementParentCheck(n, fn)
-		}
-	case *RefinementRule:
-		if n != nil {
-			childrenOfRefinementRule(n, fn)
-		}
 	case *Return:
 		if n != nil {
 			childrenOfReturn(n, fn)
@@ -274,6 +262,18 @@ func generatedChildren(n Node, fn func(Node)) bool {
 	case *Subtests:
 		if n != nil {
 			childrenOfSubtests(n, fn)
+		}
+	case *SubtypeBaseType:
+		if n != nil {
+			childrenOfSubtypeBaseType(n, fn)
+		}
+	case *SubtypeParentCheck:
+		if n != nil {
+			childrenOfSubtypeParentCheck(n, fn)
+		}
+	case *SubtypeRule:
+		if n != nil {
+			childrenOfSubtypeRule(n, fn)
 		}
 	case *TaggedString:
 		if n != nil {
@@ -320,9 +320,9 @@ func generatedChildren(n Node, fn func(Node)) bool {
 		if n != nil {
 			childrenOfUnary(n, fn)
 		}
-	case *UncheckedRefinement:
+	case *UncheckedSubtype:
 		if n != nil {
-			childrenOfUncheckedRefinement(n, fn)
+			childrenOfUncheckedSubtype(n, fn)
 		}
 	case *Unreachable:
 		if n != nil {
@@ -483,12 +483,6 @@ func absent(n Node) bool {
 		return n == nil
 	case *RangeLit:
 		return n == nil
-	case *RefinementBaseType:
-		return n == nil
-	case *RefinementParentCheck:
-		return n == nil
-	case *RefinementRule:
-		return n == nil
 	case *Return:
 		return n == nil
 	case *SelfExpr:
@@ -508,6 +502,12 @@ func absent(n Node) bool {
 	case *StructPattern:
 		return n == nil
 	case *Subtests:
+		return n == nil
+	case *SubtypeBaseType:
+		return n == nil
+	case *SubtypeParentCheck:
+		return n == nil
+	case *SubtypeRule:
 		return n == nil
 	case *TaggedString:
 		return n == nil
@@ -533,7 +533,7 @@ func absent(n Node) bool {
 		return n == nil
 	case *Unary:
 		return n == nil
-	case *UncheckedRefinement:
+	case *UncheckedSubtype:
 		return n == nil
 	case *Unreachable:
 		return n == nil
@@ -1349,35 +1349,6 @@ func childrenOfRangeLit(x *RangeLit, fn func(Node)) {
 	}
 }
 
-func childrenOfRefinementBaseType(x *RefinementBaseType, fn func(Node)) {
-	for _, e1 := range x.Params {
-		if !absent(e1) {
-			fn(e1)
-		}
-	}
-}
-
-func childrenOfRefinementParentCheck(x *RefinementParentCheck, fn func(Node)) {
-	if !absent(x.Parent) {
-		fn(x.Parent)
-	}
-	if !absent(x.Refined) {
-		fn(x.Refined)
-	}
-	if !absent(x.Plain) {
-		fn(x.Plain)
-	}
-}
-
-func childrenOfRefinementRule(x *RefinementRule, fn func(Node)) {
-	if !absent(x.Rule) {
-		fn(x.Rule)
-	}
-	if !absent(x.Value) {
-		fn(x.Value)
-	}
-}
-
 func childrenOfReturn(x *Return, fn func(Node)) {
 	if !absent(x.Value) {
 		fn(x.Value)
@@ -1513,6 +1484,35 @@ func childrenOfSubtests(x *Subtests, fn func(Node)) {
 	}
 	if x.Body != nil {
 		fn(x.Body)
+	}
+}
+
+func childrenOfSubtypeBaseType(x *SubtypeBaseType, fn func(Node)) {
+	for _, e1 := range x.Params {
+		if !absent(e1) {
+			fn(e1)
+		}
+	}
+}
+
+func childrenOfSubtypeParentCheck(x *SubtypeParentCheck, fn func(Node)) {
+	if !absent(x.Parent) {
+		fn(x.Parent)
+	}
+	if !absent(x.Subtype) {
+		fn(x.Subtype)
+	}
+	if !absent(x.Plain) {
+		fn(x.Plain)
+	}
+}
+
+func childrenOfSubtypeRule(x *SubtypeRule, fn func(Node)) {
+	if !absent(x.Rule) {
+		fn(x.Rule)
+	}
+	if !absent(x.Value) {
+		fn(x.Value)
 	}
 }
 
@@ -1666,7 +1666,7 @@ func childrenOfUnary(x *Unary, fn func(Node)) {
 	}
 }
 
-func childrenOfUncheckedRefinement(x *UncheckedRefinement, fn func(Node)) {
+func childrenOfUncheckedSubtype(x *UncheckedSubtype, fn func(Node)) {
 	if !absent(x.Value) {
 		fn(x.Value)
 	}
@@ -1780,9 +1780,6 @@ var generatedTypes = []any{
 	(*PlaceholderParam)(nil),
 	(*QualifiedType)(nil),
 	(*RangeLit)(nil),
-	(*RefinementBaseType)(nil),
-	(*RefinementParentCheck)(nil),
-	(*RefinementRule)(nil),
 	(*Return)(nil),
 	(*SelfExpr)(nil),
 	(*SelfType)(nil),
@@ -1793,6 +1790,9 @@ var generatedTypes = []any{
 	(*StructLit)(nil),
 	(*StructPattern)(nil),
 	(*Subtests)(nil),
+	(*SubtypeBaseType)(nil),
+	(*SubtypeParentCheck)(nil),
+	(*SubtypeRule)(nil),
 	(*TaggedString)(nil),
 	(*Tap)(nil),
 	(*TestDecl)(nil),
@@ -1805,7 +1805,7 @@ var generatedTypes = []any{
 	(*TypeDef)(nil),
 	(*TypeIdent)(nil),
 	(*Unary)(nil),
-	(*UncheckedRefinement)(nil),
+	(*UncheckedSubtype)(nil),
 	(*Unreachable)(nil),
 	(*Unwrap)(nil),
 	(*WildcardPattern)(nil),

@@ -284,9 +284,9 @@ func (g *gen) implMemberFunc(d *implDef, it *implItem) *fileFunc {
 // file of the program sees (anotherFileSees), which the analyzer refuses
 // from elsewhere. A REPL session's files see each other's. An INTERFACE
 // impl function carries no modifier and is not one, and neither is one of
-// a block the front end writes (a private refinement's `try_from`), which
+// a block the front end writes (a private subtype's `try_from`), which
 // the builder calls where a reader in another module checks a value of
-// the refinement (refinementread.go).
+// the subtype (subtyperead.go).
 func (g *gen) fileOwnFunc(d *implDef, vis ast.Visibility) bool {
 	return d.ifaceName == "" && vis == ast.Private && (d.decl == nil || d.decl.SynthOriginLine == 0) &&
 		!g.anotherFileSees(vis)

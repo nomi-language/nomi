@@ -68,10 +68,10 @@ func (g *gen) ownerBlockParams(ib *ast.ImplBlock) (map[string]bool, bool) {
 		return nil, false
 	}
 	rec, _ := g.recordedTypeExpr(ib.Receiver)
-	if dt, isDistinct := analysis.ResolveClosed(rec).(*analysis.DistinctType); isDistinct && dt.Refinement {
-		// A distinct refinement has no receiver kind of its own, so its
+	if dt, isDistinct := analysis.ResolveClosed(rec).(*analysis.DistinctType); isDistinct && dt.Subtype {
+		// A distinct subtype has no receiver kind of its own, so its
 		// functions, the generated ones included, are its owner's
-		// (refinement.go).
+		// (subtype.go).
 		return map[string]bool{}, true
 	}
 	if isSynthesized(ib) {
@@ -150,7 +150,7 @@ func (g *gen) registerOwnerImpl(d *implDef, ib *ast.ImplBlock) bool {
 
 // receiverOwnerDecl is the declaration the type the checker recorded for
 // ib's receiver names (declNode): the generic type, interface or
-// refinement whose owner functions ib holds, which keys them program-wide
+// subtype whose owner functions ib holds, which keys them program-wide
 // (fileIndex.ownerMembers), or nil for a receiver that names none.
 func (g *gen) receiverOwnerDecl(ib *ast.ImplBlock) ast.Node {
 	rec, _ := g.recordedTypeExpr(ib.Receiver)

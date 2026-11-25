@@ -13,7 +13,7 @@ import (
 func dbgProject(t *testing.T, calcSource, calcEntry string) string {
 	t.Helper()
 	app := t.TempDir()
-	mustWrite(t, filepath.Join(app, "nomi.toml"), effectsModule+"\n[effects.self]\nstd = [\"std::io\"]\n\n[effects.self.modules]\n\"calc\" = "+calcEntry+"\n\"main\" = [\"std::io\"]\n")
+	mustWrite(t, filepath.Join(app, "nomi.toml"), effectsModule+"\n[effects.self]\neffects = [\"std::io\"]\n\n[effects.self.modules]\n\"calc\" = "+calcEntry+"\n\"main\" = [\"std::io\"]\n")
 	mustWrite(t, filepath.Join(app, "main.nomi"), `import
     std::io
     calc
@@ -63,7 +63,7 @@ func TestEffects_ADbgNeedsNoEntry(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(data), "\"calc\" = []\n") || !strings.Contains(string(data), "std = [\"std::io\"]\n") {
+	if !strings.Contains(string(data), "\"calc\" = []\n") || !strings.Contains(string(data), "effects = [\"std::io\"]\n") {
 		t.Errorf("nomi effects --write does not write calc's entry empty:\n%s", data)
 	}
 

@@ -182,8 +182,22 @@ func (c *checker) instantiateFuncRef(node ast.Node, ty, expected Type) Type {
 		return ty
 	}
 	for _, tp := range own {
-		concrete := resolveTypeVar(subs[tp])
-		subs[tp] = concrete
+		subs[tp] = resolveTypeVar(subs[tp])
+	}
+	// The reference is called with values of the expected parameters, so a
+	// parameter they solve to a subtype under a bound of an interface
+	// that makes a value is solved to its base, as a call's arguments solve
+	// it (widenPastMadeSelf): `Iter.map(xss, Iter.sum)` with xss a
+	// `List<List<NonNegativeInt>>` sums Ints, as `Iter.sum(xs)` does.
+	values := make([][2]Type, 0, len(ft.Params))
+	for i, p := range ft.Params {
+		if i < len(want.Params) {
+			values = append(values, [2]Type{p, want.Params[i]})
+		}
+	}
+	subs = c.widenPastMadeSelf(ft, subs, nil, c.calleeInterface(node), values)
+	for _, tp := range own {
+		concrete := subs[tp]
 		for _, bound := range tp.Bounds {
 			if !typeImplementsInterface(c, concrete, bound, c.site(line, col, RecordingKindGenericBoundCheck)) {
 				c.boundError(line, col, concrete, bound, tp.Name_)

@@ -2585,7 +2585,7 @@ func TestParseTypeAlias_HasNoRule(t *testing.T) {
 	if err == nil {
 		t.Fatal("parsed a typealias with a `when` rule, want an error")
 	}
-	want := "line 1, col 21: a typealias has no rule, since it is its target under another name: for the values of Int that satisfy a rule, declare `refine Small Int when ...`"
+	want := "line 1, col 21: a typealias has no rule, since it is its target under another name: for the values of Int that satisfy a rule, declare `subtype Small Int when ...`"
 	if !strings.Contains(err.Error(), want) {
 		t.Errorf("error %q, want it to contain %q", err.Error(), want)
 	}

@@ -45,13 +45,16 @@ func EmbedSummary(info *analysis.EmbedInfo) string {
 	return b.String()
 }
 
-// ByteSize is n bytes for a reader: `512 B`, `1.5 KiB`, `3.2 MiB`.
+// ByteSize is n bytes for a reader: `512 B`, `1.5 KiB`, `3.2 MiB`,
+// `1.1 GiB`.
 func ByteSize(n int64) string {
 	switch {
 	case n < 1024:
 		return fmt.Sprintf("%d B", n)
 	case n < 1024*1024:
 		return fmt.Sprintf("%.1f KiB", float64(n)/1024)
+	case n < 1024*1024*1024:
+		return fmt.Sprintf("%.1f MiB", float64(n)/(1024*1024))
 	}
-	return fmt.Sprintf("%.1f MiB", float64(n)/(1024*1024))
+	return fmt.Sprintf("%.1f GiB", float64(n)/(1024*1024*1024))
 }

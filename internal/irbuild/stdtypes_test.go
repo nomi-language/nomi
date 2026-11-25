@@ -300,7 +300,7 @@ func TestStdObjects_WhatStopsEachListedModule(t *testing.T) {
 			case *ast.EnumDef:
 				name, generic = d.Name, len(d.TypeParams) > 0
 			case *ast.TypeDef:
-				if isDistinctRefinementDecl(d) {
+				if isDistinctSubtypeDecl(d) {
 					continue
 				}
 				name, generic = d.Name, len(d.TypeParams) > 0

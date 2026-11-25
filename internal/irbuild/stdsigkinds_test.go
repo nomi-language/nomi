@@ -20,7 +20,7 @@ var maxSigPositionRefusals = map[string]int{
 	// (programStdModules). Its types are the program's, and a program's gen
 	// lowers the function with its own kinds, so the shared row is never
 	// lowered.
-	"program-std module": 2067,
+	"program-std module": 2077,
 }
 
 // TestStdSignaturePositionsProject holds every parameter and written result

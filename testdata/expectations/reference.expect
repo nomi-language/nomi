@@ -12,7 +12,7 @@
 population reference
 what one record per stdlib reference page carrying interactive tests, each editor run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an editor's outcome and its label: the entry heading, its impl context, and #n for an entry's later editors, and `[not run in the browser: <classes>]` for a prompt the page shows as code since it reaches an effect the browser lacks; it runs here natively. N is the page's editor count.
 records 97
-declared-cases 1473
+declared-cases 1518
 failing 0
 C actors
 E 0
@@ -529,8 +529,8 @@ T ok Files.paths
 T ok Files.sub
 C float
 E 0
-N 47
-H 5b3ce3bd132c40d4f2e1fa94380ae4d46f8c38525c5bf9f5fed1f9ed38510e32
+N 49
+H e71b30469b24c8c77121f0ffe346ffb14f46773806457df724dd51543e884c0e
 T ok Float.nan
 T ok Float.positive_infinity
 T ok Float.negative_infinity
@@ -577,7 +577,9 @@ T ok Float.max (impl Comparable for Float)
 T ok Float.clamp (impl Comparable for Float)
 T ok type NonZeroFloat
 T ok type NonNegativeFloat
+T ok NonNegativeFloat.sqrt
 T ok type PositiveFloat
+T ok PositiveFloat.sqrt
 C fs
 E 0
 N 84
@@ -741,8 +743,8 @@ T ok type Css
 T ok interface OptionalAttribute
 C http
 E 0
-N 77
-H 80b9cc7697db6867de9e7e9803f526aae5ec6f7da481ea6f96f4488b79572361
+N 78
+H f79500193df55f3de3748010ce6b4f618dbe1dbbdc234cf6cc234afc40263e7c
 T ok Method.text
 T ok Method.parse
 T ok Status.from_code
@@ -766,6 +768,7 @@ T ok Request.text
 T ok Request.json_as
 T ok Request.cookies
 T ok Request.basic_auth
+T ok Request.extend_read_deadline
 T ok Request.read
 T ok Request.dump
 T ok Response.write_to
@@ -1089,8 +1092,8 @@ T ok key_exchange.shared_secret
 T ok key_exchange.shared_secret #2
 C lists
 E 0
-N 34
-H 7f043b7d9f9031b52b300e9bae8126bd79a652022dad76fe92894155024bb109
+N 44
+H 11b3098bec101c0baa404955b344e7f893eacf8b876b0adeb86aebc5d552ed8d
 T ok type List
 T ok List.next_item
 T ok List.length
@@ -1117,11 +1120,21 @@ T ok NonEmptyList.min
 T ok NonEmptyList.max_by
 T ok NonEmptyList.min_by
 T ok NonEmptyList.mean
+T ok NonEmptyList.mean_by
 T ok NonEmptyList.reduce
 T ok NonEmptyList.map
 T ok NonEmptyList.with_index
 T ok NonEmptyList.reverse
 T ok NonEmptyList.sort
+T ok NonEmptyList.sort_by
+T ok NonEmptyList.sort_with
+T ok NonEmptyList.scan
+T ok NonEmptyList.zip
+T ok NonEmptyList.intersperse
+T ok NonEmptyList.group_by
+T ok NonEmptyList.frequencies
+T ok NonEmptyList.to_vector
+T ok NonEmptyList.to_set
 T ok NonEmptyList.prepend
 T ok NonEmptyList.push
 T ok NonEmptyList.concat
@@ -1202,8 +1215,8 @@ T ok testing.conformance [not run in the browser: connect listen]
 T ok testing.rules
 C maps
 E 0
-N 28
-H 8a8ca68a450cdd142f17bdf7f80259b666a6cd26cc8f562fe55dd32196def235
+N 29
+H 31c6f6cfc26935cbc7c97640ab07199bb0d65cb96483c212b91a450d80b817ad
 T ok type Map
 T ok Map.get
 T ok Map.put
@@ -1227,10 +1240,11 @@ T ok NonEmptyMap.first_entry
 T ok NonEmptyMap.last_entry
 T ok NonEmptyMap.max_by
 T ok NonEmptyMap.min_by
+T ok NonEmptyMap.mean_by
 T ok NonEmptyMap.keys
 T ok NonEmptyMap.values
 T ok NonEmptyMap.map_values
-T ok NonEmptyMap.put
+T ok NonEmptyMap.map_keys
 T ok NonEmptyMap.merge
 C matcher
 E 0
@@ -1398,8 +1412,8 @@ T ok Generator.flat_map
 T ok Generator.list
 C ranges
 E 0
-N 13
-H 51e3cd2202dbd5e68f98f9ec93a27229255139e12d88a253dc2e48e688bc953a
+N 14
+H 5be2a35b1dd6f29a215e1d07940b5fa52f6bf353c376525c6d774a6f573a45e2
 T ok struct Range
 T ok Range.from
 T ok Range.naturals
@@ -1413,6 +1427,7 @@ T ok Range.to_string (impl Display for Range<T>)
 T ok type NonEmptyRange
 T ok type ClosedRange
 T ok type BoundedRange
+T ok BoundedRange.stop
 C regex
 E 0
 N 4
@@ -1461,8 +1476,8 @@ T ok sessions.with_session
 T ok sessions.write
 C sets
 E 0
-N 21
-H 925729c7302a1a2908b91d842a44e5ff7708f629fb9c7bb4ee0982a13ddf3028
+N 29
+H 4bf3eb6de76cd72bfd9a3f031a57d7a4fb5f76646312089629c76d79ef3b5a83
 T ok struct Set
 T ok Set.insert
 T ok Set.remove
@@ -1478,11 +1493,19 @@ T ok Set.subtract (impl Subtract<Set<T>, Set<T>> for Set<T>)
 T ok type NonEmptySet
 T ok NonEmptySet.of
 T ok NonEmptySet.size
+T ok NonEmptySet.first
+T ok NonEmptySet.last
 T ok NonEmptySet.max
 T ok NonEmptySet.min
+T ok NonEmptySet.max_by
+T ok NonEmptySet.min_by
+T ok NonEmptySet.mean
+T ok NonEmptySet.mean_by
+T ok NonEmptySet.reduce
 T ok NonEmptySet.map
 T ok NonEmptySet.to_list
-T ok NonEmptySet.insert
+T ok NonEmptySet.to_vector
+T ok NonEmptySet.group_by
 T ok NonEmptySet.union
 C signals
 E 0
@@ -1575,8 +1598,8 @@ T ok testing.invalid_keys
 T ok testing.odd_keys
 C strings
 E 0
-N 56
-H 82dfd68cdfed92e93a79e3eee520bde08e9071e966b95113552e623114fcacdc
+N 64
+H a0e9536c903b0b71c95fd524d228a9a3aa96855d65812780b2579b1c0109f053
 T ok String.contains Contains<String> (impl Contains<String> for String)
 T ok String.contains Contains<Regex<C>> (impl Contains<Regex<C>> for String)
 T ok String.contains Contains<Codepoint> (impl Contains<Codepoint> for String)
@@ -1633,6 +1656,14 @@ T ok String.to_string (impl Display for String)
 T ok String.empty_sum (impl Summable for String)
 T ok String.inspect (impl Debug for String)
 T ok type NonEmptyString
+T ok NonEmptyString.first
+T ok NonEmptyString.last
+T ok NonEmptyString.uppercase
+T ok NonEmptyString.lowercase
+T ok NonEmptyString.capitalize
+T ok NonEmptyString.reverse
+T ok NonEmptyString.normalize
+T ok NonEmptyString.repeat
 C summable
 E 0
 N 1
@@ -1796,8 +1827,8 @@ H f01ff405457379af3a290ce9aab350978e30af5a10358920b9a8ea7d31e0eafb
 T ok interface Variants
 C vectors
 E 0
-N 26
-H d1bc395fa77801b5b921ab74df4f0c2bff6e6adb39a610553d62911746d7e462
+N 40
+H 72af8ecc9c2bd2fa0f4c2a112d08b31e529ff9710eaa816977621d4991290148
 T ok Vector.length
 T ok Vector.get
 T ok Vector.push
@@ -1818,11 +1849,25 @@ T ok NonEmptyVector.last
 T ok NonEmptyVector.length
 T ok NonEmptyVector.max
 T ok NonEmptyVector.min
+T ok NonEmptyVector.max_by
+T ok NonEmptyVector.min_by
 T ok NonEmptyVector.mean
+T ok NonEmptyVector.mean_by
+T ok NonEmptyVector.pop
 T ok NonEmptyVector.reduce
 T ok NonEmptyVector.map
 T ok NonEmptyVector.with_index
-T ok NonEmptyVector.push
+T ok NonEmptyVector.reverse
+T ok NonEmptyVector.sort
+T ok NonEmptyVector.sort_by
+T ok NonEmptyVector.sort_with
+T ok NonEmptyVector.scan
+T ok NonEmptyVector.zip
+T ok NonEmptyVector.intersperse
+T ok NonEmptyVector.group_by
+T ok NonEmptyVector.frequencies
+T ok NonEmptyVector.to_list
+T ok NonEmptyVector.to_set
 T ok NonEmptyVector.concat
 C wasm
 E 0

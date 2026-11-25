@@ -19,9 +19,9 @@ import (
 // Editors ask on every cursor rest, so it reads the document's occurrence
 // index, built once per analysis, and touches only the occurrences of the
 // line under the cursor and of the symbol found there.
-func (s *Server) textDocumentDocumentHighlight(_ *glsp.Context, params *protocol.DocumentHighlightParams) ([]protocol.DocumentHighlight, error) {
+func (s *Server) textDocumentDocumentHighlight(gctx *glsp.Context, params *protocol.DocumentHighlightParams) ([]protocol.DocumentHighlight, error) {
 	uri := string(params.TextDocument.URI)
-	doc := s.docs.Snapshot(uri)
+	doc := s.requestDoc(gctx, uri)
 	if doc == nil || doc.Analysis == nil {
 		return nil, nil
 	}

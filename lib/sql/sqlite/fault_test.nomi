@@ -1,0 +1,36 @@
+//# The driver's answer for a fault in its engine. These tests name the
+//# package's own functions, so they are apart from sqlite_test.nomi, which
+//# uses the driver as a program that depends on it does and which the tour
+//# runs from outside the package.
+
+import
+    std::channels.Channel
+    std::sql
+    sqlite
+    sqlite::internal::engine.{self, Failure}
+    sqlite::internal::vfs
+end
+
+// No statement is known to trap the engine, so its fault is handed to the
+// functions that make a failure a sql.Error: a statement's, and an open's
+// or a close's.
+test "the engine's fault is an Engine error, not a Connection one"
+    e = engine.start(vfs.Place{})?
+    defer engine.stop(e)
+
+    shared = sqlite.Shared{
+        engine: e,
+        handle: 0,
+        turn:   Channel.buffered<Unit>(1),
+        state:  Channel.buffered<sqlite.State>(1),
+    }
+
+    fault = Failure.Fault{message: "an access was outside the module's memory or table"}
+    answer = sql.Error.Engine{message: "an access was outside the module's memory or table"}
+
+    assert sqlite.failure(shared, fault, "SELECT 1", []) == answer
+    assert sqlite.unconnected(fault) == answer
+
+    assert "${answer}"
+        == "the database engine failed: an access was outside the module's memory or table"
+end

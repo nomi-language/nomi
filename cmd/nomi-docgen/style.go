@@ -123,7 +123,10 @@ func readGuide(stylePath, specPath string, doc *styleDoc) (*styleDoc, error) {
 	if err != nil {
 		return nil, err
 	}
-	lines := fenceLines(strings.Split(strings.ReplaceAll(string(data), "\r\n", "\n"), "\n"))
+	lines, err := expandTabs(stylePath, fenceLines(strings.Split(strings.ReplaceAll(string(data), "\r\n", "\n"), "\n")))
+	if err != nil {
+		return nil, err
+	}
 	doc.rules, doc.docAnchors, doc.spec = map[int]*styleRule{}, map[string]styleTarget{}, spec
 	docSlugs := newSlugger()
 	slugs := map[string]bool{}

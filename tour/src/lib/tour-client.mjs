@@ -418,7 +418,10 @@ function readOnlyMark(reason) {
 }
 
 // tabsNav lays a block's files out as a tab strip in its bar: one tab per
-// file, arrows move along it. select(i, focus) shows file i's pane.
+// file, each naming its pane, and the arrow keys, Home and End move along
+// it. select(i, focus) shows file i's pane. A page's tab groups use it too
+// (tabGroup), each panel a pane.
+let tabSeq = 0;
 function tabsNav(widget, bar, panes, first, select, controls = null) {
   const tabBar = document.createElement("div");
   tabBar.className = "nomi-tabs";
@@ -442,6 +445,10 @@ function tabsNav(widget, bar, panes, first, select, controls = null) {
       btn.append(readOnlyMark(p.readOnly));
     }
     p.pane.setAttribute("role", "tabpanel");
+    btn.id = `nomi-tab-${++tabSeq}`;
+    if (!p.pane.id) p.pane.id = `${btn.id}-panel`;
+    btn.setAttribute("aria-controls", p.pane.id);
+    p.pane.setAttribute("aria-labelledby", btn.id);
     slot.append(btn);
     tabBar.appendChild(slot);
     btn.addEventListener("click", () => {
@@ -467,13 +474,15 @@ function tabsNav(widget, bar, panes, first, select, controls = null) {
   };
   activate(first);
   tabBar.addEventListener("keydown", (ev) => {
-    if (ev.key !== "ArrowLeft" && ev.key !== "ArrowRight") return;
+    const step = { ArrowLeft: -1, ArrowRight: 1, Home: 1, End: -1 }[ev.key];
+    if (!step) return;
     const at = btns.indexOf(document.activeElement);
     if (at < 0) return;
     ev.preventDefault();
-    let next = at;
+    // Home looks from before the first tab, End from after the last.
+    let next = { Home: -1, End: btns.length }[ev.key] ?? at;
     do {
-      next = (next + (ev.key === "ArrowLeft" ? -1 : 1) + btns.length) % btns.length;
+      next = (next + step + btns.length) % btns.length;
     } while (slots[next].hidden && next !== at);
     activate(next);
     select(next, false);
@@ -1487,6 +1496,19 @@ function attachControls(widget, host, output, expectError = false, onRun = null,
     controls.append(expectedBadge);
   }
   if (!onRun) controls.append(dot);
+  // The Copy button copies the open file as edited: the editor last
+  // focused, or the first one shown.
+  let lastEditor = null;
+  widget.addEventListener("focusin", (ev) => {
+    if (ev.target.matches("textarea.nomi-src")) lastEditor = ev.target;
+  });
+  const openFile = () =>
+    lastEditor && !lastEditor.closest(".nomi-editor").hidden
+      ? lastEditor
+      : widget.querySelector(".nomi-editor:not([hidden]) textarea.nomi-src");
+  clipboardWritable.then((writable) => {
+    if (writable) controls.insertBefore(copyButton("Copy", () => openFile().value), expandBtn);
+  });
   const expandBtn = document.createElement("button");
   expandBtn.type = "button";
   expandBtn.className = "nomi-expand";
@@ -2686,6 +2708,257 @@ async function highlightStatic(pre) {
   out.innerHTML = render(query.captures(parser.parse(code).rootNode), [], code);
   pre.replaceWith(chipped(out, "nomi"));
 }
+
+// --- copy buttons ---
+// Every code block on the site has one Copy button, made by copyButton:
+// each static block (copyControls) at its top right, and each live editor
+// in its controls (attachControls), where it copies the open file as the
+// reader has edited it. A static block copies what the build decided
+// (rehype-shiki.mjs): a ```console block's commands, which it carries as
+// data-nomi-commands ("" for a block of output alone, which gets no
+// button), and any other block its text as written. A ```tree block is a
+// list, not a <pre>, and gets none. Without a Clipboard API the page may
+// write, the page shows no button at all.
+
+const COPY_ICON =
+  '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">' +
+  '<rect x="5.5" y="5.5" width="8" height="8" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/>' +
+  '<path d="M3.5 10.5h-.5a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1h6.5a1 1 0 0 1 1 1v.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+const COPIED_ICON =
+  '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">' +
+  '<path d="M3 8.5l3.2 3.2L13 4.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+// How long a button says "Copied" after a copy.
+const COPIED_MS = 2000;
+
+// clipboardWritable settles to whether the page may write the clipboard:
+// not without the Clipboard API (an old browser, a page not served
+// securely) or once the browser has denied it. A browser that does not
+// name the permission allows a write on a press. A write it refuses
+// settles it to false (copyButton), so an editor opened later has no
+// button either.
+let clipboardWritable = (async () => {
+  if (!window.isSecureContext || typeof navigator.clipboard?.writeText !== "function") return false;
+  try {
+    const status = await navigator.permissions.query({ name: "clipboard-write" });
+    return status.state !== "denied";
+  } catch {
+    return true;
+  }
+})();
+
+// copyAnnounce says a copy's outcome through the page's one live region,
+// made on the first copy.
+let copyLive = null;
+let copyLiveTimer;
+function copyAnnounce(text) {
+  if (!copyLive) {
+    copyLive = document.createElement("span");
+    copyLive.className = "nomi-sr-only";
+    copyLive.setAttribute("role", "status");
+    copyLive.setAttribute("aria-live", "polite");
+    document.body.append(copyLive);
+  }
+  // Emptied first, so a second copy of the same block is announced again.
+  copyLive.textContent = "";
+  requestAnimationFrame(() => {
+    copyLive.textContent = text;
+  });
+  clearTimeout(copyLiveTimer);
+  copyLiveTimer = setTimeout(() => {
+    copyLive.textContent = "";
+  }, COPIED_MS);
+}
+
+// copyButton makes the button that copies text() and says "Copied" for
+// COPIED_MS. A write the browser refuses takes every copy button off the
+// page, since none of them can copy.
+function copyButton(label, text) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "nomi-copy";
+  btn.setAttribute("aria-label", label);
+  btn.title = label;
+  btn.innerHTML = COPY_ICON + COPIED_ICON + '<span class="nomi-copy-done" aria-hidden="true">Copied</span>';
+  let timer;
+  btn.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(text());
+    } catch {
+      clipboardWritable = Promise.resolve(false);
+      for (const b of document.querySelectorAll(".nomi-copy")) b.remove();
+      copyAnnounce("This browser does not let the page copy.");
+      return;
+    }
+    btn.classList.add("is-copied");
+    copyAnnounce("Copied");
+    clearTimeout(timer);
+    timer = setTimeout(() => btn.classList.remove("is-copied"), COPIED_MS);
+  });
+  return btn;
+}
+
+// copyControls gives each static block of the page its button, in a box
+// around the block (and its language chip) that holds the button in its
+// top right. The text is read at the press, from the box: a ```nomi block
+// the page highlights later is a new <pre> in the same box.
+function copyControls() {
+  for (const pre of document.querySelectorAll(".sl-markdown-content pre")) {
+    if (pre.closest(".nomi-interactive")) continue;
+    // A runnable block becomes a live editor, which has its own button.
+    if (pre.querySelector(":scope > code.language-nomi-run, :scope > code.language-nomi-test")) continue;
+    const commands = pre.dataset.nomiCommands;
+    if (commands === "") continue;
+    const block = pre.parentElement.classList.contains("nomi-chip") ? pre.parentElement : pre;
+    const box = document.createElement("div");
+    box.className = "nomi-copyable";
+    block.replaceWith(box);
+    box.append(block);
+    const text = commands !== undefined ? () => commands : () => box.querySelector("pre").textContent.replace(/\n+$/, "");
+    box.append(copyButton(commands !== undefined ? "Copy command" : "Copy", text));
+    cornerFit.observe(box);
+  }
+  document.fonts?.ready.then(() => fitCorners([...document.querySelectorAll(".nomi-copyable")]));
+}
+
+// fitCorners keeps each box's first line out from under its corner (the
+// button, and a chip beside it): a box whose first line runs into the
+// <pre>'s right padding, which tour.css sizes to the corner, moves its code
+// below the corner (is-crowded). It reads every box before it writes any,
+// so a page of blocks is laid out once.
+function fitCorners(boxes) {
+  const crowded = boxes.map((box) => {
+    const pre = box.querySelector("pre");
+    if (!pre) return false;
+    const walker = document.createTreeWalker(pre, NodeFilter.SHOW_TEXT);
+    const range = document.createRange();
+    range.setStart(pre, 0);
+    range.setEnd(pre, pre.childNodes.length);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const at = node.data.indexOf("\n");
+      if (at >= 0) {
+        range.setEnd(node, at);
+        break;
+      }
+    }
+    const style = getComputedStyle(pre);
+    const rect = pre.getBoundingClientRect();
+    const contentRight = rect.left + pre.clientLeft + pre.clientWidth - parseFloat(style.paddingRight);
+    return range.getBoundingClientRect().right + pre.scrollLeft > contentRight;
+  });
+  boxes.forEach((box, i) => box.classList.toggle("is-crowded", crowded[i]));
+}
+const cornerFit = new ResizeObserver((entries) => fitCorners(entries.map((e) => e.target)));
+
+clipboardWritable.then((writable) => {
+  if (writable) copyControls();
+});
+
+// --- the home page's waves ---
+// The waves under the hero raise one swell, and the wordmark above them
+// rides it (tour.css: .nomi-home-waves.is-swelling, .hero > img.is-bobbing),
+// when the pointer or the focus arrives on one of the hero's buttons, when
+// the pointer arrives on the wordmark or the waves, and when the install
+// command's Copy button is pressed. Each class stays until its animation ends, so a pointer
+// that leaves at once does not cut the movement short, and one under way is
+// not started again.
+{
+  const waves = document.querySelector(".nomi-home-waves");
+  if (waves) {
+    // The hero holds a wordmark for each theme and shows one.
+    const marks = [...document.querySelectorAll(".hero > img")];
+    const moving = [[waves, "is-swelling"], ...marks.map((mark) => [mark, "is-bobbing"])];
+    for (const [el, name] of moving) {
+      el.addEventListener("animationend", (ev) => {
+        if (ev.target === el) el.classList.remove(name);
+      });
+    }
+    // Only what is shown: a hidden wordmark runs no animation to end.
+    const swell = () => {
+      for (const [el, name] of moving) if (el.offsetParent) el.classList.add(name);
+    };
+    for (const link of document.querySelectorAll(".hero .actions a")) {
+      link.addEventListener("pointerenter", swell);
+      link.addEventListener("focus", swell);
+    }
+    for (const el of [waves, ...marks]) el.addEventListener("pointerenter", swell);
+    document.querySelector(".nomi-home-install")?.addEventListener("click", (ev) => {
+      if (ev.target.closest(".nomi-copy")) swell();
+    });
+  }
+}
+
+// --- tab groups (cmd/nomi-docgen/tabs.go writes them) ---
+// A group is a div.nomi-tabgroup whose data-tabs names its key (`os`,
+// `editor`), holding a div.nomi-tabpanel per tab, whose data-tab is its
+// label and whose first child (p.nomi-tablabel) shows it. Without this
+// script every panel shows under its label. tabGroup gives a group the tab
+// strip a multi-file editor has (tabsNav) and shows one panel. A choice
+// belongs to the key: picking a tab shows that label in every group of the
+// page with the key, and is kept (TAB_STORE), so a later page opens on it.
+// With nothing kept, a key with a detector in TAB_DETECT opens on what it
+// answers, and any other on its first tab. tour.css stacks a group's panels
+// in one cell, the tallest setting its height, and holds the strip's height
+// from first paint, so choosing a tab moves nothing on the page.
+
+const TAB_STORE = (key) => `nomi-tab-${key}`;
+const TAB_DETECT = { os: detectOS };
+const tabGroups = []; // { key, show(label) }
+
+// detectOS answers the `os` label for the reader's system: Windows, Linux
+// (Android and ChromeOS too, whose shells are Linux), and macOS for an
+// Apple system or one it cannot tell.
+function detectOS() {
+  const platform = navigator.userAgentData?.platform || navigator.platform || navigator.userAgent || "";
+  if (/mac|iphone|ipad|ipod/i.test(platform)) return "macOS";
+  if (/win/i.test(platform)) return "Windows";
+  if (/linux|android|cros|chrome os|x11|bsd/i.test(platform)) return "Linux";
+  return "macOS";
+}
+
+function keptTab(key) {
+  try {
+    return localStorage.getItem(TAB_STORE(key));
+  } catch {
+    return null;
+  }
+}
+
+// chooseTab shows label in every group with key and keeps it.
+function chooseTab(key, label) {
+  try {
+    localStorage.setItem(TAB_STORE(key), label);
+  } catch {
+    // The choice holds for this page.
+  }
+  for (const g of tabGroups) if (g.key === key) g.show(label);
+}
+
+function tabGroup(group) {
+  const key = group.dataset.tabs;
+  const panels = [...group.children].filter((el) => el.classList.contains("nomi-tabpanel"));
+  const labels = panels.map((p) => p.dataset.tab);
+  const strip = document.createDocumentFragment();
+  const nav = tabsNav(
+    group,
+    strip,
+    panels.map((pane, i) => ({ file: { name: labels[i] }, pane })),
+    0,
+    (i) => chooseTab(key, labels[i]),
+  );
+  group.prepend(strip);
+  const show = (label) => {
+    const at = labels.indexOf(label);
+    if (at < 0) return;
+    nav.activate(at);
+    panels.forEach((p, i) => {
+      p.hidden = i !== at;
+    });
+  };
+  tabGroups.push({ key, show });
+  show([keptTab(key), TAB_DETECT[key]?.()].find((l) => labels.includes(l)) ?? labels[0]);
+  group.classList.add("is-ready");
+}
+document.querySelectorAll(".nomi-tabgroup:not(.is-ready)").forEach(tabGroup);
 
 // --- lazy activation: enhance/highlight each block as it nears the viewport ---
 

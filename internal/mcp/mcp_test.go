@@ -181,7 +181,7 @@ func TestMCP_SearchStd(t *testing.T) {
 		{"Set<Int>, (Int) -> Bool -> Bool", "Iter.any_match"},
 		// A result that implements the interface asked for.
 		{"List<T> -> Iter<T>", "Iter.reverse"},
-		// A refinement stands where its base is asked for: Int.abs returns
+		// A subtype stands where its base is asked for: Int.abs returns
 		// a NonNegativeInt and takes an Int, which a PositiveInt is up its
 		// chain.
 		{"Int -> Int", "Int.abs"},

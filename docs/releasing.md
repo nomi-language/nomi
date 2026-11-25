@@ -124,12 +124,16 @@ package under `lib/`: a release `nomi` takes them at its own version, so
    The template is `packaging/homebrew/nomi.rb`; `scripts/release.sh` also
    renders `dist/nomi.rb` when it builds every target. Never type a
    checksum into the formula.
-7. **install.sh.** The site serves `scripts/install.sh` at
-   `https://nomi-lang.org/install.sh`: `make deploy-tour`, the site's build
-   command, copies it to the site root. The deploy that publishes the
-   release commit publishes it. Check that the served file is the tagged
-   one:
+7. **The install scripts.** The site serves `scripts/install.sh` at
+   `https://nomi-lang.org/install.sh` and `scripts/install.ps1` at
+   `https://nomi-lang.org/install.ps1`: `make deploy-tour`, the site's
+   build command, copies them to the site root. The deploy that publishes
+   the release commit publishes them. Check that the served files are the
+   tagged ones, and that install.ps1 is served as text, which `irm | iex`
+   needs:
 
    ```console
    $ curl -fsSL https://nomi-lang.org/install.sh | diff - scripts/install.sh
+   $ curl -fsSL https://nomi-lang.org/install.ps1 | diff - scripts/install.ps1
+   $ curl -fsSI https://nomi-lang.org/install.ps1 | grep -i '^content-type: text/plain'
    ```

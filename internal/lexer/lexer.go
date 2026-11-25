@@ -1183,11 +1183,11 @@ var reservedWords = []struct {
 	{"opaque", token.OPAQUE, "hides a type's representation", "hidden"},
 	{"or", token.OR, "logical or", "either"},
 	{"pub", token.PUB, "makes a declaration public", "public"},
-	{"refine", token.REFINE, "declares a refinement, a narrower set of another type's values", "narrowed"},
 	{"refute", token.REFUTE, "a test's negative assertion", "check"},
 	{"return", token.RETURN, "leaves a function with a value", "result"},
 	{"self", token.SELF, "the implementing type in an interface", "value"},
 	{"struct", token.STRUCT, "declares a struct", "record"},
+	{"subtype", token.SUBTYPE, "declares a subtype, a narrower set of another type's values", "narrowed"},
 	{"tap", token.TAP, "a pipe stage run for its effect", "peek"},
 	{"test", token.TEST, "declares a test", "check"},
 	{"then", token.THEN, "starts an `if`'s branch, or a pipe stage that applies a function", "next"},
@@ -1253,7 +1253,7 @@ func IsVisibilityModifier(t, next token.Token) bool {
 		return false
 	}
 	switch next.Type {
-	case token.FN, token.STRUCT, token.ENUM, token.TYPE, token.REFINE, token.OPAQUE,
+	case token.FN, token.STRUCT, token.ENUM, token.TYPE, token.SUBTYPE, token.OPAQUE,
 		token.INTERFACE, token.TYPEALIAS, token.ONCE, token.IMPORT, token.EXPORT,
 		token.EXTERN, token.PUB, token.IMPL, token.TEST, token.IDENT:
 		return true

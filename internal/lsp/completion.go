@@ -125,7 +125,7 @@ type completionRequest struct {
 	incomplete bool
 }
 
-func (s *Server) textDocumentCompletion(_ *glsp.Context, params *protocol.CompletionParams) (any, error) {
+func (s *Server) textDocumentCompletion(gctx *glsp.Context, params *protocol.CompletionParams) (any, error) {
 	uri := string(params.TextDocument.URI)
 	if isManifestURI(uri) {
 		text, _ := s.contentForURI(params.TextDocument.URI)
@@ -142,7 +142,7 @@ func (s *Server) textDocumentCompletion(_ *glsp.Context, params *protocol.Comple
 		}
 		return nil, nil
 	}
-	snap := s.docs.Snapshot(uri)
+	snap := s.requestDoc(gctx, uri)
 	if snap == nil {
 		return nil, nil
 	}

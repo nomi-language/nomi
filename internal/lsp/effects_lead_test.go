@@ -22,10 +22,10 @@ func TestEffectLead_MarksTheProjectsCalls(t *testing.T) {
 		t.Skip("lowers the stdlib; -short")
 	}
 	main := "import\n    std::io\n    pricing::rules\nend\n\nfn main()\n    io.print(rules.load(\"a.txt\"))\n    io.print(rules.load(\"b.txt\"))\nend\n"
-	manifest := "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = [\"std::io\"]\n\n" +
-		"[effects.deps]\n\n[effects.deps.packages]\n\"pricing\" = []\n"
+	manifest := "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\neffects = [\"std::io\"]\n\n" +
+		"[effects.dependencies]\n\n[dependencies]\npricing = { dir = \"../pricing\", effects = [] }\n"
 	dir := writeProject(t, map[string]string{
-		"app/nomi.toml":      manifest + "\n[dependencies]\npricing = { dir = \"../pricing\" }\n",
+		"app/nomi.toml":      manifest,
 		"app/main.nomi":      main,
 		"pricing/nomi.toml":  "[package]\nname = \"pricing\"\n",
 		"pricing/rules.nomi": "import std::fs\n\npub fn load(path: String) -> String\n    fs.read_text(path) |> Result.with_default(\"\")\nend\n",
@@ -37,7 +37,7 @@ func TestEffectLead_MarksTheProjectsCalls(t *testing.T) {
 		t.Fatalf("lowering diagnostics %s; want one at each call of load", renderDiagnostics(diags))
 	}
 	head := "your code has the effect std::fs in pricing here: `main` calls `load`\n" +
-		"pricing has the effect std::fs, and its entry under [effects.deps.packages] allows it no effects\n"
+		"pricing has the effect std::fs, and its entry under [dependencies] allows it no effects\n"
 	rules := fileuri.FromPath(filepath.Join(dir, "pricing", "rules.nomi"))
 	for i, d := range diags {
 		line := uint32(6 + i)

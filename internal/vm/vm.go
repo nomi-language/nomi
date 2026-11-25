@@ -187,7 +187,7 @@ type hostFn func(m *Machine, pos ir.Pos, args []any) (any, error)
 // intrinsic is one entry of the intrinsic table: the hostFn a crossing
 // lands on, and whether it is pure. A pure intrinsic computes its answer
 // from its operands alone and acts on nothing outside the machine, so a
-// refinement rule, a typed literal's handler, a `check` or a debugger's
+// subtype rule, a typed literal's handler, a `check` or a debugger's
 // evaluation may call it (Effects). Unset, a call to it is an effect.
 //
 // held marks one that acts only through a value its operand already holds
@@ -499,9 +499,9 @@ func NewProgram(entry *ir.Module, rest []*ir.Module, out io.Writer) *Machine {
 		"Signal.subscribe": {fn: signalSubscribeHost, world: outside, std: "signals"},
 
 		// The two traps of a failed postfix `!` (unwrap.go).
-		"vm.bang_failed":     {fn: bangFailedHost, pure: true},
-		"vm.bang_none":       {fn: bangNoneHost, pure: true},
-		"vm.refinement_rule": {fn: refinementRuleHost, pure: true},
+		"vm.bang_failed": {fn: bangFailedHost, pure: true},
+		"vm.bang_none":   {fn: bangNoneHost, pure: true},
+		"vm.when_rule":   {fn: subtypeRuleHost, pure: true},
 		// `String.captures`' groups as the regex's capture type (captureshape.go).
 		captureShapeKey: {fn: captureShapeHost, pure: true},
 		// `Hashable.hash` of a value hashed by its shape (keys.go).

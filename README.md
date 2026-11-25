@@ -65,8 +65,14 @@ Linux:
 curl -fsSL https://nomi-lang.org/install.sh | sh
 ```
 
-[Installing Nomi](docs/install.md) covers the rest: Homebrew, Windows,
-putting `nomi` on your `PATH`, and building from source.
+On Windows, in PowerShell:
+
+```text
+irm https://nomi-lang.org/install.ps1 | iex
+```
+
+[Installing Nomi](docs/install.md) covers the rest: Homebrew, putting
+`nomi` on your `PATH`, and building from source.
 
 Write a first program in a directory of your own, outside the checkout. Save
 this as `~/hello-nomi/hello.nomi`:
@@ -91,8 +97,8 @@ Then set up your editor with `nomi editor install helix` (or `nvim`,
 
 ```sh
 nomi new hello                             # start a project in hello/: nomi.toml and main.nomi
-nomi run app.nomi                          # run a program
-nomi run hello                             # run a project's one entry point
+cd hello && nomi run                       # run the project in the current directory
+nomi run app.nomi                          # run a program by its file
 ./app.nomi a b                             # run a file whose first line is #!/usr/bin/env nomi
 nomi test                                  # run every test under the current directory
 nomi                                       # an interactive REPL

@@ -269,10 +269,10 @@ func resolveTypeExprNode(te ast.TypeExpr, reg *TypeRegistry, typeParams map[stri
 		}
 		return nil, e
 
-	case *ast.RefinementBaseType:
-		// The parameter of a refinement's generated `try_from` and
-		// `unchecked` (refinement_synthesis.go).
-		named := reg.Lookup(n.Refinement)
+	case *ast.SubtypeBaseType:
+		// The parameter of a subtype's generated `try_from` and
+		// `unchecked` (subtype_synthesis.go).
+		named := reg.Lookup(n.Subtype)
 		if len(n.Params) > 0 {
 			args := make([]Type, len(n.Params))
 			for i, p := range n.Params {
@@ -284,15 +284,15 @@ func resolveTypeExprNode(te ast.TypeExpr, reg *TypeRegistry, typeParams map[stri
 			}
 			named = instantiateNominal(named, args)
 		}
-		if base := refinementBaseOf(named); base != nil {
+		if base := subtypeBaseOf(named); base != nil {
 			return base, nil
 		}
 		if dt, ok := named.(*DistinctType); ok {
-			// A parent cycle left the refinement no parent, reported at
-			// its declaration: its functions take the refinement itself.
+			// A parent cycle left the subtype no parent, reported at
+			// its declaration: its functions take the subtype itself.
 			return dt, nil
 		}
-		return nil, TypeError{Line: n.Line, Col: n.Col, Message: fmt.Sprintf("%q has no try_from", n.Refinement)}
+		return nil, TypeError{Line: n.Line, Col: n.Col, Message: fmt.Sprintf("%q has no try_from", n.Subtype)}
 
 	case *ast.SelfType:
 		if typeParams != nil {
@@ -350,30 +350,30 @@ func resolveTypeExprNode(te ast.TypeExpr, reg *TypeRegistry, typeParams map[stri
 	case *ast.ConjunctionType:
 		// `Priced and Costed` in a value type's position: each member is
 		// an interface, or a conjunction whose members are spliced in.
-		// `NonNegativeInt and NonZeroInt`: members that are refinements of
-		// one base make their intersection, a refinement of each
-		// (NewRefinementIntersection); an interface beside them is one their
+		// `NonNegativeInt and NonZeroInt`: members that are subtypes of
+		// one base make their intersection, a subtype of each
+		// (NewSubtypeIntersection); an interface beside them is one their
 		// base implements, which the checker holds (checkIntersections).
 		var ifaces []*InterfaceType
-		var refinements []Type
+		var subtypes []Type
 		var base Type
 		for _, m := range n.Members {
 			resolved, err := resolveTypeExpr(m, reg, typeParams, fa, declared)
 			if err != nil {
 				return nil, err
 			}
-			if refinementOf(resolved) != nil {
-				b := RefinementBase(resolved)
+			if subtypeOf(resolved) != nil {
+				b := SubtypeBase(resolved)
 				if base != nil && !TypesIdentical(base, b) && !ContainsTypeParam(b) && !ContainsTypeParam(base) {
 					return nil, errAt(m, fmt.Sprintf(
-						"`and` intersects refinements of one type, and %s is %s %s where %s is %s %s",
+						"`and` intersects subtypes of one type, and %s is %s %s where %s is %s %s",
 						resolved, ArticleFor(formatTypeForError(b)), formatTypeForError(b),
-						refinements[0], ArticleFor(formatTypeForError(base)), formatTypeForError(base)))
+						subtypes[0], ArticleFor(formatTypeForError(base)), formatTypeForError(base)))
 				}
 				if base == nil {
 					base = b
 				}
-				refinements = append(refinements, resolved)
+				subtypes = append(subtypes, resolved)
 				continue
 			}
 			members := InterfaceMembers(resolved)
@@ -382,8 +382,8 @@ func resolveTypeExprNode(te ast.TypeExpr, reg *TypeRegistry, typeParams map[stri
 			}
 			ifaces = append(ifaces, members...)
 		}
-		if len(refinements) > 0 {
-			return NewRefinementIntersection(refinements), nil
+		if len(subtypes) > 0 {
+			return NewSubtypeIntersection(subtypes), nil
 		}
 		return NewConjunction(ifaces), nil
 
@@ -395,7 +395,7 @@ func resolveTypeExprNode(te ast.TypeExpr, reg *TypeRegistry, typeParams map[stri
 // conjunctionMemberError is the error for a member of `A and B` that is no
 // interface.
 func conjunctionMemberError(t Type) string {
-	return fmt.Sprintf("`and` joins interfaces or refinements, and %s is neither", t)
+	return fmt.Sprintf("`and` joins interfaces or subtypes, and %s is neither", t)
 }
 
 // typeFieldFile is the file a field an anonymous struct type names at line

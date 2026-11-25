@@ -12,7 +12,7 @@ package irbuild
 // caller then lowers the whole program. The program the lowering answers
 // is then the one a lowering of one file linked: of its first file other
 // than the entry, or of the entry for a program of one file, with the
-// typed and refinement literals and rules that lowering links for vmhost
+// typed and subtype literals and rules that lowering links for vmhost
 // to check at load, so the expectation suites run what linking kept
 // objects makes and compare it with the golden files. NOMI_PERFILE_REPORT=1 writes each miss on stderr.
 
@@ -159,10 +159,10 @@ func (r *Result) relowerEachFile(p *Program) (err error) {
 		return err
 	}
 	// What vmhost checks at load goes with the program: the typed and
-	// refinement literals' functions and cells of r are the whole
+	// subtype literals' functions and cells of r are the whole
 	// lowering's, which call symbols the linked program does not define.
 	r.IR, r.irLibraries, r.instMods, r.linkedMods = chosen.IR, chosen.irLibraries, chosen.instMods, chosen.linkedMods
-	r.Literals, r.Refinements, r.RefinementRules = chosen.Literals, chosen.Refinements, chosen.RefinementRules
+	r.Literals, r.Subtypes, r.SubtypeRules = chosen.Literals, chosen.Subtypes, chosen.SubtypeRules
 	return nil
 }
 

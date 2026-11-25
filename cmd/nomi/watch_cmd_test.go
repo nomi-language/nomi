@@ -70,7 +70,7 @@ func TestParseRunWatchArgs(t *testing.T) {
 		{args: []string{"--watch", "--web", "a.nomi"}, err: "--watch and --web cannot be combined"},
 		{args: []string{"--port=0", "--watch", "a.nomi"}, err: "--watch and --web cannot be combined"},
 		{args: []string{"--watch", "--verbose", "a.nomi"}, err: `nomi run: unknown flag "--verbose"`},
-		{args: []string{"--watch"}, err: "usage: nomi run"},
+		{args: []string{"--watch"}, watch: true, entry: ".", rest: []string{}},
 	} {
 		watch, entry, rest, err := parseRunWatchArgs(c.args)
 		if c.err != "" {

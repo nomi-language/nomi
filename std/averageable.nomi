@@ -27,7 +27,7 @@ end
 /// | Decimal | Decimal | the exact sum divided by the count with Decimal's `/` |
 /// | Duration | Duration | the exact sum over the count, to the nearest nanosecond, ties to even |
 ///
-/// A refinement has its base's impl, so the mean of `NonNegativeInt`s is
+/// A subtype has its base's impl, so the mean of `NonNegativeInt`s is
 /// Int's, a `Float`.
 ///
 /// ```nomi

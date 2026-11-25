@@ -12,7 +12,8 @@ import (
 
 // `nomi fmt -check` lists each file that would change and exits 1 when
 // there is one, so a CI step can fail on its status; `-l` lists them and
-// exits 0. A formatted file passes -check silently.
+// exits 0, and `-d` prints each one's unified diff and exits 0. A formatted
+// file passes -check and -d silently.
 func TestFmtCheck_ExitsOneOnAnUnformattedFile(t *testing.T) {
 	dir := t.TempDir()
 	bad := filepath.Join(dir, "bad.nomi")
@@ -48,6 +49,9 @@ func TestFmtCheck_ExitsOneOnAnUnformattedFile(t *testing.T) {
 		{[]string{"--check", bad}, bad, 1},
 		{[]string{"-check", good}, "", 0},
 		{[]string{"-l", bad, good}, bad, 0},
+		{[]string{"-d", bad, good}, "--- " + bad + "\n+++ " + bad + "\n@@ -1,3 +1,3 @@\n" +
+			"-fn  f( )->Int\n+fn f() -> Int\n     1\n end", 0},
+		{[]string{"-d", good}, "", 0},
 	} {
 		out, code := run(c.args...)
 		if out != c.out || code != c.exitStatus {

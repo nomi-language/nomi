@@ -25,7 +25,7 @@ test "reads"
 end
 `
 
-const effectAllowsIO = "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = [\"std::io\"]\n"
+const effectAllowsIO = "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\neffects = [\"std::io\"]\n"
 
 // The headline and help of the refusal of effectProgram's main.
 const effectRefusal = "error: this package's own code has the effect std::fs, and [effects.self] allows it only std::io\n" +
@@ -34,7 +34,7 @@ const effectRefusal = "error: this package's own code has the effect std::fs, an
 	"8 |     io.print(fs.read_text(\"notes.txt\"))\n" +
 	"  |              ^^\n" +
 	"  = help: reached from `main`\n" +
-	"  = help: add \"std::fs\" to std under [effects.self] in nomi.toml, or remove the call\n"
+	"  = help: add \"std::fs\" to effects under [effects.self] in nomi.toml, or remove the call\n"
 
 // effectProject writes effectProgram under manifest and answers its
 // directory and entry.
@@ -68,7 +68,7 @@ func TestEffects_EachCommandRefuses(t *testing.T) {
 	test := runNomiIn(t, dir, cache, "test", "main.nomi")
 	if test.exit != 1 || strings.Contains(test.stdout, "ok ") ||
 		!strings.Contains(test.stdout+test.stderr, "this package's tests have the effect std::fs, and [effects.self] allows them only std::io") ||
-		!strings.Contains(test.stdout+test.stderr, `add "std::fs" to std_in_tests under [effects.self] in nomi.toml, or remove the call`) {
+		!strings.Contains(test.stdout+test.stderr, `add "std::fs" to effects_in_tests under [effects.self] in nomi.toml, or remove the call`) {
 		t.Errorf("nomi test: want exit 1, no case run and the refusal\n%s", test)
 	}
 	out := exe(filepath.Join(t.TempDir(), "app"))
@@ -80,16 +80,16 @@ func TestEffects_EachCommandRefuses(t *testing.T) {
 		t.Error("nomi build wrote an executable it refused")
 	}
 	json := runNomiIn(t, dir, cache, "check", "--format", "json", "main.nomi")
-	if json.exit != 1 || !strings.Contains(json.stdout, `"code":"effect-not-allowed","args":["std::fs","self","app","std::io"],"message":"this package's own code has the effect std::fs, and [effects.self] allows it only std::io"`) {
+	if json.exit != 1 || !strings.Contains(json.stdout, `"code":"effect-not-allowed","args":["std::fs","effects.self","app","std::io"],"message":"this package's own code has the effect std::fs, and [effects.self] allows it only std::io"`) {
 		t.Errorf("nomi check --format json: want the code and args\n%s", json)
 	}
 	if run.kept() || check.kept() || test.kept() {
 		t.Errorf("a refused program was kept: %v %v %v", run.report, check.report, test.report)
 	}
 
-	// With the name allowed, and std_in_tests for the test, every
+	// With the name allowed, and effects_in_tests for the test, every
 	// command passes.
-	mustWrite(t, filepath.Join(dir, "nomi.toml"), effectAllowsIO+"std_in_tests = [\"std::fs\"]\n")
+	mustWrite(t, filepath.Join(dir, "nomi.toml"), effectAllowsIO+"effects_in_tests = [\"std::fs\"]\n")
 	mustWrite(t, entry, strings.Replace(effectProgram, `    io.print(fs.read_text("notes.txt"))`+"\n", "", 1))
 	for _, args := range [][]string{{"run", "main.nomi"}, {"check", "main.nomi"}, {"test", "main.nomi"}} {
 		if r := runNomiIn(t, dir, cache, args...); r.exit != 0 {
@@ -108,42 +108,29 @@ func TestEffects_NoTableEnforcesNothing(t *testing.T) {
 	}
 }
 
-// The project's own path, its [package].name, is
-// no key under [effects.deps.packages]: check refuses it at its line,
-// saying the project's own code is [effects.self]'s.
-func TestEffects_TheProjectsPathIsNoEntry(t *testing.T) {
-	dir, _ := effectProject(t, "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = [\"std::io\", \"std::fs\"]\n\n"+
-		"[effects.deps.packages]\n\"app\" = [\"std::io\"]\n")
-	check := runNomiIn(t, dir, "off", "check", "main.nomi")
-	if check.exit != 1 || !strings.Contains(check.stderr, "[effects.deps.packages] names app, which is this project") ||
-		!strings.Contains(check.stderr, "help: [effects.deps] holds the packages it depends on; its own code is held by [effects.self]") {
-		t.Errorf("nomi check: want the project's path refused as an entry\n%s", check)
-	}
-}
-
 // A dependency that reaches more than its own [effects.self]
 // declares is refused by check, with code effect-not-declared and args
 // naming the call, the list, the module and what its own list allows,
 // though the project allows the call; with the project's
-// [effects.deps] gone, nothing is held, the dependency's table
+// [effects.dependencies] gone, nothing is held, the dependency's table
 // included.
 func TestEffects_ADependencyOverItsOwnList(t *testing.T) {
 	dir := t.TempDir()
 	app := filepath.Join(dir, "app")
-	mustWrite(t, filepath.Join(app, "nomi.toml"), effectAllowsIO+"\n[effects.deps]\nstd = [\"std::io\", \"std::fs\"]\n\n[effects.deps.packages]\n\"pricing\" = [\"std::fs\"]\n"+"\n[dependencies]\npricing = { dir = \"../pricing\" }\n")
+	mustWrite(t, filepath.Join(app, "nomi.toml"), effectAllowsIO+"\n[effects.dependencies]\neffects = [\"std::io\", \"std::fs\"]\n"+"\n[dependencies]\npricing = { dir = \"../pricing\", effects = [\"std::fs\"] }\n")
 	mustWrite(t, filepath.Join(app, "main.nomi"), "import\n    std::io\n    pricing::rules\nend\n\nfn main()\n    io.print(rules.load(\"prices.txt\"))\nend\n")
-	mustWrite(t, filepath.Join(dir, "pricing", "nomi.toml"), "[package]\nname = \"pricing\"\n\n[effects.self]\nstd = [\"std::io\"]\n")
+	mustWrite(t, filepath.Join(dir, "pricing", "nomi.toml"), "[package]\nname = \"pricing\"\n\n[effects.self]\neffects = [\"std::io\"]\n")
 	mustWrite(t, filepath.Join(dir, "pricing", "rules.nomi"), "import std::fs\n\npub fn load(path: String) -> String\n    fs.read_text(path) |> Result.with_default(\"\")\nend\n")
 
 	json := runNomiIn(t, app, "off", "check", "--format", "json", "main.nomi")
-	if json.exit != 1 || !strings.Contains(json.stdout, `"code":"effect-not-declared","args":["std::fs","self","pricing","std::io"],"message":"pricing has the effect std::fs, and its own [effects.self] allows it only std::io"`) {
+	if json.exit != 1 || !strings.Contains(json.stdout, `"code":"effect-not-declared","args":["std::fs","effects.self","pricing","std::io"],"message":"pricing has the effect std::fs, and its own [effects.self] allows it only std::io"`) {
 		t.Errorf("nomi check --format json: want the dependency's own list refused\n%s", json)
 	}
 
 	for _, manifest := range []string{"[package]\nname = \"app\"\nentry_points = [\"main\"]\n", effectAllowsIO} {
 		mustWrite(t, filepath.Join(app, "nomi.toml"), manifest+"\n[dependencies]\npricing = { dir = \"../pricing\" }\n")
 		if check := runNomiIn(t, app, "off", "check", "main.nomi"); check.exit != 0 {
-			t.Errorf("nomi check with no project [effects.deps]:\n%s", check)
+			t.Errorf("nomi check with no project [effects.dependencies]:\n%s", check)
 		}
 	}
 }
@@ -155,7 +142,7 @@ func TestEffects_ADependencyOverItsOwnList(t *testing.T) {
 func TestEffects_ADependencysRefusalNamesTheProjectsCall(t *testing.T) {
 	dir := t.TempDir()
 	app := filepath.Join(dir, "app")
-	mustWrite(t, filepath.Join(app, "nomi.toml"), effectAllowsIO+"\n[effects.deps]\n\n[effects.deps.packages]\n\"pricing\" = []\n"+"\n[dependencies]\npricing = { dir = \"../pricing\" }\n")
+	mustWrite(t, filepath.Join(app, "nomi.toml"), effectAllowsIO+"\n[effects.dependencies]\n"+"\n[dependencies]\npricing = { dir = \"../pricing\", effects = [] }\n")
 	mustWrite(t, filepath.Join(app, "main.nomi"), "import\n    std::io\n    pricing::rules\nend\n\nfn main()\n    io.print(rules.load(\"a.txt\"))\n    io.print(rules.load(\"b.txt\"))\nend\n")
 	mustWrite(t, filepath.Join(dir, "pricing", "nomi.toml"), "[package]\nname = \"pricing\"\n")
 	mustWrite(t, filepath.Join(dir, "pricing", "rules.nomi"), "import std::fs\n\npub fn load(path: String) -> String\n    fs.read_text(path) |> Result.with_default(\"\")\nend\n")
@@ -220,7 +207,7 @@ derive Display for Point
 
 `
 	dir := t.TempDir()
-	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = []\n")
+	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\neffects = []\n")
 	mustWrite(t, filepath.Join(dir, "main.nomi"), decls+"fn pair(p: Point) -> String\n    \"${(p, [p])}\"\nend\n\nfn main()\n    _ = pair(Point{x: 1, y: 2})\nend\n")
 	if check := runNomiIn(t, dir, "off", "check", "main.nomi"); check.exit != 0 {
 		t.Errorf("nomi check with Job never rendered: want exit 0\n%s", check)

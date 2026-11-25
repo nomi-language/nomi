@@ -15,11 +15,15 @@ import (
 
 // manifestProject is an app, app by its go.mod, whose main
 // calls into a dependency it requires, pricing, which has no
-// [effects] tables. It answers the app's directory.
+// [effects] tables. manifest gets the [dependencies] entry for pricing at
+// its end unless it writes its own. It answers the app's directory.
 func manifestProject(t *testing.T, manifest string) string {
 	t.Helper()
+	if !strings.Contains(manifest, "[dependencies]") {
+		manifest += "\n[dependencies]\npricing = { dir = \"../pricing\" }\n"
+	}
 	dir := writeProject(t, map[string]string{
-		"app/nomi.toml":      manifest + "\n[dependencies]\npricing = { dir = \"../pricing\" }\n",
+		"app/nomi.toml":      manifest,
 		"app/main.nomi":      "import\n    std::io\n    pricing::rules\nend\n\nfn main()\n    io.print(rules.load(\"prices.txt\"))\nend\n",
 		"pricing/nomi.toml":  "[package]\nname = \"pricing\"\n",
 		"pricing/rules.nomi": "import std::fs\n\npub fn load(path: String) -> String\n    fs.read_text(path) |> Result.with_default(\"\")\nend\n",
@@ -45,7 +49,7 @@ func TestManifestDocument_Diagnostics(t *testing.T) {
 	}
 	const module = "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n"
 	const head = module + "[effects.self]\n"
-	const clean = head + "std = [\"std::io\", \"std::fs\"]\n"
+	const clean = head + "effects = [\"std::io\", \"std::fs\"]\n"
 	app := manifestProject(t, clean)
 	uri := fileuri.FromPath(filepath.Join(app, "main.nomi"))
 	manifestURI := fileuri.FromPath(filepath.Join(app, "nomi.toml"))
@@ -63,20 +67,18 @@ func TestManifestDocument_Diagnostics(t *testing.T) {
 		want       string
 	}{
 		{"an unknown key", clean + "stdd = []\n", 7, "[effects.self] has no key `stdd`"},
-		{"a key [effects] held directly", module + "[effects]\nstd = []\n", 6, "[effects] has no key `std`; it holds two tables"},
+		{"a key [effects] held directly", module + "[effects]\neffects = []\n", 6, "[effects] has no key `effects`; it holds two tables"},
 		{"an unknown table", clean + "\n[effect]\n", 8, "nomi.toml has no [effect] table; did you mean [effects]?"},
-		{"a name of the wrong form", head + "std = [\n    \"std::io\",\n    \"fs\",\n]\n", 8, "[effects.self] std: \"fs\" is not a std module"},
-		{"a name listed twice", head + "std = [\"std::io\", \"std::fs\", \"std::io\"]\n", 6, "[effects.self] std lists std::io twice"},
-		{"a misspelled std name", head + "std = [\n    \"std::io\",\n    \"std::fz\",\n]\n", 8,
-			"[effects.self] std names std::fz, which is not a std module\nhelp: did you mean \"std::fs\"?"},
-		{"a go key", clean + "\n[effects.deps]\ngo = [\"pricing\"]\n", 9,
-			"[effects.deps] has no key `go`; `std` and `std_in_tests` list the most effects any dependency may have"},
-		{"a module the project does not need", clean + "\n[effects.deps.packages]\n\"nope\" = []\n", 9,
-			"[effects.deps.packages] names nope, which is not a dependency of this project"},
-		{"the project's own path", clean + "\n[effects.deps.packages]\n\"app\" = []\n", 9,
-			"[effects.deps.packages] names app, which is this project"},
-		{"a dependency with no entry", clean + "\n[effects.deps]\nentries_required = true\n", 9,
-			"[effects.deps] entries_required: pricing has no entry"},
+		{"a name of the wrong form", head + "effects = [\n    \"std::io\",\n    \"fs\",\n]\n", 8, "[effects.self] effects: \"fs\" is not a std module"},
+		{"a name listed twice", head + "effects = [\"std::io\", \"std::fs\", \"std::io\"]\n", 6, "[effects.self] effects lists std::io twice"},
+		{"a misspelled std name", head + "effects = [\n    \"std::io\",\n    \"std::fz\",\n]\n", 8,
+			"[effects.self] effects names std::fz, which is not a std module\nhelp: did you mean \"std::fs\"?"},
+		{"a go key", clean + "\n[effects.dependencies]\ngo = [\"pricing\"]\n", 9,
+			"[effects.dependencies] has no key `go`; `effects` and `effects_in_tests` list the most effects any dependency may have"},
+		{"a misspelled name in an entry's effects", clean + "\n[dependencies]\npricing = { dir = \"../pricing\", effects = [\"std::fz\"] }\n", 9,
+			"[dependencies] pricing.effects names std::fz, which is not a std module\nhelp: did you mean \"std::fs\"?"},
+		{"a dependency with no entry", clean + "\n[effects.dependencies]\nentries_required = true\n", 9,
+			"[effects.dependencies] entries_required: the [dependencies] entry pricing has no effects key"},
 	}
 	for i, tc := range cases {
 		c.change(manifestURI, i+2, tc.text)
@@ -112,11 +114,12 @@ func TestManifestDocument_Diagnostics(t *testing.T) {
 }
 
 // completionProject is manifestProject with a second dependency,
-// textkit, and a third whose files no program loads, with manifest as the app's nomi.toml.
+// textkit, and a third whose files no program loads, with manifest as the
+// app's nomi.toml, which writes the three entries.
 func completionProject(t *testing.T, manifest string) string {
 	t.Helper()
 	dir := writeProject(t, map[string]string{
-		"app/nomi.toml":      manifest + "\n[dependencies]\npricing = { dir = \"../pricing\" }\ntextkit = { dir = \"../textkit\" }\nother = { dir = \"../other\" }\n",
+		"app/nomi.toml":      manifest,
 		"app/main.nomi":      "import\n    std::io\n    pricing::rules\n    textkit::loud\nend\n\nfn main()\n    io.print(loud.shout(rules.load(\"prices.txt\")))\nend\n",
 		"pricing/nomi.toml":  "[package]\nname = \"pricing\"\n",
 		"pricing/rules.nomi": "import std::fs\n\npub fn load(path: String) -> String\n    fs.read_text(path) |> Result.with_default(\"\")\nend\n",
@@ -127,19 +130,19 @@ func completionProject(t *testing.T, manifest string) string {
 	return filepath.Join(dir, "app")
 }
 
-// Completion in nomi.toml offers std modules in every list of std names,
-// and as a key under [effects.deps.packages], each dependency with its whole
-// entry, what its own files reach, as the missing entry's fix writes it.
-// A dependency is a package the programs load, never the project's own nor
-// one go.mod requires and no program loads, and one the list or table
-// already names is not offered. A name is quoted unless the cursor is
-// inside a string.
+// Completion in nomi.toml offers std modules in every list of std names, a
+// [dependencies] entry's effects among them, and at a key's place in an
+// entry's inline table with no effects key, the key with what the code the
+// entry covers reaches, as entries_required's fix writes it: an entry the
+// programs load files through, never one no program loads, and none that
+// has the key. A name is quoted unless the cursor is inside a string.
 func TestManifestCompletion(t *testing.T) {
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
-	text := "[package]\nname = \"app\"\nentry_points = [\"main\"]\n[effects.self]\nstd = [\"std::io\", ]\nstd_in_tests = [\"std::f\"]\n\n" +
-		"[effects.deps]\nstd = []\nentries_required = false\n# not a list: \"textkit\", \n\n[effects.deps.packages]\n\"pricing\" = []\n\n"
+	text := "[package]\nname = \"app\"\nentry_points = [\"main\"]\n[effects.self]\neffects = [\"std::io\", ]\neffects_in_tests = [\"std::f\"]\n\n" +
+		"[effects.dependencies]\neffects = []\nentries_required = false\n# not a list: \"textkit\", \n\n" +
+		"[dependencies]\npricing = { dir = \"../pricing\", effects = [] }\ntextkit = { dir = \"../textkit\" }\nother = { dir = \"../other\" }\n"
 	app := completionProject(t, text)
 	uri := fileuri.FromPath(filepath.Join(app, "nomi.toml"))
 	s := NewServer()
@@ -151,10 +154,10 @@ func TestManifestCompletion(t *testing.T) {
 		}
 		return protocol.Position{Line: uint32(line - 1), Character: uint32(i + len(after))}
 	}
-	// Without pricing's entry, the empty key line is 14, and line 15 is
-	// a key being typed, its closing quote written by the editor.
-	unlisted := strings.Replace(text, "\"pricing\" = []\n\n", "\n\"example.com/pr\"\n", 1)
-	pricingEntry := `"pricing" = ["std::fs"]`
+	// textkit's entry with a key being typed, and other's, which no program
+	// loads files through.
+	typing := strings.Replace(text, `textkit = { dir = "../textkit" }`, `textkit = { dir = "../textkit", e }`, 1)
+	typing = strings.Replace(typing, `other = { dir = "../other" }`, `other = { dir = "../other", e }`, 1)
 	cases := []struct {
 		name, text string
 		pos        protocol.Position
@@ -163,14 +166,11 @@ func TestManifestCompletion(t *testing.T) {
 		replaced   string
 		excluded   []string
 	}{
-		{"in self's std", text, at(text, 5, `"std::io", `), "std::fs", `"std::fs"`, "", []string{"pricing"}},
-		{"in a string in std_in_tests", text, at(text, 6, `"std::f`), "std::fs", "std::fs", "std::f", nil},
-		{"in deps' std", text, at(text, 9, "["), "std::fs", `"std::fs"`, "", []string{"pricing"}},
-		{"in a dependency's entry", text, at(text, 14, "= ["), "std::fs", `"std::fs"`, "", []string{"pricing"}},
-		{"a key under [effects.deps.packages]", text, protocol.Position{Line: 14, Character: 0}, "textkit", `"textkit" = []`, "",
-			[]string{"pricing", "app", "other"}},
-		{"a key the table lacks", unlisted, protocol.Position{Line: 13, Character: 0}, "pricing", pricingEntry, "", nil},
-		{"a key being typed", unlisted, at(unlisted, 15, `"example.com/pr`), "pricing", pricingEntry, `"example.com/pr"`, nil},
+		{"in self's effects", text, at(text, 5, `"std::io", `), "std::fs", `"std::fs"`, "", []string{"pricing"}},
+		{"in a string in effects_in_tests", text, at(text, 6, `"std::f`), "std::fs", "std::fs", "std::f", nil},
+		{"in the ceiling's effects", text, at(text, 9, "["), "std::fs", `"std::fs"`, "", []string{"pricing"}},
+		{"in an entry's effects", text, at(text, 14, "effects = ["), "std::fs", `"std::fs"`, "", []string{"pricing"}},
+		{"an entry's effects key", typing, at(typing, 15, `"../textkit", e`), "effects", "effects = []", "e", nil},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -198,26 +198,30 @@ func TestManifestCompletion(t *testing.T) {
 			}
 		})
 	}
-	for _, pos := range []protocol.Position{at(text, 2, `"app`), at(text, 4, "[effec"), {Line: 10, Character: 0}, at(text, 11, `"textkit", `)} {
+	for _, pos := range []protocol.Position{at(text, 2, `"app`), at(text, 4, "[effec"), {Line: 10, Character: 0}, at(text, 11, `"textkit", `),
+		at(text, 14, "{ "), at(text, 15, `"../textkit"`)} {
 		if items := s.manifestCompletion(uri, text, pos); len(items) != 0 {
 			t.Errorf("at %+v completion offers %d items; want none", pos, len(items))
 		}
+	}
+	if items := s.manifestCompletion(uri, typing, at(typing, 16, `"../other", e`)); len(items) != 0 {
+		t.Errorf("an entry no program loads files through is offered %d items; want none", len(items))
 	}
 }
 
 // A std name nomi.toml's lists hold that nothing the list is for reaches,
 // as `nomi effects --check` finds it unused, is a hint at the name in
 // the open nomi.toml, saying why. Its quick fix writes the tables without
-// the name, moving one only the tests reach to std_in_tests, and with the
+// the name, moving one only the tests reach to effects_in_tests, and with the
 // edited text the hint is gone while the others stay.
 func TestManifestDocument_UnusedNames(t *testing.T) {
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
 	manifest := "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n" +
-		"[effects.self]\n# what the app does\nstd = [\"std::io\", \"std::net\", \"std::instant\"]\nstd_in_tests = [\"std::io\"]\n\n" +
-		"[effects.deps]\nstd = [\"std::fs\", \"std::http\"]\n\n" +
-		"[effects.deps.packages]\n\"pricing\" = [\"std::fs\", \"std::instant\"]\n"
+		"[dependencies]\npricing = { dir = \"../pricing\", effects = [\"std::fs\", \"std::instant\"] }\n\n" +
+		"[effects.self]\n# what the app does\neffects = [\"std::io\", \"std::net\", \"std::instant\"]\neffects_in_tests = [\"std::io\"]\n\n" +
+		"[effects.dependencies]\neffects = [\"std::fs\", \"std::http\"]\n"
 	app := manifestProject(t, manifest)
 	if err := os.WriteFile(filepath.Join(app, "main_test.nomi"), []byte("import std::instant.{Instant}\n\ntest \"the clock has started\"\n    assert Instant.to_seconds(Instant.now()) > 0\nend\n"), 0o644); err != nil {
 		t.Fatal(err)
@@ -233,11 +237,11 @@ func TestManifestDocument_UnusedNames(t *testing.T) {
 		name, message string
 	}
 	want := []hint{
-		{7, "std::net", "nothing in this package's own code has the effect std::net"},
-		{7, "std::instant", "only the tests have the effect std::instant, which std_in_tests is for"},
-		{8, "std::io", "std already allows std::io to the tests"},
-		{11, "std::http", "no dependency has the effect std::http"},
-		{14, "std::instant", "nothing in pricing has the effect std::instant"},
+		{6, "std::instant", "nothing the project reaches through pricing has the effect std::instant"},
+		{10, "std::net", "nothing in this package's own code has the effect std::net"},
+		{10, "std::instant", "only the tests have the effect std::instant, which effects_in_tests is for"},
+		{11, "std::io", "effects already allows std::io to the tests"},
+		{14, "std::http", "no dependency has the effect std::http"},
 	}
 	hintsOf := func(text string, ds []protocol.Diagnostic) []hint {
 		var out []hint
@@ -296,11 +300,11 @@ func TestManifestDocument_UnusedNames(t *testing.T) {
 		from  string
 		to    string
 	}{
-		{want[0], "Remove std::net from std", `std = ["std::io", "std::net", "std::instant"]`, `std = ["std::io", "std::instant"]`},
-		{want[1], "Move std::instant to std_in_tests", "std = [\"std::io\", \"std::instant\"]\nstd_in_tests = [\"std::io\"]", "std = [\"std::io\"]\nstd_in_tests = [\"std::io\", \"std::instant\"]"},
-		{want[2], "Remove std::io from std_in_tests", `std_in_tests = ["std::io", "std::instant"]`, `std_in_tests = ["std::instant"]`},
-		{want[3], "Remove std::http from std", `std = ["std::fs", "std::http"]`, `std = ["std::fs"]`},
-		{want[4], "Remove std::instant from the entry for pricing", `"pricing" = ["std::fs", "std::instant"]`, `"pricing" = ["std::fs"]`},
+		{want[0], "Remove std::instant from effects of pricing", `effects = ["std::fs", "std::instant"] }`, `effects = ["std::fs"] }`},
+		{want[1], "Remove std::net from effects", `effects = ["std::io", "std::net", "std::instant"]`, `effects = ["std::io", "std::instant"]`},
+		{want[2], "Move std::instant to effects_in_tests", "effects = [\"std::io\", \"std::instant\"]\neffects_in_tests = [\"std::io\"]", "effects = [\"std::io\"]\neffects_in_tests = [\"std::io\", \"std::instant\"]"},
+		{want[3], "Remove std::io from effects_in_tests", `effects_in_tests = ["std::io", "std::instant"]`, `effects_in_tests = ["std::instant"]`},
+		{want[4], "Remove std::http from effects", `effects = ["std::fs", "std::http"]`, `effects = ["std::fs"]`},
 	}
 	text := manifest
 	for i, f := range fixes {
@@ -313,8 +317,8 @@ func TestManifestDocument_UnusedNames(t *testing.T) {
 		// Each fix writes the list on its own line, so the others stay put.
 		ds = wait(text, want[i+1:])
 	}
-	if !strings.Contains(text, "# what the app does\nstd = [\"std::io\"]") {
-		t.Errorf("the fixes dropped the comment on std:\n%s", text)
+	if !strings.Contains(text, "# what the app does\neffects = [\"std::io\"]") {
+		t.Errorf("the fixes dropped the comment on effects:\n%s", text)
 	}
 }
 
@@ -324,7 +328,7 @@ func TestManifestDocument_NoUnusedNamesWhileAProgramDoesNotCheck(t *testing.T) {
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
-	manifest := "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = [\"std::io\", \"std::net\"]\n"
+	manifest := "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\neffects = [\"std::io\", \"std::net\"]\n"
 	app := manifestProject(t, manifest)
 	main := filepath.Join(app, "main.nomi")
 	good, err := os.ReadFile(main)
@@ -352,36 +356,40 @@ func TestManifestDocument_NoUnusedNamesWhileAProgramDoesNotCheck(t *testing.T) {
 	}
 }
 
-// A hover on a dependency's name in nomi.toml, as a key under
-// [effects.deps.packages], shows what its own files reach, as `nomi add`
-// prints it.
-func TestManifestDocument_PackageHover(t *testing.T) {
+// A hover on a std name in a [dependencies] entry's effects shows the calls
+// in the code the entry covers that need it, as `nomi effects --why`
+// prints them.
+func TestManifestDocument_EntryNameHover(t *testing.T) {
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
-	manifest := "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.deps]\n\n" +
-		"[effects.deps.packages]\n\"pricing\" = [\"std::fs\"]\n"
+	manifest := "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[dependencies]\npricing = { dir = \"../pricing\", effects = [\"std::fs\", \"std::io\"] }\n"
 	app := manifestProject(t, manifest)
 	uri := fileuri.FromPath(filepath.Join(app, "nomi.toml"))
 	s := NewServer()
-	want := "```text\npricing\n  std::fs\n```"
-	if got := manifestHoverText(t, s, uri, manifestAt(t, manifest, 8, `"pricing"`)); got != want {
-		t.Errorf("hover on the module's name says\n%s\nwant\n%s", got, want)
+	want := "```text\n1 call has the effect std::fs:\n  rules.nomi:4:5 in pricing\n    reached from `main`; `main` calls `load`\n```"
+	if got := manifestHoverText(t, s, uri, manifestAt(t, manifest, 6, `"std::fs"`)); got != want {
+		t.Errorf("hover on std::fs in pricing's effects says\n%s\nwant\n%s", got, want)
+	}
+	if got, want := manifestHoverText(t, s, uri, manifestAt(t, manifest, 6, `"std::io"`)), "Nothing the project reaches through pricing has the effect std::io."; got != want {
+		t.Errorf("hover on std::io in pricing's effects says %q; want %q", got, want)
 	}
 	if got := manifestHoverText(t, s, uri, manifestAt(t, manifest, 3, `"main"`)); got != "" {
 		t.Errorf("hover on an entry point says %q; want nothing", got)
 	}
 }
 
-// With entries_required, a dependency with no entry is an error at the key,
-// whose quick fix writes the entry with what the dependency's own files
-// reach, as `nomi add` writes it; with the edited text the error is gone.
+// With entries_required, a [dependencies] entry with no effects key is an
+// error at the key, whose quick fix writes the key on the entry with what
+// the code the entry covers reaches; completing the key in the entry
+// writes the same, and with the edited text the error is gone.
 func TestManifestDocument_MissingEntryFix(t *testing.T) {
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
-	manifest := "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = [\"std::io\"]\n\n" +
-		"[effects.deps]\n# every dependency is listed\nentries_required = true\nstd = [\"std::fs\"]\n"
+	manifest := "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\neffects = [\"std::io\"]\n\n" +
+		"[effects.dependencies]\n# every dependency is listed\nentries_required = true\neffects = [\"std::fs\"]\n\n" +
+		"[dependencies]\npricing = { dir = \"../pricing\" } # the prices\n"
 	app := manifestProject(t, manifest)
 	uri := fileuri.FromPath(filepath.Join(app, "main.nomi"))
 	manifestURI := fileuri.FromPath(filepath.Join(app, "nomi.toml"))
@@ -396,7 +404,7 @@ func TestManifestDocument_MissingEntryFix(t *testing.T) {
 	c.notify("textDocument/didOpen", protocol.DidOpenTextDocumentParams{TextDocument: protocol.TextDocumentItem{
 		URI: protocol.DocumentUri(manifestURI), LanguageID: "toml", Version: 1, Text: manifest,
 	}})
-	const message = "[effects.deps] entries_required: pricing has no entry"
+	const message = "[effects.dependencies] entries_required: the [dependencies] entry pricing has no effects key"
 	errorsIn := func() []protocol.Diagnostic {
 		return slices.DeleteFunc(manifestDiags(s, manifestURI), func(d protocol.Diagnostic) bool {
 			return *d.Severity != protocol.DiagnosticSeverityError
@@ -416,9 +424,9 @@ func TestManifestDocument_MissingEntryFix(t *testing.T) {
 	}
 	actions := c.codeActions(manifestURI, missing)
 	if len(actions) != 1 || actions[0].Edit == nil || len(actions[0].Edit.Changes[protocol.DocumentUri(manifestURI)]) != 1 {
-		t.Fatalf("the missing entry has actions %+v; want one edit of nomi.toml", actions)
+		t.Fatalf("the missing key has actions %+v; want one edit of nomi.toml", actions)
 	}
-	if want := `Write "pricing" = ["std::fs"] under [effects.deps.packages]`; actions[0].Title != want {
+	if want := `Write effects = ["std::fs"] on pricing under [dependencies]`; actions[0].Title != want {
 		t.Errorf("the fix is titled %q; want %q", actions[0].Title, want)
 	}
 	e := actions[0].Edit.Changes[protocol.DocumentUri(manifestURI)][0]
@@ -427,24 +435,24 @@ func TestManifestDocument_MissingEntryFix(t *testing.T) {
 		End:   parser.Pos{Line: int(e.Range.End.Line) + 1, Col: int(e.Range.End.Character) + 1},
 		Text:  e.NewText,
 	})
-	if want := manifest + "\n[effects.deps.packages]\n\"pricing\" = [\"std::fs\"]\n"; edited != want {
+	written := `effects = ["std::fs"]`
+	if want := strings.Replace(manifest, `{ dir = "../pricing" }`, `{ dir = "../pricing", `+written+` }`, 1); edited != want {
 		t.Fatalf("nomi.toml after the fix:\n%s\nwant:\n%s", edited, want)
 	}
-	// Completing the key writes the entry the fix wrote.
-	keyed := manifest + "\n[effects.deps.packages]\n\n"
-	written := strings.TrimPrefix(edited, manifest+"\n[effects.deps.packages]\n")
+	// Completing the key in the entry writes what the fix wrote.
+	typing := strings.Replace(manifest, `{ dir = "../pricing" }`, `{ dir = "../pricing", eff }`, 1)
 	var offered []string
-	for _, it := range s.manifestCompletion(manifestURI, keyed, protocol.Position{Line: uint32(strings.Count(keyed, "\n") - 1)}) {
-		offered = append(offered, it.TextEdit.(protocol.TextEdit).NewText+"\n")
+	for _, it := range s.manifestCompletion(manifestURI, typing, manifestAt(t, typing, 14, ` }`)) {
+		offered = append(offered, it.TextEdit.(protocol.TextEdit).NewText)
 	}
 	if !slices.Equal(offered, []string{written}) {
-		t.Errorf("completing a key under [effects.deps.packages] offers %q; want the fix's %q", offered, written)
+		t.Errorf("completing the effects key offers %q; want the fix's %q", offered, written)
 	}
 	c.change(manifestURI, 2, edited)
 	deadline = time.Now().Add(60 * time.Second)
 	for len(errorsIn()) > 0 {
 		if time.Now().After(deadline) {
-			t.Fatalf("with the entry written, nomi.toml holds %s; want no error", renderDiagnostics(errorsIn()))
+			t.Fatalf("with the key written, nomi.toml holds %s; want no error", renderDiagnostics(errorsIn()))
 		}
 		time.Sleep(10 * time.Millisecond)
 	}

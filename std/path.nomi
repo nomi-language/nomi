@@ -31,7 +31,7 @@ import
     lists.List
     option.Option.{self, None, Some}
     path::host
-    strings.String
+    strings.{NonEmptyString, String}
 end
 
 /// `base` and `name` joined with a `/`, then cleaned (`clean`). An empty
@@ -84,7 +84,7 @@ end
 //! assert clean("/") == "/"
 //! assert clean("./") == "."
 //
-pub fn clean(p: String) -> String
+pub fn clean(p: String) -> NonEmptyString
     host.clean(p)
 end
 
@@ -152,7 +152,7 @@ end
 //! assert base("/") == "/"
 //! assert base("") == "."
 //
-pub fn base(p: String) -> String
+pub fn base(p: String) -> NonEmptyString
     host.base(p)
 end
 
@@ -188,12 +188,19 @@ end
 //! assert stem(".bashrc") == ".bashrc"
 //! assert stem("Makefile") == "Makefile"
 //
-pub fn stem(p: String) -> String
+pub fn stem(p: String) -> NonEmptyString
     name = base(p)
 
+    // An extension follows a name that has something before its `.`, so
+    // what is left without it is text, and `name` answers otherwise.
     case extension(name)
-        Some(ext) -> String.strip_suffix(name, ".${ext}") |> Option.with_default(name)
-        None      -> name
+        Some(ext) ->
+            String.strip_suffix(name, ".${ext}")
+            |> Option.flat_map(fn rest -> NonEmptyString.try_from(rest))
+            |> Option.with_default(name)
+
+        None ->
+            name
     end
 end
 

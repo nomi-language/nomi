@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/nomi-language/nomi/internal/artifactcache"
 	"github.com/nomi-language/nomi/internal/buildversion"
 )
 
@@ -32,7 +33,7 @@ func useCache(t *testing.T) string {
 	t.Helper()
 	cache := filepath.Join(t.TempDir(), "packages")
 	t.Setenv(CacheEnv, cache)
-	t.Cleanup(func() { _ = RemoveTree(cache) })
+	t.Cleanup(func() { _ = artifactcache.RemoveTree(cache) })
 	return cache
 }
 
@@ -198,7 +199,7 @@ func TestParseManifest_Entries(t *testing.T) {
 		t.Fatalf("ParseManifest answered %+v", f.Requires)
 	}
 	for i := range want {
-		if f.Requires[i] != want[i] {
+		if !f.Requires[i].Same(want[i]) {
 			t.Errorf("entry %d is %+v, want %+v", i, f.Requires[i], want[i])
 		}
 	}
@@ -231,7 +232,7 @@ func TestParseManifest_Entries(t *testing.T) {
 	}
 	c := strings.Repeat("0123456789", 4)
 	f, err = ParseManifest([]byte("[dependencies]\na = { repo = \"github.com/o/r\", subdir = \"x\", commit = \"" + c + "\" }\n"))
-	if err != nil || len(f.Requires) != 1 || f.Requires[0] != (Requirement{Name: "a", ID: ID{Repo: "github.com/o/r", Subdir: "x"}, Version: c}) {
+	if err != nil || len(f.Requires) != 1 || !f.Requires[0].Same(Requirement{Name: "a", ID: ID{Repo: "github.com/o/r", Subdir: "x"}, Version: c}) {
 		t.Errorf("an entry at a commit: %+v, %v", f, err)
 	}
 }
@@ -502,7 +503,7 @@ func TestLinkIn_IsThePackagesOwnLinks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = RemoveTree(cache) })
+	t.Cleanup(func() { _ = artifactcache.RemoveTree(cache) })
 	if err := Install(cache, "example.com/links", "v1.0.0", "c0ffee", tmp, files); err != nil {
 		t.Fatal(err)
 	}
@@ -607,10 +608,10 @@ func TestPrune_RemovesWhatNothingResolves(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if Cached(cache, Package{ID: ID{Repo: "example.com/used"}, Version: "v1.0.0"}) == "" {
+	if _, held := Lookup(cache, Package{ID: ID{Repo: "example.com/used"}, Version: "v1.0.0"}); held != Present {
 		t.Fatal("the used repository is not in the cache")
 	}
-	Prune(cache)
+	Prune(cache, false)
 	for p, kept := range map[string]bool{old: false, old + filesSuffix: false, partial: false, used: true, used + filesSuffix: true, fresh: true} {
 		if _, err := os.Stat(p); (err == nil) != kept {
 			t.Errorf("after Prune, %s is there: %v, want %v", p, err == nil, kept)

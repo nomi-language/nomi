@@ -55,10 +55,10 @@ func TestGenericAlias_Accepted(t *testing.T) {
 		{"a bounded use", "fn f(xs: Sortable<Int>) -> Option<Int>\n    Iter.min(xs)\nend\n"},
 		{"an alias of an interface intersection as a parameter", "fn f(i: Item) -> Int\n    Priced.price(i) - Costed.cost(i)\nend\n\nfn g() -> Int\n    f(Coffee{beans: 2})\nend\n"},
 		{"a generic alias whose target holds `and`", "fn f(t: Tagged<String>) -> Int\n    (_, item) = t\n    Priced.price(item)\nend\n\nfn g() -> Int\n    f((\"a\", Coffee{beans: 1}))\nend\n"},
-		{"an alias of a refinement intersection", "fn f(n: Both) -> NonZeroInt\n    n\nend\n\nfn g() -> Int\n    f(3)\nend\n"},
+		{"an alias of a subtype intersection", "fn f(n: Both) -> NonZeroInt\n    n\nend\n\nfn g() -> Int\n    f(3)\nend\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if errs := checkRefinementDecls(t, aliasDecls+tc.src); len(errs) > 0 {
+			if errs := checkSubtypeDecls(t, aliasDecls+tc.src); len(errs) > 0 {
 				t.Fatalf("errors: %v", errs)
 			}
 		})
@@ -72,14 +72,14 @@ func TestGenericAlias_Rejected(t *testing.T) {
 		{"a use with no type arguments", "fn f(p: Pair) -> Int\n    0\nend\n",
 			"typealias Pair takes 1 type argument: write `Pair<T>`"},
 		{"an alias of a mixed intersection", "typealias Bad Int and String\n",
-			"`and` joins interfaces or refinements, and Int is neither"},
+			"`and` joins interfaces or subtypes, and Int is neither"},
 		{"the same intersection inline", "fn f(x: Int and String) -> Int\n    0\nend\n",
-			"`and` joins interfaces or refinements, and Int is neither"},
+			"`and` joins interfaces or subtypes, and Int is neither"},
 		{"an alias is no other type", "fn f(p: Pair<Int>) -> (Int, String)\n    p\nend\n",
 			"return type mismatch: expected (Int, String), got (Int, Int)"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			errs := checkRefinementDecls(t, aliasDecls+tc.src)
+			errs := checkSubtypeDecls(t, aliasDecls+tc.src)
 			var msgs []string
 			for _, e := range errs {
 				if strings.HasPrefix(diagText(e), tc.want) {

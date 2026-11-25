@@ -15,7 +15,7 @@ func TestPackages_NewStartsAProject(t *testing.T) {
 	c := newModuleCLI(t)
 	work := t.TempDir()
 	out := c.must(work, "new", "hello_world")
-	want := "wrote hello_world/nomi.toml, hello_world/main.nomi and hello_world/AGENTS.md\nnext: cd hello_world && nomi run main.nomi"
+	want := "wrote hello_world/nomi.toml, hello_world/main.nomi and hello_world/AGENTS.md\nnext: cd hello_world && nomi run"
 	if out != want {
 		t.Fatalf("nomi new printed\n%s\nwant\n%s", out, want)
 	}
@@ -46,7 +46,7 @@ func TestPackages_NewStartsAProject(t *testing.T) {
 	app := filepath.Join(work, "app")
 	mustWrite(t, filepath.Join(app, "main.nomi"), "fn main() end\n")
 	out = c.must(app, "new", "app", ".")
-	if out != "wrote nomi.toml and AGENTS.md\nkept main.nomi, which was already there\nnext: nomi run main.nomi" {
+	if out != "wrote nomi.toml and AGENTS.md\nkept main.nomi, which was already there\nnext: nomi run" {
 		t.Errorf("nomi new . printed\n%s", out)
 	}
 }
@@ -57,7 +57,7 @@ func TestNew_ANameAloneStartsAProject(t *testing.T) {
 	c := newModuleCLI(t)
 	work := t.TempDir()
 	out := c.must(work, "new", "hello")
-	if want := "wrote hello/nomi.toml, hello/main.nomi and hello/AGENTS.md\nnext: cd hello && nomi run main.nomi"; out != want {
+	if want := "wrote hello/nomi.toml, hello/main.nomi and hello/AGENTS.md\nnext: cd hello && nomi run"; out != want {
 		t.Fatalf("nomi new hello printed\n%s\nwant\n%s", out, want)
 	}
 	dir := filepath.Join(work, "hello")
@@ -68,10 +68,10 @@ func TestNew_ANameAloneStartsAProject(t *testing.T) {
 		t.Error("nomi new hello wrote a go.mod")
 	}
 	agents := mustRead(t, filepath.Join(dir, "AGENTS.md"))
-	if !strings.Contains(agents, "`nomi run .`") || strings.Contains(agents, "go.mod") {
+	if !strings.Contains(agents, "`nomi run`") || strings.Contains(agents, "go.mod") {
 		t.Errorf("AGENTS.md of a new module:\n%s", agents)
 	}
-	for _, args := range [][]string{{"run", "."}, {"run", "main.nomi"}} {
+	for _, args := range [][]string{{"run"}, {"run", "."}, {"run", "main.nomi"}} {
 		if out := c.must(dir, args...); out != "hello" {
 			t.Errorf("nomi %s printed %q", strings.Join(args, " "), out)
 		}

@@ -114,7 +114,7 @@ end
 			got, ds := effectDiagnostics(t, "genlib.nomi", genericLibrary("[]", src))
 			want := "genlib.nomi:" + c.at + ": this package's own code has the effect std::fs, and [effects.self] allows it no effects\n" +
 				"genlib.nomi:" + c.at + ": help: " + c.chain + "\n" +
-				"genlib.nomi:" + c.at + ": help: add \"std::fs\" to std under [effects.self] in nomi.toml, or remove the call"
+				"genlib.nomi:" + c.at + ": help: add \"std::fs\" to effects under [effects.self] in nomi.toml, or remove the call"
 			if got != want {
 				t.Errorf("diagnostics:\n%s\nwant:\n%s", got, want)
 			}
@@ -230,7 +230,7 @@ end
 			got, ds := effectDiagnostics(t, "genlib.nomi", genericLibrary("[]", src))
 			want := "genlib.nomi:" + c.at + ": this package's own code has the effect std::fs, and [effects.self] allows it no effects\n" +
 				"genlib.nomi:" + c.at + ": help: " + c.chain + "\n" +
-				"genlib.nomi:" + c.at + ": help: add \"std::fs\" to std under [effects.self] in nomi.toml, or remove the call"
+				"genlib.nomi:" + c.at + ": help: add \"std::fs\" to effects under [effects.self] in nomi.toml, or remove the call"
 			if got != want {
 				t.Errorf("diagnostics:\n%s\nwant:\n%s", got, want)
 			}

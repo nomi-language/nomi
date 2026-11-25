@@ -223,7 +223,10 @@ func TestVersionFlag_EveryBuildPathReportsItsRevision(t *testing.T) {
 			}
 
 			for _, args := range [][]string{{"--version"}, {"version"}} {
-				out, err := runBinary(bin, args...)
+				cmd := exec.Command(bin, args...)
+				cmd.Env = editorSandboxEnv(t.TempDir())
+				outBytes, err := cmd.CombinedOutput()
+				out := string(outBytes)
 				if err != nil {
 					t.Fatalf("nomi %v: %v\n%s", args, err, out)
 				}

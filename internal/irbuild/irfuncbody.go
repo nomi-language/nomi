@@ -363,12 +363,12 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 	case *ast.GroupedExpr:
 		// It contributes no instruction. Parentheses are grammar.
 		return bl.lower(t.Expr)
-	case *ast.UncheckedRefinement:
-		return bl.uncheckedRefinement(t)
-	case *ast.RefinementRule:
-		return bl.refinementRule(t)
-	case *ast.RefinementParentCheck:
-		return bl.lower(analysis.RefinementParentChoice(bl.g.srcFA(), t))
+	case *ast.UncheckedSubtype:
+		return bl.uncheckedSubtype(t)
+	case *ast.SubtypeRule:
+		return bl.subtypeRule(t)
+	case *ast.SubtypeParentCheck:
+		return bl.lower(analysis.SubtypeParentChoice(bl.g.srcFA(), t))
 
 	case *ast.IntLit:
 		if bl.g.byteLiteral(t) {
@@ -1026,8 +1026,8 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	if bl.testingCheckCall(t) {
 		return bl.testingCheck(t)
 	}
-	if v, k, mobile, ok, handled := bl.refinementCall(t); handled {
-		// `Port(8080)`: the literal itself (refinement.go).
+	if v, k, mobile, ok, handled := bl.subtypeCall(t); handled {
+		// `Port(8080)`: the literal itself (subtype.go).
 		return v, k, mobile, ok
 	}
 	if fa, qualified := t.Func.(*ast.FieldAccess); qualified && bl.namedIntrinsic(t, fa) {
@@ -1402,8 +1402,8 @@ func (bl *irScalarBuilder) structCallForm(t *ast.Call, ti *ast.TypeIdent) (ir.Te
 }
 
 // structCallFormOf is structCallForm at `at` over arg for d, the struct the
-// callee names: a refinement's `unchecked` names it by the type the checker
-// gave its body (uncheckedRefinement).
+// callee names: a subtype's `unchecked` names it by the type the checker
+// gave its body (uncheckedSubtype).
 func (bl *irScalarBuilder) structCallFormOf(at, arg ast.Node, d *typeDef) (ir.Temp, kind, bool, bool) {
 	if d == nil || !irRetainedStructKind(d) {
 		return ir.NoTemp, kindInvalid, false, false

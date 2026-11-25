@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/nomi-language/nomi/internal/artifactcache"
 	"github.com/nomi-language/nomi/internal/pkgcache"
 )
 
@@ -27,7 +28,7 @@ func Cache(t testing.TB) string {
 // hands it to a `nomi` it starts.
 func CacheDir(t testing.TB) string {
 	dir := filepath.Join(t.TempDir(), "packages")
-	t.Cleanup(func() { _ = pkgcache.RemoveTree(dir) })
+	t.Cleanup(func() { _ = artifactcache.RemoveTree(dir) })
 	return dir
 }
 

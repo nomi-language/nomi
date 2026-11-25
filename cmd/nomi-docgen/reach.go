@@ -92,7 +92,7 @@ func (p *stdProgram) effectNames(entries []apiEntry) []string {
 
 // effectListsLink is the tooling page's section on the lists a project
 // holds its effects to.
-const effectListsLink = "/tooling/projects/#effects-lists"
+const effectListsLink = "/tooling/effects/#effects-lists"
 
 // effectText is the line under the signature of a function a call to
 // which, or a `once` a read of which, has the effect name, as Markdown.

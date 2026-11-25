@@ -48,7 +48,7 @@ func TestVisibility_EveryPlacementTakesEachLevel(t *testing.T) {
 		{"enum", "enum E\n    A\nend\n"},
 		{"type", "type Meters Int\n"},
 		{"opaque type", "opaque type Meters Int\n"},
-		{"refine", "refine Small Int when fn n -> n < 10\n"},
+		{"subtype", "subtype Small Int when fn n -> n < 10\n"},
 		{"interface", "interface Shape\n    fn area(s: self) -> Int\nend\n"},
 		{"typealias", "typealias Count Int\n"},
 		{"once", "once limit: Int = 3\n"},

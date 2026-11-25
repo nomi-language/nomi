@@ -4,7 +4,7 @@
 //
 // A zero divisor is no case here: `/` and `%` take a NonZeroInt, so
 // `Divide.divide(20, zero)` with `zero` an Int is refused before the program
-// runs (internal/analysis/operand_refinement.go), and the VM's division-by-zero
+// runs (internal/analysis/operand_subtype.go), and the VM's division-by-zero
 // fault is a backstop no checked program reaches.
 test "the written-out impls agree on every non-trapping answer"
     assert Add.add(9, 4) == 13

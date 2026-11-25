@@ -1,0 +1,244 @@
+================================================================================
+Subtype over a scalar with a lambda rule
+================================================================================
+
+pub subtype Port Int when fn port -> port >= 1
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (type_definition
+    (pub)
+    name: (qualified_type_identifier
+      (type_identifier))
+    (type_identifier)
+    (when_rule
+      rule: (lambda
+        (lambda_parameter
+          name: (identifier))
+        body: (binary_expression
+          (identifier)
+          (integer))))))
+
+================================================================================
+Subtype with a named function as its rule
+================================================================================
+
+subtype Username String when is_username
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (type_definition
+    name: (qualified_type_identifier
+      (type_identifier))
+    (type_identifier)
+    (when_rule
+      rule: (identifier))))
+
+================================================================================
+Validated struct as the body's last item
+================================================================================
+
+struct Span
+    low: Int
+    high: Int
+    when fn s -> s.low <= s.high
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (struct_definition
+    name: (qualified_type_identifier
+      (type_identifier))
+    (struct_body
+      (field_definition
+        name: (identifier)
+        type: (type_identifier))
+      (field_definition
+        name: (identifier)
+        type: (type_identifier))
+      (when_rule
+        rule: (lambda
+          (lambda_parameter
+            name: (identifier))
+          body: (binary_expression
+            (field_access
+              (identifier)
+              (identifier))
+            (field_access
+              (identifier)
+              (identifier))))))))
+
+================================================================================
+Validated struct over several lines
+================================================================================
+
+struct Span
+    low: Int
+    high: Int
+    when fn s ->
+        s.low <= s.high
+    end
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (struct_definition
+    name: (qualified_type_identifier
+      (type_identifier))
+    (struct_body
+      (field_definition
+        name: (identifier)
+        type: (type_identifier))
+      (field_definition
+        name: (identifier)
+        type: (type_identifier))
+      (when_rule
+        rule: (lambda
+          (lambda_parameter
+            name: (identifier))
+          body: (body
+            (binary_expression
+              (field_access
+                (identifier)
+                (identifier))
+              (field_access
+                (identifier)
+                (identifier)))))))))
+
+================================================================================
+Subtype of several parents
+================================================================================
+
+pub subtype PositiveInt NonNegativeInt and NonZeroInt when fn n -> n > 0
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (type_definition
+    (pub)
+    name: (qualified_type_identifier
+      (type_identifier))
+    (type_identifier)
+    (type_identifier)
+    (when_rule
+      rule: (lambda
+        (lambda_parameter
+          name: (identifier))
+        body: (binary_expression
+          (identifier)
+          (integer))))))
+
+================================================================================
+Generic subtype with a bound
+================================================================================
+
+subtype Sorted<T> List<T> where T: Comparable when fn xs -> True
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (type_definition
+    name: (qualified_type_identifier
+      (type_identifier))
+    (type_parameters
+      (type_parameter
+        name: (type_parameter_identifier
+          (type_identifier))))
+    (generic_type
+      (type_identifier)
+      (type_identifier))
+    (where_clause
+      (where_constraint
+        name: (type_parameter_identifier
+          (type_identifier))
+        (type_identifier)))
+    (when_rule
+      rule: (lambda
+        (lambda_parameter
+          name: (identifier))
+        body: (type_identifier)))))
+
+================================================================================
+Subtype of an intersection with no rule of its own
+================================================================================
+
+subtype PositiveInt NonNegativeInt and NonZeroInt
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (type_definition
+    (qualified_type_identifier
+      (type_identifier))
+    (type_identifier)
+    (type_identifier)))
+
+================================================================================
+Validated type
+================================================================================
+
+type Email String when is_email
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (type_definition
+    (qualified_type_identifier
+      (type_identifier))
+    (type_identifier)
+    (when_rule
+      (identifier))))
+
+================================================================================
+Intersection of subtypes as a parameter type
+================================================================================
+
+fn half(n: NonNegativeInt and NonZeroInt) -> Int
+    n / 2
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters
+      (parameter
+        (identifier)
+        (conjunction_type
+          (type_identifier)
+          (type_identifier))))
+    (type_identifier)
+    (body
+      (binary_expression
+        (identifier)
+        (integer)))))
+
+================================================================================
+Generic type alias with a bound
+================================================================================
+
+typealias Sortable<T> List<T> where T: Comparable
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (type_alias
+    (qualified_type_identifier
+      (type_identifier))
+    (type_parameters
+      (type_parameter
+        (type_parameter_identifier
+          (type_identifier))))
+    (generic_type
+      (type_identifier)
+      (type_identifier))
+    (where_clause
+      (where_constraint
+        (type_parameter_identifier
+          (type_identifier))
+        (type_identifier)))))

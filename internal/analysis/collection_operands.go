@@ -80,7 +80,10 @@ func (c *checker) checkCollectionOperands(n *ast.Binary) (left, right Type, ok b
 // built as other (`[1] + words`), it is checked on its own instead, so the
 // operator reports the mismatch of the two types it always has.
 func (c *checker) checkCollectionLitAgainst(lit ast.Node, kind string, other Type) Type {
-	other = resolveTypeVar(other)
+	// An operand of a subtype is its base's value (checkBinary), so the
+	// literal is built as the base: `names + ["Dorothy"]` with names a
+	// `NonEmptyVector<String>` adds two Vectors.
+	other = resolveTypeVar(SubtypeBase(resolveTypeVar(other)))
 	ok := collectionKind(other) == kind
 	if kind == "Seq" {
 		switch collectionKind(other) {

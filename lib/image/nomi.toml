@@ -5,8 +5,8 @@ name = "image"
 # in a fresh WebAssembly instance with no imports (wasm.run), which acts on
 # nothing. Its tests read their fixtures and write files.
 [effects.self]
-std = []
-std_in_tests = ["std::fs"]
+effects = []
+effects_in_tests = ["std::fs"]
 
-[effects.deps]
-std = []
+[effects.dependencies]
+effects = []

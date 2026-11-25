@@ -425,8 +425,8 @@ func (g *gen) declareTypeShells(nodes []ast.Node) {
 		case *ast.EnumDef:
 			name, isEnum = t.Name, true
 		case *ast.TypeDef:
-			if isDistinctRefinementDecl(t) {
-				// Erased: a refinement is its base (refinement.go).
+			if isDistinctSubtypeDecl(t) {
+				// Erased: a subtype is its base (subtype.go).
 				continue
 			}
 			name, isDistinct = t.Name, true

@@ -14,23 +14,32 @@ type handlerWrapper struct {
 	server *Server
 }
 
-func (h *handlerWrapper) Handle(ctx *glsp.Context) (any, bool, bool, error) {
-	switch ctx.Method {
-	case "textDocument/inlayHint":
-		var params InlayHintParams
+// lsp317Handler runs one request of lsp317, reporting false when its
+// params do not decode.
+type lsp317Handler func(s *Server, ctx *glsp.Context) (result any, validParams bool, err error)
+
+// lsp317 are the requests handlerWrapper adds, by method.
+var lsp317 = map[string]lsp317Handler{
+	"textDocument/inlayHint":   request317((*Server).textDocumentInlayHint),
+	"textDocument/inlineValue": request317((*Server).textDocumentInlineValue),
+}
+
+// request317 decodes a request's params and calls its handler.
+func request317[P, R any](handler func(*Server, *glsp.Context, *P) (R, error)) lsp317Handler {
+	return func(s *Server, ctx *glsp.Context) (any, bool, error) {
+		var params P
 		if err := json.Unmarshal(ctx.Params, &params); err != nil {
-			return nil, true, false, err
+			return nil, false, err
 		}
-		r, err := h.server.textDocumentInlayHint(ctx, &params)
-		return r, true, true, err
-	case "textDocument/inlineValue":
-		var params InlineValueParams
-		if err := json.Unmarshal(ctx.Params, &params); err != nil {
-			return nil, true, false, err
-		}
-		r, err := h.server.textDocumentInlineValue(ctx, &params)
-		return r, true, true, err
-	default:
-		return h.inner.Handle(ctx)
+		r, err := handler(s, ctx, &params)
+		return r, true, err
 	}
+}
+
+func (h *handlerWrapper) Handle(ctx *glsp.Context) (any, bool, bool, error) {
+	if handle, ok := lsp317[ctx.Method]; ok {
+		r, validParams, err := handle(h.server, ctx)
+		return r, true, validParams, err
+	}
+	return h.inner.Handle(ctx)
 }

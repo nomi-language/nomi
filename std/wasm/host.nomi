@@ -11,7 +11,7 @@
 
 import
     bytes.Bytes
-    int.{Int, Int64}
+    int.{Int, Int64, NonNegativeInt}
     lists.List
     results.Result
     strings.String
@@ -57,7 +57,7 @@ host fn read(instance: Live, at: Int, length: Int) -> Result<Bytes, List<String>
 host fn write(instance: Live, at: Int, data: Bytes) -> Result<Unit, List<String>>
 
 /// The size of the instance's memory in bytes.
-host fn size(instance: Live) -> Result<Int, List<String>>
+host fn size(instance: Live) -> Result<NonNegativeInt, List<String>>
 
 /// The instance dropped.
 host fn drop(instance: Live) -> Unit
@@ -69,7 +69,7 @@ host fn memory_read(memory: Memory, at: Int, length: Int) -> Result<Bytes, List<
 host fn memory_write(memory: Memory, at: Int, data: Bytes) -> Result<Unit, List<String>>
 
 /// `size` for the memory an import is handed.
-host fn memory_size(memory: Memory) -> Result<Int, List<String>>
+host fn memory_size(memory: Memory) -> Result<NonNegativeInt, List<String>>
 
 /// The export `name` of a fresh instance of `module`, its memory limited
 /// to `limit` bytes, called once over `input`, by std::wasm's `run`

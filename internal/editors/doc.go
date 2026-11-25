@@ -76,9 +76,24 @@
 //
 // Each install writes a marker, nomi-version, with this `nomi`'s version
 // into the directory it owns (Helix's grammar copy, Neovim's package
-// directory, Zed's extension), which `nomi editor` reads to say whether
-// the installed files are this version's, and which tells Zed's
-// uninstall that the extension is this command's.
+// directory, Zed's extension), which tells Zed's uninstall that the
+// extension is this command's. Each editor's find reads what its directory
+// holds: the marker's version, or support nomi did not write. `nomi
+// editor` says from it whether the files are this version's, and `nomi
+// --version` names each editor whose files are from another (Found).
+//
+// Refresh installs for the editors that have Nomi support, and its callers
+// say which. `nomi upgrade` has the new `nomi` rewrite the support nomi
+// wrote from another version, and leaves alone what nomi did not write.
+// `nomi editor install --installed` (Reinstall) installs for every one,
+// printing each install's steps: support nomi did not write is refused as
+// `nomi editor install` refuses it, unless forced, and the other editors
+// are still installed. VS Code's extension is kept by `code` and carries no
+// marker, so Refresh includes it only when asked, which Reinstall does and
+// `nomi upgrade` does after replacing `nomi`, and only when `code
+// --list-extensions` lists it. The install scripts' replace mode runs
+// `nomi editor install --installed --force` from the release they
+// installed (scripts/install.sh, nomi_others).
 //
 // scripts/sync-helix-runtime.sh --dev, behind `make dev-helix`, runs this
 // install from the checkout and then links the query directories to it.

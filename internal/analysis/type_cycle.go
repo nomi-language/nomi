@@ -11,7 +11,7 @@ import (
 // and both run the one walk, typeCycle, over a different relation:
 //
 //   - a distinct type's representation (distinctCycle): what its inner type
-//     and a refinement's parents hold, at every position, through the inner
+//     and a subtype's parents hold, at every position, through the inner
 //     types and parents of other distinct types. `type L List<L>` is a
 //     cycle here.
 //   - a value (valueCycle): what a value of a struct, an enum or a distinct
@@ -147,7 +147,7 @@ func declarationName(decl Type) string {
 }
 
 // distinctCycle reports whether inner, about to become dt's inner type or
-// one of a refinement's parents, contains dt itself, directly or through
+// one of a subtype's parents, contains dt itself, directly or through
 // the inner types and parents of other distinct types. It returns the
 // names along the way, starting and ending with dt's, or nil when there is
 // no cycle.
@@ -174,7 +174,7 @@ func distinctCycle(dt *DistinctType, inner Type) []string {
 
 // representationEdges is distinctCycle's relation: every position a type
 // holds (typeChildren), and for a distinct type, its type arguments and,
-// one step further along the path, the type it wraps and a refinement's other
+// one step further along the path, the type it wraps and a subtype's other
 // parents.
 func representationEdges(t Type) ([]cycleStep, bool, any) {
 	dt, ok := t.(*DistinctType)
@@ -212,7 +212,7 @@ func valueCycle(decl Type) []string {
 //   - A struct holds each field without a default, and an anonymous struct
 //     each of its fields: any one that holds the declaration is enough.
 //   - A tuple holds each element.
-//   - A distinct type, a refinement among them, holds the type it wraps. A
+//   - A distinct type, a subtype among them, holds the type it wraps. A
 //     host type wraps nothing a program declares.
 //   - An enum holds one of its variants, so only when every variant holds
 //     the declaration does the enum. A variant with no payload, as `None`
@@ -312,9 +312,9 @@ func distinctCycleError(n *ast.TypeDef, path []string) TypeError {
 	if len(path) > 2 {
 		msg += " (" + strings.Join(path, " → ") + ")"
 	}
-	if n.Refinement {
+	if n.Subtype {
 		return TypeError{Line: n.Line, Col: n.Col, Message: msg}.WithHint(fmt.Sprintf(
-			"a refinement's parents are types its values already are, and their parents in turn, so none of them can be '%s' itself", n.Name))
+			"a subtype's parents are types its values already are, and their parents in turn, so none of them can be '%s' itself", n.Name))
 	}
 	return TypeError{
 		Line: n.Line, Col: n.Col,

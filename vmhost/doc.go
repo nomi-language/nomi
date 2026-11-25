@@ -61,7 +61,7 @@
 //
 // A host that is not Go answers a program's `host fn`s in JSON instead,
 // through the WASI reactor's one import, nomi.host_call (vmrunner's
-// WithHostCalls; the tooling reference's "Calling exported functions"):
+// WithHostCalls; the tooling reference's "Embedding"):
 // each argument is encoded by its type's ToJson and the answer decoded by
 // the result's FromJson, std/json's conversions an `export fn`'s arguments
 // and result cross by. The checker records which `host fn`s have that form
@@ -120,32 +120,41 @@
 //
 // One rule holds a call to a list (effects.Allows, through
 // standingsOf, which notAllowedBy filters to the refusals): by its name,
-// which the list must hold. nomi.toml has two tables, each with a table of
-// entries under it, and each holds the calls written in the files it
-// names; an entry is a std list that narrows its table for one key's
-// files. standingsOf picks the table and its entries by the module whose
-// file holds the call, and decides both the same way. [effects.self]
-// holds the project's own files: its std, with std_in_tests for the
-// tests, and the entry for the file's module under
-// [effects.self.modules], keyed by the file's import path (importOf).
-// [effects.deps] holds the files of every module the program's code comes
-// from other than the project: its std, a ceiling when the table sets
-// one, with std_in_tests for the tests, and the project's entry for the
-// module under [effects.deps.packages]. When the project has
-// [effects.deps], a dependency's calls are held too to the
+// which the list must hold. nomi.toml has two tables, each with entries
+// that narrow it, and each holds the calls written in the files it names;
+// an entry is a std list that narrows its table for one key's code.
+// standingsOf picks the table and its entries by the package whose file
+// holds the call, and decides both the same way. [effects.self] holds the
+// project's own files: its effects, with effects_in_tests for the tests,
+// and the entry for the file's module under [effects.self.modules], keyed
+// by the file's import path (importOf). [effects.dependencies] holds the
+// files of every package the program's code comes from other than the
+// project: its effects, a ceiling when the table sets one, with
+// effects_in_tests for the tests. Its entries are the `effects` and
+// `effects_in_tests` keys of the project's [dependencies] entries, read by
+// pkgcache's entry parser (pkgcache.Requirement) and checked by analysis:
+// an entry covers the package it names and every package the project
+// reaches through it (pkgcache.Graph.Through, EffectCall.Through), and a
+// package reached through several entries is held to what they allow
+// together (dependencyEntry). On a path through an entry with no `effects`
+// key only the ceiling holds the package, as it holds a dependency with no
+// entry, so such a package's entries hold nothing. When the project holds
+// its dependencies, a dependency's calls are held too to the
 // [effects.self] in its own nomi.toml (packageAt reads it, once per
-// module), whose std and entries declare its own code. A table the
-// project leaves out holds nothing. A call over several lists is reported once,
-// over the module's own list first (EffectNotDeclaredCode, whose help
-// puts the fix in that module), then the entry, then the table the entry
-// is under (EffectCallsNotAllowed). The dependency's own std names are
-// checked by the code that checks the project's, at its own nomi.toml. A
-// key under [effects.self.modules] must name a module of the project
-// (projectModules), and entries_required is checked in each table over the
-// modules and packages whose files the program holds (ownModules,
-// requiredPackages). A host's list holds the whole program and is never a
-// dependency's: a program held only by WithEffects reads no dependency's
-// table.
+// package), whose effects and entries declare its own code; the effects
+// keys of its own [dependencies] entries are its limits for its own builds
+// and are not read. A table the project leaves out holds nothing. A call
+// over several lists is reported once, over the package's own list first
+// (EffectNotDeclaredCode, whose help puts the fix in that package), then
+// the entries, then the table the entries are under
+// (EffectCallsNotAllowed). The dependency's own std names are checked by
+// the code that checks the project's, at its own nomi.toml. A key under
+// [effects.self.modules] must name a module of the project
+// (projectModules), and entries_required is checked over the modules whose
+// files the program holds (ownModules) and the [dependencies] entries
+// through which it holds a package's files (dependencyEntries). A host's
+// list holds the whole program and is never a dependency's: a program held
+// only by WithEffects reads no dependency's table.
 //
 // The roots `nomi check` holds to the lists (checkedRoots) are main and
 // the boot, the exported functions, the project's public functions and
@@ -157,7 +166,7 @@
 // main's chain, and then from the bodies a value of each type their code
 // makes may run (vm's madeBodies), since such a value can leave through a
 // public function. So a library with no main is held to its own
-// [effects.self] by everything it publishes, and std_in_tests holds what
+// [effects.self] by everything it publishes, and effects_in_tests holds what
 // only its tests reach. A dependency's public functions are not roots:
 // its calls count where the program reaches them. A public generic
 // function is a root through its abstract body as well as its instances
@@ -218,8 +227,9 @@
 // program frontend.CheckedFiles names, Why and WriteWhy are `--why`,
 // Trees is `--tree`, each root's calls down to each effect, read from
 // the edges the same walk recorded (vm.EffectWalk.Tree), each call
-// standing as the check holds it, HeldChanges the differences `--check`
-// holds a table to, and
+// standing as the check holds it, HeldChanges the differences the report
+// and `--check` hold a table to, LeftOutTables the tables the file leaves
+// out that would hold something, and
 // PackageReaches and WritePackageReach the effects each dependency has, as
 // `nomi add` prints them. reachedCalls is what an editor's hover says of
 // the effects code has, read from editorWalks: the walks `nomi check`
@@ -354,20 +364,20 @@
 // The language server also evaluates double-quoted typed literals with no
 // `${...}` this way, for hovers and diagnostics.
 //
-// A literal the checker typed as a refinement (spec §4 *Refinements*)
-// is checked here too (refinements.go): irbuild lists each one as a
-// RefinementSite with the `try_from` of every refinement on its chain, and
-// checkRefinements calls each on the literal, a validated struct's on the
+// A literal the checker typed as a subtype (spec §4 *Subtypes*)
+// is checked here too (subtypes.go): irbuild lists each one as a
+// SubtypeSite with the `try_from` of every subtype on its chain, and
+// checkSubtypes calls each on the literal, a validated struct's on the
 // record its literal fields build. A `None` is the error `-1.0 is not a
 // NonNegativeFloat: <rule> is false` at the literal, and a trap in a rule
 // is an error carrying its message. No literal passes unchecked: one whose
-// check irbuild could not make (RefinementSite.Unchecked) or whose
+// check irbuild could not make (SubtypeSite.Unchecked) or whose
 // `try_from` no linked module defines is an `internal:` error at the
-// literal (UncheckedRefinementCode), and one whose check reaches what the
+// literal (UncheckedSubtypeCode), and one whose check reaches what the
 // machine cannot run is an error there that names it. Each declared rule
-// (irbuild.Result.RefinementRules) is refused when it can reach an effect,
+// (irbuild.Result.SubtypeRules) is refused when it can reach an effect,
 // whether or not a literal is checked against it, and a literal of a
-// refinement so refused is not reported again. A generic refinement's rule
+// subtype so refused is not reported again. A generic subtype's rule
 // is walked through its `try_from` at its bounds' interfaces, whose calls
 // dispatch to every implementation the program retains, at a witness
 // type, at every instance the linked program has, and with every function

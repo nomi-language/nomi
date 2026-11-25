@@ -80,13 +80,13 @@ func structuralDemands(t Type, iface *InterfaceType) (demands []partDemand, meet
 }
 
 // fieldDemand is what a part p of a tuple or anonymous struct asks of its
-// type for the whole to meet need. A field of a refinement asks Parse, which a
+// type for the whole to meet need. A field of a subtype asks Parse, which a
 // record read from texts (ParseFields) reads each field with, of the
-// refinement's base: the record's reader reads the base and checks the
-// refinement's rules (refinement_reads.go). Any other part asks need of p.
+// subtype's base: the record's reader reads the base and checks the
+// subtype's rules (subtype_reads.go). Any other part asks need of p.
 func fieldDemand(p Type, need *InterfaceType) partDemand {
-	if dt := refinementOf(p); dt != nil && dt.Inner != nil && isStdInterfaceNamed(need, "Parse") {
-		return partDemand{t: RefinementBase(p), iface: need}
+	if dt := subtypeOf(p); dt != nil && dt.Inner != nil && isStdInterfaceNamed(need, "Parse") {
+		return partDemand{t: SubtypeBase(p), iface: need}
 	}
 	return partDemand{t: p, iface: need}
 }

@@ -78,6 +78,7 @@ import
     int.Int
     io
     iter.Iter
+    lists.NonEmptyList
     option.Option.{self, None, Some}
     path
     results.Result.{self, Err, Ok}
@@ -859,8 +860,7 @@ end
 // Whether Windows keeps `segment` for a device: its part before the first
 // `.`, in any case, is CON, PRN, AUX, NUL, or COM or LPT and a digit.
 fn is_device_name(segment: String) -> Bool
-    stem =
-        String.split(segment, ".") |> Iter.first() |> Option.with_default("") |> String.uppercase()
+    stem = String.split(segment, ".") |> NonEmptyList.first() |> String.uppercase()
 
     Iter.contains(["CON", "PRN", "AUX", "NUL"], stem)
         or String.length(stem) == 4

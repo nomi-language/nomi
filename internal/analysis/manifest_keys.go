@@ -3,6 +3,7 @@ package analysis
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"reflect"
 	"slices"
 	"strconv"
@@ -20,14 +21,14 @@ import (
 // table's struct, and a field at the top that is neither is a key outside
 // any table (nomi-workspace.toml's `members`). A field whose
 // type is a struct is a table nested in its own (`[effects.self]`),
-// and a map's keys are free, as `[effects.deps.packages]`'s dependency
-// names are. A table or key the manifest holds and manifestFile does not
+// and a map's keys are free, as `[effects.self.modules]`'s module names
+// and `[dependencies]`' package names are. A table or key the manifest holds and manifestFile does not
 // is an error at its line, so a misspelled key is never read as nothing.
 // The error names the nearest key when one is close in spelling, except in
 // a table whose field carries a `keys` tag: there it says what each key
 // holds instead, since a key written wrong there is often close in
 // spelling to one far from it in meaning (`allow_in_tests` and
-// `std_in_tests`).
+// `effects_in_tests`).
 //
 // A top-level table named for a package the project requires, or for the
 // project's own package, belongs to that package's tools (`nomi tool`), which
@@ -77,7 +78,7 @@ func manifestTables(shape reflect.Type) map[string]manifestTable {
 				path, ft = path+".*", ft.Elem()
 			} else if ft.Kind() == reflect.Map {
 				// A table of values under free keys
-				// ([effects.deps.packages]).
+				// ([effects.self.modules]).
 				out[path] = manifestTable{about: f.Tag.Get("keys")}
 				continue
 			}
@@ -601,31 +602,104 @@ func (e *ManifestError) Error() string {
 	return e.Path + ": " + e.Message
 }
 
+// notTOML is err, the TOML decoder's refusal of the text of the manifest at
+// path, as a ManifestError at the line the decoder names.
+func notTOML(path string, err error) error {
+	me := &ManifestError{Path: path, Message: err.Error()}
+	var pe toml.ParseError
+	if errors.As(err, &pe) {
+		me.Line = pe.Position.Line
+	}
+	return me
+}
+
 // with is e with its message formatted from format and args.
 func (e *ManifestError) with(format string, args ...any) error {
 	e.Message = fmt.Sprintf(format, args...)
 	return e
 }
 
+// manifestErrorPlace is the file err, an error that stops a build
+// (discoverProjectStd), is in, its line there (1-based, 0 for none), its
+// message without that place, as the file's own check gives it, and the
+// other places it is about: a ManifestError's; the nomi.toml of a package
+// its workspace does not list, at its first line; a package that needs a
+// later nomi at its [package] nomi line; and for a problem in a reached
+// package's nomi.toml (pkgcache.PackageManifestError) the place of the
+// problem in that file, with the entry that names the package as a
+// related location, saying what the error adds (NamedBy). ok is false for
+// an error no file places.
+func manifestErrorPlace(err error) (path string, line int, message string, related []RelatedInfo, ok bool) {
+	if tooOld := (*pkgcache.NomiVersionError)(nil); errors.As(err, &tooOld) {
+		if tooOld.Path == "" {
+			return "", 0, "", nil, false
+		}
+		data, _ := ReadManifestFile(tooOld.Path)
+		return tooOld.Path, ManifestKeyLine(data, "package", "nomi"), tooOld.Error(), nil, true
+	}
+	var reached *pkgcache.PackageManifestError
+	if errors.As(err, &reached) {
+		if path, line, message, related, ok = manifestErrorPlace(reached.Err); ok {
+			data, _ := ReadManifestFile(reached.By)
+			key, value, _ := reached.EntryIn(reached.By)
+			r := RelatedInfo{File: reached.By, Message: strings.TrimPrefix(reached.NamedBy(), "; ")}
+			r.Line, r.Col, r.EndLine, r.EndCol = manifestLineSpan(reached.By, manifestLine(data, key, value))
+			related = append(related, r)
+		}
+		return path, line, message, related, ok
+	}
+	var unlisted *pkgcache.UnlistedError
+	if errors.As(err, &unlisted) {
+		return unlisted.Manifest, 1, unlisted.Message(), nil, true
+	}
+	var me *ManifestError
+	if errors.As(err, &me) {
+		return me.Path, me.Line, me.Message, nil, true
+	}
+	return "", 0, "", nil, false
+}
+
+// manifestLineSpan is the span of line (1-based) of the manifest at path
+// that a diagnostic there covers, as the language server shows a
+// manifest's error: the line's text without its indent and trailing
+// blanks, a point at its start when it is blank. A line the file does not
+// have, or 0, is the start of the file.
+func manifestLineSpan(path string, line int) (startLine, startCol, endLine, endCol int) {
+	data, err := ReadManifestFile(path)
+	lines := strings.Split(string(data), "\n")
+	if err != nil || line < 1 || line > len(lines) {
+		return 1, 1, 0, 0
+	}
+	text := strings.TrimRight(lines[line-1], " \t\r")
+	start := len(text) - len(strings.TrimLeft(text, " \t"))
+	if start == len(text) {
+		return line, 1, 0, 0
+	}
+	return line, start + 1, line, len(text) + 1
+}
+
 // ManifestErrorAt is where in data, the text of the nomi.toml or
 // nomi-workspace.toml at path, err is, as an editor shows it in that file:
-// its line, 1-based, or 0 when it has none, and its message. An error
-// ParseManifestIn answers is at a ManifestError's line, or the TOML
-// decoder's for text that is not TOML, with its message without the
-// file's name. A problem in the nomi.toml of a package the file leads to
+// its line, 1-based, or 0 when it has none, and its message. A problem in
+// the nomi.toml of a package the file leads to
 // (pkgcache.PackageManifestError) is at the entry that leads there, with
-// the whole message, which names the package's file and its line.
+// the whole message, which names the package's file and its line. An
+// error in the file itself is at its place there (manifestErrorPlace),
+// with its message without the file's name, as the build that stops on it
+// reports it (manifestTypeError), and one in another file is at no line,
+// with the whole message, which names that file.
 func ManifestErrorAt(path string, data []byte, err error) (line int, message string) {
 	var reached *pkgcache.PackageManifestError
 	if errors.As(err, &reached) {
 		if key, value, ok := reached.EntryIn(path); ok {
 			return manifestLine(data, key, value), err.Error()
 		}
-		return 0, err.Error()
 	}
-	var me *ManifestError
-	if errors.As(err, &me) {
-		return me.Line, me.Message
+	if in, line, message, _, ok := manifestErrorPlace(err); ok {
+		if filepath.Clean(in) == filepath.Clean(path) {
+			return line, message
+		}
+		return 0, err.Error()
 	}
 	var pe toml.ParseError
 	if errors.As(err, &pe) {

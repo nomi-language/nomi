@@ -86,6 +86,17 @@
 // that loses the race to rename keeps the other's copy. A fetch prunes the
 // cache at most once a day (pkgcache.Prune).
 //
+// An entry the cache holds incomplete (pkgcache.Incomplete: a tree without
+// its list, as `rm -rf` of the cache leaves it, a list without its tree, or
+// a tree that lacks a package's directory its list names files in) is
+// fetched again, once, with `(the cached copy was incomplete)` on the
+// fetch's log line. The part the cache holds is removed only after the
+// fetched copy passes its checks and right before it is installed
+// (pkgcache.RemoveIncomplete, which looks again), so a failed fetch
+// changes nothing and two processes repairing one entry each install a
+// whole copy or keep the other's. A list that names no file under a
+// package's directory is a repository without that package, an error.
+//
 // # Verifying and locking
 //
 // Every package, fetched or already in the cache, is checked against the
@@ -97,7 +108,7 @@
 // which then locks its commit and hash. A cache hit makes no network
 // request, so a run whose lock is current and whose packages are cached
 // makes none. Offline (`--offline`, Options.Offline) a package the cache
-// lacks is an error that names it.
+// lacks, or holds incomplete, is an error that names it.
 //
 // A plain fetch walks with the lock (pkgcache.Walk), so a run reads the
 // locked versions. An updating one (pkgcache.Resolve) selects versions

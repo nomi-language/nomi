@@ -208,7 +208,7 @@ end
 func TestKeptLoweringRefusesACorruptEncoding(t *testing.T) {
 	k := &KeptLowering{EntryPath: "/p/main.nomi", HasMain: true, Units: []KeptUnit{
 		{Key: "main", Path: "/p/main.nomi", Object: []byte("object"), Imports: []string{"io", "dynamic"}, Decls: map[string][32]byte{"main": {1}}},
-		{Key: "util", Path: "/p/util.nomi", Rules: []RefinementRuleSite{{Path: "/p/util.nomi", Line: 2, Type: "Small", Key: "k"}, {Type: "Plain"}}, RuleChecks: []int{0}},
+		{Key: "util", Path: "/p/util.nomi", Rules: []SubtypeRuleSite{{Path: "/p/util.nomi", Line: 2, Type: "Small", Key: "k"}, {Type: "Plain"}}, RuleChecks: []int{0}},
 	}, Listed: []string{"http"}, Dangling: []string{"util.f"}, Declines: map[string][]string{"/p/util.nomi": {"f: why"}},
 		DebugRenderings: []KeptDebugRendering{{Iface: "8:std/display.Display", Renderers: []string{"", "/p/util.nomi"}, Implementers: []string{"/p/main.nomi"}}}}
 	data := k.Encode()
@@ -339,14 +339,14 @@ end
 	}
 }
 
-// TestRelowerEachFileLinksTheRefinementChecks lowers a file whose literals
-// are checked as a generic std refinement (a range literal as a ClosedRange,
+// TestRelowerEachFileLinksTheSubtypeChecks lowers a file whose literals
+// are checked as a generic std subtype (a range literal as a ClosedRange,
 // whose step calls NonEmptyRange's try_from<Int>) on its own and links it
 // (RelowerEachFile), and requires every function vmhost runs to check
 // them to name the linked program's symbols. A check the whole lowering
 // made calls the try_from instance by a symbol the linked program does
 // not define, which the VM reports as not retained.
-func TestRelowerEachFileLinksTheRefinementChecks(t *testing.T) {
+func TestRelowerEachFileLinksTheSubtypeChecks(t *testing.T) {
 	dir := t.TempDir()
 	entry := filepath.Join(dir, "main.nomi")
 	src := `import std::io
@@ -372,8 +372,8 @@ end
 	if err != nil || refusal != nil {
 		t.Fatalf("the program does not lower: %v %v", err, refusal)
 	}
-	checks := ir.NewModule("refinement checks")
-	for _, s := range res.Refinements {
+	checks := ir.NewModule("subtype checks")
+	for _, s := range res.Subtypes {
 		if s.Build != nil {
 			checks.AddFunc(s.Build)
 		}
@@ -384,22 +384,22 @@ end
 		}
 	}
 	if checks.Empty() {
-		t.Fatal("no refinement literal has a generic step's check; the fixture is wrong")
+		t.Fatal("no subtype literal has a generic step's check; the fixture is wrong")
 	}
 	if split := splitDefinitions(append(res.IRModules(), checks)); split != "" {
-		t.Fatalf("a refinement check of the program linked from the file lowered on its own names %s", split)
+		t.Fatalf("a subtype check of the program linked from the file lowered on its own names %s", split)
 	}
 }
 
 // TestLowerFileKeepsAnotherFilesGenericRuleCheck lowers main.nomi on its
 // own against the kept object of many.nomi, which declares a generic
-// refinement. The rule's Check (analysis.RefinementRuleCheck), which vmhost
+// subtype. The rule's Check (analysis.SubtypeRuleCheck), which vmhost
 // walks for effects, must come through the kept unit (KeptUnit.RuleChecks)
 // as the whole lowering made it, decoded against the linked program.
 func TestLowerFileKeepsAnotherFilesGenericRuleCheck(t *testing.T) {
 	dir := t.TempDir()
 	files := map[string]string{
-		"many.nomi": "pub refine Many<T> List<T> when fn xs -> not Iter.is_empty(xs)\n",
+		"many.nomi": "pub subtype Many<T> List<T> when fn xs -> not Iter.is_empty(xs)\n",
 		"main.nomi": `import
     std::io
     many.{Many}
@@ -428,7 +428,7 @@ end
 	}
 	checked := func(r *Result) int {
 		n := 0
-		for _, rule := range r.RefinementRules {
+		for _, rule := range r.SubtypeRules {
 			if rule.Type == "Many" && rule.Check != nil {
 				n++
 			}
@@ -454,7 +454,7 @@ end
 		t.Fatalf("main.nomi lowered on its own links %d checks of Many's rule, the whole lowering %d", checked(got), checked(res))
 	}
 	checks := ir.NewModule("rule checks")
-	for _, rule := range got.RefinementRules {
+	for _, rule := range got.SubtypeRules {
 		if rule.Check != nil {
 			checks.AddFunc(rule.Check)
 		}

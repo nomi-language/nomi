@@ -69,7 +69,7 @@
 // the builder cannot yet lower with its type parameters held as their
 // bounds. No list in docgen names a function with effects.
 //
-// The tooling reference's "Effects lists" holds a table from the same walk
+// The tooling reference's "Functions with effects" holds a table from the same walk
 // (effect_table_test.go): the public functions and `once` values with
 // effects, by the name a list holds. TestEffectTableMatchesTheReference
 // fails while it differs from the walk and prints the table to paste.

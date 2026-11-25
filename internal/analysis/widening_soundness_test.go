@@ -61,7 +61,7 @@ func wideningSource(body string) string {
 }
 
 // A type parameter an argument solved to an embedded type, or to a
-// refinement, widens to the enum or the ancestor a later argument brings,
+// subtype, widens to the enum or the ancestor a later argument brings,
 // only where every earlier argument still fits at the widened type
 // (spec §4 *Chains and conversion*). A value position (a value argument, a
 // list's elements) takes the wider type; a function argument's parameter
@@ -73,9 +73,9 @@ func TestWiden_ATypeParameterWidensOnlyWhereEarlierArgumentsStillFit(t *testing.
 		{"the enum first", "    _ = shape_of(pick(c, shape, circle))"},
 		{"lists of variables", "    cs = [circle]\n    ss = [shape]\n    _ = shapes(List.concat(cs, ss))"},
 		{"list literals of an enum", "    _ = shapes(List.concat([circle], [shape]))"},
-		{"list literals of a refinement", "    _ = ints(List.concat([n], [i]))"},
+		{"list literals of a subtype", "    _ = ints(List.concat([n], [i]))"},
 		{"list literals, the ancestor first", "    _ = ints(List.concat([i], [n]))"},
-		{"a list literal of a refinement unannotated", "    xs = List.concat([n], [i])\n    _ = ints(xs)"},
+		{"a list literal of a subtype unannotated", "    xs = List.concat([n], [i])\n    _ = ints(xs)"},
 		{"piped list literals", "    _ = ints([n] |> List.concat([i, 5]))\n    _ = shapes([circle] |> List.concat([shape]))"},
 		{"a list literal at a function of the enum", "    _ = apply_all(shape_of, [circle, shape])"},
 		{"a function at the enum", "    _ = apply(shape_of, circle)"},
@@ -93,12 +93,12 @@ func TestWiden_NotPastAFunctionArgument(t *testing.T) {
 	for _, tc := range []struct{ name, body, want, at string }{
 		{"an enum value after a function of a variant", "    _ = apply(area, shape)",
 			"argument 2: expected Circle, got Shape\nhelp: Shape may hold a variant other than Circle, and only a match narrows it: `case value` with the arm `.Circle{} -> ...`", "shape"},
-		{"an ancestor after a function of a refinement", "    _ = apply(count, i)",
-			"argument 2: expected NonNegativeInt, got Int\nhelp: NonNegativeInt is a refinement of Int; check the value with `NonNegativeInt.try_from(...)`, which is `Some` when it satisfies `fn n -> n >= 0` and `None` when not", "i"},
+		{"an ancestor after a function of a subtype", "    _ = apply(count, i)",
+			"argument 2: expected NonNegativeInt, got Int\nhelp: NonNegativeInt is a subtype of Int; check the value with `NonNegativeInt.try_from(...)`, which is `Some` when it satisfies `fn n -> n >= 0` and `None` when not", "i"},
 		{"a list literal of the enum after a function of a variant", "    _ = apply_all(area, [shape])",
 			"list element type mismatch: expected Circle, got Shape\nhelp: Shape may hold a variant other than Circle, and only a match narrows it: `case value` with the arm `.Circle{} -> ...`", "shape"},
-		{"a list literal of an ancestor after a function of a refinement", "    _ = apply_all(count, [i])",
-			"list element type mismatch: expected NonNegativeInt, got Int\nhelp: NonNegativeInt is a refinement of Int; check the value with `NonNegativeInt.try_from(...)`, which is `Some` when it satisfies `fn n -> n >= 0` and `None` when not", "i"},
+		{"a list literal of an ancestor after a function of a subtype", "    _ = apply_all(count, [i])",
+			"list element type mismatch: expected NonNegativeInt, got Int\nhelp: NonNegativeInt is a subtype of Int; check the value with `NonNegativeInt.try_from(...)`, which is `Some` when it satisfies `fn n -> n >= 0` and `None` when not", "i"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			src := wideningSource(tc.body)

@@ -60,7 +60,16 @@
 // module, serves the imports: its functions find the instance whose call
 // reached them in the call's context. An instance's memory is allocated
 // through experimental.WithMemoryAllocator, which grows it to the limit
-// and refuses past it, so `memory.grow` answers -1 inside the module. On
+// and refuses past it, so `memory.grow` answers -1 inside the module. Its
+// buffer is one a closed instance left in spare when one there is large
+// enough, and goes back there when it closes, up to 64 MiB held in all:
+// a `run` makes and drops an instance a call, and megabytes allocated
+// for each kept the collector busy for more than half the call's time.
+// Every byte is cleared before the memory holds it, the bytes a growth
+// adds included, so an instance sees nothing an earlier one wrote
+// (TestRun_AReusedMemoryHoldsNothingAnEarlierRunLeft). Each instance is
+// still a new one: its globals, tables and data segments are the
+// module's own, set up by wazero. On
 // the host's engine every value crosses JavaScript as i32s, through
 // trampoline modules that split an i64 or an f64 into halves and keep a
 // float's bits; the import trampoline also stops the wasm when an import
@@ -109,7 +118,12 @@
 // the named function called with (ptr, len), and the (ptr << 32 | len) it
 // returns read back. Run does it in a fresh instance with no imports and
 // the limit it is given, dropped after; RunOn in a live instance, so a
-// request and its answer cross in one call.
+// request and its answer cross in one call. Run makes a new instance
+// rather than resetting a kept one: wazero can neither shrink a memory
+// nor set a global the module does not export, restore a table, or undo
+// a `data.drop`, and a codec's call grows its memory, so no reset is both
+// sound and of use to the calls that cost most. What a new instance costs
+// is mostly its memory, which spare keeps cheap.
 //
 // The modules the tests run are assembled by fixtures_test.go from the
 // text in testdata/<name>.wat, with no WebAssembly toolchain, by the

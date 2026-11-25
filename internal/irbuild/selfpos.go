@@ -203,8 +203,8 @@ func typeExprHasSelf(te ast.TypeExpr) bool {
 			}
 		}
 		return false
-	case *ast.RefinementBaseType:
-		// The base of a refinement's generated constructors names a
+	case *ast.SubtypeBaseType:
+		// The base of a subtype's generated constructors names a
 		// declared type or record, never the receiver.
 		return false
 	}

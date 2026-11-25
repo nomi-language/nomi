@@ -13,7 +13,7 @@ import (
 
 func (s *Server) textDocumentSignatureHelp(ctx *glsp.Context, params *protocol.SignatureHelpParams) (*protocol.SignatureHelp, error) {
 	uri := string(params.TextDocument.URI)
-	doc := s.docs.Snapshot(uri)
+	doc := s.requestDoc(ctx, uri)
 	if doc == nil || doc.Analysis == nil {
 		return nil, nil
 	}

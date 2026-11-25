@@ -45,14 +45,14 @@ end
 func TestTryFrom_Accepted(t *testing.T) {
 	for _, tc := range []struct{ name, src string }{
 		{"a rule's type through a TryFrom bound", "fn f() -> Option<Percent>\n    load(7)\nend\n"},
-		{"a type over a refinement through a TryFrom bound", "fn f() -> Option<UserId>\n    load(7)\nend\n"},
+		{"a type over a subtype through a TryFrom bound", "fn f() -> Option<UserId>\n    load(7)\nend\n"},
 		{"a rule that reads a name `value`", "once value = 5\n\ntype Under Int when fn n -> n < value\n\nfn f() -> Option<Under>\n    load(3)\nend\n"},
 		{"a generic validated type", "type Short<T> List<T> when fn xs -> List.length(xs) < 3\n\nfn take<T>(xs: List<Int>) -> Option<T> where T: TryFrom<List<Int>>\n    T.try_from(xs)\nend\n\nfn f() -> Option<Short<Int>>\n    take([1])\nend\n"},
 		{"a hand-written impl on an enum", "fn f() -> Option<Weekday>\n    load(2)\nend\n"},
 		{"try_from resolves by argument type", "fn f(c: Celsius) -> (Option<Kelvin>, Option<Kelvin>)\n    (Kelvin.try_from(c), Kelvin.try_from(3.0))\nend\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if errs := checkRefinementDecls(t, tryFromDecls+tc.src); len(errs) > 0 {
+			if errs := checkSubtypeDecls(t, tryFromDecls+tc.src); len(errs) > 0 {
 				t.Fatalf("errors: %v", errs)
 			}
 		})
@@ -63,7 +63,7 @@ func TestTryFrom_Rejected(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{"a type with no rule fails the bound", "fn f() -> Option<Plain>\n    load(7)\nend\n",
 			"Plain does not implement TryFrom<Int> (required by `where T: TryFrom<Int>`)"},
-		{"a type over a prelude type that is no refinement has no try_from", "type Ord2 Ordering\n\nfn f() -> Option<Ord2>\n    Ord2.try_from(Ordering.Less)\nend\n",
+		{"a type over a prelude type that is no subtype has no try_from", "type Ord2 Ordering\n\nfn f() -> Option<Ord2>\n    Ord2.try_from(Ordering.Less)\nend\n",
 			"type 'Ord2' has no member 'try_from'"},
 		{"nor a TryFrom impl", "type Ord2 Ordering\n\nfn take<T>(o: Ordering) -> Option<T> where T: TryFrom<Ordering>\n    T.try_from(o)\nend\n\nfn f() -> Option<Ord2>\n    take(Ordering.Less)\nend\n",
 			"Ord2 does not implement TryFrom<Ordering>"},
@@ -71,7 +71,7 @@ func TestTryFrom_Rejected(t *testing.T) {
 			"`TryFrom<Int>` for Percent is supplied by its rule and cannot be implemented; every `type` with a rule over Int satisfies `TryFrom<Int>` automatically — remove this `impl TryFrom<Int> for Percent`"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			errs := checkRefinementDecls(t, tryFromDecls+tc.src)
+			errs := checkSubtypeDecls(t, tryFromDecls+tc.src)
 			var msgs []string
 			for _, e := range errs {
 				if strings.HasPrefix(diagText(e), tc.want) {

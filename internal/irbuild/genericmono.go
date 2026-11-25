@@ -106,8 +106,8 @@ type monoInst struct {
 	// types is args as the checker's types, nil where the call that made
 	// the instance had none (substFrame).
 	types []analysis.Type
-	// reads is where each of args holds the refinements the instance reads,
-	// or nil when it reads none (refinementinst.go).
+	// reads is where each of args holds the subtypes the instance reads,
+	// or nil when it reads none (subtypeinst.go).
 	reads []string
 	// sig is an ordinary monomorphic signature: `tps` nil, `dict` nil,
 	// `lowerable` true, `genericWhy` empty. The call path swaps it in and
@@ -279,10 +279,10 @@ func calleeRefPos(callee ast.Node) (int, int) {
 // resolveMonoInstance owns interning and signature resolution. Reporting is
 // separate so a retained attempt can decline without duplicating a refusal.
 func (g *gen) resolveMonoInstance(tpl *monoTemplate, args []kind, types []analysis.Type, name string) (*monoInst, string, string) {
-	reads := refinementReads(tpl.params, types, func() map[string][]*analysis.InterfaceType {
+	reads := subtypeReads(tpl.params, types, func() map[string][]*analysis.InterfaceType {
 		return analysis.DeclTypeParamBounds(g.srcFA(), tpl.decl, nil)
 	})
-	key := openInstKey(g.dc, monoInstKey(tpl, args), types) + refinementReadsKey(reads)
+	key := openInstKey(g.dc, monoInstKey(tpl, args), types) + subtypeReadsKey(reads)
 	if got, found := g.monoInsts[key]; found {
 		return got, "", ""
 	}

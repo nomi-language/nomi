@@ -627,8 +627,8 @@ const (
 	substStd
 	// substAlias is a generic typealias's target at a use's arguments.
 	substAlias
-	// substRefinement is a generic refinement's base at a use's arguments.
-	substRefinement
+	// substSubtype is a generic subtype's base at a use's arguments.
+	substSubtype
 	// substProbe is a frame that binds a std impl block's parameters to
 	// trial kinds to read its receiver's shape: no instance, never counted.
 	substProbe
@@ -684,7 +684,7 @@ var substEntryInfo = [substEntries]struct {
 	substParamDefault: {"parameter default at a call", substOpens},
 	substStd:          {"std generic fn", substOpens},
 	substAlias:        {"generic typealias", substOpens},
-	substRefinement:   {"generic refinement", substOpens},
+	substSubtype:      {"generic subtype", substOpens},
 	substProbe:        {"probe", substOpens},
 }
 

@@ -106,14 +106,13 @@ type loweringChecks struct {
 	mu sync.Mutex
 	// docs holds each document's latest finished run of its latest text,
 	// fixes the errors of that run that carry a fix
-	// (problemDiagnosticsAndFixes), manifestFixes the errors it found in
-	// each nomi.toml that carry a fix, by the nomi.toml's URI
-	// (manifestFixesIn), and reached the effect calls its program
-	// reaches, which hover shows (reachedIn).
-	docs          map[string][]protocol.Diagnostic
-	fixes         map[string][]parser.ParseError
-	manifestFixes map[string]map[string][]parser.ParseError
-	reached       map[string]loweringReach
+	// (problemDiagnosticsAndFixes), and reached the effect calls its
+	// program reaches, which hover shows (reachedIn). What a run finds in
+	// a nomi.toml is kept with the server's inputs
+	// (publishLoweringManifests).
+	docs    map[string][]protocol.Diagnostic
+	fixes   map[string][]parser.ParseError
+	reached map[string]loweringReach
 	// running holds the run in progress of each document that has one;
 	// queued is the text an open, save or edit during it asked for next.
 	running map[string]*loweringRun
@@ -213,7 +212,6 @@ func (c *loweringChecks) init() {
 	if c.running == nil {
 		c.running, c.queued, c.docs = map[string]*loweringRun{}, map[string]string{}, map[string][]protocol.Diagnostic{}
 		c.fixes = map[string][]parser.ParseError{}
-		c.manifestFixes = map[string]map[string][]parser.ParseError{}
 		c.reached = map[string]loweringReach{}
 		c.timers = map[string]*loweringWait{}
 		if c.gen == nil {
@@ -235,18 +233,6 @@ func (c *loweringChecks) fixesOf(uri string) []parser.ParseError {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.fixes[uri]
-}
-
-// manifestFixesIn are the errors every document's latest run found in the
-// nomi.toml at uri that carry a fix (manifestDiagnostics).
-func (c *loweringChecks) manifestFixesIn(uri string) []parser.ParseError {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	var out []parser.ParseError
-	for _, byManifest := range c.manifestFixes {
-		out = append(out, byManifest[uri]...)
-	}
-	return out
 }
 
 // reachedIn is the effect calls a hover in uri, whose text is content,
@@ -309,7 +295,6 @@ func (c *loweringChecks) forget(uri string) {
 	c.init()
 	delete(c.docs, uri)
 	delete(c.fixes, uri)
-	delete(c.manifestFixes, uri)
 	delete(c.reached, uri)
 	delete(c.queued, uri)
 	c.stopTimer(uri)
@@ -560,7 +545,6 @@ func (s *Server) finishLowering(uri, content string, gen int, found loweringFoun
 	if fresh {
 		c.docs[uri] = found.diags
 		c.fixes[uri] = found.fixes
-		c.manifestFixes[uri] = found.manifestFixes
 		old, had := c.reached[uri]
 		moved = !had || old.content != content || !slices.Equal(old.calls, found.reached)
 		c.reached[uri] = loweringReach{content: content, calls: found.reached}
@@ -583,15 +567,13 @@ func (s *Server) finishLowering(uri, content string, gen int, found loweringFoun
 }
 
 // loweringFound is what a run found: the document's diagnostics, those of
-// its errors that carry a fix, the diagnostics in each nomi.toml and those
-// of them that carry a fix, by its URI, and the effect calls the program
-// reaches.
+// its errors that carry a fix, the diagnostics in each nomi.toml with
+// their fixes, by its URI, and the effect calls the program reaches.
 type loweringFound struct {
-	diags         []protocol.Diagnostic
-	fixes         []parser.ParseError
-	manifests     map[string][]protocol.Diagnostic
-	manifestFixes map[string][]parser.ParseError
-	reached       []analyzedlowering.Reached
+	diags     []protocol.Diagnostic
+	fixes     []parser.ParseError
+	manifests map[string]inputReport
+	reached   []analyzedlowering.Reached
 }
 
 // safeLoweringDiagnostics is the document's diagnostics lowerDocument
@@ -615,8 +597,7 @@ func (s *Server) lowerDocument(ctx context.Context, uri, content string, a *anal
 	path := uriToPath(uri)
 	got, err := s.lowering.lower(ctx, path, content, a)
 	diags, fixes := problemDiagnosticsAndFixes(path, content, got.Problems, err)
-	manifests, manifestFixes := s.manifestDiagnostics(got.Problems, err)
-	return loweringFound{diags: diags, fixes: fixes, manifests: manifests, manifestFixes: manifestFixes, reached: got.Reached}
+	return loweringFound{diags: diags, fixes: fixes, manifests: s.manifestDiagnostics(got.Problems, err), reached: got.Reached}
 }
 
 // loweringDiagnostics lowers the file at path whose text is content, from

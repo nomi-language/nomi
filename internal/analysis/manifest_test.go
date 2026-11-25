@@ -252,3 +252,31 @@ entry_points = ["main", ""]
 		t.Errorf("error should mention 'empty', got: %v", err)
 	}
 }
+
+// An error in a value of nomi.toml is at the line that writes the value, or
+// its key's when the key is at fault, as an unknown key's error is: a tag in
+// a list written one per line is at its own line.
+func TestParseManifestData_ValueErrorsAreAtTheirLines(t *testing.T) {
+	for _, c := range []struct {
+		manifest string
+		line     int
+	}{
+		{"[package]\nname = \"app\"\n\n[i18n]\nlocales = [\n    \"de\",\n    \"pt_BR\",\n]\n", 7},
+		{"[package]\nname = \"app\"\n\n[i18n]\nlocales = []\n", 5},
+		{"[package]\nname = \"app\"\n\n[i18n]\nsource_locale = \"en_US\"\n", 5},
+		{"[package]\nname = \"app\"\n\n[i18n]\npartial_locales = [\"de\"]\n", 5},
+		{"[package]\nname = \"app\"\n\n[i18n]\nlocales = [\"de\"]\nweb_embedded = [\n    \"de\",\n    \"fr\",\n]\n", 8},
+		{"[package]\nname = \"app\"\n\n[i18n]\nlocales = [\"de\"]\ncatalogs = \"../outside\"\n", 6},
+		{"[package]\nname = \"app\"\n\n[money]\ncustom_currencies = [\n    \"PTS:0\",\n    \"bad\",\n]\n", 7},
+		{"[package]\nname = \"app\"\nentry_points = [\n    \"main\",\n    \"main\",\n]\n", 4},
+		{"\n[package]\nentry_points = [\"main\"]\n", 2},
+		{"[package]\nname = \"std\"\n", 2},
+		{"[package]\nname = \"app\"\nentry_points = [main\n", 3},
+	} {
+		_, err := ParseManifestData([]byte(c.manifest), "nomi.toml")
+		var me *ManifestError
+		if !errors.As(err, &me) || me.Line != c.line {
+			t.Errorf("%q: the error is %v; want one at line %d", c.manifest, err, c.line)
+		}
+	}
+}

@@ -126,7 +126,7 @@ end
 // passes is solved by it, as the lambda's parameter is: `&Int.max(&1,
 // Int.abs(-3))` where Iter.map passes an Int takes that Int, and the
 // NonNegativeInt beside it widens to it (spec §4 *Chains and conversion*),
-// so the capture is an `(Int) -> Int`, with the refinement argument written
+// so the capture is an `(Int) -> Int`, with the subtype argument written
 // second or first.
 func TestPartialGeneric_AnExactSlotTakesThePositionsParameter(t *testing.T) {
 	for _, call := range []string{

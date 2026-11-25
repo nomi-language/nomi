@@ -73,7 +73,7 @@ func (s *Server) textDocumentReferences(ctx *glsp.Context, params *protocol.Refe
 	if isManifestURI(uri) {
 		return s.manifestReferences(uri, params.Position), nil
 	}
-	doc := s.docs.Snapshot(uri)
+	doc := s.requestDoc(ctx, uri)
 	if doc == nil {
 		return nil, nil
 	}

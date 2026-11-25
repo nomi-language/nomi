@@ -177,7 +177,7 @@ name = "notes"
 entry_points = ["main"]
 
 [effects.self]
-std = ["std::io", "std::fs"]
+effects = ["std::io", "std::fs"]
 `
 
 // The tour's editors end a hover on a call with what it reaches, as the
@@ -246,7 +246,7 @@ name = "notes"
 entry_points = ["main"]
 
 [effects.self]
-std = ["std::io", "std::fs"]
+effects = ["std::io", "std::fs"]
 `
 
 // The tour's editors end a hover on a function of the program, and on a
@@ -441,7 +441,7 @@ name = "notes"
 entry_points = ["main"]
 
 [effects.self]
-std = ["std::io"]
+effects = ["std::io"]
 `
 
 // The tour's editors leave the keyword of each `dbg`, the call that

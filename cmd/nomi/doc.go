@@ -1,7 +1,8 @@
 // Command nomi is the Nomi CLI: run, check, test, build, fmt, effects,
 // the package commands, `nomi tool`, `nomi types`, `nomi editor`
-// (internal/editors), the language server, the debug adapter, the MCP
-// server and, with no arguments, the REPL.
+// (internal/editors), `nomi upgrade` (upgrade_cmd.go), the language
+// server, the debug adapter, the MCP server and, with no arguments, the
+// REPL.
 // docs/tooling.md documents its commands and flags for users. This comment
 // says how `nomi build` and the REPL are put together; build.go,
 // build_web.go, run_web.go, build_vm.go and repl_vm.go open with what each
@@ -22,6 +23,13 @@
 // A program `nomi run` or `nomi build` takes is a file, or a module's
 // directory whose nomi.toml lists one entry point (programEntry, over
 // frontend.EntryFile, which `nomi check` resolves entries with).
+//
+// `run`, `check`, `build`, `test` and `effects` with no path act on the
+// current directory. Each reads its path through pathOrHere, which gives
+// `.` for none, so everything after is what the command does with a
+// directory. `run` takes no path only when no word follows but nomi's own
+// flags: its first word that is no flag is the path, and the words after
+// it are the program's.
 //
 // A workspace's root (a directory with a nomi-workspace.toml) is no
 // package. There `nomi check`, `test`, `fmt` and `effects` act on every

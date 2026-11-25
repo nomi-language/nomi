@@ -4,7 +4,7 @@ test "ints convert to floats"
     assert Int.to_float(0) == 0.0
 end
 
-test "non-zero refinement validates divisors"
+test "non-zero subtype validates divisors"
     assert NonZeroInt.try_from(5)
     assert NonZeroInt.try_from(-3)
     assert NonZeroInt.try_from(0) == None
@@ -66,7 +66,7 @@ test "modulo is the dividend less the divisor times the floored quotient"
     assert mismatches == []
 end
 
-test "positive refinement is stricter than non-zero"
+test "positive subtype is stricter than non-zero"
     assert PositiveInt.try_from(5)
     assert PositiveInt.try_from(0) == None
     assert PositiveInt.try_from(-3) == None
@@ -83,7 +83,7 @@ test "positive integers can be used as non-zero divisors"
     assert divide_by_positive(20, 6) == 3
 end
 
-test "positive refinement rejects zero divisors"
+test "positive subtype rejects zero divisors"
     assert divide_by_positive(20, 0) == 0
 end
 

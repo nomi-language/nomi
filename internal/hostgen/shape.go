@@ -40,7 +40,7 @@ type Shape struct {
 	Fields []ShapeField
 	// Variants is an enum's variants in declaration order.
 	Variants []ShapeVariant
-	// Range is an Int's declared bounds, read off the refinement it is
+	// Range is an Int's declared bounds, read off the subtype it is
 	// declared as (IntRange); nil for a plain Int.
 	Range *IntRange
 }
@@ -141,6 +141,9 @@ type Resolver struct {
 	// Modules is every module a name may resolve in, by module name.
 	Modules map[string]*Module
 	cache   map[string]*Shape
+	// bound holds the type arguments of the generic subtype whose
+	// parent is being resolved, by its type parameters' names.
+	bound map[string]*Shape
 }
 
 // NewResolver indexes modules.
@@ -176,7 +179,7 @@ func (r *Resolver) Shape(mod *Module, t ast.TypeExpr) (*Shape, error) {
 		}
 		return r.Shape(target, x.Member)
 	case *ast.ConjunctionType:
-		// `NonNegativeInt and Int64`: an intersection of Int refinements is an
+		// `NonNegativeInt and Int64`: an intersection of Int subtypes is an
 		// Int within every member's bounds.
 		var rng *IntRange
 		for _, m := range x.Members {
@@ -185,7 +188,7 @@ func (r *Resolver) Shape(mod *Module, t ast.TypeExpr) (*Shape, error) {
 				return nil, err
 			}
 			if ms.Kind != SInt {
-				return nil, fmt.Errorf("type %s: only an intersection of Int refinements crosses the host boundary", x.TypeString())
+				return nil, fmt.Errorf("type %s: only an intersection of Int subtypes crosses the host boundary", x.TypeString())
 			}
 			rng = rng.intersect(ms.Range)
 		}
@@ -232,6 +235,9 @@ func (r *Resolver) named(mod *Module, name string, params []ast.TypeExpr) (*Shap
 		}
 		return out, nil
 	}
+	if s, ok := r.bound[name]; ok && len(params) == 0 {
+		return s, nil
+	}
 	scalar := map[string]ShapeKind{
 		"Int": SInt, "Float": SFloat, "Bool": SBool, "String": SString,
 		"Byte": SByte, "Bytes": SBytes, "Unit": SUnit,
@@ -260,6 +266,30 @@ func (r *Resolver) named(mod *Module, name string, params []ast.TypeExpr) (*Shap
 		return nil, fmt.Errorf("type %s: the adapter generator does not convert this type yet", name)
 	}
 	home, decl := r.lookup(mod, name)
+	if d, ok := decl.(*ast.TypeDef); ok && d.Subtype && d.InnerTypeExpr != nil && len(params) != 0 {
+		// A generic subtype is its parent's value at run time, as any
+		// subtype is (below): `NonEmptyList<Bytes>` crosses as
+		// `List<Bytes>`, its parent with the type arguments bound.
+		if err := arity(len(d.TypeParams)); err != nil {
+			return nil, err
+		}
+		elems, err := args()
+		if err != nil {
+			return nil, err
+		}
+		bound := map[string]*Shape{}
+		for i, tp := range d.TypeParams {
+			bound[tp.Name] = elems[i]
+		}
+		saved := r.bound
+		r.bound = bound
+		inner, err := r.Shape(home, d.InnerTypeExpr)
+		r.bound = saved
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", name, err)
+		}
+		return inner, nil
+	}
 	if _, isHost := decl.(*ast.ExternType); len(params) != 0 && !isHost {
 		// A generic host type is one Go handle whatever its type arguments
 		// (std/regex's `Regex<C>`, whose argument only the checker reads), so
@@ -291,10 +321,10 @@ func (r *Resolver) named(mod *Module, name string, params []ast.TypeExpr) (*Shap
 		}
 		return s, nil
 	case *ast.TypeDef:
-		if d.Refinement && d.InnerTypeExpr != nil {
-			// A refinement is its parent's value at run time, and
-			// so its base's (spec §4 *Refinements*): it crosses as that. An
-			// Int refinement carries the bounds its chain states (IntRange).
+		if d.Subtype && d.InnerTypeExpr != nil {
+			// A subtype is its parent's value at run time, and
+			// so its base's (spec §4 *Subtypes*): it crosses as that. An
+			// Int subtype carries the bounds its chain states (IntRange).
 			inner, err := r.Shape(home, d.InnerTypeExpr)
 			if err != nil {
 				return nil, fmt.Errorf("%s: %w", qualified, err)

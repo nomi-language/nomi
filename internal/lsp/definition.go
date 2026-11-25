@@ -17,7 +17,7 @@ import (
 
 func (s *Server) textDocumentDefinition(ctx *glsp.Context, params *protocol.DefinitionParams) (any, error) {
 	uri := string(params.TextDocument.URI)
-	doc := s.docs.Snapshot(uri)
+	doc := s.requestDoc(ctx, uri)
 	if doc == nil {
 		return nil, nil
 	}
@@ -131,7 +131,9 @@ func (s *Server) punDefinitions(uri string, pun hoverdoc.Pun) []protocol.Locatio
 		}
 		param.Name = pun.Param.Name
 		param.Pos = analysis.Pos{Line: pun.Param.Line, Col: pun.Param.Col}
-		param.DefinitionFile = ""
+		// The parameter's own place, not where the callee's declaration
+		// is recorded to be.
+		param.DefinitionFile, param.DefinitionLine, param.DefinitionCol, param.DefinitionSpan = "", 0, 0, 0
 		label = &param
 	}
 	if label != nil && !label.Undeclared && label.Kind != analysis.SymbolArgHint {
@@ -193,73 +195,64 @@ func (s *Server) stdModuleDeclaring(sym *analysis.Symbol) (string, bool) {
 	return "", false
 }
 
+// definitionLocationForSymbol is where the source declares defSym, a symbol
+// read in the document at uri: its own position, or the one recorded for a
+// symbol whose own declaration is not in the source (Symbol.DefinitionLine:
+// a function the front end wrote for a declaration answers that
+// declaration, analysis.WrittenFor). A symbol at a synthesized position
+// with nothing recorded has no place in the source, and the answer is nil.
 func (s *Server) definitionLocationForSymbol(uri string, defSym, clickedSym *analysis.Symbol) *protocol.Location {
 	if defSym == nil {
 		return nil
 	}
-	targetURI := protocol.DocumentUri(uri)
-	if defSym.DefinitionFile != "" && defSym.DefinitionLine > 0 && defSym.DefinitionCol > 0 {
-		startLine := toZeroBased(defSym.DefinitionLine)
-		startChar := toZeroBased(defSym.DefinitionCol)
-		span := defSym.DefinitionSpan
-		if span <= 0 {
-			span = len(defSym.Name)
+	at, span := defSym.Pos, len(defSym.Name)
+	switch {
+	case defSym.DefinitionLine > 0 && defSym.DefinitionCol > 0:
+		at = analysis.Pos{Line: defSym.DefinitionLine, Col: defSym.DefinitionCol}
+		if defSym.DefinitionSpan > 0 {
+			span = defSym.DefinitionSpan
 		}
-		return &protocol.Location{
-			URI: protocol.DocumentUri(pathToURI(defSym.DefinitionFile)),
-			Range: protocol.Range{
-				Start: protocol.Position{
-					Line:      startLine,
-					Character: startChar,
-				},
-				End: protocol.Position{
-					Line:      startLine,
-					Character: startChar + uint32(span),
-				},
-			},
+	case analysis.IsSynthesizedLine(at.Line):
+		return nil
+	case clickedSym != nil && clickedSym.Kind == analysis.SymbolParam && clickedSym.Name == "it":
+		// The implicit `it` parameter is defined at the lambda's `{`, where
+		// no `it` token stands: the range is that one character.
+		span = 1
+	}
+	loc := makeLocation(string(s.declaringURI(uri, defSym)), at, "")
+	loc.Range.End.Character += uint32(span)
+	return &loc
+}
+
+// declaringURI is the file that declares sym, a symbol read in the document
+// at uri: a std module's file for a module's name, the file a user file's
+// symbol records (SourceFile), the document itself for a declaration of its
+// own, and otherwise the std module that declares it (stdModuleDeclaring).
+// The document's own declarations are asked before the std modules: a std
+// file open as a document, like a document with no path, records no
+// SourceFile, and stdModuleDeclaring's match by name and position would
+// take another module's declaration of that name at that place.
+func (s *Server) declaringURI(uri string, sym *analysis.Symbol) protocol.DocumentUri {
+	if sym.DefinitionFile != "" {
+		return protocol.DocumentUri(pathToURI(sym.DefinitionFile))
+	}
+	if s.std != nil && sym.Kind == analysis.SymbolModule {
+		if _, ok := s.std.Modules[sym.Name]; ok {
+			return protocol.DocumentUri(s.stdFileURI(sym.Name))
 		}
 	}
-	if defSym.SourceFile != "" {
-		targetURI = protocol.DocumentUri(pathToURI(defSym.SourceFile))
+	if sym.SourceFile != "" {
+		return protocol.DocumentUri(pathToURI(sym.SourceFile))
 	}
-	if s.std != nil {
-		if defSym.Kind == analysis.SymbolModule {
-			// Module symbol (e.g., "io") — jump to the module's .nomi file
-			if _, ok := s.std.Modules[defSym.Name]; ok {
-				targetURI = protocol.DocumentUri(s.stdFileURI(defSym.Name))
-			}
-		} else if modName, ok := s.stdModuleDeclaring(defSym); ok {
-			targetURI = protocol.DocumentUri(s.stdFileURI(modName))
+	if doc := s.docs.Snapshot(uri); doc != nil && doc.Analysis != nil && sameDeclaration(doc.Analysis.Definitions[sym.Pos], sym) {
+		return protocol.DocumentUri(uri)
+	}
+	if s.std != nil && sym.Kind != analysis.SymbolModule {
+		if modName, ok := s.stdModuleDeclaring(sym); ok {
+			return protocol.DocumentUri(s.stdFileURI(modName))
 		}
 	}
-
-	// Location uses defSym so we land at the real definition,
-	// not the click position. The "it" implicit-param check stays on
-	// `clickedSym` because that's specifically about the local binding shape.
-	at := defSym.Pos
-	startLine := toZeroBased(at.Line)
-	startChar := toZeroBased(at.Col)
-	endChar := startChar + uint32(len(defSym.Name))
-
-	// For the implicit 'it' parameter, the definition points to the lambda's '{'
-	// but there's no actual 'it' token there. Use a zero-width range at '{'.
-	if clickedSym != nil && clickedSym.Kind == analysis.SymbolParam && clickedSym.Name == "it" {
-		endChar = startChar + 1
-	}
-
-	return &protocol.Location{
-		URI: targetURI,
-		Range: protocol.Range{
-			Start: protocol.Position{
-				Line:      startLine,
-				Character: startChar,
-			},
-			End: protocol.Position{
-				Line:      startLine,
-				Character: endChar,
-			},
-		},
-	}
+	return protocol.DocumentUri(uri)
 }
 
 // resolveImportDefinition resolves go-to-def for symbols that came from an import statement.
@@ -395,6 +388,14 @@ func (s *Server) dispatchImplLocation(fa *analysis.FileAnalysis, impl ast.ImplMe
 		return nil, false
 	}
 	uri := s.moduleKeyToURI(key, openDocURI)
+	if analysis.IsSynthesizedLine(line) {
+		// A function the front end wrote: where its symbol says the source
+		// declares it (definitionLocationForSymbol), read from the file
+		// that holds it.
+		home := implHome(fa, key)
+		loc := s.definitionLocationForSymbol(string(uri), home.Definitions[analysis.Pos{Line: line, Col: col}], nil)
+		return loc, loc != nil
+	}
 	startLine := toZeroBased(line)
 	startChar := toZeroBased(col)
 	return &protocol.Location{

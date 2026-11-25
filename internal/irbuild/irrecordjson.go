@@ -622,9 +622,9 @@ func (bl *irScalarBuilder) fromJsonAt(t *ast.Call, json ir.Temp, jk kind, part k
 		owner = part.def.nomi
 	}
 	call := bl.g.synthIfaceCall(line, owner, "from_json", bl.g.madeRead(name, key, line, 0), bl.g.stdIfaceCallRecord(stdFromJson, "from_json", 1, pt))
-	// A field of a refinement reads its base and checks the refinement's rules
-	// (refinementread.go).
-	read := bl.refinementReadOf(call)
+	// A field of a subtype reads its base and checks the subtype's rules
+	// (subtyperead.go).
+	read := bl.subtypeReadOf(call)
 	v, rk, ok := bl.fromJsonCallAt(call, part, pt)
 	if read == nil || !ok {
 		return v, rk, ok

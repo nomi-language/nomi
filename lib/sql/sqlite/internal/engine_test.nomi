@@ -11,7 +11,7 @@ end
 
 /// An engine whose files are in `place`, with an in-memory database open.
 fn started_in(place: vfs.Place) -> Result<(Engine, Int), Failure>
-    e = engine.start(place) |> Result.map_err(fn message -> Failure{code: -1, message:, at: -1})?
+    e = engine.start(place) |> Result.map_err(fn message -> Failure.Fault{message:})?
     defer on error engine.stop(e)
     db = engine.open(e, ":memory:")?
     Ok((e, db))
@@ -68,7 +68,24 @@ test "a failure is SQLite's code, message and byte"
     defer engine.stop(e)
 
     assert engine.exec(e, db, "CREATE TABLE t (n);\nSELECT nope FROM t", [])
-        == Err(Failure{code: 1, message: "no such column: nope", at: 27})
+        == Err(Failure.Reported{code: 1, message: "no such column: nope", at: 27})
+end
+
+// No statement is known to trap the engine, so its traps are handed to the
+// function that reads a run's failure. A trap leaves the instance dead, and
+// each later run answers the trap again.
+test "a trap is the engine's fault, in its call and every later one"
+    assert engine.fault(.Trapped(.OutOfBounds)) == Failure.Fault{
+        message: "an access was outside the module's memory or table",
+    }
+
+    assert engine.fault(.Dead(.Unreachable)) == Failure.Fault{
+        message: "the instance trapped before: the module ran unreachable",
+    }
+
+    assert engine.fault(
+        .Mismatch{message: "step returned 8 bytes at 65536, outside the module's memory"}
+    ) == Failure.Fault{message: "step returned 8 bytes at 65536, outside the module's memory"}
 end
 
 test "a statement is stepped a few rows at a time"
@@ -107,16 +124,16 @@ test "a file database is written through the file layer and read back"
     defer engine.stop(e)
     other = engine.open(e, "x.db")?
     _ = engine.exec(e, other, "CREATE TABLE t (n); INSERT INTO t VALUES (42)", [])?
-    assert engine.close(e, other) == 0
-    assert engine.close(e, db) == 0
+    assert engine.close(e, other) == Ok(Unit)
+    assert engine.close(e, db) == Ok(Unit)
     assert (fs.metadata("${dir}/x.db")?).size > 0
 
     (again, db2) = started_in(vfs.Place{dir: Some(d)})?
     defer engine.stop(again)
     reopened = engine.open(again, "x.db")?
     assert (engine.exec(again, reopened, "SELECT n FROM t", [])?).rows == [[Cell.Integer(42)]]
-    assert engine.close(again, reopened) == 0
-    assert engine.close(again, db2) == 0
+    assert engine.close(again, reopened) == Ok(Unit)
+    assert engine.close(again, db2) == Ok(Unit)
 end
 
 embed recorded `engine/sqlite3.wasm.sha256`
@@ -126,8 +143,8 @@ embed recorded `engine/sqlite3.wasm.sha256`
 test "the embedded module is the one engine/build.sh recorded"
     line = Files.read_text(recorded, "engine/sqlite3.wasm.sha256")!
 
-    assert Some(Files.sum(engine.sqlite_wasm, "engine/sqlite3.wasm")!)
-        == List.first(String.split(line, " "))
+    assert Files.sum(engine.sqlite_wasm, "engine/sqlite3.wasm")!
+        == NonEmptyList.first(String.split(line, " "))
 end
 
 // The options build.sh compiles SQLite with.

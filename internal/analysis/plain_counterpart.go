@@ -9,15 +9,15 @@ import (
 )
 
 // PlainCounterpart is a call `Owner.name(value, ...)` whose result is an
-// Option while value's type is a refinement whose own function of that name
+// Option while value's type is a subtype whose own function of that name
 // and arity answers the payload itself: `List.first(names)` with `names` a
 // NonEmptyList, whose `NonEmptyList.first(names)` is the element. The
 // program means the same either way; the hint names the plain call
 // (FileAnalysis.PlainCounterparts, FileHints).
 type PlainCounterpart struct {
-	// Refinement is the value's type as the counterpart's owner is
+	// Subtype is the value's type as the counterpart's owner is
 	// written: `NonEmptyList`.
-	Refinement string
+	Subtype string
 	// Func is the function's name: `first`.
 	Func string
 	// Value spells the value as written (`names`), "" for one no name
@@ -26,7 +26,7 @@ type PlainCounterpart struct {
 	// Payload is the counterpart's result, the Option's payload: `String`.
 	Payload string
 	// Owner is the extent of the callee's owner (`List`), which the fix
-	// rewrites; zero when the refinement's name does not reach its type in
+	// rewrites; zero when the subtype's name does not reach its type in
 	// the file, where the fix would name another type or none.
 	Owner ast.Span
 	// Callee is the extent of the callee, `List.first`, which the hint
@@ -55,7 +55,7 @@ func (c *checker) notePlainCounterpart(call *ast.Call, value ast.Node, valueTy, 
 	default:
 		return
 	}
-	dt := refinementOf(valueTy)
+	dt := subtypeOf(valueTy)
 	if dt == nil || dt.Name == "" || calleeText(callee.Object) == dt.Name {
 		return
 	}
@@ -72,15 +72,15 @@ func (c *checker) notePlainCounterpart(call *ast.Call, value ast.Node, valueTy, 
 		return
 	}
 	pc := &PlainCounterpart{
-		Refinement: dt.Name,
-		Func:       callee.Field.Name,
-		Payload:    resolveTypeVar(payload).String(),
-		Callee:     calleeSpan,
+		Subtype: dt.Name,
+		Func:    callee.Field.Name,
+		Payload: resolveTypeVar(payload).String(),
+		Callee:  calleeSpan,
 	}
 	if text := calleeText(unparen(value)); !strings.Contains(text, "?") {
 		pc.Value = text
 	}
-	if visible := refinementOf(c.reg.Lookup(dt.Name)); visible != nil && visible.Name == dt.Name && visible.Origin == dt.Origin {
+	if visible := subtypeOf(c.reg.Lookup(dt.Name)); visible != nil && visible.Name == dt.Name && visible.Origin == dt.Origin {
 		if sp, ok := spanOf(callee.Object); ok {
 			pc.Owner = sp
 		}
@@ -131,13 +131,13 @@ func plainCounterpartHints(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 			Line: pc.Callee.StartLine, Col: pc.Callee.StartCol, EndLine: pc.Callee.EndLine, EndCol: pc.Callee.EndCol,
 			Code: HintPlainCounterpart,
 			Message: fmt.Sprintf("%s is %s: `%s.%s(%s)` is %s, not an Option",
-				subject, withArticle(pc.Refinement), pc.Refinement, pc.Func, value, withArticle(pc.Payload)),
+				subject, withArticle(pc.Subtype), pc.Subtype, pc.Func, value, withArticle(pc.Payload)),
 		}
 		if u := unwrapped[call]; u != nil && pc.Owner.StartLine > 0 && u.Line > 0 {
 			e.Fix = &parser.Fix{
-				Title: fmt.Sprintf("Call `%s.%s` and drop the `!`", pc.Refinement, pc.Func),
+				Title: fmt.Sprintf("Call `%s.%s` and drop the `!`", pc.Subtype, pc.Func),
 				Edits: []parser.Edit{
-					{Start: parser.Pos{Line: pc.Owner.StartLine, Col: pc.Owner.StartCol}, End: parser.Pos{Line: pc.Owner.EndLine, Col: pc.Owner.EndCol}, Text: pc.Refinement},
+					{Start: parser.Pos{Line: pc.Owner.StartLine, Col: pc.Owner.StartCol}, End: parser.Pos{Line: pc.Owner.EndLine, Col: pc.Owner.EndCol}, Text: pc.Subtype},
 					{Start: parser.Pos{Line: u.Line, Col: u.Col}, End: parser.Pos{Line: u.Line, Col: u.Col + 1}, Text: ""},
 				},
 			}

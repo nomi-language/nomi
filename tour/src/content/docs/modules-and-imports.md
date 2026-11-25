@@ -492,7 +492,7 @@ published by pushing a version tag, such as `v1.2.0`, to its git
 repository, and fetched from that repository's host.
 
 - `nomi new myproject` starts a project in a new directory, and `nomi init myproject`
-  makes the current directory one.
+  makes the current directory one. `nomi run` in a project runs its program.
 - `nomi add github.com/user/somelib` fetches a dependency from its host,
   locks it and writes `somelib = { repo = "github.com/user/somelib", version = "v1.2.0" }`.
   `nomi add ../shared` adds a package beside yours by its directory.
@@ -556,7 +556,7 @@ change what its imports mean.
 
 A function is pure, or it has effects, such as files, the network,
 output and the clock. The list of effects its own code may have is
-`std` in an `[effects.self]` table in `nomi.toml`, and each entry is a
+`effects` in an `[effects.self]` table in `nomi.toml`, and each entry is a
 std module as an import names it. `nomi effects --write` writes the
 tightest tables the program passes, for you to read and keep. `nomi
 check`, `run`, `test` and `build` refuse a program that has any other
@@ -577,7 +577,7 @@ name = "shop"
 entry_points = ["main"]
 
 [effects.self]
-std = ["std::io"]
+effects = ["std::io"]
 ```
 <!-- expect
 Total: 59.97
@@ -608,7 +608,7 @@ name = "notes"
 entry_points = ["main"]
 
 [effects.self]
-std = ["std::io", "std::fs"]
+effects = ["std::io", "std::fs"]
 ```
 <!-- expect
 Buy milk.
@@ -635,11 +635,11 @@ fn main() -> Result<Unit, Error>
 end
 ```
 
-A project can limit each dependency too. In the project's own `nomi.toml`,
-an entry under `[effects.deps.packages]`, keyed by the dependency's name in
-`[dependencies]`, lists the effects its files may have, and
-`entries_required = true` makes the project write one for every
-dependency; the dependency itself declares nothing. Here `app`
+A project can limit each dependency too. An `effects` key on the
+dependency's entry in `[dependencies]` lists the effects its files, and
+the files of every package it brings in, may have, and under
+`[effects.dependencies]`, `entries_required = true` makes the project
+write one on every entry; the dependency itself declares nothing. Here `app`
 allows `receipts` to read files and `prices` no effects. This version of
 `prices` also reports each use to a server, so the program does not compile:
 
@@ -662,18 +662,14 @@ name = "app"
 entry_points = ["main"]
 
 [dependencies]
-prices = { dir = "../prices" }
-receipts = { dir = "../receipts" }
+prices = { dir = "../prices", effects = [] }
+receipts = { dir = "../receipts", effects = ["std::fs"] }
 
 [effects.self]
-std = ["std::io"]
+effects = ["std::io"]
 
-[effects.deps]
+[effects.dependencies]
 entries_required = true
-
-[effects.deps.packages]
-"prices" = []
-"receipts" = ["std::fs"]
 
 // FILE: prices/prices.nomi
 import
@@ -704,9 +700,9 @@ end
 name = "receipts"
 ```
 <!-- expect
-prices/prices.nomi:8:9: prices has the effect std::http, and its entry under [effects.deps.packages] allows it no effects
+prices/prices.nomi:8:9: prices has the effect std::http, and its entry under [dependencies] allows it no effects
 prices/prices.nomi:8:9: help: reached from `main`; `main` calls `total`
-prices/prices.nomi:8:9: help: add "std::http" to "prices" under [effects.deps.packages] in nomi.toml, or remove the call
+prices/prices.nomi:8:9: help: add "std::http" to effects of prices under [dependencies] in nomi.toml, or remove the call
 app/main.nomi:8:24: note: your code has the effect std::http in prices here: `main` calls `total`
 -->
 
@@ -715,13 +711,13 @@ The error is at the call in `prices`, and its note points at the call in
 in a branch that never runs, and the error says how the program reaches
 it. A dependency can declare its own list in its own `[effects.self]`, which holds what its public functions can do, not only what its tests reach,
 and a project that limits its dependencies checks the dependency against
-that list too. Also under `[effects.deps]`,
-`std` is the most effects any one dependency may have, whatever its entry
-says. The project's own modules
+that list too. Also under `[effects.dependencies]`,
+`effects` is the most effects any one dependency may have, whatever its
+entry says. The project's own modules
 can have entries too, under `[effects.self.modules]`, each keyed by
 the module as an import names it. To keep a module from obtaining access
 to anything, give it an empty entry, such as `"pricing" = []`.
-[Effects lists](/tooling/projects/#effects-lists)
+[Effects lists](/tooling/effects/#effects-lists)
 in the tooling reference covers lists for tests and for each dependency, and
 what counts as an effect.
 

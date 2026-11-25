@@ -190,9 +190,13 @@ type Symbol struct {
 	Resolved   *Symbol            // for selective imports: the real symbol in the imported module
 	Type       Type               // resolved type (filled by type resolution)
 	Members    map[string]*Symbol // child symbols (e.g., interface methods)
-	// DefinitionFile/Line/Col/Span override go-to-definition for symbols whose
-	// Nomi declaration is synthetic but whose true editable source lives
-	// elsewhere.
+	// DefinitionLine/Col/Span are where the source declares a symbol whose
+	// own declaration is not in it, and DefinitionFile the file, or "" for
+	// the file that declares the symbol: a `host` declaration whose node
+	// names a place (ast.ExternFunc.DefinitionFile), and a function the
+	// front end wrote for a declaration, which answers that declaration
+	// (WrittenFor: a derive's entry, a subtype's own line). Zero for every
+	// other symbol, whose Pos is its place in the source.
 	DefinitionFile string
 	DefinitionLine int
 	DefinitionCol  int

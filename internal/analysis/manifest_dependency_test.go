@@ -1,6 +1,7 @@
 package analysis_test
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -48,13 +49,24 @@ func buildErrors(t *testing.T, root string) []analysis.TypeError {
 }
 
 // wantOneManifestError fails t unless errs is one `manifest` error whose
-// message is want.
+// place and message (placedMessage) are want.
 func wantOneManifestError(t *testing.T, errs []analysis.TypeError, want string) analysis.TypeError {
 	t.Helper()
-	if len(errs) != 1 || errs[0].Code != analysis.ManifestCode || errs[0].Message != want {
+	if len(errs) != 1 || errs[0].Code != analysis.ManifestCode || placedMessage(errs[0]) != want {
 		t.Fatalf("the errors are %+v\nwant one %s error:\n%s", errs, analysis.ManifestCode, want)
 	}
 	return errs[0]
+}
+
+// placedMessage is e's file, line and message, as `path:line: message`,
+// then the message of each related location after a `; `: the entry that
+// names a reached package.
+func placedMessage(e analysis.TypeError) string {
+	s := fmt.Sprintf("%s:%d: %s", e.File, e.Line, e.Message)
+	for _, r := range e.Related {
+		s += "; " + r.Message
+	}
+	return s
 }
 
 // A dependency's nomi.toml is held to the schema and the checks the
@@ -71,11 +83,11 @@ func TestDependencyManifest_ADirDependencyIsCheckedAsTheProjectIs(t *testing.T) 
 		{"a misspelled table", "[package]\nname = \"kit\"\n\n[dependancies]\nother = { dir = \"../other\" }\n",
 			":4: nomi.toml has no [dependancies] table; did you mean [dependencies]?"},
 		{"no package name", "[package]\nentry_points = [\"main\"]\n",
-			": [package] name is required (non-empty, non-whitespace)"},
+			":1: [package] name is required (non-empty, non-whitespace)"},
 		{"an unknown key", "[package]\nname = \"kit\"\nauthors = [\"me\"]\n",
 			":3: [package] has no key `authors`; its keys are `name`, `nomi`, `entry_points`"},
-		{"an [effects.self] of the wrong shape", "[package]\nname = \"kit\"\n\n[effects.self]\nstd = [\"fs\"]\n",
-			":5: [effects.self] std: \"fs\" is not a std module; write one as an import does, such as \"std::fs\""},
+		{"an [effects.self] of the wrong shape", "[package]\nname = \"kit\"\n\n[effects.self]\neffects = [\"fs\"]\n",
+			":5: [effects.self] effects: \"fs\" is not a std module; write one as an import does, such as \"std::fs\""},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			pkgfetchtest.Cache(t)
@@ -145,7 +157,7 @@ func TestDependencyManifest_AMemberInErrorStopsAnotherMembersBuild(t *testing.T)
 	}{
 		{"a misspelled table", "[package]\nname = \"shop\"\n\n[dependency]\nkit = { dir = \"../kit\" }\n",
 			":4: nomi.toml has no [dependency] table; did you mean [dependencies]?"},
-		{"no package name", "[dependencies]\n", ": [package] name is required (non-empty, non-whitespace)"},
+		{"no package name", "[dependencies]\n", ":1: [package] name is required (non-empty, non-whitespace)"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			root, errs := memberBuildErrors(t, "members = [\n    \"billing\",\n    \"shop\",\n]\n", func(root string) {
@@ -167,7 +179,7 @@ func TestDependencyManifest_AValidDependencyWithToolTablesAndEffectsBuilds(t *te
 	app := appUsingKit(t, base, "{ dir = \"../kit\" }")
 	kit := filepath.Join(base, "kit")
 	writeTestFile(t, filepath.Join(kit, "nomi.toml"), "[package]\nname = \"kit\"\n\n[dependencies]\nhelper = { dir = \"../helper\" }\n\n"+
-		"[kit]\nout = \"gen\"\n\n[helper]\nlevel = 2\n\n[effects.self]\nstd = [\"std::io\"]\n")
+		"[kit]\nout = \"gen\"\n\n[helper]\nlevel = 2\n\n[effects.self]\neffects = [\"std::io\"]\n")
 	writeTestFile(t, filepath.Join(kit, "kit.nomi"), kitFile)
 	writeTestFile(t, filepath.Join(base, "helper", "nomi.toml"), "[package]\nname = \"helper\"\n")
 	writeTestFile(t, filepath.Join(base, "helper", "helper.nomi"), "pub fn one() -> Int\n    1\nend\n")
@@ -175,7 +187,7 @@ func TestDependencyManifest_AValidDependencyWithToolTablesAndEffectsBuilds(t *te
 		t.Fatalf("the build's errors are %+v; want none", errs)
 	}
 	m, err := analysis.LoadManifest(kit)
-	if err != nil || m.Effects == nil || m.Effects.Self == nil || strings.Join(m.Effects.Self.Std, ",") != "std::io" {
+	if err != nil || m.Effects == nil || m.Effects.Self == nil || strings.Join(m.Effects.Self.Effects, ",") != "std::io" {
 		t.Fatalf("kit's manifest is %+v, %v; want its [effects.self] std read", m, err)
 	}
 }

@@ -14,7 +14,7 @@ import (
 // private to its defining file, as its call form is (spec §4 *Opaque distinct types*). An opaque enum has no rule and
 // so no provided conversion.
 
-// conversionsModule declares an opaque type over a refinement (Uid), an opaque
+// conversionsModule declares an opaque type over a subtype (Uid), an opaque
 // validated type (Pct), an opaque validated struct (Span), a validated type
 // that is not opaque (Open), and an opaque validated type whose file writes
 // an `impl TryFrom<Celsius>` of its own beside the provided one (Kelvin).
@@ -101,7 +101,7 @@ func TestOpaqueConversion_RefusedOutsideTheDefiningFile(t *testing.T) {
 		name, body, typ, member string
 		col                     int
 	}{
-		{"a type over a refinement", "    dbg Uid.try_from(5)\n", "Uid", "try_from", 13},
+		{"a type over a subtype", "    dbg Uid.try_from(5)\n", "Uid", "try_from", 13},
 		{"a validated type", "    dbg Pct.try_from(5)\n", "Pct", "try_from", 13},
 		{"a validated struct", "    dbg Span.try_from({low: 1, high: 2})\n", "Span", "try_from", 14},
 		{"unchecked", "    dbg Pct.unchecked(5)\n", "Pct", "unchecked", 13},

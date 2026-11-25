@@ -460,7 +460,7 @@ module.exports = grammar({
       alias($._import_path_keyword, $.identifier),
     ),
 
-    _import_path_keyword: _ => token(prec(-1, /and|as|assert|begin|break|case|continue|dbg|defer|else|end|enum|export|extern|fn|for|if|impl|import|in|interface|is|not|once|opaque|or|pub|refine|refute|return|self|setup|struct|tap|test|then|todo|type(alias)?|unreachable|when|where|with/)),
+    _import_path_keyword: _ => token(prec(-1, /and|as|assert|begin|break|case|continue|dbg|defer|else|end|enum|export|extern|fn|for|if|impl|import|in|interface|is|not|once|opaque|or|pub|refute|return|self|setup|struct|subtype|tap|test|then|todo|type(alias)?|unreachable|when|where|with/)),
 
     import_selector: $ => prec.right(seq(
       ':',
@@ -719,9 +719,9 @@ module.exports = grammar({
     // Struct and enum forms are separate top-level rules
     // (struct_definition, enum_definition).
     //
-    // Modifier order: `pub`? `opaque`? `type` or `refine`. `opaque` is
+    // Modifier order: `pub`? `opaque`? `type` or `subtype`. `opaque` is
     // only valid on distinct types (those with an `Inner` representation);
-    // the analyzer enforces. `refine` declares a refinement of the types
+    // the analyzer enforces. `subtype` declares a subtype of the types
     // after its name, which `and` joins.
     //
     // The inner type is `_distinct_inner_type` (not the full `_type`):
@@ -730,27 +730,27 @@ module.exports = grammar({
     type_definition: $ => prec.right(seq(
       optional($._visibility),
       optional('opaque'),
-      choice('type', 'refine'),
+      choice('type', 'subtype'),
       field('name', $.qualified_type_identifier),
       optional($.type_parameters),
       optional(seq(
         $._distinct_inner_type,
-        // A refinement's parents after the first, or the rest of the
+        // A subtype's parents after the first, or the rest of the
         // intersection a `type` wraps:
-        // `refine PositiveInt NonNegativeInt and NonZeroInt when ...`.
+        // `subtype PositiveInt NonNegativeInt and NonZeroInt when ...`.
         repeat(seq('and', $._distinct_inner_type)),
         // Bounds on the type parameters:
-        // `refine Sorted<T> List<T> where T: Comparable when ...`.
+        // `subtype Sorted<T> List<T> where T: Comparable when ...`.
         optional($.where_clause),
-        optional($.refinement_rule),
+        optional($.when_rule),
       )),
     )),
 
     // A rule: `when` and the function from the type to Bool that every
     // value satisfies, a lambda or a function's name, on the line a `type`'s
-    // or `refine`'s header ends on (`refine Port Int when fn p -> p >= 1`)
+    // or `subtype`'s header ends on (`subtype Port Int when fn p -> p >= 1`)
     // or as a struct body's last item.
-    refinement_rule: $ => seq('when', field('rule', $._expression)),
+    when_rule: $ => seq('when', field('rule', $._expression)),
 
     // The type expressions admitted as a distinct type's RHS — everything
     // except `self` and an anonymous struct type (`struct` owns record
@@ -782,7 +782,7 @@ module.exports = grammar({
     // impls, derives, and tests stay outside the type.
     struct_body: $ => typeBody($, choice(
       $.field_definition,
-      $.refinement_rule,
+      $.when_rule,
       $.function_definition,
       $.extern_func_definition,
       $.once_binding,

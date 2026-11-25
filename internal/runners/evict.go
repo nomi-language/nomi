@@ -329,7 +329,7 @@ func planEviction(entries []cacheEntry, keep string, max int, now time.Time) []v
 	return victims
 }
 
-// applyEviction removes the planned victims and returns how many it
+// applyEviction removes the planned victims and answers what it
 // removed.
 //
 // Two guards, both about the gap between planning and deleting:
@@ -351,8 +351,8 @@ func planEviction(entries []cacheEntry, keep string, max int, now time.Time) []v
 // Errors are not returned per victim: eviction is hygiene and must
 // never fail a build. An entry that cannot be removed is left for the
 // next sweep.
-func applyEviction(root string, victims []victim) int {
-	removed := 0
+func applyEviction(root string, victims []victim) artifactcache.Pruned {
+	var pruned artifactcache.Pruned
 	for _, v := range victims {
 		dir := filepath.Join(root, v.name)
 		if st, err := os.Stat(filepath.Join(dir, originFile)); err == nil && st.ModTime().After(v.lastUse) {
@@ -363,12 +363,9 @@ func applyEviction(root string, victims []victim) int {
 		if err := os.Rename(dir, trash); err != nil {
 			continue
 		}
-		if err := os.RemoveAll(trash); err != nil {
-			continue
-		}
-		removed++
+		pruned.Remove(trash)
 	}
-	return removed
+	return pruned
 }
 
 // collectTrash deletes litter a crashed or interrupted sweep left
@@ -382,7 +379,9 @@ func collectTrash(root string, dirents []os.DirEntry) {
 	}
 }
 
-// evictCache enforces the budget on root, never touching keep.
+// evictCache enforces the budget on root, never touching keep, and
+// answers what it removed. force sweeps now, as a day having passed does,
+// and marks the sweep done (`nomi cache prune`).
 //
 // TRIGGERING. The sweep costs one readdir and one stat when the cache
 // is inside its budget and a stat plus a small read per entry when it
@@ -394,14 +393,15 @@ func collectTrash(root string, dirents []os.DirEntry) {
 // once a day rather than once per build. Measured on this machine at
 // 2656 entries: see the eviction overhead figure in
 // TestEvict_SweepCostOnALargeRoot.
-func evictCache(root, keep string) (int, error) {
+func evictCache(root, keep string, force bool) (artifactcache.Pruned, error) {
+	var none artifactcache.Pruned
 	max := maxCacheEntriesSetting()
 	if max <= 0 {
-		return 0, nil
+		return none, nil
 	}
 	dirents, err := os.ReadDir(root)
 	if err != nil {
-		return 0, err
+		return none, err
 	}
 	collectTrash(root, dirents)
 	keys := 0
@@ -410,12 +410,14 @@ func evictCache(root, keep string) (int, error) {
 			keys++
 		}
 	}
-	if keys <= max && !artifactcache.Due(root, sweepEvery) {
-		return 0, nil
+	if force {
+		artifactcache.Due(root, sweepEvery, true)
+	} else if keys <= max && !artifactcache.Due(root, sweepEvery, false) {
+		return none, nil
 	}
 	entries, err := scanCacheEntries(root)
 	if err != nil {
-		return 0, fmt.Errorf("scanning cache root %s: %w", root, err)
+		return none, fmt.Errorf("scanning cache root %s: %w", root, err)
 	}
 	return applyEviction(root, planEviction(entries, keep, max, time.Now())), nil
 }

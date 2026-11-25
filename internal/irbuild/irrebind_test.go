@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestIRRebind_RefinementsAndTypeChanges(t *testing.T) {
+func TestIRRebind_SubtypesAndTypeChanges(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 fn main()
   name = "  JANE  "

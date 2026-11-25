@@ -1,7 +1,8 @@
 // Package effects is the one rule that names an effect and the one
 // check that holds effects to lists, shared by everything that holds a
 // program to them: the lists of nomi.toml's [effects.self] and
-// [effects.deps] tables and an embedding host's lists in vmhost, and
+// [effects.dependencies] tables and its [dependencies] entries' effects
+// keys, an embedding host's lists in vmhost, and
 // a host's list in vmrunner, which links no front end. It imports nothing
 // of the compiler's, so the checker (which validates nomi.toml's lists),
 // vmhost and vmrunner all call it.

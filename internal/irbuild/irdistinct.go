@@ -240,8 +240,8 @@ func (g *gen) selfDistinct() *typeDef {
 
 // distinctMakeOf is distinctMake at `at` over args for the declaration d:
 // `self(x)` in a default names it through the implementor rather than a
-// type name, and a refinement's `unchecked` by the type the checker gave
-// its body (uncheckedRefinement).
+// type name, and a subtype's `unchecked` by the type the checker gave
+// its body (uncheckedSubtype).
 func (bl *irScalarBuilder) distinctMakeOf(at ast.Node, args []ast.Node, d *typeDef) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	found := d != nil

@@ -159,8 +159,8 @@ func isLocalPath(arg string) bool {
 // directory with a dir entry. The entry's name, the name imports use, is
 // the package's own [package].name, or the name before `=` (`nomi add
 // db=github.com/owner/sqlite`).
-// Then it prints what the package's own files reach, and what nomi.toml's
-// [effects.deps] table needs for it (dependencyReach).
+// Then it prints what the code its entry covers reaches, and what nomi.toml's
+// effects lists need for it (dependencyReach).
 func runAdd(args []string, offline bool) error {
 	var pkgs []string
 	for _, arg := range args {
@@ -411,9 +411,9 @@ func runUpdate(args []string) error {
 		fmt.Printf("%s %s -> %s\n", c.ID, c.From, c.To)
 	}
 	printLater(updated.Later)
-	if nomi := nomiPackages(root, ids); len(nomi) > 0 {
+	if entries := changedEntries(root, ids); len(entries) > 0 {
 		d.reachAfter()
-		d.write(os.Stdout, nomi, nil)
+		d.write(os.Stdout, entries, nil)
 	}
 	return nil
 }
@@ -535,7 +535,7 @@ func runNew(args []string) error {
 	if err := joinWorkspace("new", dir); err != nil {
 		return err
 	}
-	run := "nomi run main.nomi"
+	run := "nomi run"
 	if abs, err := filepath.Abs(dir); err == nil {
 		if wd, err := os.Getwd(); err == nil && !same(abs, wd) {
 			run = "cd " + dir + " && " + run
@@ -583,9 +583,9 @@ func agentsText(name string) string {
 		"Read the cheat sheet before writing Nomi: https://nomi-lang.org/cheatsheet.md. " +
 		"The whole language and standard library are in one file at https://nomi-lang.org/llms-full.txt.\n\n" +
 		"## Commands\n\n" +
-		"- `nomi run .` runs the program, the one entry point `nomi.toml` lists. With several, name the file: `nomi run main.nomi`.\n" +
+		"- `nomi run` runs the program, the one entry point `nomi.toml` lists. With several, name the file: `nomi run main.nomi`.\n" +
 		"- `nomi test` runs every `test` block under this directory.\n" +
-		"- `nomi check .` reports errors without running. `--format json` writes them as JSON Lines, with fixes to apply.\n" +
+		"- `nomi check` reports errors without running. `--format json` writes them as JSON Lines, with fixes to apply.\n" +
 		"- `nomi fmt -w .` formats every file. The formatter owns layout.\n" +
 		"- `nomi add <repository>` adds a dependency to `nomi.toml` and `nomi.lock`, such as `nomi add github.com/owner/name`.\n" +
 		"- `nomi mcp` serves the compiler to a coding agent over the Model Context Protocol: check, types, definitions, std search, tests and formatting.\n\n" +
@@ -675,8 +675,8 @@ func workspaceRootError(cmd, dir, what string) error {
 }
 
 // atWorkspaceRoot reports whether the current directory is a workspace's
-// root, where `nomi check`, and `nomi fmt` with a mode flag, given no path
-// act on every member (frontend.WorkspaceFiles).
+// root, where `nomi fmt` with a mode flag and no path acts on every member
+// (frontend.WorkspaceFiles), and `nomi types` with no path names them.
 func atWorkspaceRoot() bool {
 	return isRegular(pkgcache.WorkspaceName)
 }

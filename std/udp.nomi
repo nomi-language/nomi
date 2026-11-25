@@ -28,7 +28,7 @@ import
     equatable.Equatable
     http::host as http_host
     instant.Instant
-    int.Int
+    int.{Int, PositiveInt}
     iter.Iter
     lists.List
     net.{self, Connection, Error}
@@ -113,8 +113,9 @@ impl Socket
         http_host.udp_send(handle(socket), data, False, "") |> Result.map_err(Error.from_parts)
     end
 
-    /// The next datagram, at most `max` bytes, and who sent it. A longer
-    /// one is `Error.Truncated`, and its bytes are dropped. `Error.Closed`
+    /// The next datagram, at most `max` bytes, a `PositiveInt`, and who
+    /// sent it. A longer one is `Error.Truncated`, and its bytes are
+    /// dropped. `Error.Closed`
     /// once the socket is closed or the calling task is stopped;
     /// `Error.Timeout` past a read deadline.
     //! socket = udp.bind("127.0.0.1:0")!
@@ -123,7 +124,7 @@ impl Socket
     //! assert Err(Error.Truncated{address: _, max: 4}) = Socket.receive(socket, max: 4)
     //! Socket.close(socket)
     //
-    pub fn receive(socket: Socket, max: Int = 65_535) -> Result<(Bytes, Address), Error>
+    pub fn receive(socket: Socket, max: PositiveInt = 65_535) -> Result<(Bytes, Address), Error>
         (data, ok, parts) = http_host.udp_receive(handle(socket), max)
 
         if ok then
@@ -432,7 +433,7 @@ pub fn serve(
     socket:     Socket,
     handler:    (Bytes, Address) -> Unit,
     supervisor: Supervisor,
-    max:        Int = 65_535,
+    max:        PositiveInt = 65_535,
 ) -> Unit
     defer Socket.close(socket)
     receive_each(socket, handler, supervisor, max)
@@ -442,7 +443,7 @@ fn receive_each(
     socket:     Socket,
     handler:    (Bytes, Address) -> Unit,
     supervisor: Supervisor,
-    max:        Int,
+    max:        PositiveInt,
 ) -> Unit
     case Socket.receive(socket, max:)
         Ok((data, from)) ->

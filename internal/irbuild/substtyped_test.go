@@ -168,12 +168,12 @@ end
 	verifyTypedInstances(t, src, "1\na\n")
 }
 
-// A generic refinement spelled in an annotation (`Many<Int>`) is its base at
+// A generic subtype spelled in an annotation (`Many<Int>`) is its base at
 // the checker's types for the annotation's arguments.
-func TestSubstTyped_AnnotatedGenericRefinement(t *testing.T) {
+func TestSubstTyped_AnnotatedGenericSubtype(t *testing.T) {
 	verifyTypedInstances(t, `import std::io
 
-refine Many<T> List<T> when fn xs -> List.length(xs) > 1
+subtype Many<T> List<T> when fn xs -> List.length(xs) > 1
 
 fn count(m: Many<Int>) -> Int
     List.length(m)

@@ -158,8 +158,8 @@ embed recorded `engine/image.wasm.sha256`
 test "the embedded engine is the one engine/build.sh recorded"
     line = Files.read_text(recorded, "engine/image.wasm.sha256")!
 
-    assert Some(Files.sum(image.engine_wasm, "engine/image.wasm")!)
-        == List.first(String.split(line, " "))
+    assert Files.sum(image.engine_wasm, "engine/image.wasm")!
+        == NonEmptyList.first(String.split(line, " "))
 end
 
 test "fitted keeps the shape, rounds to the nearest pixel and never scales up"
@@ -202,51 +202,99 @@ test "a PNG round trip keeps a decoded image's pixels"
     assert Image.encode_png(back) == Image.encode_png(lossy)
 end
 
-// Every decode of a file cut short is an Error, never a trap or an image.
+// No input is known to trap the decoder, so the engine's trap is handed to
+// the function that reads its answer.
+test "a trap in the decoder is Trapped, not a corrupt file"
+    assert image.read(Err(.Trapped(.OutOfBounds)))
+        == Err(.Trapped{message: "an access was outside the module's memory or table"})
+
+    assert "${image.Error.Trapped{message: "the module ran unreachable"}}"
+        == "the image decoder trapped: the module ran unreachable"
+end
+
+// Whether `answer` is the decoder's trap.
+fn trapped<T>(answer: Result<T, image.Error>) -> Bool
+    answer is Err(.Trapped{message: _})
+end
+
+// Every decode of a file cut short is an Error the decoder answers, never
+// an image or a trap.
 test "a file cut short anywhere is an Error"
     ["gradient.jpg", "gradient.png", "gradient.webp"]
     |> subtests name, name
         data = fixture(name)
 
-        decoded =
+        answers =
             0..Bytes.length(data)
-            |> Iter.filter(fn n -> (image.decode(Bytes.slice(data, 0, n)) is Ok(_)))
-            |> Iter.count()
+            |> Iter.map(fn n -> image.decode(Bytes.slice(data, 0, n)))
+            |> Iter.to_list()
 
-        assert decoded == 0
+        assert Iter.count_by(answers, &(&1 is Ok(_))) == 0
+        assert Iter.count_by(answers, trapped) == 0
     end
 end
 
-// Each byte of each file set to 0 and then to 255: every decode and every
-// header read answers an image or an Error, never a trap; an image that
-// decodes has a header that reads; and a PNG's checksums find every change.
-test "a damaged file is an Error, never a trap"
-    ["gradient.jpg", "gradient.png", "gradient.webp", "huge-header.png"]
+// What the copies of a fixture with one byte damaged answer: how many
+// copies differ from the file, how many of them decode, how many decode
+// although their header does not read, and how many trap the decoder in a
+// read or a decode.
+struct Damage
+    copies:  Int
+    decoded: Int
+    unread:  Int
+    trapped: Int
+end
+
+// Each byte of the fixture `name` set to 0 and then to 255, and each copy
+// that differs read for its header and decoded.
+fn damage(name: String) -> Damage
+    data = fixture(name)
+
+    damaged =
+        0..Bytes.length(data)
+        |> Iter.flat_map(fn at -> [patched(data, at, bytes([0])), patched(data, at, bytes([255]))])
+        |> Iter.filter(&(&1 != data))
+        |> Iter.to_list()
+
+    answers =
+        damaged
+        |> Iter.map(fn d -> (image.dimensions(d), image.decode(d)))
+        |> Iter.to_list()
+
+    Damage{
+        copies:  List.length(damaged),
+        decoded: Iter.count_by(answers, &(&1.second is Ok(_))),
+        unread:  Iter.count_by(answers, fn (read, decoded) -> decoded is Ok(_) and read is Err(_)),
+        trapped: Iter.count_by(answers, fn (read, decoded) -> trapped(read) or trapped(decoded)),
+    }
+end
+
+// The damaged copies of each format are a test of their own, so that each
+// has its own time limit. An image that decodes has a header that reads,
+// and no copy traps the decoder.
+test "a damaged JPEG is an Error or an image, never a trap"
+    d = damage("gradient.jpg")
+    assert d.trapped == 0
+    assert d.unread == 0
+    assert d.decoded < d.copies
+end
+
+// A PNG's checksums find every change, so no damaged copy decodes.
+test "a damaged PNG is an Error, never a trap"
+    ["gradient.png", "huge-header.png"]
     |> subtests name, name
-        data = fixture(name)
-
-        damaged =
-            0..Bytes.length(data)
-            |> Iter.flat_map(fn at ->
-                [patched(data, at, bytes([0])), patched(data, at, bytes([255]))]
-            end)
-            |> Iter.filter(&(&1 != data))
-            |> Iter.to_list()
-
-        answers =
-            damaged
-            |> Iter.map(fn d -> (image.dimensions(d) is Ok(_), image.decode(d) is Ok(_)))
-            |> Iter.to_list()
-
-        decoded = Iter.count_by(answers, &(&1.second))
-        assert Iter.count_by(answers, fn (read, decodes) -> decodes and not read) == 0
-
-        if String.ends_with(name, ".png") then
-            assert decoded == 0
-        else
-            assert decoded < Iter.count(damaged)
-        end
+        d = damage(name)
+        assert d.trapped == 0
+        assert d.unread == 0
+        assert d.decoded == 0
     end
+end
+
+test "a damaged WebP is an Error or an image, never a trap"
+    d = damage("gradient.webp")
+    assert d.trapped == 0
+    assert d.unread == 0
+    assert d.decoded < d.copies
 end
 
 test "each format's header that declares too many pixels is refused"

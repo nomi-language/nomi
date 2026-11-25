@@ -438,7 +438,7 @@ func (s *Server) closeDocument(uri string) bool {
 
 func (s *Server) textDocumentDocumentSymbol(ctx *glsp.Context, params *protocol.DocumentSymbolParams) (any, error) {
 	uri := string(params.TextDocument.URI)
-	doc := s.docs.Snapshot(uri)
+	doc := s.requestDoc(ctx, uri)
 	if doc == nil {
 		return nil, nil
 	}
@@ -611,9 +611,9 @@ func (s *Server) propagateNewFile(newURI string) {
 	}()
 }
 
-func (s *Server) textDocumentInlayHint(_ *glsp.Context, params *InlayHintParams) ([]InlayHint, error) {
+func (s *Server) textDocumentInlayHint(gctx *glsp.Context, params *InlayHintParams) ([]InlayHint, error) {
 	uri := params.TextDocument.URI
-	doc := s.docs.Snapshot(uri)
+	doc := s.requestDoc(gctx, uri)
 	if doc == nil || doc.Analysis == nil {
 		return nil, nil
 	}

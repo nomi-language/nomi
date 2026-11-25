@@ -1263,7 +1263,7 @@ end
 	}
 	got := renderHover(sym)
 	if !strings.Contains(got, "fn try_from(value: Int) -> Option<PositiveInt>") {
-		t.Errorf("expected hover to render the refinement's base as the parameter type, got:\n%s", got)
+		t.Errorf("expected hover to render the subtype's base as the parameter type, got:\n%s", got)
 	}
 	if strings.Contains(got, "Option<self>") {
 		t.Errorf("hover rendered the old concrete `self` spelling, got:\n%s", got)

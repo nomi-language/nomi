@@ -5,6 +5,7 @@ import (
 	"debug/elf"
 	"errors"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -200,6 +201,71 @@ func WriteFile(path string, data []byte) error {
 	return nil
 }
 
+// RemoveTree removes path and everything under it, making each directory
+// writable first: the package cache keeps an extracted repository
+// read-only, and a directory's mode decides whether its entries can be
+// removed. A read-only file is removed as any other.
+func RemoveTree(path string) error {
+	_ = filepath.WalkDir(path, func(p string, d fs.DirEntry, err error) error {
+		if err == nil && d.IsDir() {
+			_ = os.Chmod(p, 0o755)
+		}
+		return nil
+	})
+	return os.RemoveAll(path)
+}
+
+// ForeignEntry answers the path of the first entry of dir, a cache's
+// directory, that the cache does not write, or "" when there is none or no
+// dir. own answers that for each entry: "" for one the cache writes, or
+// the path of what it does not, which may be below the entry when own
+// looks inside it (with ForeignEntry again). A temporary entry (TempPrefix)
+// and a prune's marker (Due) are every cache's. `nomi cache clean` refuses
+// a directory an environment variable names when it holds a foreign entry,
+// since it would remove someone's files.
+func ForeignEntry(dir string, own func(path string, e fs.DirEntry) (string, error)) (string, error) {
+	info, err := os.Stat(dir)
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		return "", nil
+	case err != nil:
+		return "", err
+	case !info.IsDir():
+		return dir, nil
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return "", err
+	}
+	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), TempPrefix) || e.Name() == dueMarker && e.Type().IsRegular() {
+			continue
+		}
+		if foreign, err := own(filepath.Join(dir, e.Name()), e); foreign != "" || err != nil {
+			return foreign, err
+		}
+	}
+	return "", nil
+}
+
+// Foreign answers the path of the first entry under dir that the artifact
+// cache does not write (ForeignEntry), or "": the cache holds a directory
+// per kind (the package doc, "Pruning"), and each holds entries named by a
+// hash, in hex, with an extension or none.
+func Foreign(dir string) (string, error) {
+	return ForeignEntry(dir, func(kind string, e fs.DirEntry) (string, error) {
+		if !e.IsDir() {
+			return kind, nil
+		}
+		return ForeignEntry(kind, func(p string, e fs.DirEntry) (string, error) {
+			if hash, _, _ := strings.Cut(e.Name(), "."); len(hash) < 2 || strings.Trim(hash, "0123456789abcdef") != "" {
+				return p, nil
+			}
+			return "", nil
+		})
+	})
+}
+
 // Unused is how long an entry nothing has used is kept, where its kind
 // keeps none shorter (the package doc, "Pruning").
 const Unused = 14 * 24 * time.Hour
@@ -212,16 +278,73 @@ func Touch(path string, info os.FileInfo) {
 	}
 }
 
+// StdDir is the directory under Root that holds the standard library's
+// interfaces, state and bundle of each compiler build, and StdUnused how
+// long they are kept after the last process of that build used them (the
+// package doc, "Pruning").
+const (
+	StdDir    = "std"
+	StdUnused = 24 * time.Hour
+)
+
+// Pruned is what a prune removed: how many entries, and the size of their
+// files.
+type Pruned struct {
+	Entries int
+	Size    int64
+}
+
+// Add adds q to p.
+func (p *Pruned) Add(q Pruned) {
+	p.Entries += q.Entries
+	p.Size += q.Size
+}
+
+// Remove removes the entry at path with RemoveTree and, when it is gone,
+// adds it to p.
+func (p *Pruned) Remove(path string) {
+	size, _ := TreeSize(path)
+	if RemoveTree(path) == nil {
+		p.Entries++
+		p.Size += size
+	}
+}
+
+// TreeSize is the size of the regular files under path, which links are
+// not followed to; 0 when path does not exist.
+func TreeSize(path string) (int64, error) {
+	var size int64
+	err := filepath.WalkDir(path, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			if p == path && errors.Is(err, fs.ErrNotExist) {
+				return fs.SkipAll
+			}
+			return err
+		}
+		if d.Type().IsRegular() {
+			info, err := d.Info()
+			if err != nil {
+				return err
+			}
+			size += info.Size()
+		}
+		return nil
+	})
+	return size, err
+}
+
 // Prune removes the entries of dir, files and directories, other than
 // keep, that nothing has used for unused, and temporary ones left for an
-// hour. An entry's last use is its modification time: a file's moves when
-// it is written, and a directory's only when an entry is added to or
-// removed from it, so a cache whose entries are directories touches each
-// as it reads it. Errors are ignored; pruning is housekeeping.
-func Prune(dir, keep string, unused time.Duration) {
+// hour, and answers what it removed. An entry's last use is its
+// modification time: a file's moves when it is written, and a directory's
+// only when an entry is added to or removed from it, so a cache whose
+// entries are directories touches each as it reads it. Errors are
+// ignored; pruning is housekeeping.
+func Prune(dir, keep string, unused time.Duration) Pruned {
+	var pruned Pruned
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		return
+		return pruned
 	}
 	now := time.Now()
 	for _, e := range entries {
@@ -234,9 +357,10 @@ func Prune(dir, keep string, unused time.Duration) {
 			continue
 		}
 		if Expired(name, info, unused, now) {
-			os.RemoveAll(filepath.Join(dir, name))
+			pruned.Remove(filepath.Join(dir, name))
 		}
 	}
+	return pruned
 }
 
 // Expired reports whether the cache entry name, whose file info is info,
@@ -254,13 +378,20 @@ func Expired(name string, info os.FileInfo, unused time.Duration, now time.Time)
 const dueMarker = ".pruned"
 
 // Due reports whether a prune of dir is due, its last one being every ago
-// or more, and if so marks it done now, so of the processes that ask
-// within every, one prunes. It answers false when the mark cannot be
-// written.
-func Due(dir string, every time.Duration) bool {
+// or more, or force being set, and if so marks it done now, so of the
+// processes that ask within every, one prunes. `nomi cache prune` forces
+// it. It answers false when the mark cannot be written, and when dir does
+// not exist, since it holds nothing to prune.
+func Due(dir string, every time.Duration, force bool) bool {
 	marker := filepath.Join(dir, dueMarker)
-	if info, err := os.Stat(marker); err == nil && time.Since(info.ModTime()) < every {
+	info, err := os.Stat(marker)
+	switch {
+	case err == nil && !force && time.Since(info.ModTime()) < every:
 		return false
+	case err != nil:
+		if info, err := os.Stat(dir); err != nil || !info.IsDir() {
+			return false
+		}
 	}
 	return WriteFile(marker, nil) == nil
 }

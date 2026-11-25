@@ -289,7 +289,7 @@ func (fa *FileAnalysis) declaringOrigin(node ast.Node) string {
 
 // knownReceiver is t, a call's receiver type, when it names one nominal
 // type at the call: no type parameter, no unsolved variable, no interface
-// value. A refinement is its parent, whose impls it has.
+// value. A subtype is its parent, whose impls it has.
 func knownReceiver(t Type) (Type, string) {
 	t, name := nominalReceiver(t)
 	if t == nil || ContainsTypeParam(t) || containsTypeVar(t) {
@@ -299,12 +299,12 @@ func knownReceiver(t Type) (Type, string) {
 }
 
 // nominalReceiver is t, a receiver type, and its name when it names one
-// nominal type, whatever its type arguments hold. A refinement is its
+// nominal type, whatever its type arguments hold. A subtype is its
 // parent, whose impls it has.
 func nominalReceiver(t Type) (Type, string) {
 	t = resolveTypeVar(t)
 	for {
-		dt := refinementOf(t)
+		dt := subtypeOf(t)
 		if dt == nil || dt.Inner == nil {
 			break
 		}

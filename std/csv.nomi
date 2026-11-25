@@ -57,7 +57,7 @@ end
 //! assert Delimiter.try_from('\n') == None
 //! assert Delimiter.try_from(';') == Some(';')
 //
-pub refine Delimiter Codepoint when fn c ->
+pub subtype Delimiter Codepoint when fn c ->
     c != '"' and c != '\r' and c != '\n' and c != '\u{0}' and Codepoint.to_int(c) != 0xFFFD
 end
 

@@ -307,7 +307,7 @@ import
     equatable.Equatable
     hashable.Hashable
     instant.Instant
-    int.{Int, Int64, NonZeroInt}
+    int.{Int, Int64, NonZeroInt, PositiveInt}
     iter.Iter
     lists.List
     literals.{Fragment, Literal}
@@ -594,7 +594,7 @@ impl Date
     //! assert Date.days_in_month(2024, 2) == Ok(29)
     //! assert Date.days_in_month(2026, 13) == Err(Error.InvalidValue("month out of range: 13"))
     //
-    pub fn days_in_month(year: Int, month: Int) -> Result<Int, Error>
+    pub fn days_in_month(year: Int, month: Int) -> Result<PositiveInt, Error>
         case
             month < 1 or month > 12 -> Err(Error.InvalidValue("month out of range: ${month}"))
             month == 2 and Date.is_leap_year(year) -> Ok(29)

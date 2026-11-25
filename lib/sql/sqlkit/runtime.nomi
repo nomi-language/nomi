@@ -90,7 +90,7 @@ end
 //! assert runtime.digits(123_456_789_012_345_678_901.5d) == 22
 //
 pub fn digits(d: Decimal) -> Int
-    whole = String.split("${Decimal.abs(d)}", ".") |> Iter.first() |> Option.with_default("")
+    whole = String.split("${Decimal.abs(d)}", ".") |> NonEmptyList.first()
     Iter.count(Iter.drop_while(whole, fn c -> c == "0")) + Decimal.scale(d)
 end
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -163,11 +164,36 @@ func TestToolingPagesStartWithInstalling(t *testing.T) {
 			t.Errorf("tooling/%s.md has no %q", installSlug, strings.TrimSpace(heading))
 		}
 	}
+	// The page opens on its three steps, the first two each a tab group.
+	steps := regexp.MustCompile(`(?s)<ol class="nomi-steps">\n\n<li class="nomi-step">\n\n## Install\n.*data-tabs="os".*\n</li>\n\n<li class="nomi-step">\n\n## Set up your editor\n.*data-tabs="editor".*\n</li>\n\n<li class="nomi-step">\n\n## Run a program\n.*\n</li>\n\n</ol>\n\n## Update\n`)
+	if !steps.MatchString(page) {
+		t.Errorf("tooling/%s.md does not open on the steps Install, Set up your editor and Run a program, then Update:\n%s", installSlug, page[:min(len(page), 1500)])
+	}
 	side := pages[sidebarFile]
 	if first, second := strings.Index(side, `"link": "`+toolingSite+`"`), strings.Index(side, `"link": "`+toolingSite+installSlug+`/"`); first < 0 || second < 0 || strings.Count(side[first:second], `"link"`) != 1 {
 		t.Errorf("the sidebar does not list Installing Nomi right after the overview:\n%s", side)
 	}
 	if !strings.Contains(pages["index.md"], "("+toolingSite+installSlug+"/)") {
 		t.Errorf("the index does not list Installing Nomi")
+	}
+}
+
+// TestInstallSteps_AreNumberedInOrder holds installPage to refusing a step
+// numbered out of order, or one after the steps have ended.
+func TestInstallSteps_AreNumberedInOrder(t *testing.T) {
+	for _, c := range []struct{ name, doc, want string }{
+		{"skipped", "# T\n\n## 1. A\n\na\n\n## 3. C\n\nc\n", "step `## 3. C` is out of order"},
+		{"after the steps", "# T\n\n## 1. A\n\na\n\n## B\n\nb\n\n## 2. C\n\nc\n", "step `## 2. C` is out of order"},
+	} {
+		path := filepath.Join(t.TempDir(), "install.md")
+		if err := os.WriteFile(path, []byte(c.doc), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		_, err := installPage(path, specPath)
+		if err == nil {
+			t.Errorf("%s: installPage admits\n%s", c.name, c.doc)
+		} else if !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%s: installPage says %q, want %q", c.name, err, c.want)
+		}
 	}
 }

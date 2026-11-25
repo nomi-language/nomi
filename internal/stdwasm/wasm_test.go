@@ -6,6 +6,7 @@ import (
 	"math"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/nomi-language/nomi/rt"
@@ -460,6 +461,38 @@ func TestRun(t *testing.T) {
 			t.Errorf("run %s = %+v, want %q", tc.export, got, tc.want)
 		}
 	}
+}
+
+// scribble runs residue's scribble in a fresh instance and answers what it
+// found an earlier call left, or how the run failed.
+func scribble(m rt.WasmModule) string {
+	got := Run(m, "scribble", "", rt.SmallInt(DefaultLimit))
+	if got.Tag != rt.TagOk {
+		return fmt.Sprintf("the run failed: %v", slice(got.Err))
+	}
+	return string(got.Ok)
+}
+
+// fresh is what scribble answers in a fresh instance: nothing left.
+const fresh = "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+
+// run is pure: calls on many tasks at once each see a fresh instance,
+// with nothing another call wrote to its globals or its memory, the pages
+// it grows included.
+func TestRun_CallsAtOnceSeeNothingOfEachOther(t *testing.T) {
+	m := mustCompile(t, "residue")
+	var wg sync.WaitGroup
+	for range 8 {
+		wg.Go(func() {
+			for range 25 {
+				if got := scribble(m); got != fresh {
+					t.Errorf("a call found %q left, want nothing", got)
+					return
+				}
+			}
+		})
+	}
+	wg.Wait()
 }
 
 func TestCompile_RefusesWhatIsNotAModule(t *testing.T) {

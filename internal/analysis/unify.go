@@ -118,10 +118,10 @@ func (m unifyMode) iterElem(iface *InterfaceType) unifyMode {
 	return m.declNested()
 }
 
-// widensRefinement reports whether m admits a refinement's value where one
+// widensSubtype reports whether m admits a subtype's value where one
 // of its ancestors is expected: where a value flows one known way and
-// converts (refinement.go).
-func (m unifyMode) widensRefinement() bool {
+// converts (subtype.go).
+func (m unifyMode) widensSubtype() bool {
 	switch m {
 	case unifyAssign, unifyAssignIn, unifyAssignCo:
 		return true
@@ -292,10 +292,10 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 			// existing binding against the new side.
 			err := unifyIn(m.rebound(existing), existing, b, nil, impls, implTypeArgs, rigid)
 			if err != nil {
-				// A parameter solved to a refinement, met by a value of an
+				// A parameter solved to a subtype, met by a value of an
 				// ancestor of it, widens to the nearest ancestor the two
 				// share: `pick(c, List.length(xs), -1)` solves T to Int.
-				if widened, ok := widenToRefinementAncestor(m, existing, b, impls, implTypeArgs, rigid); ok {
+				if widened, ok := widenToSubtypeAncestor(m, existing, b, impls, implTypeArgs, rigid); ok {
 					subs[tp] = widened
 					return nil
 				}
@@ -351,26 +351,26 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 		}
 	}
 
-	// A refinement's value converts up to each of its parents and theirs
-	// (refinement.go): a PositiveFloat is a NonNegativeFloat, a
+	// A subtype's value converts up to each of its parents and theirs
+	// (subtype.go): a PositiveFloat is a NonNegativeFloat, a
 	// NonZeroFloat and a Float, at the top and at every position a value
 	// converts at, and enters an interface as its base does. Nothing
 	// converts down or across, a join (unifySym) admits neither way, and
 	// an invariant type argument compares exactly.
 	//
-	// A refinement with no rule of its own, an intersection of refinements among
+	// A subtype with no rule of its own, an intersection of subtypes among
 	// them, has exactly the values of all its parents, so a value that
 	// converts to each parent converts into it: a PositiveInt is a
 	// `NonNegativeInt and NonZeroInt`.
-	if m.widensRefinement() && intoRulelessRefinement(b, a, func(have, parent Type) bool {
+	if m.widensSubtype() && intoRulelessSubtype(b, a, func(have, parent Type) bool {
 		return unifyIn(m, parent, have, subs, impls, implTypeArgs, rigid) == nil
 	}) {
 		return nil
 	}
-	if bt := refinementOf(b); bt != nil && bt.Inner != nil && m.widensRefinement() {
+	if bt := subtypeOf(b); bt != nil && bt.Inner != nil && m.widensSubtype() {
 		if _, isVar := a.(*TypeVar); !isVar {
 			if at, same := a.(*DistinctType); !same || !sameNominalIdentity(at.Origin, at.Name, bt.Origin, bt.Name) {
-				for _, parent := range RefinementParents(bt) {
+				for _, parent := range SubtypeParents(bt) {
 					if unifyIn(m, a, parent, subs, impls, implTypeArgs, rigid) == nil {
 						return nil
 					}
@@ -858,9 +858,9 @@ func implReceiverMatchesSeen(info *ImplTypeArgs, concrete Type, impls []ImplTabl
 	}
 	for tp, boundConcrete := range subs {
 		for _, bound := range tp.Bounds {
-			if interfaceReadsRefinement(bound) && ReadsRefinement([]*InterfaceType{bound}, boundConcrete) && !blockReadsRefinement(info, bound) {
+			if interfaceReadsSubtype(bound) && ReadsSubtype([]*InterfaceType{bound}, boundConcrete) && !blockReadsSubtype(info, bound) {
 				// A block lowered once for its receiver's kind would read
-				// the refinement as its base (refinement_reads.go).
+				// the subtype as its base (subtype_reads.go).
 				return false
 			}
 			if !typeSatisfiesInterfaceForImplMatch(boundConcrete, bound, impls, implTypeArgs, seen) {
@@ -875,10 +875,10 @@ func typeSatisfiesInterfaceForImplMatch(concrete Type, iface *InterfaceType, imp
 	if iface == nil {
 		return true
 	}
-	if dt := refinementOf(concrete); dt != nil && dt.Inner != nil {
-		// A refinement has its parent's impls, save one that makes a
-		// value of its type (refinement_impls.go).
-		if refinementLacksImpl(dt, iface) {
+	if dt := subtypeOf(concrete); dt != nil && dt.Inner != nil {
+		// A subtype has its parent's impls, save one that makes a
+		// value of its type (subtype_impls.go).
+		if subtypeLacksImpl(dt, iface) {
 			return false
 		}
 		return typeSatisfiesInterfaceForImplMatch(DistinctInner(dt), iface, impls, implTypeArgs, seen)
@@ -1409,7 +1409,7 @@ func substituteWithNominals(t Type, subs map[*TypeParam_]Type, visiting map[*Typ
 			return t
 		}
 		if t.Intersection {
-			return NewRefinementIntersection(args)
+			return NewSubtypeIntersection(args)
 		}
 		return &DistinctType{
 			Origin:           t.Origin,
@@ -1419,7 +1419,7 @@ func substituteWithNominals(t Type, subs map[*TypeParam_]Type, visiting map[*Typ
 			WrittenAsParts:   t.WrittenAsParts,
 			Rule:             t.Rule,
 			MoreParents:      t.MoreParents,
-			Refinement:       t.Refinement,
+			Subtype:          t.Subtype,
 			Opaque:           t.Opaque,
 			OwningSourceFile: t.OwningSourceFile,
 			TypeParams:       t.TypeParams,
@@ -1569,10 +1569,10 @@ func widenToEnum(m unifyMode, existing, have Type) (Type, bool) {
 	return et, true
 }
 
-// widenToRefinementAncestor reports the type a type parameter's binding
+// widenToSubtypeAncestor reports the type a type parameter's binding
 // widens to when a directed unification meets a value that differs from
-// existing only where a refinement meets an ancestor of it: the nearest
-// ancestor the two share there (refinementJoinShape), when both convert to
+// existing only where a subtype meets an ancestor of it: the nearest
+// ancestor the two share there (subtypeJoinShape), when both convert to
 // it in this mode. Inside a function type the expected side's parameter
 // widens too, where a function argument's result meets it: with number a
 // PositiveInt and next an `(Int) -> Int`, `Iter.iterate(number, next)`
@@ -1582,12 +1582,19 @@ func widenToEnum(m unifyMode, existing, have Type) (Type, bool) {
 // `ClosedRange<self>` and solves self to Int, which p converts to. The
 // caller holds every earlier argument to the widened type
 // (argSolving.widenedPast).
-func widenToRefinementAncestor(m unifyMode, existing, have Type, impls []ImplTables, implTypeArgs []map[string]map[string][]*ImplTypeArgs, rigid map[string]*TypeParam_) (Type, bool) {
+func widenToSubtypeAncestor(m unifyMode, existing, have Type, impls []ImplTables, implTypeArgs []map[string]map[string][]*ImplTypeArgs, rigid map[string]*TypeParam_) (Type, bool) {
 	if m != unifyAssign && m != unifyAssignCo && m != unifyAssignIn && m != unifyAssignExact {
 		return nil, false
 	}
-	joined, ok := refinementJoinShape(existing, have, 0)
-	if !ok || joined == nil || containsTypeVar(joined) || ContainsTypeParam(joined) {
+	joined, ok := subtypeJoinShape(existing, have, 0)
+	// A type parameter of the body being checked is a type there like any
+	// other: `Option.with_default(Map.get(groups, k), [])` with groups a
+	// `Map<K, NonEmptyList<T>>` solves to `List<T>`. One the unification
+	// solves is not.
+	if !ok || joined == nil || containsTypeVar(joined) || typeHolds(joined, func(t Type) bool {
+		tp, isParam := t.(*TypeParam_)
+		return isParam && rigid[tp.Name_] != tp
+	}) {
 		return nil, false
 	}
 	if m == unifyAssignExact {

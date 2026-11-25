@@ -12,6 +12,10 @@
 #                                     Zed's dev extension points at editors/zed
 #   scripts/dev-editors.sh vscode     build editors/vscode/nomi.vsix and install it
 #                                     with `code` (make install-vscode)
+#   scripts/dev-editors.sh zed-link   not one of "everything": link Zed's extension
+#                                     back to editors/zed where `nomi editor install
+#                                     zed` wrote a copy over the dev extension
+#                                     (make use-source)
 #
 # Several targets may be named at once. An editor that is not installed is
 # skipped. This is the setup for working on Nomi; `nomi editor install`
@@ -106,6 +110,34 @@ zed_extension_stale() {
     [[ -n "$(find "$zed/src" "$zed/Cargo.toml" "$zed/Cargo.lock" -newer "$zed/extension.wasm" -print -quit)" ]]
 }
 
+# do_zed_link puts Zed's dev extension back where `nomi editor install zed`
+# wrote a copy over it, as `make use-release` does: a directory that holds
+# that command's marker gives way to a link to this checkout's editors/zed.
+# Zed takes a link in extensions/installed for a dev extension and loads the
+# builds in it, extension.wasm and grammars/nomi.wasm, which only its
+# "install dev extension" makes. Without both in the checkout this changes
+# nothing and names that step. A dev extension, no extension, and one nomi
+# did not write are left to do_zed.
+do_zed_link() {
+  local link zed="$ROOT/editors/zed"
+  link="$(zed_installed_link)"
+  if [[ -z "$link" || -L "$link" || ! -f "$link/nomi-version" ]]; then
+    return
+  fi
+  if [[ ! -f "$zed/extension.wasm" || ! -f "$zed/grammars/nomi.wasm" ]]; then
+    echo "dev-editors: Zed has the extension \`nomi editor install zed\` wrote, and this checkout holds no build of the dev extension."
+    echo "  In Zed, run \"zed: install dev extension\" and select $zed"
+    return
+  fi
+  if ! { rm -rf "$link" && ln -s "$zed" "$link"; }; then
+    echo "dev-editors: could not link $link to $zed" >&2
+    status=1
+    return
+  fi
+  echo "dev-editors: linked Zed's Nomi extension to $zed, in place of the one \`nomi editor install zed\` wrote. Restart Zed."
+  echo "  If Zed then lists no Nomi dev extension, run \"zed: install dev extension\" and select $zed"
+}
+
 do_zed() {
   local link
   link="$(zed_installed_link)"
@@ -151,9 +183,10 @@ for t in "${targets[@]}"; do
     nvim) do_nvim ;;
     helix) do_helix ;;
     zed) do_zed ;;
+    zed-link) do_zed_link ;;
     vscode) do_vscode ;;
     *)
-      echo "usage: scripts/dev-editors.sh [cli] [nvim] [helix] [zed] [vscode]" >&2
+      echo "usage: scripts/dev-editors.sh [cli] [nvim] [helix] [zed] [zed-link] [vscode]" >&2
       exit 2
       ;;
   esac

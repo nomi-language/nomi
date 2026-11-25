@@ -11,9 +11,9 @@
 # T <transcript line>, verbatim
 population irbuild
 what one record per program an internal/irbuild test compares the VM against, keyed <entry>@<sha256(its files, .nomi files as tokens)[:16]>, run as the command that owns it would run it. <dir> is the program's directory. A temp program carries its files as source; a repository program's entry is its path from the worktree root.
-records 383
+records 384
 declared-cases 0
-failing 88
+failing 89
 C assert_subject_test.nomi@cbda3e84c0be00e0
 E 1
 N 0
@@ -448,6 +448,30 @@ S
 S
 T ok <dir>/control_test.nomi :: the module-qualified spelling
 T test result: ok. 1 passed, 0 failed
+T
+C control_test.nomi@280393c78b83a987
+E 1
+N 0
+H bd0eb7ff12a7ba55fcb725775f96bbddea0356bffb93e9c71f2a2c62b96f15f1
+S -- control_test.nomi 401 --
+S test "a positional operand past a generic std function's omitted default"
+S   assert NonEmptyList.sort_by(["bb", "a", "ccc"], fn s -> String.length(s)) == ["a", "bb", "ccc"]
+S   assert (["bb", "a"] |> NonEmptyVector.sort_by(&String.length(&1))) == Vector["a", "bb"]
+S end
+S
+S test "a failing one reports the call's value"
+S   assert NonEmptyList.sort_by(["bb", "a"], fn s -> String.length(s)) == ["bb", "a"]
+S end
+S
+S
+T ok <dir>/control_test.nomi :: a positional operand past a generic std function's omitted default
+T FAIL <dir>/control_test.nomi :: a failing one reports the call's value
+T   line 7: assertion failed
+T     assert NonEmptyList.sort_by(["bb", "a"], fn s -> String.length(s)) == ["bb", "a"]
+T     values:
+T       NonEmptyList.sort_by(["bb", "a"], fn s -> String.length(s))
+T         = ["a", "bb"]
+T test result: FAILED. 1 passed, 1 failed
 T
 C control_test.nomi@2bc1f725d06b0884
 E 1
@@ -7300,7 +7324,7 @@ H 0705ac138e952a20316e87e75e86af891f0a2b829d9db6e0f1f3aabcc5937341
 T mine(1)
 T mine(2)
 T
-C internal/irbuild/testdata/std_option_boundary.nomi@bc1f7ee3c6d71139
+C internal/irbuild/testdata/std_option_boundary.nomi@244c72ae3c3b2a06
 E 0
 N 0
 H 125f27e8deb6802e3ee7d3acbb94b34cd3885423634c516d0e83fdebb9bf6e92
@@ -7358,7 +7382,7 @@ T items:2
 T named:1
 T empty
 T
-C internal/irbuild/testdata/stdkey_overloads.nomi@1733faa36d2f9ed9
+C internal/irbuild/testdata/stdkey_overloads.nomi@0de717fde4a7b2e2
 E 0
 N 0
 H 57b62b41730cc01c3a84ed271038223d23e7fae579b65f50741732aa6d7a4f09

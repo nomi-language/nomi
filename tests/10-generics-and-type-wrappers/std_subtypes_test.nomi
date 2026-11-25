@@ -1,0 +1,116 @@
+import
+    std::compiler
+    std::decimal.RoundingMode
+    std::duration.{Duration, PositiveDuration}
+    std::int.Radix
+end
+
+subtype Small PositiveInt when fn n -> n < 100
+
+fn exponent(e: NonNegativeInt) -> Int
+    Int.pow(2, e)
+end
+
+fn divisor(d: NonZeroInt) -> Int
+    100 / d
+end
+
+fn first_error(source: String) -> String
+    case compiler.check(source)
+        [d, ..] -> d.message
+        []      -> "no error"
+    end
+end
+
+test "the prelude's numeric subtypes take literals"
+    n: NonNegativeInt = 0
+    p: PositiveInt = 7
+    f: PositiveFloat = 0.5
+    z: NonZeroFloat = -2.0
+    d: PositiveDecimal = 1.25d
+    s: NonEmptyString = "Ada"
+
+    assert (n, p, f, z, d, s) == (0, 7, 0.5, -2.0, 1.25d, "Ada")
+end
+
+test "a PositiveInt passes as a NonNegativeInt, a NonZeroInt and an Int"
+    p: PositiveInt = 4
+
+    assert exponent(p) == 16
+    assert divisor(p) == 25
+    assert p + 1 == 5
+
+    ps: List<PositiveInt> = [1, 2, 3]
+    nz: List<NonZeroInt> = ps
+    assert Iter.sum(nz) == 6
+end
+
+test "try_from checks each parent's rule and its own"
+    assert PositiveInt.try_from(3) == Some(3)
+    assert PositiveInt.try_from(0) == None
+    assert PositiveInt.try_from(-3) == None
+    assert PositiveFloat.try_from(Float.nan()) == None
+    assert NonZeroFloat.try_from(Float.nan()) == None
+    assert PositiveDecimal.try_from(0.00d) == None
+    assert NonNegativeDecimal.try_from(0.00d) == Some(0d)
+    assert NonEmptyString.try_from(String.trim("  ")) == None
+    assert Small.try_from(99) == Some(99)
+    assert Small.try_from(100) == None
+    assert Small.try_from(-1) == None
+end
+
+test "the converted functions take subtype arguments"
+    assert Int.pow(3, 4) == 81
+    assert Int.sqrt(17) == 4
+    assert Int.to_digits(6, 2) == [1, 1, 0]
+    assert Int.from_digits([1, 1, 0], 2) == Some(6)
+    assert Decimal.pow(1.5d, 2) == 2.25d
+    assert Decimal.sqrt(2.25d, 1, RoundingMode.HalfEven) == 1.5d
+    assert Decimal.split(1d, 3, 2) == [0.34d, 0.33d, 0.33d]
+
+    computed = 10 - 7
+    exp = NonNegativeInt.try_from(computed)!
+    assert Int.pow(2, exp) == 8
+
+    base = Radix.try_from(computed)!
+    assert Int.to_digits(5, base) == [1, 2]
+    assert Radix.try_from(1) == None
+end
+
+test "a PositiveDuration takes a typed literal"
+    every: PositiveDuration = Duration"1m30s"
+    assert every == Duration.seconds(90)
+    assert PositiveDuration.try_from(Duration.seconds(-1)) == None
+end
+
+test "a computed value goes through try_from"
+    assert "check the value with `NonNegativeInt.try_from(...)`" in first_error(
+        "fn f(n: Int) -> Int\n    Int.pow(2, n)\nend\n"
+    )
+
+    assert "check the value with `PositiveDuration.try_from(...)`" in first_error(
+        "import std::duration.{Duration, PositiveDuration}\nfn f(n: Int) -> PositiveDuration\n    Duration.minutes(n)\nend\n"
+    )
+
+    assert first_error("type PositiveInt Int\n")
+        |> String.starts_with("type name 'PositiveInt' is reserved")
+end
+
+fn paced(every: PositiveDuration) -> PositiveDuration
+    every
+end
+
+test "arithmetic keeps the std numeric subtypes where they hold"
+    count = List.length([1, 2])
+    size = count + 1
+    assert Iter.chunks([1, 2, 3, 4], size) |> Iter.count() == 2
+    assert exponent(count * count) == 16
+    assert exponent(if count > 5 then count else 0) == 1
+
+    found = Iter.find_index([1, 2], &(&1 > 5))
+    assert String.repeat("ab", Option.with_default(found, 1)) == "ab"
+
+    every: PositiveDuration = Duration"1m"
+    assert paced(every + Duration.abs(Duration.seconds(-30))) == Duration.seconds(90)
+    assert paced(every * 2) == Duration.minutes(2)
+end

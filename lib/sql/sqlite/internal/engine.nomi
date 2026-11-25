@@ -41,14 +41,21 @@ end
 
 derive Equatable for Cell
 
-/// A failure SQLite reported: its extended result code, its message, and
-/// the byte of the SQL it is at (-1 for none). A code of -1 is the engine's
-/// own failure, which leaves it unusable.
-struct Failure
-    code:    Int
-    message: String
-    at:      Int
+/// Why an operation of the engine failed.
+enum Failure
+    /// SQLite answered a failure: its extended result code, its message,
+    /// and the byte of the SQL it is at (-1 for none).
+    Reported {code: Int, message: String, at: Int}
+
+    /// The engine failed instead of answering: it trapped, in this call or
+    /// an earlier one, or it answered outside its memory. Either is a fault
+    /// in its C code that the sandbox held, and a trap leaves the instance
+    /// dead, so every later call fails the same way. `message` is the
+    /// fault.
+    Fault {message: String}
 end
+
+derive Equatable for Failure
 
 /// The columns of a statement: their names and declared types (`""` for
 /// none).
@@ -123,18 +130,23 @@ fn open(e: Engine, name: String) -> Result<Int, Failure>
     Ok(i32(data, 4))
 end
 
-/// Closes the connection `db`, and answers SQLite's code.
-fn close(e: Engine, db: Int) -> Int
-    case call(
+/// Whether the engine still answers: its instance has not trapped.
+fn alive(e: Engine) -> Result<Unit, Failure>
+    _ = Instance.size(e.instance) |> Result.map_err(fault)?
+    Ok(Unit)
+end
+
+/// Closes the connection `db`.
+fn close(e: Engine, db: Int) -> Result<Unit, Failure>
+    _ = call(
         e,
         "close",
         Builder.new()
         |> Builder.push_int32_le(db)
         |> Builder.to_bytes(),
-    )
-        Ok(_)  -> 0
-        Err(f) -> f.code
-    end
+    )?
+
+    Ok(Unit)
 end
 
 /// Runs the statements of `sql` on `db` with `params` bound to each.
@@ -211,19 +223,29 @@ end
 /// The export `name` run over `input`: its answer, from its code on, or
 /// its failure.
 fn call(e: Engine, name: String, input: Bytes) -> Result<Bytes, Failure>
-    data =
-        Instance.run(e.instance, name, input)
-        |> Result.map_err(fn trap -> Failure{
-            code:    -1,
-            message: "the SQLite engine failed: ${trap}",
-            at:      -1,
-        })?
-
+    data = Instance.run(e.instance, name, input) |> Result.map_err(fault)?
     code = i32(data, 0)
     if code == 0 then return Ok(data)
 
     (message, at) = text(data, 4)
-    Err(Failure{code:, message:, at: i32(data, at)})
+    Err(.Reported{code:, message:, at: i32(data, at)})
+end
+
+/// The failure a run of one of the shim's exports answered. A trap, in this
+/// call or an earlier one, is the engine's fault, and so is a `Mismatch`:
+/// the shim's exports meet `wasm.run`'s convention, so a run answers one
+/// only when the engine says its input or its answer is outside its memory.
+/// The shim exports every function this file runs, and a connection drops
+/// its instance only when it closes, after which it runs nothing, so a run
+/// answers no other `wasm.Error`.
+fn fault(error: wasm.Error) -> Failure
+    case error
+        .Trapped(_) or .Dead(_) or .Mismatch{} ->
+            .Fault{message: "${error}"}
+
+        .NoExport{} or .Dropped or .Expired or .MissingImport{} or .OutOfRange{} ->
+            unreachable "the shim exports what the engine runs, and a closed connection runs nothing"
+    end
 end
 
 /// A statement's input: the connection, the SQL and its parameters.

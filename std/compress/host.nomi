@@ -7,7 +7,7 @@
 
 import
     bytes.Bytes
-    int.{Int, Int64}
+    int.{Int, Int64, NonNegativeInt}
     io.{Reader, Writer}
     option.Option
     strings.String
@@ -48,7 +48,7 @@ host fn decode_at(
     offset:     Int,
     max_length: Int,
     dictionary: Option<Bytes>,
-) -> (Bytes, Int, Int, Int, String)
+) -> (Bytes, NonNegativeInt, Int, Int, String)
 
 /// A reader of what `source` decompresses to. Closing it leaves `source`
 /// open.

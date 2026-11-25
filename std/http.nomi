@@ -59,7 +59,7 @@ import
     io.{Reader, Writer}
     iter.Iter
     json.{FromJson, Json, ToJson}
-    lists.List
+    lists.{List, NonEmptyList}
     literals.{CheckedLiteral, Fragment, Literal, LiteralError}
     log.{self, Logger}
     maps.Map
@@ -733,9 +733,6 @@ pub struct Request
     /// Records what happens while the client sends this request
     /// (`Tracer.events`).
     trace: Option<Tracer> = None
-    /// The server's hold on a request it received, for
-    /// `Request.extend_read_deadline`.
-    incoming: Option<http_host.Incoming> = None
 end
 
 impl Request
@@ -1067,12 +1064,22 @@ impl Request
     end
 
     /// Lets the client take until `by` from now to send the rest of the
-    /// body, past the server's `read_timeout`.
+    /// body, past the server's `read_timeout`. The server's hold on the
+    /// request is a value of the `context` it gave the request, which a
+    /// context derived from that one keeps.
     ///
-    /// An `Err` for a request no server received.
+    /// An `Err` for a request whose context holds none: one no server
+    /// received, or one given a context not derived from the server's.
+    //! import std::duration.Duration
+    //! import std::http.{Method, Request}
+    //! import std::http::testing
+    //!
+    //! built = testing.request(Method.Post, "/upload")
+    //! assert Request.extend_read_deadline(built, Duration.seconds(5)) is Err(_)
+    //
     pub fn extend_read_deadline(request: Request, by: Duration) -> Result<Unit, Error>
-        case request.incoming
-            Some(incoming) ->
+        case Context.value(request.context, ServerHold)
+            Some(ServerHold{incoming:}) ->
                 http_host.extend_read_deadline(incoming, wait_nanos(by))
                 |> Result.map_err(fn reason -> Error.Protocol{reason:})
 
@@ -2657,8 +2664,10 @@ end
 /// shutting the listener down.
 ///
 /// `request.context` is the context in force here with `request_timeout`
-/// as a deadline. A handler keeps the app's `Context` field it was made
-/// under, as any closure does, held to that deadline while it runs.
+/// as a deadline, and it carries the server's hold on the request that
+/// `Request.extend_read_deadline` reads. A handler keeps the app's
+/// `Context` field it was made under, as any closure does, held to that
+/// deadline while it runs.
 /// The handler's task is stopped when the client goes away. A handler that
 /// traps sends a 500. Use a supervisor that does not restart its tasks
 /// (`Restart.Temporary`, the default); a restarted handler sends nothing.
@@ -2681,6 +2690,12 @@ fn accept(listener: Listener, handler: Handler, supervisor: Supervisor) -> Unit
         None ->
             Unit
     end
+end
+
+// The server's hold on a request it received, a value of the request's
+// context for `Request.extend_read_deadline`.
+private struct ServerHold
+    incoming: http_host.Incoming
 end
 
 fn answer(listener: Listener, incoming: http_host.Incoming, handler: Handler) -> Unit
@@ -2732,10 +2747,9 @@ fn request_of(incoming: http_host.Incoming, context: Context) -> Result<Request,
         protocol: Protocol{major:, minor:},
         remote_address: http_host.in_remote(incoming),
         request_uri: target,
-        context:,
+        context: Context.with_value(context, ServerHold{incoming:}),
         local_address:,
-        tls:      connection,
-        incoming: Some(incoming),
+        tls: connection,
     })
 end
 
@@ -3083,7 +3097,7 @@ end
 /// `/` in it is no method, and Go's own check names it.
 fn method_rule(text: String) -> Option<String>
     spaced = String.replace(text, "\t", " ")
-    word = String.split(spaced, " ") |> List.first() |> Option.with_default("")
+    word = String.split(spaced, " ") |> NonEmptyList.first()
 
     if not String.contains(spaced, " ") or word == "" or String.contains(word, "/") then
         None
@@ -6013,13 +6027,23 @@ end
 
 /// One part of a multipart body, read as it arrives. Reading the next
 /// part ends this one.
-pub struct Part
+pub opaque struct Part
     headers: Headers
     body:    Reader
     handle:  http_host.Handle
 end
 
 impl Part
+    /// The part's own headers.
+    pub fn headers(part: Part) -> Headers
+        part.headers
+    end
+
+    /// A reader of the part's content, which ends at the part's end.
+    pub fn body(part: Part) -> Reader
+        part.body
+    end
+
     /// The `name` of its `form-data` `Content-Disposition`, if any.
     pub fn form_name(part: Part) -> Option<String>
         case http_host.part_form_name(part.handle)

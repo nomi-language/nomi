@@ -89,7 +89,7 @@ func (c *checker) recordOperatorUses() {
 // operatorSubject is the interface and function the operator n goes
 // through, and the type that implements it: a comparison's compared
 // operand's (comparedOperand), any other binary operator's left
-// operand's, `~~~`'s operand's (a refinement's value is its base's, as
+// operand's, `~~~`'s operand's (a subtype's value is its base's, as
 // checkBitwiseNot types it), and a `dbg`'s operand's, which it renders as
 // `Debug.inspect` does (spec §12 *Display and Debug*): `dbg e`'s e, and
 // for a pipe stage's bare `dbg` the value piped in, which is the stage's
@@ -116,8 +116,8 @@ func operatorSubject(fa *FileAnalysis, n ast.Node) (iface, method string, t Type
 	if !ok || t == nil {
 		return "", "", nil, false
 	}
-	if _, unary := n.(*ast.Unary); unary && refinementOf(t) != nil {
-		t = RefinementBase(t)
+	if _, unary := n.(*ast.Unary); unary && subtypeOf(t) != nil {
+		t = SubtypeBase(t)
 	}
 	return iface, method, t, true
 }

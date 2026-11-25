@@ -46,7 +46,6 @@ var stdNames = []string{
 	"std::hex",
 	"std::html",
 	"std::http",
-	"std::http::host",
 	"std::http::testing",
 	"std::instant",
 	"std::int",

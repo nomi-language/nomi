@@ -8,9 +8,11 @@ import (
 	"testing"
 )
 
-// leadManifest holds the dependency in dependencyFiles to an entry that
+// leadFiles is dependencyFiles with the dependency held to an entry that
 // allows nothing, so its read of a file is refused.
-const leadManifest = effectManifest + "\n[effects.deps]\n\n[effects.deps.packages]\n\"pricing\" = []\n"
+func leadFiles() map[string]string {
+	return withEntry(dependencyFiles(effectManifest+"\n[effects.dependencies]\n", ""), "effects = []")
+}
 
 // refusalOf loads app/main.nomi from a project of files, holds it to its
 // lists as `nomi check` does, and answers the refusal, with the project's
@@ -65,7 +67,7 @@ func TestEffectLead_TheProjectsLastStep(t *testing.T) {
 	}}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			files := dependencyFiles(leadManifest, "")
+			files := leadFiles()
 			files["app/main.nomi"] = c.main
 			refused, dir := refusalOf(t, files)
 			if len(refused.Diagnostics) != 1 {
@@ -86,7 +88,7 @@ func TestEffectLead_TheProjectsLastStep(t *testing.T) {
 // refusal holds each, in position order, and its text names the first and
 // counts the rest, all of them with --all-calls.
 func TestEffectLead_SeveralCalls(t *testing.T) {
-	files := dependencyFiles(leadManifest, "")
+	files := leadFiles()
 	files["app/main.nomi"] = "import\n    std::io\n    pricing::rules\nend\n\nfn main()\n    io.print(rules.load(\"a.txt\"))\n" +
 		"    io.print(rules.load(\"b.txt\"))\n    io.print(rules.load(\"c.txt\"))\nend\n"
 	refused, dir := refusalOf(t, files)

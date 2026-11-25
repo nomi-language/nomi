@@ -244,15 +244,15 @@ derive Comparable for Report
 	}
 }
 
-// A derive over a field of a refinement takes the base's impl: a refinement's value
-// is its base's (spec §4 *Refinements*), so `year: Int64` and a field of the
-// program's own refinement of Int are compared, hashed and shown as Ints.
-func TestDeriveOverARefinementComponentUsesTheBase(t *testing.T) {
+// A derive over a field of a subtype takes the base's impl: a subtype's value
+// is its base's (spec §4 *Subtypes*), so `year: Int64` and a field of the
+// program's own subtype of Int are compared, hashed and shown as Ints.
+func TestDeriveOverASubtypeComponentUsesTheBase(t *testing.T) {
 	for _, iface := range []string{"Equatable", "Hashable", "Comparable", "Display"} {
 		t.Run(iface, func(t *testing.T) {
 			src := fmt.Sprintf(`import std::int.Int64
 
-refine Small Int when fn n -> n < 100
+subtype Small Int when fn n -> n < 100
 
 struct S
   year: Int64
@@ -263,21 +263,21 @@ derive %s for S
 `, iface)
 			fa := buildWithStdlibForDerive(src)
 			if len(fa.TypeErrors) != 0 {
-				t.Fatalf("a derive over refinement fields is refused:\n  %s", errMsgs(fa.TypeErrors))
+				t.Fatalf("a derive over subtype fields is refused:\n  %s", errMsgs(fa.TypeErrors))
 			}
 		})
 	}
 }
 
-// A refinement of several parents has their base's impls too: the program's
+// A subtype of several parents has their base's impls too: the program's
 // own `Pos` over `NonNeg and NonZero`, std's PositiveInt (NonNegativeInt
 // and NonZeroInt), and a field written as the intersection itself.
-func TestDeriveOverAnIntersectionRefinementComponentUsesTheBase(t *testing.T) {
+func TestDeriveOverAnIntersectionSubtypeComponentUsesTheBase(t *testing.T) {
 	for _, iface := range []string{"Equatable", "Hashable", "Comparable", "Display"} {
 		t.Run(iface, func(t *testing.T) {
-			src := fmt.Sprintf(`refine NonNeg Int when fn n -> n >= 0
-refine NonZero Int when fn n -> n != 0
-refine Pos NonNeg and NonZero when fn n -> n > 0
+			src := fmt.Sprintf(`subtype NonNeg Int when fn n -> n >= 0
+subtype NonZero Int when fn n -> n != 0
+subtype Pos NonNeg and NonZero when fn n -> n > 0
 
 struct S
   own: Pos
@@ -289,7 +289,7 @@ derive %s for S
 `, iface)
 			fa := buildWithStdlibForDerive(src)
 			if len(fa.TypeErrors) != 0 {
-				t.Fatalf("a derive over intersection refinement fields is refused:\n  %s", errMsgs(fa.TypeErrors))
+				t.Fatalf("a derive over intersection subtype fields is refused:\n  %s", errMsgs(fa.TypeErrors))
 			}
 		})
 	}

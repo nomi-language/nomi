@@ -145,7 +145,7 @@ func (s *Server) textDocumentSemanticTokensFull(ctx *glsp.Context, params *proto
 		}
 		return nil, nil
 	}
-	doc := s.docs.Snapshot(uri)
+	doc := s.requestDoc(ctx, uri)
 	if doc == nil {
 		return nil, nil
 	}

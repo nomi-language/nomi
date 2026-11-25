@@ -231,7 +231,7 @@ fn scram_server(
         return refuse(conn)
     end
 
-    client_nonce = String.split(bare, "r=") |> Iter.last() |> Option.with_default("")
+    client_nonce = String.split(bare, "r=") |> NonEmptyList.last()
     nonce = client_nonce + "fakeserver"
     salt = String.to_bytes("pepper salt")
     server_first = "r=${nonce},s=${base64.encode(salt)},i=4096"

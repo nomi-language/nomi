@@ -38,8 +38,8 @@ import (
 //     `Iter.take`" for a pipe stage that drains an infinite iterator, and
 //     from the document's last lowering, "Allow std::fs in nomi.toml" for
 //     a call the [effects] lists do not allow, an edit to nomi.toml.
-//   - in nomi.toml, "Remove std::net from std" for a name its lists hold
-//     that nothing reaches, and "Move std::fs to std_in_tests" for one only
+//   - in nomi.toml, "Remove std::net from effects" for a name its lists
+//     hold that nothing reaches, and "Move std::fs to effects_in_tests" for one only
 //     the tests reach (manifest_reach.go).
 //   - "Add the pl translation of `m`" for a `phrase` a listed locale has
 //     no translation of, and in a catalog, marking a stale translation
@@ -48,7 +48,7 @@ import (
 // and the actions over the requested range (code_action_refactor.go), and
 // "Remove type annotation" and "Add type annotation" on a field or
 // parameter with a default (code_action_default_type.go).
-func (s *Server) textDocumentCodeAction(_ *glsp.Context, params *protocol.CodeActionParams) (any, error) {
+func (s *Server) textDocumentCodeAction(gctx *glsp.Context, params *protocol.CodeActionParams) (any, error) {
 	uri := string(params.TextDocument.URI)
 	only := params.Context.Only
 	if isManifestURI(uri) {
@@ -79,7 +79,7 @@ func (s *Server) textDocumentCodeAction(_ *glsp.Context, params *protocol.CodeAc
 		}
 		return actions, nil
 	}
-	snap := s.docs.Snapshot(uri)
+	snap := s.requestDoc(gctx, uri)
 	if snap == nil || snap.Analysis == nil {
 		return nil, nil
 	}
@@ -89,7 +89,7 @@ func (s *Server) textDocumentCodeAction(_ *glsp.Context, params *protocol.CodeAc
 		actions = append(actions, buildAddImportActions(snap.Content, snap.Nodes, snap.Analysis, uri, params.Context.Diagnostics)...)
 		actions = append(actions, s.buildFillActions(snap.Content, snap.Nodes, snap.Analysis, uri, params.Context.Diagnostics)...)
 		actions = append(actions, buildUselessReturnActions(snap.Content, uri, snap.Analysis.TypeErrors, params.Context.Diagnostics)...)
-		actions = append(actions, buildParseFixActions(snap.Content, uri, s.contentForURI, append(append([]parser.ParseError(nil), snap.Errors...), typeErrorFixes(snap.Analysis.TypeErrors)...), params.Context.Diagnostics)...)
+		actions = append(actions, buildParseFixActions(snap.Content, uri, s.contentForURI, append(append([]parser.ParseError(nil), snap.Errors...), typeErrorFixes(errorsInDocument(uri, snap.Analysis.TypeErrors))...), params.Context.Diagnostics)...)
 		actions = append(actions, buildParseFixActions(snap.Content, uri, nil, typeErrorFixes(snapInterfaceValueHints(snap, nil)), params.Context.Diagnostics)...)
 		actions = append(actions, buildParseFixActions(snap.Content, uri, nil, typeErrorFixes(analysis.FileHints(snap.Analysis, snap.Nodes)), params.Context.Diagnostics)...)
 		actions = append(actions, buildParseFixActions(snap.Content, uri, nil, typeErrorFixes(analysis.DollarWarnings(snap.Analysis, snap.Nodes)), params.Context.Diagnostics)...)

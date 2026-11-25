@@ -97,7 +97,13 @@ func runInit(args []string) error {
 		return err
 	}
 	if len(entries) > 0 && isRegular(entries[0]+".nomi") {
-		fmt.Printf("next: nomi run %s.nomi\n", entries[0])
+		// `nomi run` runs a package's one entry point, and takes the file
+		// when there are several.
+		next := "nomi run"
+		if len(entries) > 1 {
+			next += " " + entries[0] + ".nomi"
+		}
+		fmt.Printf("next: %s\n", next)
 	}
 	return nil
 }

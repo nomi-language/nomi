@@ -1,6 +1,6 @@
 NODE22_BIN ?= /opt/homebrew/opt/node@22/bin
 
-.PHONY: test test-go test-std test-programs test-tour fmt build build-tour-grammar-wasm deploy-tour start-tour build-cli build-zed build-zed-queries build-helix install-helix build-nvim build-nvim-parser install-nvim test-nvim build-vscode install-vscode test-vscode install-zed dev-editors dev-nvim dev-helix dev-zed enable-hooks check-full fuzz publish-main
+.PHONY: test test-go test-std test-programs test-tour fmt build build-tour-grammar-wasm deploy-tour start-tour build-cli build-zed build-zed-queries build-helix install-helix build-nvim build-nvim-parser install-nvim test-nvim build-vscode install-vscode test-vscode install-zed dev-editors dev-nvim dev-helix dev-zed use-release use-source clean-legacy enable-hooks check-full fuzz publish-main
 
 test: test-std test-programs test-go
 
@@ -190,6 +190,38 @@ dev-helix:
 
 dev-zed:
 	./scripts/dev-editors.sh zed
+
+# One nomi on this machine at a time: the release, or the build from this
+# checkout. use-release runs scripts/install.sh from this checkout in
+# replace mode (VERSION=v0.0.1 names a release; the latest otherwise), which
+# removes each nomi on PATH built from source and has the release write the
+# support of every editor that has any, over Zed's dev extension too.
+# use-source goes back: it removes the nomi in the install script's
+# directory when its --version names a release, links Zed's extension to
+# this checkout again where the checkout still holds Zed's build of it
+# (scripts/dev-editors.sh zed-link, which names the step inside Zed
+# otherwise), and runs dev-editors.
+RELEASE_NOMI := $(or $(NOMI_INSTALL_DIR),$(HOME)/.nomi/bin)/nomi
+
+use-release: clean-legacy
+	NOMI_REPLACE=1 $(if $(VERSION),NOMI_VERSION=$(VERSION)) sh scripts/install.sh
+
+# clean-legacy removes the binaries older install instructions left in Go's
+# bin directory (scripts/clean-legacy.sh names them). use-release runs it
+# first, so `git pull && make use-release` in an old clone moves that
+# machine onto the release.
+clean-legacy:
+	./scripts/clean-legacy.sh
+
+use-source:
+	@if [ -f "$(RELEASE_NOMI)" ]; then \
+		case "$$("$(RELEASE_NOMI)" --version 2>/dev/null | sed -n 1p)" in \
+		"nomi v"[0-9]*" ("*", "*")") rm -f "$(RELEASE_NOMI)" && echo "use-source: removed $(RELEASE_NOMI)" ;; \
+		*) echo "use-source: left $(RELEASE_NOMI), whose --version names no release" ;; \
+		esac; \
+	fi
+	./scripts/dev-editors.sh zed-link
+	./scripts/dev-editors.sh
 
 # core.hooksPath gets an absolute path: a relative one resolves against the
 # git directory, which for a clone with worktrees is the shared one, not this

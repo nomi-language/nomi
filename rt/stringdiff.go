@@ -9,7 +9,8 @@ import (
 
 // The line diff a failed `assert actual == expected` over two Strings prints
 // in place of the two operands' `values:` rows, and the diff an Assertable
-// that answered both sides shows (`io.replay`'s transcript and script).
+// that answered both sides shows (`io.replay`'s transcript and script). The
+// same line diff is the unified diff `nomi fmt -d` prints (UnifiedDiff).
 //
 // Two full multi-line values leave the comparison to the reader, who has to
 // find the one line that differs, and cannot see a trailing space or a
@@ -140,9 +141,11 @@ type diffOp struct {
 	line diffLine
 }
 
-// lineDiff compares expected with actual line by line. truncated reports that
-// the lines were too many to compare in full, and the ops then end at the
-// first difference.
+// lineDiff compares expected with actual line by line: its ops are every
+// line of both, in order, and turn expected into actual. truncated reports
+// that the lines left after the common prefix and suffix were too many to
+// compare, and the ops then remove every one of expected's and add every one
+// of actual's.
 func lineDiff(expected, actual []diffLine) (ops []diffOp, truncated bool) {
 	prefix := 0
 	for prefix < len(expected) && prefix < len(actual) && expected[prefix] == actual[prefix] {
@@ -158,15 +161,55 @@ func lineDiff(expected, actual []diffLine) (ops []diffOp, truncated bool) {
 	}
 	a := expected[prefix : len(expected)-suffix]
 	b := actual[prefix : len(actual)-suffix]
-	if len(a) > 0 && len(b) > 0 && len(a)*len(b) > diffMaxCells {
-		ops = append(ops, diffOp{'-', a[0]}, diffOp{'+', b[0]})
-		return ops, true
+	truncated = len(a) > 0 && len(b) > 0 && len(a)*len(b) > diffMaxCells
+	if truncated {
+		for _, l := range a {
+			ops = append(ops, diffOp{'-', l})
+		}
+		for _, l := range b {
+			ops = append(ops, diffOp{'+', l})
+		}
+	} else {
+		ops = append(ops, lcsDiff(a, b)...)
 	}
-	ops = append(ops, lcsDiff(a, b)...)
 	for _, l := range expected[len(expected)-suffix:] {
 		ops = append(ops, diffOp{' ', l})
 	}
-	return ops, false
+	return ops, truncated
+}
+
+// firstDifference is ops up to their first removed line, and their first
+// added line: what a truncated assertion diff shows.
+func firstDifference(ops []diffOp) []diffOp {
+	cut := len(ops)
+	for i, op := range ops {
+		if op.kind != ' ' {
+			cut = i + 1
+			break
+		}
+	}
+	out := ops[:cut:cut]
+	for _, op := range ops[cut:] {
+		if op.kind == '+' {
+			return append(out, op)
+		}
+	}
+	return out
+}
+
+// changeContext marks each op that is a change or within diffContext ops of
+// one: the lines a diff shows.
+func changeContext(ops []diffOp) []bool {
+	shown := make([]bool, len(ops))
+	for i, op := range ops {
+		if op.kind == ' ' {
+			continue
+		}
+		for k := max(0, i-diffContext); k <= min(len(ops)-1, i+diffContext); k++ {
+			shown[k] = true
+		}
+	}
+	return shown
 }
 
 // lcsDiff is the longest-common-subsequence diff of a and b. At a choice it
@@ -267,15 +310,10 @@ func visibleDiffText(text string, marked bool) (string, bool) {
 func (st assertionReportStyle) writeStringDiff(w io.Writer, indent string, d *AssertionStringDiff) {
 	fmt.Fprintf(w, "%s%s\n\n", indent, st.label(d.header()))
 	ops, truncated := lineDiff(splitDiffLines(d.Expected), splitDiffLines(d.Actual))
-	shown := make([]bool, len(ops))
-	for i, op := range ops {
-		if op.kind == ' ' {
-			continue
-		}
-		for k := max(0, i-diffContext); k <= min(len(ops)-1, i+diffContext); k++ {
-			shown[k] = true
-		}
+	if truncated {
+		ops = firstDifference(ops)
 	}
+	shown := changeContext(ops)
 	// The number column is as wide as the last expected line's number, and
 	// absent when the expected side is not a literal in the file.
 	width := 0

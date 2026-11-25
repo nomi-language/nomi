@@ -48,10 +48,11 @@ func effectFixOf(t *testing.T, path, src string) parser.ParseError {
 }
 
 // The fix of a call nomi.toml's tables do not allow edits nomi.toml, at the
-// key of the table the help names: self's std, or std_in_tests when only a
-// test reaches the call; a dependency's entry under [effects.deps.packages],
-// with deps' std too when that does not allow it either, in one action; and
-// deps' std or std_in_tests alone. Every other line, comments included, stays, and with the
+// key of the table the help names: self's std, or effects_in_tests when only a
+// test reaches the call; a [dependencies] entry's effects, with the
+// ceiling's effects too when that does not allow it either, in one action,
+// or its effects_in_tests for a test's call; and the ceiling's effects or
+// effects_in_tests alone. Every other line, comments included, stays, and with the
 // edited file the call is allowed.
 func TestEffectFix_EditsEachList(t *testing.T) {
 	if testing.Short() {
@@ -78,39 +79,45 @@ func TestEffectFix_EditsEachList(t *testing.T) {
 	}{{
 		name:     "self's std",
 		main:     effectMain,
-		manifest: module + "[effects.self]\n# what main prints\nstd = [\"std::io\"]  # output\n",
+		manifest: module + "[effects.self]\n# what main prints\neffects = [\"std::io\"]  # output\n",
 		title:    "Allow std::fs for this package in nomi.toml",
-		want:     module + "[effects.self]\n# what main prints\nstd = [\"std::io\", \"std::fs\"]  # output\n",
+		want:     module + "[effects.self]\n# what main prints\neffects = [\"std::io\", \"std::fs\"]  # output\n",
 	}, {
-		name:     "self's std_in_tests",
+		name:     "self's effects_in_tests",
 		main:     testsMain,
-		manifest: module + "[effects.self]\nstd = [\"std::io\"]\n\n# tests\nstd_in_tests = []\n",
+		manifest: module + "[effects.self]\neffects = [\"std::io\"]\n\n# tests\neffects_in_tests = []\n",
 		title:    "Allow std::fs for this package's tests in nomi.toml",
-		want:     module + "[effects.self]\nstd = [\"std::io\"]\n\n# tests\nstd_in_tests = [\"std::fs\"]\n",
+		want:     module + "[effects.self]\neffects = [\"std::io\"]\n\n# tests\neffects_in_tests = [\"std::fs\"]\n",
 	}, {
-		name: "a dependency's entry and deps' std",
-		main: pricingMain,
-		manifest: pricingModule + "[effects.deps]\nstd = [] # all\n\n[effects.deps.packages]\n" +
-			"# prices\n\"pricing\" = []\n",
-		title: "Allow std::fs for pricing in nomi.toml",
-		want: pricingModule + "[effects.deps]\nstd = [\"std::fs\"] # all\n\n[effects.deps.packages]\n" +
-			"# prices\n\"pricing\" = [\"std::fs\"]\n",
-		app:   "app",
-		files: pricing,
-	}, {
-		name:     "deps' std",
+		name:     "a dependency's entry and the ceiling",
 		main:     pricingMain,
-		manifest: pricingModule + "[effects.deps]\n# the most any dependency reaches\nstd = []\n",
-		title:    "Allow std::fs for dependencies in nomi.toml",
-		want:     pricingModule + "[effects.deps]\n# the most any dependency reaches\nstd = [\"std::fs\"]\n",
+		manifest: module + "[dependencies]\n# prices\npricing = { dir = \"../pricing\", effects = [] }\n\n[effects.dependencies]\neffects = [] # all\n",
+		title:    "Allow std::fs for pricing in nomi.toml",
+		want:     module + "[dependencies]\n# prices\npricing = { dir = \"../pricing\", effects = [\"std::fs\"] }\n\n[effects.dependencies]\neffects = [\"std::fs\"] # all\n",
 		app:      "app",
 		files:    pricing,
 	}, {
-		name:     "deps' std_in_tests",
+		name:     "a dependency's entry's effects_in_tests",
 		main:     pricingTestMain,
-		manifest: pricingModule + "[effects.deps]\nstd = []\n",
+		manifest: module + "[dependencies]\npricing = { dir = \"../pricing\", effects = [] } # prices\n",
+		title:    "Allow std::fs for pricing in tests in nomi.toml",
+		want:     module + "[dependencies]\npricing = { dir = \"../pricing\", effects = [], effects_in_tests = [\"std::fs\"] } # prices\n",
+		app:      "app",
+		files:    pricing,
+	}, {
+		name:     "deps' std",
+		main:     pricingMain,
+		manifest: pricingModule + "[effects.dependencies]\n# the most any dependency reaches\neffects = []\n",
+		title:    "Allow std::fs for dependencies in nomi.toml",
+		want:     pricingModule + "[effects.dependencies]\n# the most any dependency reaches\neffects = [\"std::fs\"]\n",
+		app:      "app",
+		files:    pricing,
+	}, {
+		name:     "deps' effects_in_tests",
+		main:     pricingTestMain,
+		manifest: pricingModule + "[effects.dependencies]\neffects = []\n",
 		title:    "Allow std::fs for dependencies in tests in nomi.toml",
-		want:     pricingModule + "[effects.deps]\nstd = []\nstd_in_tests = [\"std::fs\"]\n",
+		want:     pricingModule + "[effects.dependencies]\neffects = []\neffects_in_tests = [\"std::fs\"]\n",
 		app:      "app",
 		files:    pricing,
 	}}
@@ -148,9 +155,9 @@ func TestEffectFix_NoneForADependencysOwnList(t *testing.T) {
 	}
 	main := "import\n    std::io\n    pricing::rules\nend\n\nfn main()\n    io.print(rules.load(\"prices.txt\"))\nend\n"
 	dir := writeProject(t, map[string]string{
-		"app/nomi.toml":      "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = [\"std::io\"]\n\n[effects.deps]\nstd = [\"std::io\"]\n\n[dependencies]\npricing = { dir = \"../pricing\" }\n",
+		"app/nomi.toml":      "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\neffects = [\"std::io\"]\n\n[effects.dependencies]\neffects = [\"std::io\"]\n\n[dependencies]\npricing = { dir = \"../pricing\" }\n",
 		"app/main.nomi":      main,
-		"pricing/nomi.toml":  "[package]\nname = \"pricing\"\n\n[effects.self]\nstd = [\"std::io\"]\n",
+		"pricing/nomi.toml":  "[package]\nname = \"pricing\"\n\n[effects.self]\neffects = [\"std::io\"]\n",
 		"pricing/rules.nomi": "import std::fs\n\npub fn load(path: String) -> String\n    fs.read_text(path) |> Result.with_default(\"\")\nend\n",
 	})
 	path := filepath.Join(dir, "app", "main.nomi")
@@ -208,7 +215,7 @@ func TestEffectFix_CodeActionClearsTheDiagnostic(t *testing.T) {
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
-	manifest := "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\n# printing\nstd = [\"std::io\"]\n"
+	manifest := "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\n# printing\neffects = [\"std::io\"]\n"
 	dir := writeProject(t, map[string]string{"main.nomi": effectMain, "nomi.toml": manifest})
 	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
 	manifestPath := filepath.Join(dir, "nomi.toml")

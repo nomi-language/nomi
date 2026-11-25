@@ -74,20 +74,21 @@ import (
 // EffectCallsNotAllowed holds those calls to nomi.toml's effect
 // tables (Effects), one rule over every call (effects.Allows),
 // decided in one place (standingsOf). Each call is held by one table and
-// its entries, by the module whose file holds it. A call in the project's
-// own files is held by [effects.self]: by its std, and by the entry for
-// the file's module under [effects.self.modules], keyed by the file's
+// its entries, by the package whose file holds it. A call in the project's
+// own files is held by [effects.self]: by its effects, and by the entry
+// for the file's module under [effects.self.modules], keyed by the file's
 // import path (importOf), a std list. A call in a dependency's files is
-// held by [effects.deps]: by its std, a ceiling when the table sets one,
-// and by the project's entry for that module under
-// [effects.deps.packages], a std list. It is held too to the
-// [effects.self] in the dependency's own nomi.toml (packageAt): its std
-// and its entry for the file's module. A call over more than one list is
-// reported once, over the first of the module's own list, the entry and
-// the table the entry is under. A host's list (WithEffects) holds the
-// whole program: it is a table whose self and deps hold the same names,
-// held beside nomi.toml's, and each call over it is reported again, as
-// the host's.
+// held by [effects.dependencies]: by its effects, a ceiling when the table
+// sets one, and by the `effects` keys of the project's [dependencies]
+// entries through which it reaches that package (EffectCall.Through),
+// which allow together what any of them does. It is held too to the
+// [effects.self] in the dependency's own nomi.toml (packageAt): its
+// effects and its entry for the file's module. A call over more than one
+// list is reported once, over the first of the package's own list, the
+// entries and the table the entries are under. A host's list
+// (WithEffects) holds the whole program: it is a table whose self and
+// dependencies hold the same names, held beside nomi.toml's, and each call
+// over it is reported again, as the host's.
 //
 // ClassUses keeps its own report: it lifts each classed crossing to
 // the first call outside std on the path the walk first took, so a std
@@ -557,8 +558,15 @@ type EffectCall struct {
 	// is `host:` and its key.
 	Name string
 	// Package is the package charged for the call, the one whose file holds
-	// it: a dependency's name in the program (requiredPackage.path), or "" for the program's own files.
+	// it: a dependency's name in the program (requiredPackage.path), or ""
+	// for the program's own files.
 	Package string
+	// Through is, for a call in a dependency's files, each entry of the
+	// project's [dependencies], by its key, through which the project
+	// reaches Package (pkgcache.Graph.Through): Package itself when the
+	// project names it. The `effects` keys of those entries hold the call.
+	// Nil for the program's own files.
+	Through []string
 	// Import is the file that holds the call as the code of its own Nomi
 	// module imports it (importOf): `pricing`, `reports::daily`. It is the
 	// key of the file's entry under [effects.self.modules].
@@ -631,19 +639,28 @@ func (p *Program) walk(r Roots) Walk {
 	w.reach = vm.ReachedEffects(entry, append(p.res.IRModules(), abstract...), roots, late, kind, boots, compilerCrossing)
 	calls := w.reach.Calls
 	out := make([]EffectCall, len(calls))
-	// modules is each file's module and import path.
-	modules := map[string][2]string{}
+	// modules is each file's package, import path and the entries the
+	// project reaches its package through.
+	type module struct {
+		pkg, imp string
+		through  []string
+	}
+	modules := map[string]module{}
 	for i, c := range calls {
 		file := c.At.File()
-		module, ok := modules[file]
+		m, ok := modules[file]
 		if !ok {
-			module = [2]string{p.packageOf(file), p.importOf(file)}
-			modules[file] = module
+			m = module{imp: p.importOf(file)}
+			if pkg := p.packageAt(file); pkg != nil {
+				m.pkg, m.through = pkg.path, pkg.through
+			}
+			modules[file] = m
 		}
 		out[i] = EffectCall{
 			Name:     p.effectName(c),
-			Package:  module[0],
-			Import:   module[1],
+			Package:  m.pkg,
+			Through:  m.through,
+			Import:   m.imp,
 			Site:     fmt.Sprintf("%s:%d:%d", p.imageName(file), c.At.Line(), c.At.Col()),
 			Callee:   hostadapt.DisplayName(c.Callee),
 			Crossing: hostadapt.DisplayName(c.Crossing),
@@ -660,23 +677,26 @@ func (p *Program) walk(r Roots) Walk {
 // EffectList is a list an effect call can be over (NotAllowed.List).
 type EffectList string
 
-// The lists of nomi.toml's effects tables a call can be over.
+// The lists of nomi.toml's effects tables a call can be over, each named
+// by the table that holds it.
 const (
 	// OverSelf is [effects.self], which holds the project's own files:
-	// its std, with std_in_tests in tests.
-	OverSelf EffectList = "self"
-	// OverDeps is [effects.deps], which holds every dependency's
-	// files: its std ceiling, with std_in_tests in tests.
-	OverDeps EffectList = "deps"
+	// its effects, with effects_in_tests in tests.
+	OverSelf EffectList = "effects.self"
+	// OverDependencies is [effects.dependencies], which holds every
+	// dependency's files: its effects ceiling, with effects_in_tests in
+	// tests.
+	OverDependencies EffectList = "effects.dependencies"
 	// OverSelfEntry is the entry of one of the project's own modules
 	// under [effects.self.modules], whose key is NotAllowed.Entry.
-	OverSelfEntry EffectList = "self.modules"
-	// OverEntry is the module's entry under [effects.deps.packages].
-	OverEntry EffectList = "deps.packages"
-	// OverDeclared is the [effects.self] in the module's own
-	// nomi.toml, which it declares for its own files: its std, its entry
-	// for the file's module under its [effects.self.modules]
-	// (NotAllowed.Entry).
+	OverSelfEntry EffectList = "effects.self.modules"
+	// OverEntry is the `effects` of the project's [dependencies] entries
+	// through which it reaches the package (EffectCall.Through), with their
+	// effects_in_tests in tests.
+	OverEntry EffectList = "dependencies"
+	// OverDeclared is the [effects.self] in the package's own nomi.toml,
+	// which it declares for its own files: its effects, or its entry for the
+	// file's module under its [effects.self.modules] (NotAllowed.Entry).
 	OverDeclared EffectList = "declared"
 )
 
@@ -693,26 +713,28 @@ type NotAllowed struct {
 	// for OverSelfEntry, the dependency's own for OverDeclared. It is ""
 	// for any other list.
 	Entry string
-	// Allowed is the std names List holds, with std_in_tests when the
-	// roots are tests for OverSelf and OverDeps.
+	// Allowed is the std names List holds, with effects_in_tests when the
+	// roots are tests for OverSelf, OverDependencies and OverEntry; for
+	// OverEntry, what the entries the call is reached through allow
+	// together.
 	Allowed []string
-	// EntryDenies reports, for a call over a module's own list, that the
-	// project's entry for the module does not allow it either.
+	// EntryDenies reports, for a call over a package's own list, that the
+	// project's entries for it do not allow it either.
 	EntryDenies bool
-	// CeilingDenies reports, for a call over an entry or a module's own
+	// CeilingDenies reports, for a call over an entry or a package's own
 	// list, that the table the entry is under does not allow it either:
-	// [effects.self]'s std for OverSelfEntry, [effects.deps]'
-	// ceiling for the others.
+	// [effects.self]'s effects for OverSelfEntry,
+	// [effects.dependencies]' ceiling for the others.
 	CeilingDenies bool
 	// OwnStdDenies reports, for a call over a dependency's own entry
-	// (OverDeclared with Entry), that its own [effects.self]'s std
+	// (OverDeclared with Entry), that its own [effects.self]'s effects
 	// does not allow it either.
 	OwnStdDenies bool
 	// Host reports that the list is the one the host holds the program to
 	// (WithEffects), not nomi.toml's.
 	Host bool
 	// Tests reports that the call is reached from test cases, so the
-	// project's lists hold std_in_tests too.
+	// project's lists hold effects_in_tests too.
 	Tests bool
 }
 
@@ -722,24 +744,34 @@ type NotAllowed struct {
 // call in the project's own files is held, when Self is not nil, by two
 // lists:
 //
-//   - Self: its name is in Std, with StdInTests when r names tests;
+//   - Self: its name is in Effects, with EffectsInTests when r names
+//     tests;
 //   - the entry for the file's module (its Import) under Self.Modules,
 //     which holds the call from every root.
 //
-// A call in a dependency's files is held, when Deps is not nil, by three:
+// A call in a dependency's files is held, when Dependencies is not nil, by
+// three:
 //
-//   - Deps: its name is in Std when it is set, with StdInTests when r
-//     names tests;
-//   - the project's entry for the package under Deps.Packages;
+//   - Dependencies: its name is in Effects when it is set, with
+//     EffectsInTests when r names tests;
+//   - the `effects` of the project's [dependencies] entries through which
+//     it reaches the package (EffectCall.Through), with their
+//     `effects_in_tests` when r names tests: an entry covers the package it
+//     names and every package reached through it, and a package reached
+//     through several entries is held to what they allow together. When
+//     one of those entries has no `effects` key, the package is held by
+//     the ceiling alone on that path, and so the entries hold nothing;
 //   - the package's own [effects.self], when its nomi.toml has one: its
-//     name is in its std and in its entry for the file's module under its
-//     own [effects.self.modules]. The rest of its tables are for its own
+//     name is in its effects and in its entry for the file's module under
+//     its own [effects.self.modules]. The rest of its tables, and the
+//     effects keys of its own [dependencies] entries, are for its own
 //     builds.
 //
-// A call over more than one list is reported once: over the module's own
-// list first, then over the entry, then over the table the entry is under,
-// with EntryDenies, CeilingDenies and OwnStdDenies saying which others it
-// is over. Nil lists allow everything, the dependencies' own included.
+// A call over more than one list is reported once: over the package's own
+// list first, then over the entries, then over the table the entries are
+// under, with EntryDenies, CeilingDenies and OwnStdDenies saying which
+// others it is over. Nil lists allow everything, the dependencies' own
+// included.
 func (p *Program) EffectCallsNotAllowed(r Roots, lists *Effects) []NotAllowed {
 	if lists == nil {
 		return nil
@@ -774,14 +806,14 @@ type standing struct {
 // standingsOf is how lists and declared stand on each of calls, reached
 // from tests when tests is set, in order, by EffectCallsNotAllowed's
 // rules, which decide here: the one rule that holds a call to a list
-// (effects.Allows), for every list. declared is each module's own
+// (effects.Allows), for every list. declared is each package's own
 // [effects.self], by its name in the program (declaredLists); nil holds no
-// module to a table of its own. Nil for nil lists.
+// package to a table of its own. Nil for nil lists.
 func standingsOf(calls []EffectCall, tests bool, lists *Effects, declared map[string]*analysis.SelfEffects) []standing {
 	if lists == nil {
 		return nil
 	}
-	const selfTable, depsTable = "`[effects.self]`", "`[effects.deps]`"
+	const selfTable, depsTable = "`[effects.self]`", "`[effects.dependencies]`"
 	out := make([]standing, 0, len(calls))
 	for _, c := range calls {
 		s := standing{NotAllowed: NotAllowed{EffectCall: c, Tests: tests}}
@@ -792,51 +824,53 @@ func standingsOf(calls []EffectCall, tests bool, lists *Effects, declared map[st
 				s.in = []string{in}
 			}
 		}
-		// The table that holds the call, by the module whose file holds it:
-		// its ceiling, whether that ceiling holds the call, and its entries,
-		// keyed by key. [effects.self] holds the project's own files, its
-		// entries keyed by the file's module as the project imports it;
-		// [effects.deps] a dependency's, its entries keyed by the package's
-		// name, and its ceiling only when it sets one.
+		// The table that holds the call, by the package whose file holds it:
+		// its ceiling, whether that ceiling holds the call, and the entry that
+		// holds it, when one does. [effects.self] holds the project's own
+		// files, its entry the file's module's under [effects.self.modules];
+		// [effects.dependencies] a dependency's, its ceiling only when it sets
+		// one, and its entry the [dependencies] entries the project reaches
+		// the package through, together (dependencyEntry).
 		var (
 			ceiling                []string
 			ceilingHolds           bool
-			entries                map[string][]string
-			key, table             string
+			entry                  []string
+			entryHolds             bool
+			entryIn, table         string
 			ceilingList, entryList EffectList
 			own                    *analysis.SelfEffects
 		)
 		switch {
 		case c.Package == "" && lists.Self != nil:
 			self := lists.Self
-			ceiling, ceilingHolds = self.StdFor(tests), true
-			entries, key, table, ceilingList, entryList = self.Modules, c.Import, selfTable, OverSelf, OverSelfEntry
-		case c.Package != "" && lists.Deps != nil:
-			d := lists.Deps
-			ceiling = d.StdFor(tests)
+			ceiling, ceilingHolds = self.EffectsFor(tests), true
+			entry, entryHolds = self.Modules[c.Import]
+			entryIn = fmt.Sprintf("the entry for `%s`", c.Import)
+			table, ceilingList, entryList = selfTable, OverSelf, OverSelfEntry
+		case c.Package != "" && lists.Dependencies != nil:
+			d := lists.Dependencies
+			ceiling = d.EffectsFor(tests)
 			ceilingHolds = ceiling != nil
-			entries, key, table, ceilingList, entryList = d.Packages, c.Package, depsTable, OverDeps, OverEntry
+			entry, entryHolds = dependencyEntry(d, c.Through, tests)
+			entryIn = entriesText(c.Through)
+			table, ceilingList, entryList = depsTable, OverDependencies, OverEntry
 			own = declared[c.Package]
 		default:
 			out = append(out, s)
 			continue
 		}
 		ceilingDenies := ceilingHolds && !effects.Allows(ceiling, c.Name)
-		entryDenies := func(entries map[string][]string, key string) ([]string, bool) {
-			entry, has := entries[key]
-			return entry, has && !effects.Allows(entry, c.Name)
-		}
-		entry, denied := entryDenies(entries, key)
-		_, entryHolds := entries[key]
-		entryIn := fmt.Sprintf("the entry for `%s`", key)
+		denied := entryHolds && !effects.Allows(entry, c.Name)
 		// A dependency's own [effects.self] holds its files as the
-		// project's holds the project's: by its std, and by its entry for
+		// project's holds the project's: by its effects, and by its entry for
 		// the file's module.
 		var ownStdDenies, ownEntryDenies bool
 		var ownEntry []string
 		if own != nil {
-			ownStdDenies = !effects.Allows(own.Std, c.Name)
-			ownEntry, ownEntryDenies = entryDenies(own.Modules, c.Import)
+			ownStdDenies = !effects.Allows(own.Effects, c.Name)
+			var has bool
+			ownEntry, has = own.Modules[c.Import]
+			ownEntryDenies = has && !effects.Allows(ownEntry, c.Name)
 		}
 		switch {
 		case ownEntryDenies:
@@ -844,13 +878,13 @@ func standingsOf(calls []EffectCall, tests bool, lists *Effects, declared map[st
 			n.Entry, n.OwnStdDenies = c.Import, ownStdDenies
 			n.EntryDenies, n.CeilingDenies = denied, ceilingDenies
 		case ownStdDenies:
-			refuse(OverDeclared, own.Std, "")
+			refuse(OverDeclared, own.Effects, "")
 			n.EntryDenies, n.CeilingDenies = denied, ceilingDenies
 		case denied:
 			refuse(entryList, entry, entryIn)
 			n.CeilingDenies = ceilingDenies
 			if entryList == OverSelfEntry {
-				n.Entry = key
+				n.Entry = c.Import
 			}
 		case ceilingDenies:
 			refuse(ceilingList, ceiling, table)
@@ -865,6 +899,45 @@ func standingsOf(calls []EffectCall, tests bool, lists *Effects, declared map[st
 		out = append(out, s)
 	}
 	return out
+}
+
+// dependencyEntry is what the [dependencies] entries through, the entries
+// the project reaches a package through (EffectCall.Through), allow its
+// files together, with their effects_in_tests when tests is set, and
+// whether they hold it: false when through is empty or one of them has no
+// `effects` key, since on that path only the ceiling holds the package.
+func dependencyEntry(d *analysis.DependenciesEffects, through []string, tests bool) ([]string, bool) {
+	if len(through) == 0 {
+		return nil, false
+	}
+	var out []string
+	for _, key := range through {
+		entry, has := d.EntryFor(key, tests)
+		if !has {
+			return nil, false
+		}
+		for _, n := range entry {
+			if !slices.Contains(out, n) {
+				out = append(out, n)
+			}
+		}
+	}
+	slices.Sort(out)
+	return out, true
+}
+
+// entriesText names the [dependencies] entries keys as a hover and a tree
+// say which list holds or refuses a call: "the entry for `pg`", or "the
+// entries for `a` and `b`".
+func entriesText(keys []string) string {
+	ticked := make([]string, len(keys))
+	for i, k := range keys {
+		ticked[i] = "`" + k + "`"
+	}
+	if len(keys) == 1 {
+		return "the entry for " + ticked[0]
+	}
+	return "the entries for " + strings.Join(ticked[:len(ticked)-1], ", ") + " and " + ticked[len(ticked)-1]
 }
 
 // Walk is the effect calls one walk over a program reaches
@@ -889,23 +962,25 @@ type Walk struct {
 	p *Program
 }
 
-// tightestLists is the smallest pair of effects tables under which
-// notAllowedBy allows every call walks reach, beside no module's own
-// table: removing any one name from them refuses a call. An unlisted call
-// (a `dbg`) adds nothing, since every list allows it. Self's Std holds
-// each name a walk from main reaches in the project's own files, and
-// StdInTests what only the tests reach. Deps' lists do the same for the
-// dependencies' files, its Std the ceiling. Its Modules has an entry for
-// each of
-// deps, the dependencies an entry may name, holding the std names that
-// module's files reach from every walk. A dependency not among deps gets
-// no entry. Self's Modules does the same for own, the project's modules by
-// their import paths, and is nil for nil own.
-func tightestLists(walks []Walk, deps, own []string) *Effects {
-	self := &analysis.SelfEffects{Std: []string{}}
-	d := &analysis.DepsEffects{Std: []string{}, Packages: map[string][]string{}}
-	for _, m := range deps {
-		d.Packages[m] = []string{}
+// tightestLists is the smallest effects tables under which notAllowedBy
+// allows every call walks reach, beside no package's own table: removing
+// any one name from them refuses a call. An unlisted call (a `dbg`) adds
+// nothing, since every list allows it. Self's Effects holds each name a
+// walk from main reaches in the project's own files, and EffectsInTests
+// what only the tests reach. Dependencies' lists do the same for the
+// dependencies' files, its Effects the ceiling. Its Entries has an entry
+// for each of entries, the [dependencies] keys an `effects` key may be
+// written on, holding the std names a walk from main reaches in the files
+// of every package the project reaches through that entry
+// (EffectCall.Through), and EntriesInTests those only the tests reach
+// there, for an entry with any. Self's Modules has an entry for each of
+// own, the project's modules by their import paths, holding what that
+// module's files reach from every walk, and is nil for nil own.
+func tightestLists(walks []Walk, entries, own []string) *Effects {
+	self := &analysis.SelfEffects{Effects: []string{}}
+	d := &analysis.DependenciesEffects{Effects: []string{}, Entries: map[string][]string{}, EntriesInTests: map[string][]string{}}
+	for _, m := range entries {
+		d.Entries[m] = []string{}
 	}
 	if own != nil {
 		self.Modules = map[string][]string{}
@@ -918,11 +993,13 @@ func tightestLists(walks []Walk, deps, own []string) *Effects {
 			*list = append(*list, name)
 		}
 	}
-	// addTo adds name to the entry for key in entries, when it has one.
-	addTo := func(entries map[string][]string, key, name string) {
-		if entry, ok := entries[key]; ok {
-			add(&entry, name)
-			entries[key] = entry
+	// addTo adds name to key's list in into, when entries has an entry for
+	// key.
+	addTo := func(entries, into map[string][]string, key, name string) {
+		if _, ok := entries[key]; ok {
+			list := into[key]
+			add(&list, name)
+			into[key] = list
 		}
 	}
 	for _, w := range walks {
@@ -931,32 +1008,44 @@ func tightestLists(walks []Walk, deps, own []string) *Effects {
 			case !effects.Listed(c.Name):
 			case c.Package == "":
 				if w.Tests {
-					add(&self.StdInTests, c.Name)
+					add(&self.EffectsInTests, c.Name)
 				} else {
-					add(&self.Std, c.Name)
+					add(&self.Effects, c.Name)
 				}
-				addTo(self.Modules, c.Import, c.Name)
+				addTo(self.Modules, self.Modules, c.Import, c.Name)
 			default:
+				list, into := &d.Effects, d.Entries
 				if w.Tests {
-					add(&d.StdInTests, c.Name)
-				} else {
-					add(&d.Std, c.Name)
+					list, into = &d.EffectsInTests, d.EntriesInTests
 				}
-				addTo(d.Packages, c.Package, c.Name)
+				add(list, c.Name)
+				for _, key := range c.Through {
+					addTo(d.Entries, into, key, c.Name)
+				}
 			}
 		}
 	}
-	self.StdInTests = slices.DeleteFunc(self.StdInTests, func(n string) bool { return slices.Contains(self.Std, n) })
-	d.StdInTests = slices.DeleteFunc(d.StdInTests, func(n string) bool { return slices.Contains(d.Std, n) })
-	for _, list := range [][]string{self.Std, self.StdInTests, d.Std, d.StdInTests} {
+	without := func(list, of []string) []string {
+		return slices.DeleteFunc(list, func(n string) bool { return slices.Contains(of, n) })
+	}
+	self.EffectsInTests = without(self.EffectsInTests, self.Effects)
+	d.EffectsInTests = without(d.EffectsInTests, d.Effects)
+	for key, names := range d.EntriesInTests {
+		if names = without(names, d.Entries[key]); len(names) > 0 {
+			d.EntriesInTests[key] = names
+		} else {
+			delete(d.EntriesInTests, key)
+		}
+	}
+	for _, list := range [][]string{self.Effects, self.EffectsInTests, d.Effects, d.EffectsInTests} {
 		slices.Sort(list)
 	}
-	for _, entries := range []map[string][]string{self.Modules, d.Packages} {
+	for _, entries := range []map[string][]string{self.Modules, d.Entries, d.EntriesInTests} {
 		for _, entry := range entries {
 			slices.Sort(entry)
 		}
 	}
-	return &Effects{Self: self, Deps: d}
+	return &Effects{Self: self, Dependencies: d}
 }
 
 // declaredLists is the own [effects.self] of each module whose files
@@ -1073,10 +1162,14 @@ func (p *Program) projectPackage() string {
 // holds: a dependency.
 type requiredPackage struct {
 	// path is its name in the program (pkgcache.Dep.Name): the name the
-	// project's nomi.toml gives it, which keys its entry under
-	// [effects.deps.packages]; its `[package].name` when the package graph does not hold its directory,
-	// or its directory when it has neither.
+	// project's nomi.toml gives it, or the first package that reaches it;
+	// its `[package].name` when the package graph does not hold its
+	// directory, or its directory when it has neither.
 	path string
+	// through is the keys of the project's [dependencies] entries through
+	// which it reaches the package (pkgcache.Graph.Through), whose `effects`
+	// keys hold it; path alone when the graph does not hold it.
+	through []string
 	// root is its directory, the one holding its nomi.toml.
 	root string
 	// manifest is its nomi.toml, nil when it cannot be read (the front
@@ -1114,8 +1207,11 @@ func (p *Program) packageAt(path string) *requiredPackage {
 	}
 	if g, err := pkgcache.Load(p.prog.Root); err == nil && g != nil {
 		if d, ok := g.At(root); ok {
-			m.path = d.Name
+			m.path, m.through = d.Name, g.Through(d.Name)
 		}
+	}
+	if m.through == nil {
+		m.through = []string{m.path}
 	}
 	if p.modules == nil {
 		p.modules = map[string]*requiredPackage{}

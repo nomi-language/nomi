@@ -24,9 +24,9 @@
 
 import
     display.Display
-    duration.Duration
+    duration.{Duration, NonNegativeDuration}
     equatable.Equatable
-    int.{Int, PositiveInt}
+    int.{NonNegativeInt, PositiveInt}
     lists.List
     option.Option
     results.Result.{self, Ok}
@@ -110,10 +110,10 @@ derive Equatable for User
 pub struct Memory
     /// What the values on the heap occupy, those still in use and those
     /// the collector has not yet swept.
-    heap: Int
+    heap: NonNegativeInt
     /// Everything the runtime has obtained from the operating system: the
     /// heap, the stacks of the tasks, and the runtime's own structures.
-    obtained: Int
+    obtained: NonNegativeInt
 end
 
 derive Equatable for Memory
@@ -124,16 +124,16 @@ pub struct Runtime
     /// The tasks running now: spawned by `Task.spawn`, `Task.spawn_all` or
     /// a supervisor and not yet finished, those waiting for a supervisor's
     /// `max_running` included.
-    tasks: Int
+    tasks: NonNegativeInt
     /// Every task the process has started.
-    tasks_started: Int
+    tasks_started: NonNegativeInt
     /// The supervisors the program made, each kept for its life.
-    supervisors: Int
+    supervisors: NonNegativeInt
     /// The garbage collector's finished cycles.
-    gc_cycles: Int
+    gc_cycles: NonNegativeInt
     /// How long the collector has stopped the program in all, estimated
     /// from the runtime's histogram of its pauses.
-    gc_pause: Duration
+    gc_pause: NonNegativeDuration
 end
 
 derive Equatable for Runtime

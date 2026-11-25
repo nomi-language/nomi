@@ -18,13 +18,13 @@ import (
 //   - `P.field_texts(p)` is each field's Display text, in that order;
 //   - `P.parse_fields(texts)` reads text i with field i's type's
 //     `Parse.parse`, and is `Some` of the record when every one is `Ok`,
-//     and `None` at the first that is not. A field of a refinement is read
-//     with its base's `Parse.parse` and checked by the refinement's
-//     `try_from` calls the checker names (analysis.FileAnalysis.RefinementCheckCalls;
-//     refinementread.go), and the record is `None` when one is `None`.
+//     and `None` at the first that is not. A field of a subtype is read
+//     with its base's `Parse.parse` and checked by the subtype's
+//     `try_from` calls the checker names (analysis.FileAnalysis.SubtypeCheckCalls;
+//     subtyperead.go), and the record is `None` when one is `None`.
 //
 // The checker admits the record only when each field implements `Parse`
-// and `Display`, a refinement's base its Parse (analysis/structural_parse_fields.go).
+// and `Display`, a subtype's base its Parse (analysis/structural_parse_fields.go).
 
 // parseFieldsCall lowers t, a call of one of ParseFields' functions at the
 // record kind k, of checker type kt (nil when the instance has none).
@@ -175,15 +175,15 @@ func (bl *irScalarBuilder) parseFieldsOf(t *ast.Call, k kind, kt analysis.Type) 
 		bl.b.SetTerm(ir.NewBranch(pos, match.Dst(), parsed.ID(), failed.ID()))
 		bl.b = parsed
 		vals[i] = bl.variantPayload(t, r, rk.def, okV)
-		// A field of a refinement is read with its base's Parse, and the
-		// record is None when the value breaks a rule (refinementread.go).
-		if pt := partCheckerType(kt, k, i); analysis.HoldsRefinement(pt) {
-			checks := bl.g.instanceFA().RefinementCheckCalls(pt)
+		// A field of a subtype is read with its base's Parse, and the
+		// record is None when the value breaks a rule (subtyperead.go).
+		if pt := partCheckerType(kt, k, i); analysis.HoldsSubtype(pt) {
+			checks := bl.g.instanceFA().SubtypeCheckCalls(pt)
 			if checks == nil {
-				return no("no check of the refinement " + analysis.Elaborate(pt).String())
+				return no("no check of the subtype " + analysis.Elaborate(pt).String())
 			}
 			for j, c := range checks {
-				holds, ok := bl.refinementHolds(t, i*len(checks)+j, vals[i], part, c)
+				holds, ok := bl.subtypeHolds(t, i*len(checks)+j, vals[i], part, c)
 				if !ok {
 					return no("a check of " + analysis.Elaborate(c.Type).String() + " that does not lower")
 				}

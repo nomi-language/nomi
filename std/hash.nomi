@@ -66,7 +66,7 @@ import
     io.{Error, Reader}
     option.Option.{None, Some}
     results.Result.{self, Ok}
-    strings.String
+    strings.{NonEmptyString, String}
 end
 
 /// A hash function `digest`, `hmac` and `Hasher` compute.
@@ -202,8 +202,9 @@ end
 //! assert hash.digest_hex(Algorithm.Sha256, String.to_bytes("abc"))
 //!     == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
 //
-pub fn digest_hex(algorithm: Algorithm, data: Bytes) -> String
-    hex.encode(digest(algorithm, data))
+pub fn digest_hex(algorithm: Algorithm, data: Bytes) -> NonEmptyString
+    // Every algorithm's digest is 16 bytes or more, so its hex is text.
+    hex.encode(digest(algorithm, data)) |> NonEmptyString.try_from()!
 end
 
 /// The HMAC (RFC 2104) of `data` under `key` over `algorithm`, as long as
@@ -338,7 +339,7 @@ end
 //! assert hash.sha256_hex(String.to_bytes("abc"))
 //!     == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
 //
-pub fn sha256_hex(data: Bytes) -> String
+pub fn sha256_hex(data: Bytes) -> NonEmptyString
     digest_hex(Algorithm.Sha256, data)
 end
 
@@ -362,7 +363,7 @@ end
 //!     String.to_bytes("abc")
 //! ) == "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f"
 //
-pub fn sha512_hex(data: Bytes) -> String
+pub fn sha512_hex(data: Bytes) -> NonEmptyString
     digest_hex(Algorithm.Sha512, data)
 end
 
@@ -396,7 +397,7 @@ end
 //! key = email |> String.trim() |> String.lowercase() |> String.to_bytes() |> hash.md5_hex()
 //! assert key == "3e3417d7ef77d5932a6734b916515ed5"
 //
-pub fn md5_hex(data: Bytes) -> String
+pub fn md5_hex(data: Bytes) -> NonEmptyString
     digest_hex(Algorithm.Md5, data)
 end
 
@@ -423,7 +424,7 @@ end
 //! assert hash.sha1_hex(String.to_bytes("abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"))
 //!     == "84983e441c3bd26ebaae4aa1f95129e5e54670f1"
 //
-pub fn sha1_hex(data: Bytes) -> String
+pub fn sha1_hex(data: Bytes) -> NonEmptyString
     digest_hex(Algorithm.Sha1, data)
 end
 

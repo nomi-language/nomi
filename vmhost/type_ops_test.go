@@ -107,13 +107,13 @@ type toType struct {
 	// anonymous struct with a field of it is ParseFields, as a route's
 	// parameters are.
 	parses bool
-	// refinement marks a refinement, which has its base's impls save those of an
-	// interface that makes a value of its type (spec §4 *Refinements*).
-	refinement bool
-	// json marks a type that implements ToJson and FromJson, a refinement's
+	// subtype marks a subtype, which has its base's impls save those of an
+	// interface that makes a value of its type (spec §4 *Subtypes*).
+	subtype bool
+	// json marks a type that implements ToJson and FromJson, a subtype's
 	// read at its base and checked.
 	json bool
-	// badJSON and badText are, for a refinement, a value of its base that
+	// badJSON and badText are, for a subtype, a value of its base that
 	// breaks its rule: as JSON, and as the text Parse reads. Empty for a
 	// type with no rule to break.
 	badJSON, badText string
@@ -131,7 +131,7 @@ const (
 	needDisplay
 	needParse
 	// needJSON is an operation that writes and reads the value as JSON,
-	// and needBreach one that reads a value that breaks a refinement's rule
+	// and needBreach one that reads a value that breaks a subtype's rule
 	// (toType.badJSON, toType.badText). A type without either is no cell
 	// of the operation (toCells).
 	needJSON
@@ -285,30 +285,30 @@ var toTypes = []toType{
 	{name: "box of fn", inspect: "Bx{v: <function>}", decls: toInc + "\n\nstruct Bx<A>\n    v: A\nend", typ: "Bx<(Int) -> Int>", expr: "Bx{v: inc}", obs: "Debug.inspect($v.v(1))", want: "2", noEq: true},
 	{name: "string distinct", decls: "type Name String", typ: "Name", expr: `Name("a")`, want: `Name("a")`},
 	{name: "validated type", decls: "type Tag String when fn s -> String.length(s) > 0", typ: "Tag", expr: `Tag("a")`, want: `Tag("a")`},
-	{name: "type over a refinement", decls: "type UserId PositiveInt", typ: "UserId", expr: "UserId(3)", want: "UserId(3)"},
-	{name: "intersection of refinements", refinement: true, typ: "NonNegativeInt and NonZeroInt", expr: "3", want: "3", shown: "3", parses: true, json: true, badJSON: "0", badText: "0"},
-	{name: "refinement", refinement: true, decls: "refine Port Int when fn p -> p >= 1", typ: "Port", expr: "Port(3)", want: "3", shown: "3", parses: true, core: true, json: true, badJSON: "0", badText: "0"},
-	{name: "refinement chain", refinement: true, decls: "refine NonNeg Float when fn x -> x >= 0.0\n\nrefine Pos NonNeg when fn x -> x > 0.0", typ: "Pos", expr: "Pos(2.5)", want: "2.5", shown: "2.5", json: true, badJSON: "-1.5"},
-	{name: "refinement of two parents", refinement: true, decls: "refine NonNeg Int when fn n -> n >= 0\n\nrefine NonZ Int when fn n -> n != 0\n\nrefine Pos NonNeg and NonZ when fn n -> n > 0", typ: "Pos", expr: "Pos(3)", want: "3", shown: "3", parses: true, json: true, badJSON: "0", badText: "0"},
-	{name: "decimal refinement", refinement: true, typ: "PositiveDecimal", expr: "PositiveDecimal(2.25d)", want: "2.25d", shown: "2.25"},
-	{name: "duration refinement", refinement: true, imports: []string{"std::duration.Duration", "std::duration.PositiveDuration"}, typ: "PositiveDuration", expr: `PositiveDuration(Duration"2s")`, want: "2s", shown: "2s"},
-	{name: "string refinement", refinement: true, decls: "refine Tag String when fn s -> String.length(s) > 0", typ: "Tag", expr: `Tag("a")`, want: `"a"`, shown: "a", parses: true, json: true, badJSON: `""`, badText: ""},
-	{name: "struct refinement", decls: "struct Span\n    low: Int\n    high: Int\n    when fn s -> s.low <= s.high\nend", typ: "Span", expr: "Span{low: 1, high: 2}", want: "Span{low: 1, high: 2}"},
-	// A refinement of a collection is its base at run time: the value
-	// is walked as its base, a List's view for a List refinement.
-	{name: "list refinement", refinement: true, inspect: "[3, 4]", decls: "refine Two List<Int> when fn xs -> List.length(xs) == 2", typ: "Two", expr: "Two([3, 4])",
+	{name: "type over a subtype", decls: "type UserId PositiveInt", typ: "UserId", expr: "UserId(3)", want: "UserId(3)"},
+	{name: "intersection of subtypes", subtype: true, typ: "NonNegativeInt and NonZeroInt", expr: "3", want: "3", shown: "3", parses: true, json: true, badJSON: "0", badText: "0"},
+	{name: "subtype", subtype: true, decls: "subtype Port Int when fn p -> p >= 1", typ: "Port", expr: "Port(3)", want: "3", shown: "3", parses: true, core: true, json: true, badJSON: "0", badText: "0"},
+	{name: "subtype chain", subtype: true, decls: "subtype NonNeg Float when fn x -> x >= 0.0\n\nsubtype Pos NonNeg when fn x -> x > 0.0", typ: "Pos", expr: "Pos(2.5)", want: "2.5", shown: "2.5", json: true, badJSON: "-1.5"},
+	{name: "subtype of two parents", subtype: true, decls: "subtype NonNeg Int when fn n -> n >= 0\n\nsubtype NonZ Int when fn n -> n != 0\n\nsubtype Pos NonNeg and NonZ when fn n -> n > 0", typ: "Pos", expr: "Pos(3)", want: "3", shown: "3", parses: true, json: true, badJSON: "0", badText: "0"},
+	{name: "decimal subtype", subtype: true, typ: "PositiveDecimal", expr: "PositiveDecimal(2.25d)", want: "2.25d", shown: "2.25"},
+	{name: "duration subtype", subtype: true, imports: []string{"std::duration.Duration", "std::duration.PositiveDuration"}, typ: "PositiveDuration", expr: `PositiveDuration(Duration"2s")`, want: "2s", shown: "2s"},
+	{name: "string subtype", subtype: true, decls: "subtype Tag String when fn s -> String.length(s) > 0", typ: "Tag", expr: `Tag("a")`, want: `"a"`, shown: "a", parses: true, json: true, badJSON: `""`, badText: ""},
+	{name: "validated struct", decls: "struct Span\n    low: Int\n    high: Int\n    when fn s -> s.low <= s.high\nend", typ: "Span", expr: "Span{low: 1, high: 2}", want: "Span{low: 1, high: 2}"},
+	// A subtype of a collection is its base at run time: the value
+	// is walked as its base, a List's view for a List subtype.
+	{name: "list subtype", subtype: true, inspect: "[3, 4]", decls: "subtype Two List<Int> when fn xs -> List.length(xs) == 2", typ: "Two", expr: "Two([3, 4])",
 		obs: "Debug.inspect(Iter.map($v, &(&1 * 10)) |> Iter.to_list())", want: "[30, 40]", shown: "[3, 4]", core: true, json: true, badJSON: "[1]"},
-	{name: "map refinement", refinement: true, inspect: `{"a" => 1}`, decls: "refine Some1 Map<String, Int> when fn m -> Map.size(m) > 0", typ: "Some1", expr: `Some1({"a" => 1})`,
+	{name: "map subtype", subtype: true, inspect: `{"a" => 1}`, decls: "subtype Some1 Map<String, Int> when fn m -> Map.size(m) > 0", typ: "Some1", expr: `Some1({"a" => 1})`,
 		obs: "Debug.inspect(Iter.map($v, .second) |> Iter.to_list())", want: "[1]", shown: "{a => 1}", json: true, badJSON: "{}"},
-	{name: "vector refinement", refinement: true, inspect: "Vector[1, 2]", decls: "refine Row Vector<Int> when fn v -> Vector.length(v) > 0", typ: "Row", expr: "Row([1, 2])",
+	{name: "vector subtype", subtype: true, inspect: "Vector[1, 2]", decls: "subtype Row Vector<Int> when fn v -> Vector.length(v) > 0", typ: "Row", expr: "Row([1, 2])",
 		obs: "Debug.inspect(Iter.sum($v))", want: "3", shown: "Vector[1, 2]", json: true, badJSON: "[]"},
-	{name: "set refinement", refinement: true, inspect: "Set[1, 2]", decls: "refine Few Set<Int> when fn s -> Set.size(s) > 0", typ: "Few", expr: "Few([1, 2])",
+	{name: "set subtype", subtype: true, inspect: "Set[1, 2]", decls: "subtype Few Set<Int> when fn s -> Set.size(s) > 0", typ: "Few", expr: "Few([1, 2])",
 		obs: "Debug.inspect(Iter.sort(Iter.to_list($v)))", want: "[1, 2]", shown: "Set[1, 2]", json: true, badJSON: "[]"},
-	{name: "generic refinement", refinement: true, inspect: "[3, 4]", decls: "refine Many<A> List<A> when fn xs -> not Iter.is_empty(xs)", typ: "Many<Int>", expr: "Many.try_from([3, 4])!",
+	{name: "generic subtype", subtype: true, inspect: "[3, 4]", decls: "subtype Many<A> List<A> when fn xs -> not Iter.is_empty(xs)", typ: "Many<Int>", expr: "Many.try_from([3, 4])!",
 		obs: "Debug.inspect(Iter.map($v, &(&1 * 10)) |> Iter.to_list())", want: "[30, 40]", shown: "[3, 4]", json: true, badJSON: "[]"},
-	{name: "std NonEmptyList", refinement: true, inspect: "[3, 4]", typ: "NonEmptyList<Int>", expr: "NonEmptyList.of(3, [4])",
+	{name: "std NonEmptyList", subtype: true, inspect: "[3, 4]", typ: "NonEmptyList<Int>", expr: "NonEmptyList.of(3, [4])",
 		obs: "Debug.inspect(Iter.max($v))", want: "Some(4)", shown: "[3, 4]", json: true, badJSON: "[]"},
-	{name: "string refinement walked", refinement: true, inspect: `"ab"`, decls: "refine Tag String when fn s -> String.length(s) > 0", typ: "Tag", expr: `Tag("ab")`,
+	{name: "string subtype walked", subtype: true, inspect: `"ab"`, decls: "subtype Tag String when fn s -> String.length(s) > 0", typ: "Tag", expr: `Tag("ab")`,
 		obs: `String.join($v, "-")`, want: "a-b", shown: "ab", parses: true},
 	{name: "list distinct", decls: "type Ids List<Int>", typ: "Ids", expr: "Ids[1]", want: "Ids([1])"},
 	{name: "tuple distinct", decls: "type Pair (Int, String)", typ: "Pair", expr: "Pair(1, \"a\")", want: "Pair(1, \"a\")"},
@@ -387,14 +387,14 @@ var toOps = []toOp{
 	// route writes its parameters into a link and reads them from a path.
 	{name: "parse fields", imports: []string{"std::parse"},
 		body: "texts = parse.write_fields({v: $E})\nassert texts == [(\"v\", \"$S\")]\nout = parse.read_fields<{v: $T}>(Iter.to_map(texts))!.v", needs: needParse},
-	// A value of the type made by its Parse impl: a refinement has none.
+	// A value of the type made by its Parse impl: a subtype has none.
 	{name: "parse at the type", imports: []string{"std::parse.Parse"}, body: "out = Parse.parse<$T>(\"$S\")!", needs: needParse},
-	// A record whose field's text breaks a refinement's rule reads as None.
+	// A record whose field's text breaks a subtype's rule reads as None.
 	{name: "parse fields breach", imports: []string{"std::parse"},
 		body: "assert parse.read_fields<{v: $T}>({\"v\" => \"$X\"}) == None\nout = $E", needs: needParse | needBreach},
 	// The value written as JSON and read back, in a record's field, in a
-	// derived struct's field and at the top; a refinement is read at its base
-	// and checked (spec §4 *Refinements*), and JSON that breaks its rule is
+	// derived struct's field and at the top; a subtype is read at its base
+	// and checked (spec §4 *Subtypes*), and JSON that breaks its rule is
 	// the read's error.
 	{name: "json record field", imports: []string{"std::json.Json"},
 		body: "out = Json.decode_as<{v: $T}>(Json.encode_as({v: $E}))!.v", needs: needJSON},
@@ -654,9 +654,9 @@ type toRule struct {
 
 var toRules = []toRule{
 	{
-		match:  func(c toCell) bool { return c.t.refinement && c.t.parses && c.op.name == "parse at the type" },
+		match:  func(c toCell) bool { return c.t.subtype && c.t.parses && c.op.name == "parse at the type" },
 		reject: "has no impl of Parse \\(required by `Parse.parse`\\)",
-		why:    "a refinement has no Parse of its base's, whose parse makes a value no rule of the refinement has checked (spec §4 *Refinements*)",
+		why:    "a subtype has no Parse of its base's, whose parse makes a value no rule of the subtype has checked (spec §4 *Subtypes*)",
 	},
 	{
 		match: func(c toCell) bool {
@@ -727,7 +727,7 @@ func (t *toType) takes(op *toOp) bool {
 	if op.needs&needJSON != 0 && !t.json {
 		return false
 	}
-	if op.needs&needBreach != 0 && (op.needs&needJSON != 0 && t.badJSON == "" || op.needs&needParse != 0 && !t.refinement) {
+	if op.needs&needBreach != 0 && (op.needs&needJSON != 0 && t.badJSON == "" || op.needs&needParse != 0 && !t.subtype) {
 		return false
 	}
 	return true

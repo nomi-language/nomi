@@ -15,9 +15,9 @@ import (
 // stdlib module to the materialized stdlib file go-to-definition opens, a
 // project file to itself when it exists. A Go import or a path to a
 // missing file gets no link.
-func (s *Server) textDocumentDocumentLink(_ *glsp.Context, params *protocol.DocumentLinkParams) ([]protocol.DocumentLink, error) {
+func (s *Server) textDocumentDocumentLink(gctx *glsp.Context, params *protocol.DocumentLinkParams) ([]protocol.DocumentLink, error) {
 	uri := string(params.TextDocument.URI)
-	doc := s.docs.Snapshot(uri)
+	doc := s.requestDoc(gctx, uri)
 	if doc == nil {
 		return nil, nil
 	}

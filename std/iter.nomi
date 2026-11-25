@@ -739,9 +739,10 @@ impl Iter<T>
     end
 
     /// Counts how often each element occurs, as a Map from each distinct
-    /// element to its count. The keys are in the order each first appears.
-    /// `Iter.group_by` keeps the elements themselves instead of their count.
-    /// It reads the whole source.
+    /// element to its count, which is at least one, a PositiveInt. The keys
+    /// are in the order each first appears. `Iter.group_by` keeps the
+    /// elements themselves instead of their count. It reads the whole
+    /// source.
     //
     //! assert Iter.frequencies(["a", "b", "a"]) == {"a" => 2, "b" => 1}
     //! assert Iter.frequencies("banana") |> Map.keys() == ["b", "a", "n"]
@@ -750,8 +751,8 @@ impl Iter<T>
     //! empty: List<Int> = []
     //! assert Iter.frequencies(empty) |> Map.size() == 0
     //
-    pub fn frequencies<T>(source: Iter<T>) -> Map<T, Int>
-        reduce(source, {}, fn acc: Map<T, Int>, item ->
+    pub fn frequencies<T>(source: Iter<T>) -> Map<T, PositiveInt>
+        reduce(source, {}, fn acc: Map<T, PositiveInt>, item ->
             Map.put(acc, item, Option.with_default(Map.get(acc, item), 0) + 1)
         end)
     end
@@ -1213,8 +1214,8 @@ impl Iter<T>
     /// The columns of `rows`, as a List of Lists: column `i` holds the `i`th
     /// element of each row long enough to have one, in row order. A ragged
     /// row adds nothing past its end, so no element is invented and none is
-    /// dropped. It reads the whole source, since the first column needs every
-    /// row.
+    /// dropped, and every column holds an element, a NonEmptyList. It reads
+    /// the whole source, since the first column needs every row.
     //
     //! assert Iter.transpose([[1, 2, 3], [4, 5, 6]]) == [[1, 4], [2, 5], [3, 6]]
     //! assert Iter.transpose([[1, 2, 3], [4], [5, 6]]) == [[1, 4, 5], [2, 6], [3]]
@@ -1222,7 +1223,7 @@ impl Iter<T>
     //! assert Iter.transpose(["ab", "cd"]) == [["a", "c"], ["b", "d"]]
     //! assert Iter.transpose([[1], []]) == [[1]]
     //
-    pub fn transpose<T>(rows: Iter<Iter<T>>) -> List<List<T>>
+    pub fn transpose<T>(rows: Iter<Iter<T>>) -> List<NonEmptyList<T>>
         rows
         |> reduce([], fn lists, row -> [to_list(row), ..lists])
         |> reverse()
@@ -1393,7 +1394,7 @@ impl Iter<T>
     /// The element type's `Averageable` impl decides the result type and the
     /// rounding: Ints give a Float rounded once from the exact sum, Floats
     /// are summed with compensation, Decimals divide their exact sum with
-    /// Decimal's `/`, and Durations give the nearest nanosecond. A refinement is
+    /// Decimal's `/`, and Durations give the nearest nanosecond. A subtype is
     /// averaged as its base, so the mean of `NonNegativeInt` lengths is a
     /// Float. It reads the source once, so it works on a lazy source or a
     /// stream's; it traps on an infinite one.
@@ -1496,13 +1497,22 @@ end
 
 // `transpose`'s step: `columns` is the columns taken so far, the latest
 // first, and `rows` what is left of each row.
-fn transpose_columns<T>(rows: List<List<T>>, columns: List<List<T>>) -> List<List<T>>
+fn transpose_columns<T>(
+    rows:    List<List<T>>,
+    columns: List<NonEmptyList<T>>,
+) -> List<NonEmptyList<T>>
     left = rows |> Iter.filter(fn row -> Iter.count(row) > 0) |> Iter.to_list()
 
     if Iter.count(left) == 0 then
         Iter.reverse(columns)
     else
-        column = left |> Iter.flat_map(fn row -> Iter.take(row, 1)) |> Iter.to_list()
+        // Each row left holds an element, and there is at least one row.
+        column =
+            left
+            |> Iter.flat_map(fn row -> Iter.take(row, 1))
+            |> Iter.to_list()
+            |> NonEmptyList.try_from()!
+
         rests = left |> Iter.map(fn row -> row |> Iter.drop(1) |> Iter.to_list()) |> Iter.to_list()
         transpose_columns(rests, [column, ..columns])
     end

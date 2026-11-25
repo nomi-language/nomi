@@ -600,7 +600,7 @@
 "once" @keyword
 "fn" @keyword
 "type" @keyword
-"refine" @keyword
+"subtype" @keyword
 "struct" @keyword
 "enum" @keyword
 "interface" @keyword

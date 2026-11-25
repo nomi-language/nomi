@@ -8,6 +8,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -26,15 +27,19 @@ const WorkspaceName = "nomi-workspace.toml"
 // DependencyEntry is one entry of nomi.toml's [dependencies] table as it
 // decodes: `repo`, `version` or `commit`, and an optional `subdir` name a
 // package fetched from its repository, and `dir` a directory that holds the
-// package, relative to the manifest's directory. analysis's manifest
-// declares the table with this type, so the keys it checks are the ones
-// this package reads.
+// package, relative to the manifest's directory. `effects` and
+// `effects_in_tests` are the most effects the package, and the packages
+// the project reaches through it, may have, which analysis checks and
+// vmhost holds the program to. analysis's manifest declares the table with
+// this type, so the keys it checks are the ones this package reads.
 type DependencyEntry struct {
-	Repo    string `toml:"repo"`
-	Subdir  string `toml:"subdir"`
-	Version string `toml:"version"`
-	Commit  string `toml:"commit"`
-	Dir     string `toml:"dir"`
+	Repo           string    `toml:"repo"`
+	Subdir         string    `toml:"subdir"`
+	Version        string    `toml:"version"`
+	Commit         string    `toml:"commit"`
+	Dir            string    `toml:"dir"`
+	Effects        *[]string `toml:"effects"`
+	EffectsInTests *[]string `toml:"effects_in_tests"`
 }
 
 // WorkspaceFile is nomi-workspace.toml as it decodes: members, the
@@ -106,6 +111,21 @@ type Requirement struct {
 	// graph reaches it. In a fetched package it names a neighbor in the
 	// same repository at the same tag.
 	Dir string
+	// Effects and EffectsInTests are the entry's `effects` and
+	// `effects_in_tests` keys, each nil when the entry has no such key and
+	// empty, not nil, for `[]`. The graph reads neither; they are the
+	// project's limits on what it reaches through the entry
+	// (analysis.DependenciesEffects), which the writers of [dependencies]
+	// keep (analysis.WriteRequirements).
+	Effects, EffectsInTests []string
+}
+
+// Same reports whether r and o are the same entry, their effects keys
+// included.
+func (r Requirement) Same(o Requirement) bool {
+	same := func(a, b []string) bool { return (a == nil) == (b == nil) && slices.Equal(a, b) }
+	return r.Name == o.Name && r.ID == o.ID && r.Version == o.Version && r.Dir == o.Dir &&
+		same(r.Effects, o.Effects) && same(r.EffectsInTests, o.EffectsInTests)
 }
 
 // Manifest is what pkgcache reads of a nomi.toml: the package's
@@ -168,9 +188,12 @@ type PackageManifestError struct {
 	Main, Top string
 }
 
-func (e *PackageManifestError) Error() string {
+func (e *PackageManifestError) Error() string { return e.Err.Error() + e.NamedBy() }
+
+// NamedBy is what Error adds to Err's message: the entry that names the
+// package, and for a fetched package, that it is not the reader's to edit.
+func (e *PackageManifestError) NamedBy() string {
 	var b strings.Builder
-	b.WriteString(e.Err.Error())
 	fetched := !e.Fetched.ID.IsZero()
 	switch {
 	case e.Member:
@@ -427,7 +450,14 @@ func ParseManifest(data []byte) (*Manifest, error) {
 			}
 			byID[id] = name
 		}
-		f.Requires = append(f.Requires, Requirement{Name: name, ID: id, Version: e.Version, Dir: e.Dir})
+		r := Requirement{Name: name, ID: id, Version: e.Version, Dir: e.Dir}
+		if e.Effects != nil {
+			r.Effects = append([]string{}, *e.Effects...)
+		}
+		if e.EffectsInTests != nil {
+			r.EffectsInTests = append([]string{}, *e.EffectsInTests...)
+		}
+		f.Requires = append(f.Requires, r)
 	}
 	return f, nil
 }
@@ -508,6 +538,7 @@ func readManifest(dir string, check bool) (*Manifest, error) {
 	f, err := ParseManifest(data)
 	var tooOld *NomiVersionError
 	if errors.As(err, &tooOld) {
+		tooOld.Path = path
 		return nil, tooOld
 	}
 	if err != nil {

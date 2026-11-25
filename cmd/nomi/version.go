@@ -52,7 +52,12 @@ const revisionAbbrev = buildversion.RevisionAbbrev
 // runVersion is `nomi --version`.
 const versionUsage = "usage: nomi version"
 
-func runVersion() { fmt.Println(currentVersionLine()) }
+func runVersion() {
+	fmt.Println(currentVersionLine())
+	for _, line := range staleEditorLines() {
+		fmt.Println(line)
+	}
+}
 
 // currentVersionLine is this binary's version line: what `nomi --version`
 // prints and the REPL's banner opens with.

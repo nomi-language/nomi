@@ -3,6 +3,7 @@ package buildversion
 import (
 	"regexp"
 	"runtime/debug"
+	"strings"
 	"sync"
 	"sync/atomic"
 )
@@ -61,6 +62,32 @@ func NameOf(release, token string) string {
 		return token
 	}
 	return release + " (" + token + ")"
+}
+
+// ReleaseOfName is the release a Name names, or "" for a binary built from
+// source.
+func ReleaseOfName(name string) string {
+	release, _, _ := strings.Cut(name, " (")
+	if IsRelease(release) {
+		return release
+	}
+	return ""
+}
+
+// FromCheckout reports whether a binary of build info info was built in a
+// checkout of the repository, which stamps the commit: `go build` or `go
+// install` in a clone. A `go install ...@version` has a module version and
+// no commit.
+func FromCheckout(info *debug.BuildInfo) bool {
+	if info == nil {
+		return false
+	}
+	for _, s := range info.Settings {
+		if s.Key == "vcs.revision" && s.Value != "" {
+			return true
+		}
+	}
+	return false
 }
 
 var (

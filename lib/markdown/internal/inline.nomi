@@ -35,8 +35,8 @@ enum Inline
     /// A run of `*`, `_` or `~` still waiting for its match.
     Delimiter {char: Int, length: Int, original: Int, can_open: Bool, can_close: Bool, start: Int}
     /// A `[` or `![` still waiting for its `]`; `links` counts the links
-    /// made before it.
-    Label {start: Int, stop: Int, image: Bool, links: Int}
+    /// made before it, and `nested` is whether a label opened inside it.
+    Label {start: Int, stop: Int, image: Bool, links: Int, nested: Bool}
 end
 
 /// A node, its neighbours and, for a node that holds others, its first and
@@ -645,9 +645,28 @@ fn open_label(st: Ist, image: Bool) -> (Ist, Bool)
     p = st.c.pos
     start = if image then p - 1 else p
     st = {..st, bottoms: [st.dlast, ..st.bottoms]}
-    st = if st.labels == [] then {..st, label_start: start} else st
-    (st, id) = append(st, .Label{start:, stop: p + 1, image:, links: st.links})
+
+    st =
+        case st.labels
+            []           -> {..st, label_start: start}
+            [newest, ..] -> nest_in(st, newest)
+        end
+
+    (st, id) = append(st, .Label{start:, stop: p + 1, image:, links: st.links, nested: False})
     (advance({..st, labels: [id, ..st.labels]}, 1), True)
+end
+
+/// The label `id` marked as holding another. Only the newest open label is
+/// marked when one opens, and each label around it was marked when the one
+/// inside it opened, so a nest of labels costs constant work per label.
+fn nest_in(st: Ist, id: Int) -> Ist
+    case get(st, id).kind
+        .Label{start:, stop:, image:, links:} ->
+            set_kind(st, id, .Label{start:, stop:, image:, links:, nested: True})
+
+        _ ->
+            st
+    end
 end
 
 fn pop_bottom(st: Ist) -> (Ist, Int)
@@ -678,7 +697,7 @@ fn close_label(st: Ist) -> (Ist, Bool)
         [last, ..rest] ->
             close_at = st.c.pos
             st = advance({..st, labels: rest}, 1)
-            (_, label_stop, image, links_before) = label_of(st, last)
+            (_, _, image, links_before, _) = label_of(st, last)
 
             too_long =
                 case rest
@@ -698,7 +717,7 @@ fn close_label(st: Ist) -> (Ist, Bool)
 
                     // [
                     91 ->
-                        (st, formed, has_value) = reference_link(st, last, label_stop)
+                        (st, formed, has_value) = reference_link(st, last)
                         if not formed and has_value then return give_up(st, last)
                         (st, formed)
 
@@ -709,26 +728,40 @@ fn close_label(st: Ist) -> (Ist, Bool)
             if formed then return (st, True)
             st = {..st, c: after_label}
 
-            case definition(st, Bytes.slice(st.lines.buf, label_stop, close_at))
+            case label_definition(st, last, close_at)
                 None    -> give_up(st, last)
                 Some(r) -> (make_link(st, last, r.destination, r.title), True)
             end
     end
 end
 
+/// The definition the text of label `id` names, up to its `]` at
+/// `close_at`. A label that holds another names none: a link label may not
+/// hold an unescaped bracket, so no definition's label does, and the `[`
+/// of a label inside it is unescaped, since the scan opens a label only at
+/// one. Its key is never made, which would read the labels inside it again
+/// at each `]` of a nest.
+fn label_definition(st: Ist, id: Int, close_at: Int) -> Option<Ref>
+    (_, stop, _, _, nested) = label_of(st, id)
+
+    if nested then
+        None
+    else
+        definition(st, Bytes.slice(st.lines.buf, stop, close_at))
+    end
+end
+
 /// The definition `reference` names. A reference over 999 bytes names none,
-/// and with no definitions in the document none is looked for: making a
-/// reference's key reads all of it, and each `]` of a deep nest of labels
-/// would read the labels inside it again.
+/// and with no definitions in the document none is looked for.
 fn definition(st: Ist, reference: Bytes) -> Option<Ref>
     if Map.size(st.refs) == 0 or Bytes.length(reference) > 999 then return None
     Map.get(st.refs, reader.reference_key(reference))
 end
 
-fn label_of(st: Ist, id: Int) -> (Int, Int, Bool, Int)
+fn label_of(st: Ist, id: Int) -> (Int, Int, Bool, Int, Bool)
     case get(st, id).kind
-        .Label{start:, stop:, image:, links:} -> (start, stop, image, links)
-        _                                     -> (0, 0, False, 0)
+        .Label{start:, stop:, image:, links:, nested:} -> (start, stop, image, links, nested)
+        _ -> (0, 0, False, 0, False)
     end
 end
 
@@ -737,7 +770,7 @@ end
 fn make_link(st: Ist, id: Int, destination: Bytes, title: Option<Bytes>) -> Ist
     (st, bottom) = pop_bottom(st)
     st = process_delimiters(st, bottom)
-    (_, _, image, _) = label_of(st, id)
+    (_, _, image, _, _) = label_of(st, id)
     n = get(st, id)
     first = n.next
     last = if first >= 0 then st.last else -1
@@ -824,7 +857,7 @@ end
 
 /// A full or collapsed reference link after a label: whether it made one,
 /// and whether a second label was there at all.
-fn reference_link(st: Ist, label: Int, label_stop: Int) -> (Ist, Bool, Bool)
+fn reference_link(st: Ist, label: Int) -> (Ist, Bool, Bool)
     open_at = st.c.pos
 
     (st, found) = closure(st, Cursor.advance(st.c, st.lines, 1), 91, 93)
@@ -835,16 +868,15 @@ fn reference_link(st: Ist, label: Int, label_stop: Int) -> (Ist, Bool, Bool)
 
         Some(((a, b), c)) ->
             st = {..st, c:}
-            reference = Bytes.slice(st.lines.buf, a, b)
 
-            reference =
-                if text.is_blank(reference, 0, Bytes.length(reference)) then
-                    Bytes.slice(st.lines.buf, label_stop, open_at - 1)
+            named =
+                if text.is_blank(st.lines.buf, a, b) then
+                    label_definition(st, label, open_at - 1)
                 else
-                    reference
+                    definition(st, Bytes.slice(st.lines.buf, a, b))
                 end
 
-            case definition(st, reference)
+            case named
                 None    -> (st, False, True)
                 Some(r) -> (make_link(st, label, r.destination, r.title), True, True)
             end
@@ -929,8 +961,8 @@ end
 fn trim_code(st: Ist, parts: List<(Int, Int)>) -> List<(Int, Int)>
     blank = Iter.all_match(parts, fn (a, b) -> text.is_blank(st.lines.buf, a, b))
     if blank or parts == [] then return parts
-    (fa, fb) = List.first(parts)!
-    (la, lb) = parts |> Iter.reverse() |> List.first()!
+    (fa, fb) = NonEmptyList.first(parts)
+    (la, lb) = NonEmptyList.last(parts)
 
     trims = fb > fa
         and space_or_newline(at(st, fa))

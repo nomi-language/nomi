@@ -102,6 +102,16 @@ func importFunc(module, field string, typ uint64) []byte {
 // mutableI32 is a mutable i32 global starting at n.
 func mutableI32(n int32) []byte { return cat([]byte{byte(tI32), 0x01}, i32c(n), []byte{opEnd}) }
 
+// opI32Store is i32.store, which only a fixture writes.
+const opI32Store = 0x36
+
+// load and store are i32.load and i32.store at an address on the stack,
+// 4-byte aligned, with no offset.
+var (
+	load  = []byte{opI32Load, 0x02, 0x00}
+	store = []byte{opI32Store, 0x02, 0x00}
+)
+
 // fixtures is every test module, by its file name without the extension.
 var fixtures = map[string]mod{
 	// values.wat: a function of each value type, the traps, memory
@@ -208,6 +218,31 @@ var fixtures = map[string]mod{
 				[]byte{opBr, 0x00, opEnd, opEnd},
 				get(0), []byte{opI64ExtendI32U}, i64c(32), []byte{opI64Shl},
 				get(1), []byte{opI64ExtendI32U, opI64Or},
+			)},
+		},
+	},
+	// residue.wat: `wasm.run`'s convention over a function that answers
+	// what an earlier call would have left (its global, a word of its
+	// first page, and a word of the page it grows) and then leaves 7 in
+	// each.
+	"residue": {
+		types: [][]byte{
+			sig([]valType{tI32}, []valType{tI32}),       // 0: alloc
+			sig([]valType{tI32, tI32}, []valType{tI64}), // 1: scribble
+		},
+		memory:  []byte{0x00, 0x01},
+		globals: [][]byte{mutableI32(0)},
+		funcs: []fn{
+			{typ: 0, export: "alloc", code: i32c(0)},
+			{typ: 1, export: "scribble", code: cat(
+				i32c(128), []byte{opGlobalGet, 0x00}, store,
+				i32c(132), i32c(64), load, store,
+				i32c(1), []byte{opMemoryGrow, 0x00, opDrop},
+				i32c(136), i32c(65536+64), load, store,
+				i32c(7), []byte{opGlobalSet, 0x00},
+				i32c(64), i32c(7), store,
+				i32c(65536+64), i32c(7), store,
+				i64c(128<<32|12),
 			)},
 		},
 	},

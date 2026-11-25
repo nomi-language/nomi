@@ -147,7 +147,7 @@ import
     duration.{Duration, PositiveDuration}
     equatable.Equatable
     instant.Instant
-    int.{Int, NonZeroInt, PositiveInt}
+    int.{Int, PositiveInt}
     iter.Iter
     json.{FromJson, Json, ToJson}
     lists.List
@@ -171,7 +171,7 @@ end
 pub struct Job<A>
     kind:         String
     queue:        String
-    max_attempts: Int
+    max_attempts: PositiveInt
     timeout:      Duration
     priority:     Int
     handler:      (A) -> Result<Unit, Failure>
@@ -183,8 +183,8 @@ impl Job<A>
     /// The handler comes last, so it goes in its slot whichever options a
     /// call names: `Job.new("email", send_email, max_attempts: 25)`.
     ///
-    /// `max_attempts` counts runs, including the first, and `timeout`
-    /// bounds each run. Of the due jobs, a worker claims those of the
+    /// `max_attempts` counts runs, including the first, so it is a
+    /// `PositiveInt`, and `timeout` bounds each run. Of the due jobs, a worker claims those of the
     /// highest `priority` first; an enqueue may give another.
     //! job = Job.new("greet", max_attempts: 3, fn _: Int -> Ok(Unit))
     //! assert job.kind == "greet"
@@ -196,7 +196,7 @@ impl Job<A>
     pub fn new(
         kind:         String,
         queue:        String = "default",
-        max_attempts: Int = 20,
+        max_attempts: PositiveInt = 20,
         timeout:      Duration = Duration.minutes(5),
         priority:     Int = 0,
         handler:      (A) -> Result<Unit, Failure>,
@@ -382,7 +382,7 @@ end
 // zone, which constructing it checked: the search reads wall clocks and
 // offsets in its zone.
 enum Timing
-    Every Duration
+    Every {interval: PositiveDuration}
     Cron {cron: Cron, clock: DateTime}
 end
 
@@ -419,7 +419,7 @@ impl Schedule
         args:     A,
         missed:   Missed = Missed.RunLatest,
     ) -> Schedule where A: ToJson
-        Schedule{name:, timing: Timing.Every(interval), job: template(job, args), missed:}
+        Schedule{name:, timing: Timing.Every{interval:}, job: template(job, args), missed:}
     end
 
     /// A schedule that enqueues `job` for `args` at the times `cron`
@@ -458,9 +458,8 @@ impl Schedule
     /// The schedule's first tick after `at`.
     pub fn next_after(schedule: Schedule, at: Instant) -> Instant
         case schedule.timing
-            .Every(interval) ->
-                // `Schedule.every` takes a PositiveDuration, so the `!` holds.
-                n = NonZeroInt.try_from(Duration.as_nanos(interval))!
+            .Every{interval:} ->
+                n = Duration.as_nanos(interval)
                 Instant.from_nanos((Int.floor_div(Instant.as_nanos(at), n) + 1) * n)
 
             .Cron{cron:, clock:} ->
@@ -1041,12 +1040,14 @@ fn offset_at(at: Instant, clock: DateTime) -> Duration
 end
 
 /// A start rate: at most `count` jobs start per `per`, with up to `burst`
-/// started at once after a quiet spell. It holds back claims in one worker
-/// process; several processes each get the whole rate.
+/// started at once after a quiet spell. `count` and `burst` are
+/// `PositiveInt`s and `per` a `PositiveDuration`, so a rate that starts
+/// nothing, or one with no period, is refused. It holds back claims in one
+/// worker process; several processes each get the whole rate.
 pub struct Rate
     count: PositiveInt
-    per:   Duration
-    burst: Int = 1
+    per:   PositiveDuration
+    burst: PositiveInt = 1
 end
 
 derive Equatable for Rate
@@ -1245,7 +1246,7 @@ pub struct NewJob
     kind:          String
     args:          Json
     run_at:        Option<Instant>
-    max_attempts:  Int
+    max_attempts:  PositiveInt
     priority:      Int = 0
     unique_key:    Option<String> = None
     unique_across: UniqueStates = UniqueStates.Live
@@ -1513,9 +1514,8 @@ end
 // The latest tick of `schedule` in (after, now].
 fn latest_tick(schedule: Schedule, after: Instant, now: Instant) -> Option<Instant>
     case schedule.timing
-        .Every(interval) ->
-            // `Schedule.every` takes a PositiveDuration, so the `!` holds.
-            n = NonZeroInt.try_from(Duration.as_nanos(interval))!
+        .Every{interval:} ->
+            n = Duration.as_nanos(interval)
             tick = Instant.from_nanos(Int.floor_div(Instant.as_nanos(now), n) * n)
             if Instant.is_before(after, tick) then Some(tick) else None
 

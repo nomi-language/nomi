@@ -14,7 +14,7 @@ import (
 // overListFiles is a project whose nomi.toml allows std::io alone, and
 // whose main, exported function and test each read a file (std::fs).
 var overListFiles = map[string]string{
-	"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = [\"std::io\"]\n",
+	"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\neffects = [\"std::io\"]\n",
 	"main.nomi": `import
     std::fs
     std::io

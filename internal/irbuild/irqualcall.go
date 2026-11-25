@@ -411,9 +411,9 @@ func (bl *irScalarBuilder) qualCallLowered(t *ast.Call, fa *ast.FieldAccess) (ir
 	obj, isIdent := ast.QualifierIdent(fa.Object)
 	ti, isType := fa.Object.(*ast.TypeIdent)
 	if isType && method == "unchecked" && len(t.Args) == 1 {
-		if bl.g.refinementAt(ti.Line, ti.Col) {
-			// A refinement's `unchecked` is its value, which is its base's
-			// (uncheckedRefinement): `ClosedRange.unchecked(r)` in a std
+		if bl.g.subtypeAt(ti.Line, ti.Col) {
+			// A subtype's `unchecked` is its value, which is its base's
+			// (uncheckedSubtype): `ClosedRange.unchecked(r)` in a std
 			// body the shared lowering retains, which builds no instance
 			// of the generic `unchecked`.
 			return bl.lower(t.Args[0])
@@ -480,9 +480,9 @@ func (bl *irScalarBuilder) markSignalCallback(cb ast.Node) (func(), bool) {
 
 // typeQualCall lowers a call qualified with a type, an interface or a type
 // parameter (typeQualRoutes), and checks the value a reader's function
-// makes at a refinement (readNarrowed).
+// makes at a subtype (readNarrowed).
 func (bl *irScalarBuilder) typeQualCall(t *ast.Call, method string) (ir.Temp, kind, bool, bool) {
-	read := bl.refinementReadOf(t)
+	read := bl.subtypeReadOf(t)
 	v, k, mobile, ok := bl.typeQualRoutes(t, method)
 	if read == nil || !ok {
 		return v, k, mobile, ok

@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/sourcegraph/jsonrpc2"
 	"github.com/tliron/glsp"
@@ -42,9 +43,10 @@ const analysisWait = 2 * time.Second
 type freshness int
 
 const (
-	// anyAnalysis answers from the latest finished analysis, possibly one
-	// edit old. The handler reads the cursor's surroundings from the
-	// latest text and maps positions into the older analysis itself.
+	// anyAnalysis answers at once from the latest finished analysis,
+	// possibly one edit old. The handler reads the cursor's surroundings
+	// from the latest text and maps positions into the older analysis
+	// itself.
 	anyAnalysis freshness = iota
 	// preferCurrent waits up to analysisWait for the current analysis,
 	// then answers from the older one. For read-only answers whose ranges
@@ -57,33 +59,67 @@ const (
 	requireCurrent
 )
 
-// requestFreshness is the staleness policy per request that reads a
-// document's analysis. A listed request on a document whose first analysis
-// has not finished is answered with null. A method not listed reads no
-// document analysis (formatting edits the latest text only), or no single
-// document's (completionItem/resolve, workspace requests).
+// requestFreshness is the staleness policy per request that reads the
+// analysis of the document it names. Every listed request on a document
+// with no finished analysis waits for its first one, starting it at once
+// when an edit's delay holds it (awaitAnalysis). When none has finished
+// within analysisWait, a requireCurrent request fails as below and any
+// other is answered with null.
+//
+// A handler reads its document only through requestDoc, which panics for
+// a request whose method is not listed, and
+// TestRPC_EveryRequestThatReadsItsDocumentIsListed sends every request the
+// server dispatches. So a method not listed reads no analysis of the
+// document it names: formatting edits the latest text only, and
+// completionItem/resolve, the call hierarchy's incoming and outgoing
+// calls and the workspace requests name no document.
 //
 //   - completion and signatureHelp are answered
 //     while typing, where waiting is what made menus arrive too late.
 //     Both read the cursor's context from the latest text; completion maps
 //     positions into the older analysis (completionPositions) and reads
 //     names, scopes and types from it.
-//   - hover, definition, implementation, references, documentSymbol,
-//     semantic tokens and inlay hints turn analysis positions into ranges.
+//   - hover, definition, typeDefinition, implementation, references,
+//     documentHighlight, prepareRename, prepareCallHierarchy,
+//     documentSymbol, codeLens, documentLink, semantic tokens, inlay hints
+//     and inline values turn the analysis's positions, or its parse's,
+//     into ranges.
 //   - rename and codeAction return edits computed from the analysis.
 var requestFreshness = map[string]freshness{
-	string(protocol.MethodTextDocumentCompletion):         anyAnalysis,
-	string(protocol.MethodTextDocumentSignatureHelp):      anyAnalysis,
-	string(protocol.MethodTextDocumentHover):              preferCurrent,
-	string(protocol.MethodTextDocumentDefinition):         preferCurrent,
-	string(protocol.MethodTextDocumentImplementation):     preferCurrent,
-	string(protocol.MethodTextDocumentReferences):         preferCurrent,
-	string(protocol.MethodTextDocumentDocumentSymbol):     preferCurrent,
-	string(protocol.MethodTextDocumentSemanticTokensFull): preferCurrent,
-	"textDocument/inlayHint":                              preferCurrent,
-	"textDocument/inlineValue":                            preferCurrent,
-	string(protocol.MethodTextDocumentRename):             requireCurrent,
-	string(protocol.MethodTextDocumentCodeAction):         requireCurrent,
+	string(protocol.MethodTextDocumentCompletion):           anyAnalysis,
+	string(protocol.MethodTextDocumentSignatureHelp):        anyAnalysis,
+	string(protocol.MethodTextDocumentHover):                preferCurrent,
+	string(protocol.MethodTextDocumentDefinition):           preferCurrent,
+	string(protocol.MethodTextDocumentTypeDefinition):       preferCurrent,
+	string(protocol.MethodTextDocumentImplementation):       preferCurrent,
+	string(protocol.MethodTextDocumentReferences):           preferCurrent,
+	string(protocol.MethodTextDocumentDocumentHighlight):    preferCurrent,
+	string(protocol.MethodTextDocumentPrepareRename):        preferCurrent,
+	string(protocol.MethodTextDocumentPrepareCallHierarchy): preferCurrent,
+	string(protocol.MethodTextDocumentDocumentSymbol):       preferCurrent,
+	string(protocol.MethodTextDocumentCodeLens):             preferCurrent,
+	string(protocol.MethodTextDocumentDocumentLink):         preferCurrent,
+	string(protocol.MethodTextDocumentSemanticTokensFull):   preferCurrent,
+	"textDocument/inlayHint":                                preferCurrent,
+	"textDocument/inlineValue":                              preferCurrent,
+	string(protocol.MethodTextDocumentRename):               requireCurrent,
+	string(protocol.MethodTextDocumentCodeAction):           requireCurrent,
+}
+
+// requestDoc is the open document at uri, the one the request gctx
+// belongs to names, as DocumentManager.Snapshot gives it. A request's
+// handler reads its document only through it. For a request the RPC layer
+// runs it panics when the method has no requestFreshness entry: run waits
+// for no analysis of it, so it would answer from whatever analysis is
+// installed, and with nothing before the first. A handler a test calls
+// directly is not checked.
+func (s *Server) requestDoc(gctx *glsp.Context, uri string) *analysis.DocSnapshot {
+	if _, viaRPC := s.requestCtxs.Load(gctx); viaRPC {
+		if _, listed := requestFreshness[gctx.Method]; !listed {
+			panic(fmt.Sprintf("%s reads the analysis of the document it names and has no requestFreshness entry", gctx.Method))
+		}
+	}
+	return s.docs.Snapshot(uri)
 }
 
 // rpcHandler adapts the server's glsp handler to jsonrpc2, adding
@@ -170,7 +206,7 @@ func (h *rpcHandler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonr
 func (h *rpcHandler) run(ctx context.Context, gctx *glsp.Context, req *jsonrpc2.Request) (any, error) {
 	if policy, ok := requestFreshness[req.Method]; ok {
 		uri := paramsURI(gctx.Params)
-		if policy != anyAnalysis && uri != "" && !h.s.awaitAnalysis(ctx, uri, h.s.sched.maxWait()) {
+		if uri != "" && !h.s.awaitAnalysis(ctx, uri, policy, h.s.sched.maxWait()) {
 			if ctx.Err() != nil {
 				return nil, nil
 			}

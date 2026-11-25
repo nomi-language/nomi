@@ -40,7 +40,7 @@ func TestEntryForms(t *testing.T) {
 // lists whether they allow it, naming a module's entry that allows it too or
 // the dependency whose own nomi.toml refuses it.
 func TestReachedLine(t *testing.T) {
-	self, deps, entry := []string{"`[effects.self]`"}, "`[effects.deps]`", "the entry for `lib.example/fetch`"
+	self, deps, entry := []string{"`[effects.self]`"}, "`[effects.dependencies]`", "the entry for `lib.example/fetch`"
 	for _, c := range []struct {
 		name            string
 		listed, allowed bool
@@ -50,7 +50,7 @@ func TestReachedLine(t *testing.T) {
 	}{
 		{"std::http", false, false, nil, "", "Has effects: `std::http`."},
 		{"std::http", true, true, self, "", "Has effects: `std::http`, which `nomi.toml` allows in `[effects.self]`."},
-		{"std::http", true, true, []string{deps, entry}, "", "Has effects: `std::http`, which `nomi.toml` allows in `[effects.deps]` and in the entry for `lib.example/fetch`."},
+		{"std::http", true, true, []string{deps, entry}, "", "Has effects: `std::http`, which `nomi.toml` allows in `[effects.dependencies]` and in the entry for `lib.example/fetch`."},
 		{"std::http", true, true, nil, "", "Has effects: `std::http`, which no table in `nomi.toml` holds."},
 		{"std::http", true, false, self, "", "Has effects: `std::http`, which `nomi.toml` does not allow in `[effects.self]`."},
 		{"std::http", true, false, []string{entry}, "", "Has effects: `std::http`, which `nomi.toml` does not allow in the entry for `lib.example/fetch`."},

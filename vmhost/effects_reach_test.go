@@ -19,7 +19,7 @@ var reachFixtures = []struct {
 }{
 	{"a dependency that reads a file for main", "app/main.nomi",
 		dependencyFiles("[package]\nname = \"app\"\nentry_points = [\"main\"]\n", ""),
-		"self.std=[std::io] self.std_in_tests=[] deps.std=[std::fs] deps.std_in_tests=[] pricing=[std::fs]"},
+		"self.effects=[std::io] self.effects_in_tests=[] dependencies.effects=[std::fs] dependencies.effects_in_tests=[] pricing=[std::fs]"},
 	{"effect calls only in tests, and a dependency that reaches nothing", "app/main.nomi", map[string]string{
 		"app/nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[dependencies]\npure = { dir = \"../pure\" }\n",
 		"app/main.nomi": `import
@@ -39,7 +39,7 @@ end
 		"pure/nomi.toml":  "[package]\nname = \"pure\"\n",
 		"pure/calc.nomi":  "pub fn double(n: Int) -> Int\n    n * 2\nend\n",
 		"pure/other.nomi": "import std::io\n\npub fn say()\n    io.print(\"never called\")\nend\n",
-	}, "self.std=[] self.std_in_tests=[std::fs] deps.std=[] deps.std_in_tests=[] pure=[]"},
+	}, "self.effects=[] self.effects_in_tests=[std::fs] dependencies.effects=[] dependencies.effects_in_tests=[] pure=[]"},
 	{"a dependency reached only from tests", "app/main.nomi", map[string]string{
 		"app/nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[dependencies]\npricing = { dir = \"../pricing\" }\n",
 		"app/main.nomi": `import
@@ -62,32 +62,36 @@ pub fn load(path: String) -> String
     fs.read_text(path) |> Result.with_default("")
 end
 `,
-	}, "self.std=[std::io] self.std_in_tests=[] deps.std=[] deps.std_in_tests=[std::fs] pricing=[std::fs]"},
+	}, "self.effects=[std::io] self.effects_in_tests=[] dependencies.effects=[] dependencies.effects_in_tests=[std::fs] pricing=[] pricing.in_tests=[std::fs]"},
 	{"the modules of the project main loads, under a table of entries", "main.nomi",
 		selfModulesFiles(`[]`, "\n[effects.self.modules]\n"),
-		"self.std=[std::http std::io] self.std_in_tests=[] self.modules.main=[std::io] self.modules.net::fetch=[std::http] self.modules.pricing=[] deps.std=[] deps.std_in_tests=[]"},
+		"self.effects=[std::http std::io] self.effects_in_tests=[] self.modules.main=[std::io] self.modules.net::fetch=[std::http] self.modules.pricing=[] dependencies.effects=[] dependencies.effects_in_tests=[]"},
 	{"a test file's own entry", "pricing_test.nomi",
 		selfModulesFiles(`[]`, "entries_required = true\n"),
 		// pricing.total and fetch.rates are public, so they are roots of the
 		// module's own list whichever file is the entry: std::http is the
 		// code's, and only the test's file read is the tests'.
-		"self.std=[std::http] self.std_in_tests=[std::fs] self.modules.net::fetch=[std::http] self.modules.pricing=[] self.modules.pricing_test=[std::fs] deps.std=[] deps.std_in_tests=[]"},
+		"self.effects=[std::http] self.effects_in_tests=[std::fs] self.modules.net::fetch=[std::http] self.modules.pricing=[] self.modules.pricing_test=[std::fs] dependencies.effects=[] dependencies.effects_in_tests=[]"},
 }
 
 // listsText is c as one line: self's lists and each of its entries by key,
-// deps' lists, and then each dependency's entry by path.
+// dependencies' lists, and then each [dependencies] entry's effects by key,
+// and its effects_in_tests.
 func listsText(c *Effects) string {
 	parts := []string{
-		fmt.Sprintf("self.std=%v", c.Self.Std), fmt.Sprintf("self.std_in_tests=%v", c.Self.StdInTests),
+		fmt.Sprintf("self.effects=%v", c.Self.Effects), fmt.Sprintf("self.effects_in_tests=%v", c.Self.EffectsInTests),
 	}
 	for _, m := range slices.Sorted(maps.Keys(c.Self.Modules)) {
 		parts = append(parts, fmt.Sprintf("self.modules.%s=%v", m, c.Self.Modules[m]))
 	}
 	parts = append(parts,
-		fmt.Sprintf("deps.std=%v", c.Deps.Std), fmt.Sprintf("deps.std_in_tests=%v", c.Deps.StdInTests),
+		fmt.Sprintf("dependencies.effects=%v", c.Dependencies.Effects), fmt.Sprintf("dependencies.effects_in_tests=%v", c.Dependencies.EffectsInTests),
 	)
-	for _, m := range slices.Sorted(maps.Keys(c.Deps.Packages)) {
-		parts = append(parts, fmt.Sprintf("%s=%v", m, c.Deps.Packages[m]))
+	for _, m := range slices.Sorted(maps.Keys(c.Dependencies.Entries)) {
+		parts = append(parts, fmt.Sprintf("%s=%v", m, c.Dependencies.Entries[m]))
+	}
+	for _, m := range slices.Sorted(maps.Keys(c.Dependencies.EntriesInTests)) {
+		parts = append(parts, fmt.Sprintf("%s.in_tests=%v", m, c.Dependencies.EntriesInTests[m]))
 	}
 	return strings.Join(parts, " ")
 }
@@ -103,9 +107,9 @@ func notAllowedByAll(r *Reach, lists *Effects) []NotAllowed {
 }
 
 // withoutName is c with name taken out of list, a list's path below
-// [effects] (`self.std`, `deps.std_in_tests`), an entry of a module of
-// the project (`self.modules.pricing`) or a dependency's entry by its
-// path.
+// nomi.toml (`effects.self.effects`), an entry of a module of the project
+// (`self.modules.pricing`), or a [dependencies] entry's effects by its key
+// (`pricing`) and its effects_in_tests (`pricing.in_tests`).
 func withoutName(c *Effects, list, name string) *Effects {
 	out := c.Clone()
 	drop := func(names *[]string) {
@@ -118,18 +122,22 @@ func withoutName(c *Effects, list, name string) *Effects {
 		return out
 	}
 	switch list {
-	case "self.std":
-		drop(&out.Self.Std)
-	case "self.std_in_tests":
-		drop(&out.Self.StdInTests)
-	case "deps.std":
-		drop(&out.Deps.Std)
-	case "deps.std_in_tests":
-		drop(&out.Deps.StdInTests)
+	case "effects.self.effects":
+		drop(&out.Self.Effects)
+	case "effects.self.effects_in_tests":
+		drop(&out.Self.EffectsInTests)
+	case "effects.dependencies.effects":
+		drop(&out.Dependencies.Effects)
+	case "effects.dependencies.effects_in_tests":
+		drop(&out.Dependencies.EffectsInTests)
 	default:
-		entry := out.Deps.Packages[list]
+		entries := out.Dependencies.Entries
+		if key, ok := strings.CutSuffix(list, ".in_tests"); ok {
+			entries, list = out.Dependencies.EntriesInTests, key
+		}
+		entry := entries[list]
 		drop(&entry)
-		out.Deps.Packages[list] = entry
+		entries[list] = entry
 	}
 	return out
 }
@@ -154,10 +162,13 @@ func TestTightestLists_PassAndEveryNameIsNeeded(t *testing.T) {
 				t.Errorf("the tightest table refuses %d calls, the first %s at %s", len(refused), refused[0].Name, refused[0].Site)
 			}
 			lists := map[string][]string{
-				"self.std": tight.Self.Std, "self.std_in_tests": tight.Self.StdInTests,
-				"deps.std": tight.Deps.Std, "deps.std_in_tests": tight.Deps.StdInTests,
+				"effects.self.effects": tight.Self.Effects, "effects.self.effects_in_tests": tight.Self.EffectsInTests,
+				"effects.dependencies.effects": tight.Dependencies.Effects, "effects.dependencies.effects_in_tests": tight.Dependencies.EffectsInTests,
 			}
-			maps.Copy(lists, tight.Deps.Packages)
+			maps.Copy(lists, tight.Dependencies.Entries)
+			for key, entry := range tight.Dependencies.EntriesInTests {
+				lists[key+".in_tests"] = entry
+			}
 			for key, entry := range tight.Self.Modules {
 				lists["self.modules."+key] = entry
 			}
@@ -215,7 +226,7 @@ end
 	}
 	want := []string{
 		"7:5 this package's own code has the effect std::io, and [effects.self] allows it no effects | and 3 more calls have the effect std::io; --all-calls lists them",
-		"10:14 this package's own code has the effect std::fs, and [effects.self] allows it no effects | add \"std::fs\" to std under [effects.self] in nomi.toml, or remove the call",
+		"10:14 this package's own code has the effect std::fs, and [effects.self] allows it no effects | add \"std::fs\" to effects under [effects.self] in nomi.toml, or remove the call",
 		"14:5 this package's tests have the effect std::io, and [effects.self] allows them no effects | and 1 more call has the effect std::io; --all-calls lists it",
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {

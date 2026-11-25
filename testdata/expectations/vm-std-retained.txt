@@ -421,10 +421,12 @@ float.nomi:Float.parse_in	ran
 float.nomi:Float.parse_percent_in	ran
 float.nomi:Float.round	ran
 float.nomi:Float.sign	ran
+float.nomi:NonNegativeFloat.sqrt	ran
 float.nomi:NonNegativeFloat.try_from	ran
 float.nomi:NonNegativeFloat.unchecked	ran
 float.nomi:NonZeroFloat.try_from	ran
 float.nomi:NonZeroFloat.unchecked	ran
+float.nomi:PositiveFloat.sqrt	ran
 float.nomi:PositiveFloat.try_from	ran
 float.nomi:PositiveFloat.unchecked	ran
 float.nomi:float.Float.format default 3	ran
@@ -630,17 +632,13 @@ phrase/format.nomi:noun_text	ran
 plural.nomi:Decimal.plural_operand	ran
 plural.nomi:Int.plural_operand	ran
 plural.nomi:PluralCategory.cardinal	LINKING: a declaration this module did not retain
-plural.nomi:PluralCategory.cardinals	ran
 plural.nomi:PluralCategory.of	ran
 plural.nomi:PluralCategory.ordinal	ran
-plural.nomi:PluralCategory.ordinals	ran
 plural.nomi:PluralCategory.to_string	ran
 process/host.nomi:Child.inspect	ran
 process/host.nomi:Fake.inspect	ran
 random.nomi:Error.to_string	ran
 random.nomi:FiniteRange.unchecked	ran
-random.nomi:Generator.float	ran
-random.nomi:Generator.int	ran
 random.nomi:Seed.from_int	ran
 random.nomi:Seed.from_os	ran
 random.nomi:Seed.inspect	ran
@@ -682,8 +680,16 @@ strings.nomi:Codepoint.is_prefix_of	ran
 strings.nomi:Codepoint.is_suffix_of	ran
 strings.nomi:Codepoint.replace_in	ran
 strings.nomi:Codepoint.split_in	ran
+strings.nomi:NonEmptyString.capitalize	ran
+strings.nomi:NonEmptyString.first	ran
+strings.nomi:NonEmptyString.last	ran
+strings.nomi:NonEmptyString.lowercase	ran
+strings.nomi:NonEmptyString.normalize	ran
+strings.nomi:NonEmptyString.repeat	ran
+strings.nomi:NonEmptyString.reverse	ran
 strings.nomi:NonEmptyString.try_from	ran
 strings.nomi:NonEmptyString.unchecked	ran
+strings.nomi:NonEmptyString.uppercase	ran
 strings.nomi:String.Contains<Codepoint>.contains	ran
 strings.nomi:String.Contains<Regex<C>>.contains	ran
 strings.nomi:String.Contains<String>.contains	ran

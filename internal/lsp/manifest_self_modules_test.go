@@ -28,7 +28,7 @@ func selfModulesProject(t *testing.T, manifest string) string {
 // selfModulesManifest is selfModulesProject's nomi.toml with entries, the
 // lines of its [effects.self.modules].
 func selfModulesManifest(entries string) string {
-	return "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = [\"std::io\", \"std::fs\"]\n\n[effects.self.modules]\n" + entries
+	return "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\neffects = [\"std::io\", \"std::fs\"]\n\n[effects.self.modules]\n" + entries
 }
 
 // In nomi.toml, a key under [effects.self.modules] that names no module

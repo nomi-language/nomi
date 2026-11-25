@@ -1,7 +1,8 @@
 // Package rt is Nomi's runtime library: the collections, exact Int
 // arithmetic and its trap text, Float semantics, structural hashing,
 // equality, scalar rendering, the frame, the task and supervisor runtime,
-// and the test reporter. The VM (internal/vm) runs over it, and built
+// and the test reporter, whose line diff is also the unified diff
+// `nomi fmt -d` prints. The VM (internal/vm) runs over it, and built
 // executables link it. Its internal
 // organization may change freely to serve the VM.
 //

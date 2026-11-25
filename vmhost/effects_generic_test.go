@@ -11,7 +11,7 @@ import (
 // allows std, holding src.
 func genericLibrary(std, src string) map[string]string {
 	return map[string]string{
-		"nomi.toml":   "[package]\nname = \"genlib\"\n\n[effects.self]\nstd = " + std + "\n",
+		"nomi.toml":   "[package]\nname = \"genlib\"\n\n[effects.self]\neffects = " + std + "\n",
 		"genlib.nomi": src,
 	}
 }
@@ -39,7 +39,7 @@ func TestEffectRoots_AGenericFunctionIsWalkedThroughItsAbstractBody(t *testing.T
 	got, ds := effectDiagnostics(t, "genlib.nomi", genericLibrary("[]", readShown))
 	want := "genlib.nomi:8:12: this package's own code has the effect std::fs, and [effects.self] allows it no effects\n" +
 		"genlib.nomi:8:12: help: reached from `read_shown`\n" +
-		"genlib.nomi:8:12: help: add \"std::fs\" to std under [effects.self] in nomi.toml, or remove the call"
+		"genlib.nomi:8:12: help: add \"std::fs\" to effects under [effects.self] in nomi.toml, or remove the call"
 	if got != want {
 		t.Errorf("diagnostics:\n%s\nwant:\n%s", got, want)
 	}
@@ -75,8 +75,8 @@ end
 				if got != c.want {
 					t.Errorf("std = %s: diagnostics:\n%s\nwant:\n%s", std, got, c.want)
 				}
-				if len(ds) != 1 || ds[0].Code != EffectsNotDeterminedCode || !slices.Equal(ds[0].Args, []string{c.fn, "self"}) {
-					t.Errorf("std = %s: diagnostics %v; want one %s with Args [%s self]", std, ds, EffectsNotDeterminedCode, c.fn)
+				if len(ds) != 1 || ds[0].Code != EffectsNotDeterminedCode || !slices.Equal(ds[0].Args, []string{c.fn, "effects.self"}) {
+					t.Errorf("std = %s: diagnostics %v; want one %s with Args [%s effects.self]", std, ds, EffectsNotDeterminedCode, c.fn)
 				}
 			}
 		})
@@ -104,7 +104,7 @@ end
 	got, _ := effectDiagnostics(t, "genlib.nomi", genericLibrary("[]", src))
 	want := "genlib.nomi:7:12: this package's own code has the effect std::fs, and [effects.self] allows it no effects\n" +
 		"genlib.nomi:7:12: help: reached from `read_tagged`\n" +
-		"genlib.nomi:7:12: help: add \"std::fs\" to std under [effects.self] in nomi.toml, or remove the call"
+		"genlib.nomi:7:12: help: add \"std::fs\" to effects under [effects.self] in nomi.toml, or remove the call"
 	if got != want {
 		t.Errorf("diagnostics:\n%s\nwant:\n%s", got, want)
 	}
@@ -148,7 +148,7 @@ fn main()
 end
 `
 	dir := writeProject(t, map[string]string{
-		"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = [\"std::io\"]\n",
+		"nomi.toml": "[package]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\neffects = [\"std::io\"]\n",
 		"main.nomi": src,
 	})
 	entry := filepath.Join(dir, "main.nomi")

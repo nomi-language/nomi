@@ -66,7 +66,7 @@ test "NonEmptyVector"
     assert NonEmptyVector.mean(v) == 5.0
     assert NonEmptyVector.map(v, &(&1 * 2)) == Vector[10, 4, 16]
     assert NonEmptyVector.with_index(v) |> NonEmptyVector.last() == (2, 8)
-    assert NonEmptyVector.push(empty, 1) == Vector[1]
+    assert Vector.push(empty, 1) |> NonEmptyVector.first() == 1
     assert NonEmptyVector.concat(v, empty) == Vector[5, 2, 8]
     assert NonEmptyVector.of(1, empty) == Vector[1]
     assert NonEmptyVector.try_from(empty) == None
@@ -85,7 +85,7 @@ test "NonEmptyMap"
     assert NonEmptyMap.keys(m) == ["a", "b"]
     assert NonEmptyMap.values(m) |> NonEmptyList.max() == 2
     assert NonEmptyMap.map_values(m, &(&1 * 10)) == {"a" => 10, "b" => 20}
-    assert NonEmptyMap.put(empty, "z", 26) == {"z" => 26}
+    assert Map.put(empty, "z", 26) |> NonEmptyMap.first_entry() == ("z", 26)
     assert NonEmptyMap.merge(m, {"a" => 7}) == {"a" => 7, "b" => 2}
     assert NonEmptyMap.of("k", 0, empty) == {"k" => 0}
     assert NonEmptyMap.try_from(empty) == None
@@ -101,7 +101,7 @@ test "NonEmptySet"
     assert NonEmptySet.min(s) == 1
     assert NonEmptySet.map(s, &(&1 % 2)) == Set[1]
     assert NonEmptySet.to_list(s) |> NonEmptyList.first() == 3
-    assert NonEmptySet.insert(empty, 4) == Set[4]
+    assert Set.insert(empty, 4) |> NonEmptySet.min() == 4
     assert NonEmptySet.union(s, empty) == Set[3, 1]
     assert NonEmptySet.of(2, empty) == Set[2]
     assert NonEmptySet.try_from(empty) == None

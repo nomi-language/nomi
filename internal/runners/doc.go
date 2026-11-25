@@ -4,6 +4,15 @@
 // `nomi build`, `nomi build-vm`, `nomi build --web` and `nomi run --web`
 // call it. Running, checking and testing a program use none of it.
 //
+// It is also the one place a release is downloaded from. Every file comes
+// from the releases root (https://github.com/nomi-language/nomi/releases,
+// or NOMI_RELEASE_BASE_URL in a test) at download/<version>/<file>, and
+// every archive is checked against the release's checksums file before
+// anything is read out of it (fetchArchive). `nomi upgrade` takes the
+// latest release from where the root's /latest redirects (LatestRelease),
+// as scripts/install.sh does, and its `nomi` from the platform's main
+// archive (ReleaseNomi).
+//
 // A runner is built from the compiler's own module and shared by every
 // program: one per compiler identity, target and variant. A wasip1 program
 // with an `export fn` is appended to the reactor instead, the same VM linked
@@ -62,7 +71,9 @@
 // is reused only when every field matches (Cached). Each directory records
 // the root it belongs to; one whose root is gone, or that nothing has used
 // for artifactcache.Unused, is removed, and the count is bounded by
-// NOMI_RUNNER_CACHE_MAX_ENTRIES (evict.go).
+// NOMI_RUNNER_CACHE_MAX_ENTRIES (evict.go). `nomi cache clean runners`
+// empties the root (CacheRoot), and refuses a NOMI_RUNNER_CACHE_ROOT that
+// holds anything but these directories (Foreign).
 //
 // A release's directory, nomi-vm/<version>/, follows the artifact cache's
 // rule (internal/artifactcache package doc, "Pruning"): answering one of its

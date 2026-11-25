@@ -42,7 +42,7 @@ fn main()
     }
 
     seen = Request.parts(upload) |> Result.map(fn each ->
-        each |> Iter.map(fn p -> p |> Result.map(fn part -> "${Part.form_name(part)} ${Part.file_name(part)} ${Reader.read_all_text(part.body)}")) |> Iter.to_list()
+        each |> Iter.map(fn p -> p |> Result.map(fn part -> "${Part.form_name(part)} ${Part.file_name(part)} ${Reader.read_all_text(Part.body(part))}")) |> Iter.to_list()
     end)
 
     io.print("parts ${seen}")

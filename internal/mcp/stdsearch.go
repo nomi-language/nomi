@@ -150,11 +150,11 @@ func firstParagraph(doc string) string {
 // and the same result, a single capital letter in either standing for any
 // type, consistently. A query type also matches an interface it implements
 // (`List<T>` an `Iter<T>` parameter), and a candidate's result an interface
-// the query asks for. A refinement stands wherever its base is asked for,
+// the query asks for. A subtype stands wherever its base is asked for,
 // since its values are the base's: a `NonNegativeInt` result answers
 // `-> Int`, and a `NonNegativeInt` query type an `Int` parameter. Exact
 // matches come first, then ones that instantiate a generic, then ones that
-// go through an impl or a refinement's base.
+// go through an impl or a subtype's base.
 func searchStd(query string, limit int) []stdEntry {
 	query = strings.TrimSpace(query)
 	if limit <= 0 {
@@ -415,7 +415,7 @@ func (u *unifier) unify(q, c *typeNode) bool {
 		if u.through(q, c, false) {
 			return true
 		}
-		for _, base := range refinementParents(q) {
+		for _, base := range subtypeParents(q) {
 			saved := u.snapshot()
 			if u.unify(base, c) {
 				u.viaImpl = true
@@ -436,7 +436,7 @@ func (u *unifier) unify(q, c *typeNode) bool {
 // unifyResult matches the query's result against a candidate's: the same
 // type, or the candidate's result implements the interface the query asks
 // for (`List<T>` answers an `Iter<T>`), or the candidate's result is a
-// refinement whose base, or a base up its chain, does (`NonNegativeInt`
+// subtype whose base, or a base up its chain, does (`NonNegativeInt`
 // answers an `Int`).
 func (u *unifier) unifyResult(q, c *typeNode) bool {
 	saved := u.snapshot()
@@ -450,7 +450,7 @@ func (u *unifier) unifyResult(q, c *typeNode) bool {
 	if u.through(c, q, true) {
 		return true
 	}
-	for _, base := range refinementParents(c) {
+	for _, base := range subtypeParents(c) {
 		saved := u.snapshot()
 		if u.unifyResult(q, base) {
 			u.viaImpl = true
@@ -534,14 +534,14 @@ type implRel struct {
 }
 
 // implementsName says whether t's type implements iface, itself or, for a
-// refinement, through a base up its chain, whose impls a refinement has.
+// subtype, through a base up its chain, whose impls a subtype has.
 func implementsName(t *typeNode, iface string) bool {
 	for _, rel := range stdImpls()[t.name] {
 		if rel.iface.name == iface {
 			return true
 		}
 	}
-	for _, base := range refinementParents(t) {
+	for _, base := range subtypeParents(t) {
 		if implementsName(base, iface) {
 			return true
 		}
@@ -549,12 +549,12 @@ func implementsName(t *typeNode, iface string) bool {
 	return false
 }
 
-// refinementParents answers t's parents when t's type is a std refinement
-// (`refine PositiveInt NonNegativeInt and NonZeroInt when ...`), in t's type
+// subtypeParents answers t's parents when t's type is a std subtype
+// (`subtype PositiveInt NonNegativeInt and NonZeroInt when ...`), in t's type
 // arguments, and nothing for any other type.
-func refinementParents(t *typeNode) []*typeNode {
+func subtypeParents(t *typeNode) []*typeNode {
 	var out []*typeNode
-	for _, rel := range stdRefinements()[t.name] {
+	for _, rel := range stdSubtypes()[t.name] {
 		binding := map[string]*typeNode{}
 		if matchPattern(rel.recv, t, binding) {
 			out = append(out, substitute(rel.iface, binding))
@@ -563,15 +563,15 @@ func refinementParents(t *typeNode) []*typeNode {
 	return out
 }
 
-// stdRefinements indexes the stdlib's refinements by name, each parent an
-// implRel whose recv is the refinement with its type parameters
+// stdSubtypes indexes the stdlib's subtypes by name, each parent an
+// implRel whose recv is the subtype with its type parameters
 // (`Sorted<T>`) and whose iface is the parent (`List<T>`).
-var stdRefinements = sync.OnceValue(func() map[string][]implRel {
+var stdSubtypes = sync.OnceValue(func() map[string][]implRel {
 	out := map[string][]implRel{}
 	for _, nodes := range std.All().Nodes {
 		for _, n := range nodes {
 			d, ok := n.(*ast.TypeDef)
-			if !ok || !d.Refinement || d.InnerTypeExpr == nil {
+			if !ok || !d.Subtype || d.InnerTypeExpr == nil {
 				continue
 			}
 			recv := &typeNode{name: d.Name}

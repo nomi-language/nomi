@@ -184,8 +184,8 @@ func buildTypeRegistry(p *Program) *typeRegistry {
 			case *ast.EnumDef:
 				name = t.Name
 			case *ast.TypeDef:
-				if isDistinctRefinementDecl(t) {
-					// Erased: no file mirrors it (refinement.go).
+				if isDistinctSubtypeDecl(t) {
+					// Erased: no file mirrors it (subtype.go).
 					continue
 				}
 				name = t.Name

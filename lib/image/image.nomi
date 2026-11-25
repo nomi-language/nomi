@@ -40,14 +40,14 @@ once engine: Module = wasm.compile(Files.read(engine_wasm, "engine/image.wasm")!
 
 /// A number of pixels: a width, a height, or how many an image may hold.
 /// It is at least 1, and at most a signed 64-bit integer.
-pub refine Pixels PositiveInt and Int64
+pub subtype Pixels PositiveInt and Int64
 
 /// How far into an image a crop starts, in pixels: 0 at the left or top
 /// edge.
-pub refine Offset NonNegativeInt and Int64
+pub subtype Offset NonNegativeInt and Int64
 
 /// A JPEG's quality, 1 to 100: higher keeps more detail in a larger file.
-pub refine Quality Int when fn n -> n >= 1 and n <= 100
+pub subtype Quality Int when fn n -> n >= 1 and n <= 100
 
 /// The file format an image was decoded from.
 pub enum Format
@@ -71,6 +71,12 @@ pub enum Error
     /// The image's header declares `width` by `height` pixels, more than
     /// the decode allows.
     TooLarge {width: Int, height: Int}
+
+    /// The decoder trapped on the bytes instead of answering: a fault in
+    /// its C code, such as a read past a buffer, that the bytes set off.
+    /// The engine's sandbox held it, so nothing outside the call was
+    /// touched, but the decoder has a bug. `message` is the trap.
+    Trapped {message: String}
 end
 
 derive Equatable for Error
@@ -92,6 +98,9 @@ impl Display for Error
 
             .TooLarge{width:, height:} ->
                 "the image is ${width} by ${height} pixels, more than allowed"
+
+            .Trapped{message:} ->
+                "the image decoder trapped: ${message}"
         end
     end
 end
@@ -151,11 +160,17 @@ end
 
 /// What the engine's `answer` to a probe or a decode holds after its
 /// status when the status is done, or the Error it names (shim.c lists
-/// them). A trap, which no input should cause, is the image's corruption.
+/// them). A trap is `Trapped`, kept apart from a file the decoder refused,
+/// since it is the decoder's fault. Any other failure of the run is an
+/// engine that does not meet `wasm.run`'s convention, which no input
+/// causes.
 fn read(answer: Result<Bytes, wasm.Error>) -> Result<Bytes, Error>
     case answer
-        Err(e) ->
-            Err(.Corrupt{message: "the decoder failed: ${e}"})
+        Err(.Trapped(trap)) ->
+            Err(.Trapped{message: "${trap}"})
+
+        Err(_) ->
+            unreachable "the image engine runs by wasm.run's convention, so only a trap fails it"
 
         Ok(bytes) ->
             rest = after_status(bytes)

@@ -110,8 +110,8 @@ type irBoxTypeToken struct{ key string }
 //
 // A plan is made once per interface and kind, and its entries are built
 // for the type of the first coercion that asks: two checker types of one
-// kind reach the same impls, since a refinement has its base's (spec §4
-// *Refinements*) and an alias is its target.
+// kind reach the same impls, since a subtype has its base's (spec §4
+// *Subtypes*) and an alias is its target.
 func (g *gen) irBoxPlanFor(want, have kind, haveType analysis.Type, impl *ast.ImplBlock) *irBoxPlan {
 	if irConjKind(want) {
 		return g.conjBoxPlan(want, have, haveType, nil)

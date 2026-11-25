@@ -273,7 +273,7 @@ func (c *checker) checkPatchLit(lit *ast.StructLit, target Type) (Type, bool) {
 		return nil, false
 	}
 	if rt, ok := resolveTypeVar(target).(*StructType); ok && rt.Rule != "" {
-		c.checkStructRefinementLit(lit, rt, true)
+		c.checkStructSubtypeLit(lit, rt, true)
 		return nil, true
 	}
 	errs := len(c.errors)

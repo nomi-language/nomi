@@ -19,22 +19,29 @@ var zedEditor = editor{
 	install:   installZed,
 	uninstall: uninstallZed,
 	status: func(version string) []string {
-		dir, err := zedDir()
-		if err != nil {
-			return []string{err.Error()}
+		f := findZed()
+		if f.dir != "" && f.err == nil && f.other == "" && f.version == "" && zedWasm == nil {
+			return []string{"not installed; this nomi carries no extension, `make install-zed` in a clone installs it", f.dir}
 		}
-		switch owner, target := zedOwner(dir); owner {
-		case zedLinked:
-			return []string{"a dev extension, linked to " + target, dir}
-		case zedOther:
-			return []string{"installed, not by nomi editor install", dir}
-		case zedAbsent:
-			if zedWasm == nil {
-				return []string{"not installed; this nomi carries no extension, `make install-zed` in a clone installs it", dir}
-			}
-		}
-		return []string{markerStatus(dir, version, "zed"), dir}
+		return statusOf(f, version, "zed")
 	},
+	find: findZed,
+}
+
+// findZed is what Zed's extension directory for Nomi holds: an extension
+// nomi wrote, one it did not (zedOwner), or none.
+func findZed() found {
+	dir, err := zedDir()
+	if err != nil {
+		return found{err: err}
+	}
+	switch owner, target := zedOwner(dir); owner {
+	case zedLinked:
+		return found{dir: dir, other: "a dev extension, linked to " + target}
+	case zedOther:
+		return found{dir: dir, other: "not installed by nomi editor install"}
+	}
+	return markerIn(dir, dir)
 }
 
 // zedDir is where Zed keeps an installed extension named nomi: the

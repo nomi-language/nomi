@@ -40,7 +40,7 @@ const (
 	// CalleeVariant is an enum variant's constructor.
 	CalleeVariant
 	// CalleeConstructor is a type's constructor: a struct's call form, a
-	// distinct type's, a refinement's. Decl is the type's declaration, nil
+	// distinct type's, a subtype's. Decl is the type's declaration, nil
 	// for `self(x)` in an interface default, which builds the
 	// implementor.
 	CalleeConstructor
@@ -694,8 +694,8 @@ func (s StdType) Func(name string) StdFunc {
 
 // Qualifier is what the qualifier of a call written `Q.m(...)` resolves
 // to (Callee.Qualifier), by the declaration the checker bound Q to: an
-// import alias, a re-export, a generated owner and a refinement's refinement
-// owner all give the declaration's own identity.
+// import alias, a re-export, a generated owner and a subtype's owner all
+// give the declaration's own identity.
 type Qualifier struct {
 	Kind QualifierKind
 	// Std is std's type, interface or module; zero for a program's.
@@ -823,7 +823,7 @@ func (fa *FileAnalysis) StdTypeQualifier(module, name string) Qualifier {
 
 // declQualifier is the qualifier of kind k that base, a type's or an
 // interface's symbol, declares: its nominal identity (origin, name) where
-// its type carries one, which an alias and a refinement's owner share with
+// its type carries one, which an alias and a subtype's owner share with
 // the declaration, else the std file that declares its node (a built-in
 // type, `Int`).
 func (fa *FileAnalysis) declQualifier(k QualifierKind, base *Symbol) Qualifier {

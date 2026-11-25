@@ -104,12 +104,18 @@ func StringTrim(s string) string { return strings.TrimSpace(s) }
 // separator consumed. An empty separator splits at every UTF-8 codepoint
 // boundary, which is Go's own rule and is what std/strings documents as the
 // definition ("An empty `separator` splits at every UTF-8 codepoint boundary").
+// The empty string is one empty piece whatever the separator, as
+// `String.split` promises a piece for every text: Go's Split gives no
+// piece for "" split by "".
 //
 // The first rt function over a `*List[T]`, and the direction matters: the result
 // is built back-to-front with Cons because Cons is the O(1) operation on a
 // persistent cons list (see list.go), so this is one pass and n allocations
 // rather than n prepends onto a growing head.
 func StringSplitIn(separator, s string) *List[string] {
+	if s == "" {
+		return listOf([]string{""})
+	}
 	return listOf(strings.Split(s, separator))
 }
 

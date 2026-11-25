@@ -5,7 +5,7 @@
 // intern table were keyed on the base name `rt.Option` — the collapsed key would
 // simply always answer the one entry — so the fixture would bless exactly the
 // defect it exists to catch. `Option<Int>` and `Option<String>` both cross here,
-// and `Option<NonZeroInt>` crosses at a refinement, whose kind is its base's,
+// and `Option<NonZeroInt>` crosses at a subtype, whose kind is its base's,
 // Int.
 //
 // `String.strip_prefix` is deliberately absent even though its SIGNATURE is now

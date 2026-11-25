@@ -2,7 +2,7 @@ import
     add.Add
     averageable.Averageable
     bool.Bool.{self, False, True}
-    comparable.Comparable
+    comparable.{Comparable, Direction}
     comparable.Ordering.{self, Equal, Greater, Less}
     contains.Contains
     debug.Debug
@@ -11,9 +11,12 @@ import
     hashable.Hashable
     int.{Int, NonNegativeInt, PositiveInt}
     iter.Iter
+    maps.NonEmptyMap
     option.Option.{self, None, Some}
+    sets.NonEmptySet
     strings.String
     summable.Summable
+    vectors.NonEmptyVector
 end
 
 //# A `List<T>` is an ordered, immutable sequence of values of one type,
@@ -154,12 +157,12 @@ impl List<T>
     /// from there on after it, or None when the index is outside `0` up to
     /// the length. O(index): the elements before `index` are copied, and
     /// the ones after it are shared, so inserting at the front is
-    /// `[item, ..list]`.
+    /// `[item, ..list]`. A `Some` holds `item`, so it is a NonEmptyList.
     //! assert List.insert(["a", "c"], 1, "b") == Some(["a", "b", "c"])
     //! assert List.insert(["a"], 1, "b") == Some(["a", "b"])
     //! assert List.insert(["a"], 2, "b") == None
     //
-    pub fn insert<T>(list: List<T>, index: Int, item: T) -> Option<List<T>>
+    pub fn insert<T>(list: List<T>, index: Int, item: T) -> Option<NonEmptyList<T>>
         if index < 0 then return None
         insert_run(list, index, item, [])
     end
@@ -267,8 +270,10 @@ fn split_run<T>(list: List<T>, pred: (T) -> Bool, taken: List<T>) -> (List<T>, L
 end
 
 // `list` with `item` at `index`, after `before` reversed.
-fn insert_run<T>(list: List<T>, index: Int, item: T, before: List<T>) -> Option<List<T>>
-    if index == 0 then return Some(List.concat(Iter.reverse(before), [item, ..list]))
+fn insert_run<T>(list: List<T>, index: Int, item: T, before: List<T>) -> Option<NonEmptyList<T>>
+    if index == 0 then
+        return Some(NonEmptyList.unchecked(List.concat(Iter.reverse(before), [item, ..list])))
+    end
 
     case list
         [x, ..rest] -> insert_run(rest, index - 1, item, [x, ..before])
@@ -418,7 +423,7 @@ end
 //! assert NonEmptyList.try_from(none) == None
 //! assert NonEmptyList.try_from([1]) == Some([1])
 //
-pub refine NonEmptyList<T> List<T> when fn list -> not Iter.is_empty(list)
+pub subtype NonEmptyList<T> List<T> when fn list -> not Iter.is_empty(list)
 
 impl NonEmptyList<T>
     /// A NonEmptyList of `first` followed by the elements of `rest`, which
@@ -496,6 +501,14 @@ impl NonEmptyList<T>
         Iter.mean(list)!
     end
 
+    /// The arithmetic mean of `key` of each element, rounded as
+    /// `Iter.mean_by` rounds; a value, since there is at least one.
+    //! assert NonEmptyList.mean_by(["ab", "c"], String.length) == 1.5
+    //
+    pub fn mean_by<T, N, R>(list: NonEmptyList<T>, key: (T) -> N) -> R where N: Averageable<R>
+        Iter.mean_by(list, key)!
+    end
+
     /// Combines the elements left to right with `f`, starting from the
     /// first, so it needs no starting value: `[a, b, c]` is `f(f(a, b), c)`.
     //! assert NonEmptyList.reduce([1, 2, 3], fn acc, n -> acc + n) == 6
@@ -532,11 +545,109 @@ impl NonEmptyList<T>
         NonEmptyList.unchecked(Iter.reverse(list))
     end
 
-    /// The elements in ascending order; the sort is stable.
+    /// The elements in ascending order, or descending with `.Descending`;
+    /// the sort is stable.
     //! assert NonEmptyList.sort([3, 1, 2]) == [1, 2, 3]
+    //! assert NonEmptyList.sort([3, 1, 2], .Descending) == [3, 2, 1]
     //
-    pub fn sort<T>(list: NonEmptyList<T>) -> NonEmptyList<T> where T: Comparable
-        NonEmptyList.unchecked(Iter.sort(list))
+    pub fn sort<T>(
+        list:      NonEmptyList<T>,
+        direction: Direction = Direction.Ascending,
+    ) -> NonEmptyList<T> where T: Comparable
+        NonEmptyList.unchecked(Iter.sort(list, direction))
+    end
+
+    /// The elements sorted by the key `key` returns for each, from the
+    /// least key to the greatest, or from the greatest with `.Descending`,
+    /// as `Iter.sort_by` sorts them; the sort is stable. A call may leave
+    /// `direction` out when `key` is written as a lambda, a capture or a
+    /// field accessor.
+    //! assert NonEmptyList.sort_by(["bb", "a", "ccc"], &String.length(&1)) == ["a", "bb", "ccc"]
+    //! assert NonEmptyList.sort_by([{k: 2}, {k: 1}], .k) == [{k: 1}, {k: 2}]
+    //! assert NonEmptyList.sort_by(["bb", "a", "ccc"], .Descending, String.length) == ["ccc", "bb", "a"]
+    //
+    pub fn sort_by<T, K>(
+        list:      NonEmptyList<T>,
+        direction: Direction = Direction.Ascending,
+        key:       (T) -> K,
+    ) -> NonEmptyList<T> where K: Comparable
+        NonEmptyList.unchecked(Iter.sort_by(list, direction, key))
+    end
+
+    /// The elements in the order `compare` gives, as `Iter.sort_with` sorts
+    /// them; the sort is stable.
+    //! assert NonEmptyList.sort_with([3, 1, 2], Int.compare) == [1, 2, 3]
+    //
+    pub fn sort_with<T>(list: NonEmptyList<T>, compare: (T, T) -> Ordering) -> NonEmptyList<T>
+        NonEmptyList.unchecked(Iter.sort_with(list, compare))
+    end
+
+    /// Each state of a fold from `from`, one per element, as `Iter.scan`
+    /// yields them.
+    //! assert NonEmptyList.scan([3, 1, 4], 0, fn total, n -> total + n) == [3, 4, 8]
+    //
+    pub fn scan<T, U>(list: NonEmptyList<T>, from: U, f: (U, T) -> U) -> NonEmptyList<U>
+        NonEmptyList.unchecked(
+            Iter.scan(list, from, f)
+            |> Iter.to_list()
+        )
+    end
+
+    /// Pairs the elements of `a` and `b` in order, as `Iter.zip` does, as
+    /// many pairs as the shorter has.
+    //! assert NonEmptyList.zip([1, 2, 3], ["a", "b"]) == [(1, "a"), (2, "b")]
+    //
+    pub fn zip<T, U>(a: NonEmptyList<T>, b: NonEmptyList<U>) -> NonEmptyList<(T, U)>
+        NonEmptyList.unchecked(
+            Iter.zip(a, b)
+            |> Iter.to_list()
+        )
+    end
+
+    /// The elements with `separator` between each two of them.
+    //! assert NonEmptyList.intersperse(["a", "b", "c"], "-") == ["a", "-", "b", "-", "c"]
+    //! assert NonEmptyList.intersperse(["a"], "-") == ["a"]
+    //
+    pub fn intersperse<T>(list: NonEmptyList<T>, separator: T) -> NonEmptyList<T>
+        NonEmptyList.unchecked(
+            Iter.intersperse(list, separator)
+            |> Iter.to_list()
+        )
+    end
+
+    /// The elements grouped by `key_fn`, as `Iter.group_by` groups them; a
+    /// NonEmptyMap, since there is at least one group.
+    //! groups = NonEmptyList.group_by(["fig", "pear", "plum"], String.length)
+    //! assert NonEmptyMap.first_entry(groups) == (3, ["fig"])
+    //
+    pub fn group_by<T, K>(
+        list:   NonEmptyList<T>,
+        key_fn: (T) -> K,
+    ) -> NonEmptyMap<K, NonEmptyList<T>>
+        NonEmptyMap.try_from(Iter.group_by(list, key_fn))!
+    end
+
+    /// How often each element occurs, as `Iter.frequencies` counts; a
+    /// NonEmptyMap, since there is at least one element.
+    //! assert NonEmptyList.frequencies(["a", "b", "a"]) == {"a" => 2, "b" => 1}
+    //
+    pub fn frequencies<T>(list: NonEmptyList<T>) -> NonEmptyMap<T, PositiveInt>
+        NonEmptyMap.try_from(Iter.frequencies(list))!
+    end
+
+    /// The elements as a NonEmptyVector, in order.
+    //! assert NonEmptyList.to_vector([1, 2]) == Vector[1, 2]
+    //
+    pub fn to_vector<T>(list: NonEmptyList<T>) -> NonEmptyVector<T>
+        NonEmptyVector.try_from(Iter.to_vector(list))!
+    end
+
+    /// The distinct elements as a NonEmptySet, in the order each first
+    /// appears.
+    //! assert NonEmptyList.to_set([2, 1, 2]) == Set[2, 1]
+    //
+    pub fn to_set<T>(list: NonEmptyList<T>) -> NonEmptySet<T>
+        NonEmptySet.try_from(Iter.to_set(list))!
     end
 
     /// `item` before the elements of `list`, which may be empty. O(1).
@@ -555,7 +666,9 @@ impl NonEmptyList<T>
         NonEmptyList.unchecked(List.concat(list, [item]))
     end
 
-    /// The elements of `a`, then those of `b`, which may be empty.
+    /// The elements of `a`, then those of `b`, which may be empty. The
+    /// spread `[..a, ..b]` is a NonEmptyList too, with the non-empty list
+    /// on either side.
     //! assert NonEmptyList.concat([1], [2, 3]) == [1, 2, 3]
     //! assert NonEmptyList.concat([1], []) == [1]
     //

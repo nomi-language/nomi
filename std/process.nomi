@@ -103,7 +103,7 @@ end
 //! assert ExitCode.try_from(256) == None
 //! assert ExitCode.try_from(-1) == None
 //
-pub refine ExitCode Int when fn code -> code >= 0 and code <= 255
+pub subtype ExitCode Int when fn code -> code >= 0 and code <= 255
 
 /// A program to start and how: an immutable value, so one command can be
 /// run any number of times.

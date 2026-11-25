@@ -509,6 +509,13 @@ func ProjectRoot(filePath, bound string) string {
 	return fileDir
 }
 
+// NearestPackageDir is the nearest directory from dir upward that holds a
+// nomi.toml: the package dir is in, which `nomi run` and `nomi build` with
+// no path act on.
+func NearestPackageDir(dir string) (string, bool) {
+	return nearestAncestorWith(dir, "nomi.toml", "")
+}
+
 // nearestAncestorWith is the nearest directory from dir upward, stopping at
 // bound when it is non-empty, that holds a file named name.
 func nearestAncestorWith(dir, name, bound string) (string, bool) {
@@ -860,6 +867,20 @@ func (dm *DocumentManager) build(uri, content string) builtAnalysis {
 // the document's EntryProgram, or nil when the analysis is not of that
 // program. wantProgram is false when the text already has an error, so
 // that no program is offered and its other files need no check.
+//
+// A std file is checked on its own (CheckStandaloneFile), which completes
+// its declarations. The other two branches build and check prog: the
+// document's declarations completed with the impl blocks the front end
+// writes for them (SynthesizeUniversalDebug: an opaque type's Debug, a
+// subtype's `try_from` and `unchecked`), as the front end's Prepare
+// completes a file's. A project build given a slice without them writes
+// them into a copy it keeps to itself, and the checks here would run over
+// the slice that lacks them: the written functions would have symbols and
+// no types, so a call of one would not resolve, and their bodies, a
+// subtype's rule among them, would go unchecked. With prog the analysis is
+// the one `nomi check` builds from this text, and the lowering check reads
+// it (EntryProgram). The document's own Nodes stay the source's
+// declarations. Synthesis only appends, so they are a prefix of prog.
 func (dm *DocumentManager) buildAnalysis(uri string, nodes []ast.Node, root, docPath string, wantProgram bool) (fa *FileAnalysis, program *EntryProgram) {
 	// Stdlib files (~/.cache/nomi/std/<version>/<mod>.nomi for jump-to-def
 	// materialization, std/<mod>.nomi for direct repo opens) must not
@@ -868,43 +889,33 @@ func (dm *DocumentManager) buildAnalysis(uri string, nodes []ast.Node, root, doc
 	// stdlib type the prelude itself re-exports (Option / Result / Display /
 	// Debug / ...). Detected by stdlibModuleForPath's directory rule.
 	if dm.isStdlibFile(uri) {
-		fa = BuildFileWithStdlibAtPath(nodes, nil, dm.modules, root, dm.makeLoaderWithOverride(uri, nodes), docPath)
-		// Attach the cached stdlib Program().ImplIndex index so the checker's
-		// dispatch-return-type resolution (via `ImplFuncTypes`) sees the
-		// other stdlib impls when type-checking this stdlib file.
-		// Without this, a bare `add(value, ...)` inside std/calendar's
-		// `impl Add<Weeks, DateTime> for DateTime` function can pick an
-		// arbitrary `add` impl's signature and surface a
-		// spurious "expected OffsetDateTime, got DateTime" return-type
-		// mismatch (the runtime dispatches correctly; the LSP-only
-		// analyzer pass is the only place this surfaces).
-		AttachStdlibProjectImpls(fa, dm.stdlibFAs)
-		// BuildFileWithStdlib stops before Sweep C (BuildTypes); the project
-		// branches below get Sweep C for free via BuildProjectFromEntry. Run
-		// it here too, or *inferred* types never resolve for this file — e.g. a
-		// distinct-destructure binding (`Duration(ns) = d` → `ns: Int`) stays
-		// untyped because the checker can't see the distinct type's Inner,
-		// and hover shows a bare name instead of `ns: Int`.
-		typeErrs := BuildTypes(fa, nodes)
-		checkErrs := CheckTypes(fa, nodes)
-		checkErrs = append(checkErrs, CheckAppRoots(fa, nodes)...)
-		iterErrs := AnalyzeIterSensitivity(fa, nodes)
-		MarkTailCalls(nodes)
-		fa.TypeErrors = append(fa.TypeErrors, typeErrs...)
-		fa.TypeErrors = append(fa.TypeErrors, checkErrs...)
-		fa.TypeErrors = append(fa.TypeErrors, iterErrs...)
-		// Concurrency layer 1 structural rules.
-		fa.TypeErrors = append(fa.TypeErrors, CheckConcurrentScope(fa, nodes)...)
-		fa.TypeErrors = append(fa.TypeErrors, CheckBootScope(fa, nodes)...)
-		fa.TypeErrors = append(fa.TypeErrors, CheckOnceCycles(fa, nodes)...)
-		fa.TypeErrors = append(fa.TypeErrors, CheckTaskLifetime(fa, nodes)...)
-		// FinalizeCoherence: now exercises the attached ProjectImpls
-		// (above), so missing-impl diagnostics that recordings inside a
-		// stdlib file demand surface here. Listed for parity with the
-		// project branches below.
+		checked := CheckStandaloneFile(StandaloneFile{
+			Nodes:   nodes,
+			Path:    docPath,
+			Root:    root,
+			Modules: dm.modules,
+			Loader:  func(completed []ast.Node) FileLoader { return dm.makeLoaderWithOverride(uri, completed) },
+			// The std's impls, so the checker's dispatch-return-type
+			// resolution (ImplFuncTypes) sees the other std impls. Without
+			// them a bare `add(value, ...)` inside std/calendar's `impl
+			// Add<Weeks, DateTime> for DateTime` can take another `add`
+			// impl's signature and report "expected OffsetDateTime, got
+			// DateTime".
+			Built: func(fa *FileAnalysis, _ []ast.Node) []TypeError {
+				AttachStdlibProjectImpls(fa, dm.stdlibFAs)
+				return nil
+			},
+		})
+		fa = checked.FA
+		MarkTailCalls(checked.Nodes)
+		fa.TypeErrors = append(fa.TypeErrors, checked.CheckErrors...)
+		// The missing-impl diagnostics the file's recordings demand, over
+		// the impls attached above, as the project branches below report
+		// them.
 		fa.TypeErrors = append(fa.TypeErrors, FinalizeCoherence(fa)...)
 		return
 	}
+	prog := SynthesizeUniversalDebug(nodes)
 
 	// Prefer building the project from an entry file when the open doc is
 	// a file an entry imports rather than an entry itself: main.nomi, then
@@ -920,7 +931,7 @@ func (dm *DocumentManager) buildAnalysis(uri string, nodes []ast.Node, root, doc
 		if mainContent, err := os.ReadFile(mainPath); err == nil {
 			mainTokens := lexer.Lex(string(mainContent))
 			mainNodes, _ := parser.ParseWithRecovery(mainTokens)
-			loader := dm.makeLoaderWithOverride(uri, nodes)
+			loader := dm.makeLoaderWithOverride(uri, prog)
 			// The entry is built under its module key, as the document is when
 			// it is its own entry, so each file's analysis is the same
 			// whichever file the build starts from.
@@ -929,24 +940,24 @@ func (dm *DocumentManager) buildAnalysis(uri string, nodes []ast.Node, root, doc
 			docKey := relModuleKey(root, docPath)
 			if cached, ok := cache[docKey]; ok && cached != nil {
 				fa = cached
-				checkErrs := CheckTypes(fa, nodes)
-				checkErrs = append(checkErrs, CheckAppRoots(fa, nodes)...)
-				iterErrs := AnalyzeIterSensitivity(fa, nodes)
+				checkErrs := CheckTypes(fa, prog)
+				checkErrs = append(checkErrs, CheckAppRoots(fa, prog)...)
+				iterErrs := AnalyzeIterSensitivity(fa, prog)
 				// MarkTailCalls mutates the AST in place, setting
 				// Call.IsTailCall on every call in tail position, which the
 				// IR carries as ir.Call.Tail. Must run
-				// on the same `nodes` slice the doc holds.
-				MarkTailCalls(nodes)
+				// on the nodes the doc holds, which prog's prefix is.
+				MarkTailCalls(prog)
 				// The program's own errors about this file (an orphan or
 				// duplicate impl in it), which the entry carries.
 				fa.TypeErrors = append(fa.TypeErrors, errorsNamingFile(fa.FilePath, fa.Program().Errors)...)
 				fa.TypeErrors = append(fa.TypeErrors, checkErrs...)
 				fa.TypeErrors = append(fa.TypeErrors, iterErrs...)
 				// Concurrency layer 1 structural rules.
-				fa.TypeErrors = append(fa.TypeErrors, CheckConcurrentScope(fa, nodes)...)
-				fa.TypeErrors = append(fa.TypeErrors, CheckBootScope(fa, nodes)...)
-				fa.TypeErrors = append(fa.TypeErrors, CheckOnceCycles(fa, nodes)...)
-				fa.TypeErrors = append(fa.TypeErrors, CheckTaskLifetime(fa, nodes)...)
+				fa.TypeErrors = append(fa.TypeErrors, CheckConcurrentScope(fa, prog)...)
+				fa.TypeErrors = append(fa.TypeErrors, CheckBootScope(fa, prog)...)
+				fa.TypeErrors = append(fa.TypeErrors, CheckOnceCycles(fa, prog)...)
+				fa.TypeErrors = append(fa.TypeErrors, CheckTaskLifetime(fa, prog)...)
 				// Post-CheckTypes coherence: missing-impl diagnostic et
 				// al. Must come AFTER CheckTypes — the LSP runs
 				// CheckTypes only on the focused doc here, so it checks
@@ -954,7 +965,7 @@ func (dm *DocumentManager) buildAnalysis(uri string, nodes []ast.Node, root, doc
 				// Diagnostics for missing impls demanded only by other
 				// files won't surface until those files are opened.
 				fa.TypeErrors = append(fa.TypeErrors, MissingImpls(fa.Program(), []*FileAnalysis{fa})...)
-				fa.TypeErrors = append(fa.TypeErrors, checkDocImplImports(fa, nodes, entryFA, mainNodes, cache, siblingNodes)...)
+				fa.TypeErrors = append(fa.TypeErrors, checkDocImplImports(fa, prog, entryFA, mainNodes, cache, siblingNodes)...)
 				docChecks := programDeclarationChecks(relModuleKey(root, mainPath), mainNodes, siblingNodes)[docKey]
 				fa.TypeErrors = append(fa.TypeErrors, docChecks...)
 				return
@@ -973,20 +984,10 @@ func (dm *DocumentManager) buildAnalysis(uri string, nodes []ast.Node, root, doc
 	// BuildProjectFromEntry runs Sweep C (BuildTypes) internally and
 	// populates fa.TypeErrors with its results. CheckTypes
 	// and AnalyzeIterSensitivity layer additional diagnostics on top.
-	//
-	// The derive and universal-Debug impls are synthesized here, as the
-	// front end's Prepare synthesizes them, rather than only inside the
-	// build: every check below then runs over them too, so the analysis
-	// and `prog` are the program `nomi check` builds from this file, and
-	// the lowering check reads them (EntryProgram). The document's own
-	// Nodes stay the source's declarations. Synthesis only appends, so
-	// they are a prefix of prog.
 	fallbackDocPath := fileuri.ToPath(uri)
 	entryModRel := relModuleKey(root, fallbackDocPath)
-	prog := nodes
-	prog = SynthesizeUniversalDebug(prog)
 	rec := &loadRecord{}
-	docEntryFA, docSiblings, docSiblingNodes := BuildProjectFromEntryWithManifest(fallbackDocPath, prog, dm.primitives, dm.modules, dm.stdlibFAs, root, dm.makeRecordingLoaderWithOverride(uri, nodes, rec), nil, entryModRel, true)
+	docEntryFA, docSiblings, docSiblingNodes := BuildProjectFromEntryWithManifest(fallbackDocPath, prog, dm.primitives, dm.modules, dm.stdlibFAs, root, dm.makeRecordingLoaderWithOverride(uri, prog, rec), nil, entryModRel, true)
 	dm.countBuilt(docSiblings)
 	fa = docEntryFA
 	// The program's own errors (duplicate and orphan impls) are carried by

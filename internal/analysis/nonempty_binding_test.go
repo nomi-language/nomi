@@ -12,8 +12,8 @@ import (
 // *Value ranges*): a List, Vector, Set or Map literal that writes an
 // element, a literal spreading a value that holds something, a value of a
 // non-empty type, and an `if` or `case` whose every finishing branch is
-// one. A local converts where a non-empty refinement is expected; a `once`
-// is that refinement.
+// one. A local converts where a non-empty subtype is expected; a `once`
+// is that subtype.
 
 const nonEmptyDecls = `once words = ["nomi", "pipeline"]
 once vec = Vector[3, 1]
@@ -105,7 +105,7 @@ func TestNonEmptyBinding_Accepted(t *testing.T) {
 // where a PositiveInt is expected), a parameter, a value computed by a
 // function, and a name rebound to such a value.
 func TestNonEmptyBinding_Rejected(t *testing.T) {
-	const tryFrom = "help: NonEmptyList is a refinement of List<Int>; check the value with `NonEmptyList.try_from(...)`"
+	const tryFrom = "help: NonEmptyList is a subtype of List<Int>; check the value with `NonEmptyList.try_from(...)`"
 	for _, tc := range []struct{ name, body, want string }{
 		{"an empty literal", "    local = Iter.to_list(Iter.take([1], 0))\n    first_of(local)",
 			"argument 1: expected NonEmptyList<Int>, got List<Int>\n" + tryFrom},
@@ -130,7 +130,7 @@ func TestNonEmptyBinding_Rejected(t *testing.T) {
 		{"a name shadowed in a branch", "    local = [1]\n    if flag then\n        local = Iter.to_list(Iter.drop(local, 1))\n        first_of(local)\n    else\n        first_of(local)\n    end",
 			"argument 1: expected NonEmptyList<Int>, got List<Int>\n" + tryFrom},
 		{"a generic parameter", "    local = Iter.to_list(Iter.take([1], 0))\n    head(local)",
-			"argument 1: expected NonEmptyList<T>, got List<Int>\nhelp: NonEmptyList is a refinement of List<T>; check the value with `NonEmptyList.try_from(...)`"},
+			"argument 1: expected NonEmptyList<T>, got List<Int>\nhelp: NonEmptyList is a subtype of List<T>; check the value with `NonEmptyList.try_from(...)`"},
 		{"an empty once", "    first_of(none)",
 			"argument 1: expected NonEmptyList<Int>, got List<Int>\n" + tryFrom},
 		{"a local whose elements do not convert", "    local = [1, 2]\n    positive(local)",
@@ -202,7 +202,7 @@ func TestNonEmptyBinding_Strings(t *testing.T) {
 			expectNoStdlibErrors(t, errs)
 		})
 	}
-	const mismatch = "argument 1: expected NonEmptyString, got String\nhelp: NonEmptyString is a refinement of String; check the value with `NonEmptyString.try_from(...)`"
+	const mismatch = "argument 1: expected NonEmptyString, got String\nhelp: NonEmptyString is a subtype of String; check the value with `NonEmptyString.try_from(...)`"
 	for _, tc := range []struct{ name, body, want string }{
 		{"an empty literal", "    local = \"\"\n    label(local)", mismatch},
 		{"only a slot", "    local = \"${title}\"\n    label(local)", mismatch},
@@ -242,7 +242,7 @@ func expectNonEmptyError(t *testing.T, src, want string) {
 }
 
 // A local keeps its literal's type, List<Int>, wherever it is read and
-// converts only where the refinement is expected, where its read is recorded
+// converts only where the subtype is expected, where its read is recorded
 // as the NonEmptyList the IR builder reads; a `once` is the
 // NonEmptyList, as `once k = 60 * 60` is a PositiveInt.
 func TestNonEmptyBinding_TheTypeAValueHas(t *testing.T) {

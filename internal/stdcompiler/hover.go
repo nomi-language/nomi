@@ -64,8 +64,9 @@ func HoverContent(source, root string, virtualFiles map[string]string) (rt.Hover
 	return rt.Hover{Signature: NormalizeHoverMarkdown(markdown), Markdown: markdown}, nil
 }
 
-// hoverAnalysis resolves one hovered source, and it is the single place THIS
-// pass order lives.
+// hoverAnalysis resolves one hovered source: a user file checked on its own
+// (analysis.CheckStandaloneFile, which owns the pass order), with the
+// prelude and the std's impls.
 //
 // It is not ProjectDiagnostics' order and must not be folded into it. `check`
 // answers a diagnostic list for an ENTRY FILE of a project — siblings, manifest,
@@ -83,21 +84,22 @@ func hoverAnalysis(nodes []ast.Node, root string, loader analysis.FileLoader) (*
 	// Every stdlib module: a checked program's own build reaches the ones
 	// it imports, and std/compiler is rare enough to build them all.
 	lib := std.All()
-	fa := analysis.BuildFileWithStdlib(nodes, lib.Primitives, lib.Modules, root, loader)
-	analysis.AttachStdlibProjectImpls(fa, lib.Files)
-
+	checked := analysis.CheckStandaloneFile(analysis.StandaloneFile{
+		Nodes:   nodes,
+		Root:    root,
+		Prelude: lib.Primitives,
+		Modules: lib.Modules,
+		Loader:  func([]ast.Node) analysis.FileLoader { return loader },
+		Built: func(fa *analysis.FileAnalysis, _ []ast.Node) []analysis.TypeError {
+			analysis.AttachStdlibProjectImpls(fa, lib.Files)
+			return nil
+		},
+	})
 	errs := append([]analysis.TypeError{}, lowerErrs...)
-	errs = append(errs, fa.TypeErrors...)
-	errs = append(errs, analysis.BuildTypes(fa, nodes)...)
-	errs = append(errs, analysis.CheckTypes(fa, nodes)...)
-	errs = append(errs, analysis.CheckAppRoots(fa, nodes)...)
-	errs = append(errs, analysis.AnalyzeIterSensitivity(fa, nodes)...)
-	errs = append(errs, analysis.CheckConcurrentScope(fa, nodes)...)
-	errs = append(errs, analysis.CheckBootScope(fa, nodes)...)
-	errs = append(errs, analysis.CheckOnceCycles(fa, nodes)...)
-	errs = append(errs, analysis.CheckTaskLifetime(fa, nodes)...)
-	errs = append(errs, analysis.FinalizeCoherence(fa)...)
-	return fa, errs
+	errs = append(errs, checked.BuildErrors...)
+	errs = append(errs, checked.CheckErrors...)
+	errs = append(errs, analysis.FinalizeCoherence(checked.FA)...)
+	return checked.FA, errs
 }
 
 // StripSingleHoverMarker removes the one marker from source and answers the

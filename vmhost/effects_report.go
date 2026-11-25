@@ -21,26 +21,28 @@ import (
 )
 
 // EffectNotAllowedCode is the Code of the diagnostic for an effect
-// nomi.toml's effects tables, or a host's lists, do not allow. Its
-// Args are the call's name (`std::fs`); the list it is over: `self` for
-// [effects.self], `self.modules` for the entry of the project's module
-// under [effects.self.modules], `deps` for [effects.deps],
-// `deps.packages` for the module's entry under [effects.deps.packages],
-// or `host` for the host's list; the module whose files hold the call, by
-// its path, the project's own for its own files, and for `self.modules`
-// the entry's key; and then each name that list allows. Over nomi.toml's
-// tables (not a host's), it carries the fix that adds what its help says
-// to add, an edit to nomi.toml (parser.Fix's Path).
+// nomi.toml's effects lists, or a host's lists, do not allow. Its Args are
+// the call's name (`std::fs`); the list it is over, named by its table
+// (EffectList): `effects.self`, `effects.self.modules` for the entry of
+// the project's module, `effects.dependencies` for the ceiling,
+// `dependencies` for the `effects` of the [dependencies] entries the
+// project reaches the package through, or `host` for the host's list; the
+// package whose files hold the call, the project's own for its own files,
+// and for `effects.self.modules` the entry's key; and then each name that
+// list allows. Over nomi.toml's lists (not a host's), it carries the fix
+// that adds what its help says to add, an edit to nomi.toml (parser.Fix's
+// Path).
 const EffectNotAllowedCode = "effect-not-allowed"
 
-// EffectNotDeclaredCode is the Code of the diagnostic for an effect
-// in a dependency's files that the [effects.self] in the
-// dependency's own nomi.toml does not allow (OverDeclared): the package
-// declares fewer effects than its code has, and the fix is in that module. Its
-// Args are EffectNotAllowedCode's, with the list `self`: the call's
-// name, `self`, the module, and each std name its own std holds; or, over its entry for the file's module under its own
-// [effects.self.modules], the list `self.modules` and each name that
-// entry holds.
+// EffectNotDeclaredCode is the Code of the diagnostic for an effect in a
+// dependency's files that the [effects.self] in the dependency's own
+// nomi.toml does not allow (OverDeclared): the package declares fewer
+// effects than its code has, and the fix is in that package. Its Args are
+// EffectNotAllowedCode's, with the list `effects.self`: the call's name,
+// `effects.self`, the package, and each name its own effects hold; or,
+// over its entry for the file's module under its own
+// [effects.self.modules], the list `effects.self.modules` and each name
+// that entry holds.
 const EffectNotDeclaredCode = "effect-not-declared"
 
 // EffectsNotDeterminedCode is the Code of the diagnostic for a public
@@ -647,7 +649,7 @@ func (p *Program) checkedRoots() []Roots {
 // set: at the call, in the program's or a dependency's file, saying who
 // has which effect and what the list allows, how the call is reached, and
 // which key of which table to add what to (notAllowedHelp). A call over
-// nomi.toml's tables carries the fix that adds it (allowFix), kept in
+// nomi.toml's lists carries the fix that adds it (allowFix), kept in
 // fixes for the calls after it.
 func (p *Program) notAllowedDiagnostic(n NotAllowed, tests bool, fixes map[string]*parser.Fix) frontend.Diagnostic {
 	path, line, col := p.shownAt(n.EffectCall)
@@ -668,10 +670,10 @@ func (p *Program) notAllowedDiagnostic(n NotAllowed, tests bool, fixes map[strin
 	case n.List == OverSelfEntry:
 		module = n.Entry
 		message = effects.Message(fmt.Sprintf("`%s` has", n.Entry), n.Name, "its entry under [effects.self.modules]", " it", n.Allowed)
-	case n.List == OverDeps:
-		message = effects.Message(n.Package+" has", n.Name, "[effects.deps]", " dependencies", n.Allowed)
+	case n.List == OverDependencies:
+		message = effects.Message(n.Package+" has", n.Name, "[effects.dependencies]", " dependencies", n.Allowed)
 	case n.List == OverEntry:
-		message = effects.Message(n.Package+" has", n.Name, "its entry under [effects.deps.packages]", " it", n.Allowed)
+		message = entryMessage(n)
 	case n.Entry != "":
 		list = string(OverSelfEntry)
 		message = effects.Message(fmt.Sprintf("%s's `%s` has", n.Package, n.Entry), n.Name, "its entry under the package's own [effects.self.modules]", " it", n.Allowed)
@@ -690,6 +692,33 @@ func (p *Program) notAllowedDiagnostic(n NotAllowed, tests bool, fixes map[strin
 		d.Fix = p.allowFix(n, tests, fixes)
 	}
 	return d
+}
+
+// entryMessage is the headline of n, a call over the [dependencies]
+// entries the project reaches its package through (OverEntry): the
+// package's own entry, or the entries of the packages that lead to it.
+func entryMessage(n NotAllowed) string {
+	if len(n.Through) == 1 && n.Through[0] == n.Package {
+		return effects.Message(n.Package+" has", n.Name, "its entry under [dependencies]", " it", n.Allowed)
+	}
+	if len(n.Through) == 1 {
+		return effects.Message(n.Package+" has", n.Name,
+			fmt.Sprintf("the entry for %s under [dependencies], through which the project reaches it,", n.Through[0]), " it", n.Allowed)
+	}
+	allows := "allow it only " + strings.Join(n.Allowed, ", ")
+	if len(n.Allowed) == 0 {
+		allows = "allow it no effects"
+	}
+	return fmt.Sprintf("%s has %s, and the entries for %s under [dependencies], through which the project reaches it, %s",
+		n.Package, effects.EffectList([]string{n.Name}), joinAnd(n.Through), allows)
+}
+
+// joinAnd is items joined with commas and a last "and".
+func joinAnd(items []string) string {
+	if len(items) < 2 {
+		return strings.Join(items, "")
+	}
+	return strings.Join(items[:len(items)-1], ", ") + " and " + items[len(items)-1]
 }
 
 // leadsTo is where the project's own code leads to n, a refused call in a
@@ -725,21 +754,23 @@ func (p *Program) leadsTo(n NotAllowed, w Walk, own map[string]bool) []frontend.
 	return out
 }
 
-// stdKey is the key of a table's std list that holds a call reached from
-// tests when tests is set: std_in_tests for tests, std otherwise.
-func stdKey(tests bool) string {
+// listKey is the key of a list that holds a call reached from tests when
+// tests is set: effects_in_tests for tests, effects otherwise.
+func listKey(tests bool) string {
 	if tests {
-		return "std_in_tests"
+		return "effects_in_tests"
 	}
-	return "std"
+	return "effects"
 }
 
-// addition is how a help line says to allow n in the project's tables:
-// what to add (`add "std::fs"`) and the lists to add it to (`to std under
-// [effects.deps]`), the list n names first, then the table its entry
-// is under when that denies the call too.
+// addition is how a help line says to allow n in the project's lists:
+// what to add (`add "std::fs"`) and the lists to add it to (`to effects
+// under [effects.dependencies]`), the list n names first, then the table
+// its entry is under when that denies the call too. For the entries the
+// project reaches a dependency through, the first entry is named, since
+// any one of them allowing the call is enough.
 func addition(n NotAllowed, tests bool) (item string, lists []string) {
-	key := stdKey(tests)
+	key := listKey(tests)
 	item = fmt.Sprintf("add %q", n.Name)
 	switch {
 	case n.List == OverSelf:
@@ -750,19 +781,19 @@ func addition(n NotAllowed, tests bool) (item string, lists []string) {
 			lists = append(lists, fmt.Sprintf("to %s under [effects.self]", key))
 		}
 		return item, lists
-	case n.List == OverEntry || n.List == OverDeclared && n.EntryDenies:
-		lists = append(lists, fmt.Sprintf("to %q under [effects.deps.packages]", n.Package))
+	case (n.List == OverEntry || n.List == OverDeclared && n.EntryDenies) && len(n.Through) > 0:
+		lists = append(lists, fmt.Sprintf("to %s of %s under [dependencies]", key, n.Through[0]))
 	}
-	if n.List == OverDeps || n.CeilingDenies {
-		lists = append(lists, fmt.Sprintf("to %s under [effects.deps]", key))
+	if n.List == OverDependencies || n.CeilingDenies {
+		lists = append(lists, fmt.Sprintf("to %s under [effects.dependencies]", key))
 	}
 	return item, lists
 }
 
 // notAllowedHelp is the help for n after how it is reached: which key of
 // which table to add what to, or remove the call. For a call over a
-// dependency's own [effects.self], what the project's tables say of it
-// when they do not allow it either, and that the fix is in that module's
+// dependency's own [effects.self], what the project's lists say of it
+// when they do not allow it either, and that the fix is in that package's
 // own nomi.toml, named by its path.
 func (p *Program) notAllowedHelp(n NotAllowed, tests bool) []string {
 	remove := ", or " + effects.RemoveHint(n.Edge == vm.EdgeBoot)
@@ -779,10 +810,10 @@ func (p *Program) notAllowedHelp(n NotAllowed, tests bool) []string {
 		if m := p.packageAt(n.at.File()); m != nil {
 			toml = p.tomlName(m.root)
 		}
-		own := fmt.Sprintf("add %q to std under [effects.self]", n.Name)
+		own := fmt.Sprintf("add %q to effects under [effects.self]", n.Name)
 		switch {
 		case n.Entry != "" && n.OwnStdDenies:
-			own = fmt.Sprintf("add %q to %q under [effects.self.modules] and to std under [effects.self]", n.Name, n.Entry)
+			own = fmt.Sprintf("add %q to %q under [effects.self.modules] and to effects under [effects.self]", n.Name, n.Entry)
 		case n.Entry != "":
 			own = fmt.Sprintf("add %q to %q under [effects.self.modules]", n.Name, n.Entry)
 		}
@@ -790,12 +821,16 @@ func (p *Program) notAllowedHelp(n NotAllowed, tests bool) []string {
 			n.Package, own, toml, remove))
 	}
 	var hints []string
+	if n.List == OverEntry && len(n.Through) > 1 {
+		hints = append(hints, fmt.Sprintf("the project reaches %s through %s, and %s may have what any of their entries allows",
+			n.Package, joinAnd(n.Through), n.Package))
+	}
 	if n.CeilingDenies {
-		table := "[effects.deps]"
+		table := "[effects.dependencies]"
 		if n.List == OverSelfEntry {
 			table = "[effects.self]"
 		}
-		hints = append(hints, fmt.Sprintf("%s under %s does not allow %s either", stdKey(tests), table, n.Name))
+		hints = append(hints, fmt.Sprintf("%s under %s does not allow %s either", listKey(tests), table, n.Name))
 	}
 	item, lists := addition(n, tests)
 	if len(lists) > 0 {
@@ -804,7 +839,7 @@ func (p *Program) notAllowedHelp(n NotAllowed, tests bool) []string {
 	return append(hints, item+" in nomi.toml"+remove)
 }
 
-// allowFix is the fix of n, a call over nomi.toml's tables reached from
+// allowFix is the fix of n, a call over nomi.toml's lists reached from
 // tests when tests is set: the edit to nomi.toml that adds what the help
 // says to add to each list the call is over (analysis.AllowEffects),
 // titled by what it allows. It is nil when the program's nomi.toml is
@@ -815,15 +850,15 @@ func (p *Program) allowFix(n NotAllowed, tests bool, fixes map[string]*parser.Fi
 	if data == nil || !filepath.IsAbs(path) {
 		return nil
 	}
-	selfStd, depsStd, inTests := analysis.ListSelfStd, analysis.ListDepsStd, ""
+	selfList, depsList, entryList, inTests := analysis.ListSelfEffects, analysis.ListDependenciesEffects, analysis.ListEntryEffects, ""
 	if tests {
-		selfStd, depsStd, inTests = analysis.ListSelfStdInTests, analysis.ListDepsStdInTests, " in tests"
+		selfList, depsList, entryList, inTests = analysis.ListSelfEffectsInTests, analysis.ListDependenciesEffectsInTests, analysis.ListEntryEffectsInTests, " in tests"
 	}
 	var adds []analysis.EffectAdd
 	var title string
 	switch {
 	case n.List == OverSelf:
-		adds = []analysis.EffectAdd{{List: selfStd, Name: n.Name}}
+		adds = []analysis.EffectAdd{{List: selfList, Name: n.Name}}
 		title = fmt.Sprintf("Allow %s for this package in nomi.toml", n.Name)
 		if tests {
 			title = fmt.Sprintf("Allow %s for this package's tests in nomi.toml", n.Name)
@@ -831,17 +866,17 @@ func (p *Program) allowFix(n NotAllowed, tests bool, fixes map[string]*parser.Fi
 	case n.List == OverSelfEntry:
 		adds = []analysis.EffectAdd{{List: analysis.ListSelfModules, Module: n.Entry, Name: n.Name}}
 		if n.CeilingDenies {
-			adds = append(adds, analysis.EffectAdd{List: selfStd, Name: n.Name})
+			adds = append(adds, analysis.EffectAdd{List: selfList, Name: n.Name})
 		}
 		title = fmt.Sprintf("Allow %s for %s in nomi.toml", n.Name, n.Entry)
 	case n.List == OverEntry:
-		adds = []analysis.EffectAdd{{List: analysis.ListDepsPackages, Module: n.Package, Name: n.Name}}
+		adds = []analysis.EffectAdd{{List: entryList, Module: n.Through[0], Name: n.Name}}
 		if n.CeilingDenies {
-			adds = append(adds, analysis.EffectAdd{List: depsStd, Name: n.Name})
+			adds = append(adds, analysis.EffectAdd{List: depsList, Name: n.Name})
 		}
-		title = fmt.Sprintf("Allow %s for %s in nomi.toml", n.Name, n.Package)
+		title = fmt.Sprintf("Allow %s for %s%s in nomi.toml", n.Name, n.Through[0], inTests)
 	default:
-		adds = []analysis.EffectAdd{{List: depsStd, Name: n.Name}}
+		adds = []analysis.EffectAdd{{List: depsList, Name: n.Name}}
 		title = fmt.Sprintf("Allow %s for dependencies%s in nomi.toml", n.Name, inTests)
 	}
 	key := fmt.Sprint(adds)

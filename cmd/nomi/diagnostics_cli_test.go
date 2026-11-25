@@ -289,7 +289,7 @@ func TestCommands_ReportAnUnusablePathPlainly(t *testing.T) {
 		out  string
 	}{
 		{[]string{"run", "missing.nomi"}, 1, "nomi run: missing.nomi: no such file or directory\n"},
-		{[]string{"run", "empty"}, 1, "nomi run: empty is a directory; name the program's .nomi file\n"},
+		{[]string{"run", "empty"}, 1, "nomi run: empty is not a package (it has no nomi.toml), so it has no entry point to run\n" + runUsage + "\n"},
 		{[]string{"run", "notes.txt"}, 1, "nomi run: notes.txt is not a .nomi file and does not start with a #! line\n"},
 		{[]string{"build", "missing.nomi"}, 1, "nomi build: missing.nomi: no such file or directory\n"},
 		{[]string{"check", "missing.nomi"}, 1, "nomi check: missing.nomi: no such file or directory\n"},

@@ -81,6 +81,18 @@ test "brackets and links render in time linear in their length"
     end
 end
 
+test "nested brackets render in time linear in their depth under a definition"
+    // Each `]` of the nest may name a definition. A label over 999 bytes
+    // names none, so a nest deeper than about 500 adds no `]` that looks
+    // one up: the larger nest here, 480 deep, stays inside that cap. The
+    // definition names no label of the nest, since a link made inside would
+    // keep every label around it from looking.
+    assert scales_linearly(
+        fn n -> "[x]: /u\n\n" + String.repeat("[", n) + "a" + String.repeat("]", n),
+        60,
+    )
+end
+
 test "emphasis delimiters render in time linear in their length"
     [
         ("stars",               fn n: NonNegativeInt -> String.repeat("*", n)),

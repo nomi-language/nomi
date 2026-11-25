@@ -81,7 +81,7 @@ impl Display for Format
 end
 
 /// A compression level from 1, the fastest, to 9, the smallest.
-pub refine LevelNumber Int64 when fn n -> n >= 1 and n <= 9
+pub subtype LevelNumber Int64 when fn n -> n >= 1 and n <= 9
 
 /// How hard `encode` and `writer` work to make the data small. Every level
 /// writes data every decoder reads.
@@ -144,7 +144,7 @@ derive Equatable for GzipMember
 /// input the stream took.
 pub struct Decoded
     data:     Bytes
-    consumed: Int
+    consumed: NonNegativeInt
 end
 
 derive Equatable for Decoded

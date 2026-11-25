@@ -53,5 +53,9 @@
 // built this binary for a release's archives, so that it carries its
 // platform's runners and its release publishes every other one. A `go
 // install ...@vX.Y.Z` is a release and was not built that way; it builds
-// its runners from that version's source (internal/runners).
+// its runners from that version's source (internal/runners). `nomi
+// upgrade` replaces only a binary built that way, and tells a clone's build
+// (FromCheckout, a stamped commit) from a `go install`'s by its build info.
+// ReleaseOfName reads the release back out of a Name, as an editor's
+// marker records it.
 package buildversion

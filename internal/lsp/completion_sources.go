@@ -15,7 +15,7 @@ import (
 var (
 	topLevelKeywords = []string{
 		"fn", "pub", "private", "export", "import", "struct", "enum", "impl", "interface", "type",
-		"refine", "typealias", "group", "test", "once", "derive", "opaque", "host",
+		"subtype", "typealias", "group", "test", "once", "derive", "opaque", "host",
 	}
 	expressionKeywords = []string{"if", "case", "dbg", "todo", "unreachable", "concurrent"}
 	statementKeywords  = append([]string{

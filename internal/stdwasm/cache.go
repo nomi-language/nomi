@@ -45,8 +45,23 @@ func compilationCache(sum [sha256.Size]byte) wazero.CompilationCache {
 	if info, err := os.Stat(dir); err == nil {
 		artifactcache.Touch(dir, info)
 	}
-	if artifactcache.Due(parent, pruneEvery) {
-		artifactcache.Prune(parent, filepath.Base(dir), artifactcache.Unused)
-	}
+	prune(parent, filepath.Base(dir), false)
 	return cache
+}
+
+// Prune removes now the compiled modules under root, the artifact cache,
+// that nothing has used for artifactcache.Unused, and answers what it
+// removed.
+func Prune(root string) artifactcache.Pruned {
+	return prune(filepath.Join(root, cacheDir), "", true)
+}
+
+// prune removes the modules' directories of parent other than keep that
+// nothing has used for artifactcache.Unused, at most once per pruneEvery
+// (artifactcache.Due) or now when force is set.
+func prune(parent, keep string, force bool) artifactcache.Pruned {
+	if !artifactcache.Due(parent, pruneEvery, force) {
+		return artifactcache.Pruned{}
+	}
+	return artifactcache.Prune(parent, keep, artifactcache.Unused)
 }

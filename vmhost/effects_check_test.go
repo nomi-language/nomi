@@ -16,7 +16,7 @@ import (
 func notAllowedLines(p *vmhost.Program, r vmhost.Roots, lists *vmhost.Effects) []string {
 	var out []string
 	for _, n := range p.EffectCallsNotAllowed(r, lists) {
-		over := map[vmhost.EffectList]string{vmhost.OverSelf: "self", vmhost.OverSelfEntry: "self entry", vmhost.OverDeps: "deps", vmhost.OverEntry: "entry", vmhost.OverDeclared: "own"}[n.List]
+		over := map[vmhost.EffectList]string{vmhost.OverSelf: "self", vmhost.OverSelfEntry: "self entry", vmhost.OverDependencies: "deps", vmhost.OverEntry: "entry", vmhost.OverDeclared: "own"}[n.List]
 		if n.Package != "" {
 			over += " " + n.Package
 		}
@@ -48,15 +48,15 @@ func checkNotAllowed(t *testing.T, p *vmhost.Program, r vmhost.Roots, lists *vmh
 
 // selfAllows is an [effects.self] whose std is names.
 func selfAllows(names ...string) *vmhost.SelfEffects {
-	return &vmhost.SelfEffects{Std: append([]string{}, names...)}
+	return &vmhost.SelfEffects{Effects: append([]string{}, names...)}
 }
 
-// depsCeiling is an [effects.deps] whose std is names, none for nil,
+// depsCeiling is an [effects.dependencies] whose std is names, none for nil,
 // with entries.
-func depsCeiling(names []string, entries map[string][]string) *vmhost.DepsEffects {
-	d := &vmhost.DepsEffects{Packages: entries}
+func depsCeiling(names []string, entries map[string][]string) *vmhost.DependenciesEffects {
+	d := &vmhost.DependenciesEffects{Entries: entries}
 	if names != nil {
-		d.Std = append([]string{}, names...)
+		d.Effects = append([]string{}, names...)
 	}
 	return d
 }
@@ -112,9 +112,9 @@ end
 }
 
 // [effects.self] holds the calls in the project's own files and
-// [effects.deps] the calls in a dependency's: each alone holds only
-// what it names. Deps' std is a ceiling over every dependency, an entry
-// under [effects.deps.packages] holds that module's calls, and a call
+// [effects.dependencies] the calls in a dependency's: each alone holds only
+// what it names. Its effects are a ceiling over every dependency, a
+// [dependencies] entry's effects hold that package's calls, and a call
 // over both is reported once, over the entry. With no ceiling and no
 // entry a dependency's calls are not held. A callback the program hands a
 // module is the program's.
@@ -127,11 +127,11 @@ func TestEffectCallsNotAllowed_TheSelfAndDepsTables(t *testing.T) {
 		lists vmhost.Effects
 		want  []string
 	}{
-		{"everything allowed", vmhost.Effects{Self: selfAllows(both...), Deps: depsCeiling(both, nil)}, nil},
+		{"everything allowed", vmhost.Effects{Self: selfAllows(both...), Dependencies: depsCeiling(both, nil)}, nil},
 		{"self alone holds only the project's files", vmhost.Effects{Self: selfAllows("std::io")}, []string{
 			"std::fs | self | main.nomi:8:17 | [std::io]",
 		}},
-		{"deps alone holds only the dependencies' files", vmhost.Effects{Deps: depsCeiling(io, nil)}, []string{
+		{"deps alone holds only the dependencies' files", vmhost.Effects{Dependencies: depsCeiling(io, nil)}, []string{
 			"std::fs | deps pricing | rules.nomi:7:17 | [std::io]",
 		}},
 		{"self allows nothing", vmhost.Effects{Self: selfAllows()}, []string{
@@ -139,21 +139,21 @@ func TestEffectCallsNotAllowed_TheSelfAndDepsTables(t *testing.T) {
 			"std::io | self | main.nomi:12:13 | []",
 			"std::io | self | main.nomi:13:13 | []",
 		}},
-		{"no ceiling and no entry", vmhost.Effects{Deps: &vmhost.DepsEffects{}}, nil},
-		{"an entry with no ceiling", vmhost.Effects{Deps: depsCeiling(nil, map[string][]string{"pricing": io})}, []string{
+		{"no ceiling and no entry", vmhost.Effects{Dependencies: &vmhost.DependenciesEffects{}}, nil},
+		{"an entry with no ceiling", vmhost.Effects{Dependencies: depsCeiling(nil, map[string][]string{"pricing": io})}, []string{
 			"std::fs | entry pricing | rules.nomi:7:17 | [std::io]",
 		}},
-		{"an entry allowed nothing, the callback it is handed the program's", vmhost.Effects{Deps: &vmhost.DepsEffects{Packages: map[string][]string{"pricing": {}}}}, []string{
+		{"an entry allowed nothing, the callback it is handed the program's", vmhost.Effects{Dependencies: &vmhost.DependenciesEffects{Entries: map[string][]string{"pricing": {}}}}, []string{
 			"std::fs | entry pricing | rules.nomi:7:17 | []",
 			"std::io | entry pricing | rules.nomi:11:13 | []",
 		}},
-		{"within the entry, over the ceiling", vmhost.Effects{Deps: depsCeiling(io, map[string][]string{"pricing": both})}, []string{
+		{"within the entry, over the ceiling", vmhost.Effects{Dependencies: depsCeiling(io, map[string][]string{"pricing": both})}, []string{
 			"std::fs | deps pricing | rules.nomi:7:17 | [std::io]",
 		}},
-		{"within the ceiling, over the entry", vmhost.Effects{Deps: depsCeiling(both, map[string][]string{"pricing": io})}, []string{
+		{"within the ceiling, over the entry", vmhost.Effects{Dependencies: depsCeiling(both, map[string][]string{"pricing": io})}, []string{
 			"std::fs | entry pricing | rules.nomi:7:17 | [std::io]",
 		}},
-		{"over both, once", vmhost.Effects{Deps: depsCeiling(io, map[string][]string{"pricing": io})}, []string{
+		{"over both, once", vmhost.Effects{Dependencies: depsCeiling(io, map[string][]string{"pricing": io})}, []string{
 			"std::fs | entry pricing | rules.nomi:7:17 | [std::io] | ceiling denies too",
 		}},
 	}
@@ -168,14 +168,14 @@ func TestEffectCallsNotAllowed_TheSelfAndDepsTables(t *testing.T) {
 }
 
 // A dependency whose own nomi.toml has an [effects.self] table is held
-// to its std when the project has an [effects.deps]: within it the
+// to its std when the project has an [effects.dependencies]: within it the
 // program passes, over it the call is reported over the module's own list.
 // With the project's entry too a call must be in both, and a call over
 // every list is reported once, over the module's own list, saying the
-// others deny it too; a longer entry is no error. Its std_in_tests and its
-// [effects.deps] are not read, and a dependency with no
+// others deny it too; a longer entry is no error. Its effects_in_tests and its
+// [effects.dependencies] are not read, and a dependency with no
 // [effects.self] declares nothing. A project with no
-// [effects.deps] reads no dependency's table.
+// [effects.dependencies] reads no dependency's table.
 func TestEffectCallsNotAllowed_ADependencysOwnSelf(t *testing.T) {
 	both := []string{"std::fs", "std::io"}
 	io := []string{"std::io"}
@@ -184,44 +184,44 @@ func TestEffectCallsNotAllowed_ADependencysOwnSelf(t *testing.T) {
 		lists       vmhost.Effects
 		want        []string
 	}{
-		{"within its own list", "\n[effects.self]\nstd = [\"std::fs\", \"std::io\"]\n", vmhost.Effects{Deps: depsCeiling(both, nil)}, nil},
-		{"over its own list", "\n[effects.self]\nstd = [\"std::io\"]\nstd_in_tests = [\"std::fs\"]\n", vmhost.Effects{Deps: depsCeiling(both, nil)}, []string{
+		{"within its own list", "\n[effects.self]\neffects = [\"std::fs\", \"std::io\"]\n", vmhost.Effects{Dependencies: depsCeiling(both, nil)}, nil},
+		{"over its own list", "\n[effects.self]\neffects = [\"std::io\"]\neffects_in_tests = [\"std::fs\"]\n", vmhost.Effects{Dependencies: depsCeiling(both, nil)}, []string{
 			"std::fs | own pricing | rules.nomi:7:17 | [std::io]",
 		}},
-		{"a table with no std allows nothing", "\n[effects.self]\n", vmhost.Effects{Deps: depsCeiling(both, nil)}, []string{
+		{"a table with no std allows nothing", "\n[effects.self]\n", vmhost.Effects{Dependencies: depsCeiling(both, nil)}, []string{
 			"std::fs | own pricing | rules.nomi:7:17 | []",
 			"std::io | own pricing | rules.nomi:11:13 | []",
 		}},
-		{"in its own list, not in the project's entry", "\n[effects.self]\nstd = [\"std::fs\", \"std::io\"]\n",
-			vmhost.Effects{Deps: depsCeiling(both, map[string][]string{"pricing": io})}, []string{
+		{"in its own list, not in the project's entry", "\n[effects.self]\neffects = [\"std::fs\", \"std::io\"]\n",
+			vmhost.Effects{Dependencies: depsCeiling(both, map[string][]string{"pricing": io})}, []string{
 				"std::fs | entry pricing | rules.nomi:7:17 | [std::io]",
 			}},
-		{"in the project's entry, not in its own list", "\n[effects.self]\nstd = [\"std::io\"]\n",
-			vmhost.Effects{Deps: depsCeiling(both, map[string][]string{"pricing": both})}, []string{
+		{"in the project's entry, not in its own list", "\n[effects.self]\neffects = [\"std::io\"]\n",
+			vmhost.Effects{Dependencies: depsCeiling(both, map[string][]string{"pricing": both})}, []string{
 				"std::fs | own pricing | rules.nomi:7:17 | [std::io]",
 			}},
-		{"its own [effects.deps] is not read", "\n[effects.self]\nstd = [\"std::fs\", \"std::io\"]\n\n[effects.deps]\nstd = []\n",
-			vmhost.Effects{Deps: depsCeiling(both, nil)}, nil},
-		{"a table of deps alone declares nothing", "\n[effects.deps]\nstd = []\n", vmhost.Effects{Deps: depsCeiling(both, nil)}, nil},
-		{"over every list, once", "\n[effects.self]\nstd = [\"std::io\"]\n",
-			vmhost.Effects{Deps: depsCeiling(io, map[string][]string{"pricing": io})}, []string{
+		{"its own [effects.dependencies] is not read", "\n[effects.self]\neffects = [\"std::fs\", \"std::io\"]\n\n[effects.dependencies]\neffects = []\n",
+			vmhost.Effects{Dependencies: depsCeiling(both, nil)}, nil},
+		{"a table of deps alone declares nothing", "\n[effects.dependencies]\neffects = []\n", vmhost.Effects{Dependencies: depsCeiling(both, nil)}, nil},
+		{"over every list, once", "\n[effects.self]\neffects = [\"std::io\"]\n",
+			vmhost.Effects{Dependencies: depsCeiling(io, map[string][]string{"pricing": io})}, []string{
 				"std::fs | own pricing | rules.nomi:7:17 | [std::io] | entry denies too | ceiling denies too",
 			}},
-		{"a project with self alone", "\n[effects.self]\nstd = []\n", vmhost.Effects{Self: selfAllows(both...)}, nil},
+		{"a project with self alone", "\n[effects.self]\neffects = []\n", vmhost.Effects{Self: selfAllows(both...)}, nil},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			checkNotAllowed(t, pricingProjectDeclaring(t, c.table), vmhost.Roots{}, &c.lists, c.want...)
 		})
 	}
-	p := pricingProjectDeclaring(t, "\n[effects.self]\nstd = []\n")
+	p := pricingProjectDeclaring(t, "\n[effects.self]\neffects = []\n")
 	if got := p.EffectCallsNotAllowed(vmhost.Roots{}, nil); got != nil {
 		t.Errorf("no project lists: %v, want nothing", got)
 	}
 }
 
 // A test case's calls in the project's own files are held to self's std
-// and std_in_tests together, and main's to std alone. Exported functions
+// and effects_in_tests together, and main's to std alone. Exported functions
 // are roots when asked for.
 func TestEffectCallsNotAllowed_TestsAndExports(t *testing.T) {
 	p := loadProject(t, "main.nomi", map[string]string{"main.nomi": `import
@@ -244,7 +244,7 @@ test "reads"
     assert 1 == 1
 end
 `})
-	lists := &vmhost.Effects{Self: &vmhost.SelfEffects{Std: []string{"std::io"}, StdInTests: []string{"std::fs"}}}
+	lists := &vmhost.Effects{Self: &vmhost.SelfEffects{Effects: []string{"std::io"}, EffectsInTests: []string{"std::fs"}}}
 	checkNotAllowed(t, p, vmhost.Roots{}, lists)
 	checkNotAllowed(t, p, vmhost.Roots{Exports: true}, lists,
 		"std::process | self | main.nomi:8:20 | [std::io]",
@@ -306,7 +306,7 @@ func TestEffectCallsNotAllowed_TheSelfModulesTable(t *testing.T) {
 	p := storeProject(t)
 	both := []string{"std::fs", "std::io"}
 	self := func(std []string, entries map[string][]string) *vmhost.Effects {
-		return &vmhost.Effects{Self: &vmhost.SelfEffects{Std: std, Modules: entries}}
+		return &vmhost.Effects{Self: &vmhost.SelfEffects{Effects: std, Modules: entries}}
 	}
 	cases := []struct {
 		name  string
@@ -340,7 +340,7 @@ func TestEffectCallsNotAllowed_TheSelfModulesTable(t *testing.T) {
 		})
 	}
 	tests := vmhost.Roots{Tests: &vmhost.TestOptions{}}
-	inTests := &vmhost.Effects{Self: &vmhost.SelfEffects{Std: []string{"std::io"}, StdInTests: []string{"std::fs"}}}
+	inTests := &vmhost.Effects{Self: &vmhost.SelfEffects{Effects: []string{"std::io"}, EffectsInTests: []string{"std::fs"}}}
 	checkNotAllowed(t, p, tests, inTests)
 	inTests.Self.Modules = map[string][]string{"store": {"std::io"}}
 	checkNotAllowed(t, p, tests, inTests,
@@ -350,26 +350,26 @@ func TestEffectCallsNotAllowed_TheSelfModulesTable(t *testing.T) {
 
 // A dependency whose own nomi.toml declares [effects.self.modules] is
 // held to the entry for each file's module within its own std, when the
-// project has an [effects.deps]: over the entry the call is reported
+// project has an [effects.dependencies]: over the entry the call is reported
 // over the module's own list, naming the entry, and saying when its own
 // std denies it too. A module it gives no entry is held by its own std
 // alone, and its own entries_required is for its own builds.
 func TestEffectCallsNotAllowed_ADependencysOwnModules(t *testing.T) {
 	both := []string{"std::fs", "std::io"}
-	lists := vmhost.Effects{Deps: depsCeiling(both, nil)}
+	lists := vmhost.Effects{Dependencies: depsCeiling(both, nil)}
 	cases := []struct {
 		name, table string
 		want        []string
 	}{
-		{"within its own entry", "\n[effects.self]\nstd = [\"std::fs\", \"std::io\"]\n\n[effects.self.modules]\n\"rules\" = [\"std::fs\", \"std::io\"]\n", nil},
-		{"over its own entry", "\n[effects.self]\nstd = [\"std::fs\", \"std::io\"]\n\n[effects.self.modules]\n\"rules\" = [\"std::io\"]\n", []string{
+		{"within its own entry", "\n[effects.self]\neffects = [\"std::fs\", \"std::io\"]\n\n[effects.self.modules]\n\"rules\" = [\"std::fs\", \"std::io\"]\n", nil},
+		{"over its own entry", "\n[effects.self]\neffects = [\"std::fs\", \"std::io\"]\n\n[effects.self.modules]\n\"rules\" = [\"std::io\"]\n", []string{
 			"std::fs | own pricing rules | rules.nomi:7:17 | [std::io]",
 		}},
-		{"over its own entry and its own std", "\n[effects.self]\nstd = [\"std::io\"]\n\n[effects.self.modules]\n\"rules\" = [\"std::io\"]\n", []string{
+		{"over its own entry and its own std", "\n[effects.self]\neffects = [\"std::io\"]\n\n[effects.self.modules]\n\"rules\" = [\"std::io\"]\n", []string{
 			"std::fs | own pricing rules | rules.nomi:7:17 | [std::io] | own std denies too",
 		}},
-		{"a module it gives no entry", "\n[effects.self]\nstd = [\"std::fs\", \"std::io\"]\n\n[effects.self.modules]\n\"other\" = []\n", nil},
-		{"its own entries_required is not read", "\n[effects.self]\nentries_required = true\nstd = [\"std::fs\", \"std::io\"]\n", nil},
+		{"a module it gives no entry", "\n[effects.self]\neffects = [\"std::fs\", \"std::io\"]\n\n[effects.self.modules]\n\"other\" = []\n", nil},
+		{"its own entries_required is not read", "\n[effects.self]\nentries_required = true\neffects = [\"std::fs\", \"std::io\"]\n", nil},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -378,23 +378,28 @@ func TestEffectCallsNotAllowed_ADependencysOwnModules(t *testing.T) {
 	}
 }
 
-// A test case's calls in a dependency's files are held to deps' std and
-// std_in_tests together, and main's to std alone; the dependency's entry
-// holds its calls from every root.
+// A test case's calls in a dependency's files are held to the ceiling's
+// effects and effects_in_tests together, and main's to effects alone; so
+// are the dependency's entry's.
 func TestEffectCallsNotAllowed_DepsInTests(t *testing.T) {
 	p := loadProject(t, "app/main.nomi", pricingFiles("", "\ntest \"loads\"\n    assert rules.load(\"prices.txt\") == \"\"\nend\n"))
 	tests := vmhost.Roots{Tests: &vmhost.TestOptions{}}
-	inTests := &vmhost.Effects{Deps: &vmhost.DepsEffects{Std: []string{"std::io"}, StdInTests: []string{"std::fs"}}}
+	inTests := &vmhost.Effects{Dependencies: &vmhost.DependenciesEffects{Effects: []string{"std::io"}, EffectsInTests: []string{"std::fs"}}}
 	checkNotAllowed(t, p, tests, inTests)
 	checkNotAllowed(t, p, vmhost.Roots{}, inTests,
 		"std::fs | deps pricing | rules.nomi:7:17 | [std::io]",
 	)
-	checkNotAllowed(t, p, tests, &vmhost.Effects{Deps: depsCeiling([]string{"std::io"}, nil)},
+	checkNotAllowed(t, p, tests, &vmhost.Effects{Dependencies: depsCeiling([]string{"std::io"}, nil)},
 		"std::fs | deps pricing | rules.nomi:7:17 | [std::io]",
 	)
-	entry := &vmhost.Effects{Deps: &vmhost.DepsEffects{Std: []string{"std::io"}, StdInTests: []string{"std::fs"},
-		Packages: map[string][]string{"pricing": {"std::io"}}}}
+	entry := &vmhost.Effects{Dependencies: &vmhost.DependenciesEffects{Effects: []string{"std::io"}, EffectsInTests: []string{"std::fs"},
+		Entries: map[string][]string{"pricing": {"std::io"}}}}
 	checkNotAllowed(t, p, tests, entry,
 		"std::fs | entry pricing | rules.nomi:7:17 | [std::io]",
+	)
+	entry.Dependencies.EntriesInTests = map[string][]string{"pricing": {"std::fs"}}
+	checkNotAllowed(t, p, tests, entry)
+	checkNotAllowed(t, p, vmhost.Roots{}, entry,
+		"std::fs | entry pricing | rules.nomi:7:17 | [std::io] | ceiling denies too",
 	)
 }

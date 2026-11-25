@@ -36,7 +36,7 @@
 //     checks against the target (vmhost.TargetLacks,
 //     vmhost.Program.CheckTarget). A function whose result depends only on
 //     its operands, and which acts on nothing, gets the row's Pure, so a
-//     refinement rule, a typed literal's handler, a `check` and a
+//     subtype rule, a typed literal's handler, a `check` and a
 //     debugger's evaluation may call it (internal/vm package doc,
 //     "Effects"); unset, every call to it is an effect. Reading an app
 //     field is none, though code the compiler runs has no app to read.
@@ -47,7 +47,7 @@
 //     to it as unbounded, since nothing interrupts a call into Go. A Pure
 //     function whose answer is a hash keyed by the run's seed
 //     (`String.hash`) also gets Seeded: a call to it is no effect, but a
-//     refinement rule, a typed literal's handler and a `check` refuse it,
+//     subtype rule, a typed literal's handler and a `check` refuse it,
 //     since the compiler runs them once and their answer must hold in
 //     every run. A
 //     function that acts only through a value its operand already holds
@@ -69,7 +69,7 @@
 // function handles an Int of any size, and `int64` (or a narrower width)
 // when it needs a machine integer. A parameter takes a fixed width only
 // when its declared type admits no Int past that width: `Int64`
-// (std::int), a refinement whose `when` bounds it within the range, or an
+// (std::int), a subtype whose `when` bounds it within the range, or an
 // intersection with one (`NonNegativeInt and Int64`); generation refuses
 // a plain `Int` there, since the adapter could only refuse the value as
 // the program runs. Such a function takes `rt.Int` and defines what a
@@ -198,7 +198,7 @@
 //
 //   - its package in `hostPackages` (internal/irbuild/stdlib.go);
 //   - `Pure` on each of its rows whose result depends only on its
-//     operands, since a refinement rule or a typed literal's handler may
+//     operands, since a subtype rule or a typed literal's handler may
 //     only reach those, `Unbounded` beside it where one call's cost grows
 //     with an operand's value, `Seeded` beside it where its answer is a
 //     hash keyed by the run's seed, and World on each of the others

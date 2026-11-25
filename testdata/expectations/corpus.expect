@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise. N is the case count vmcmd.Tester.File answers, each `subtests` row a case.
-records 746
-declared-cases 4254
+records 747
+declared-cases 4260
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -727,17 +727,17 @@ T
 C 04-scalars-and-text/ints_test.nomi
 E 0
 N 13
-H a7aa7bd86c43abf7481faab315a0999a95c873027b2b29b92a054038e7c270b6
+H e1df9a7991d34c438715c5346a7c96e7b9e19cd89f748e019c865ac82b0f513c
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: ints convert to floats
-T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: non-zero refinement validates divisors
+T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: non-zero subtype validates divisors
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: non-zero integers make division total
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: modulo takes the sign of the divisor
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: remainder takes the sign of the dividend
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: modulo past 64 bits is exact
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: modulo is the dividend less the divisor times the floored quotient
-T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: positive refinement is stricter than non-zero
+T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: positive subtype is stricter than non-zero
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: positive integers can be used as non-zero divisors
-T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: positive refinement rejects zero divisors
+T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: positive subtype rejects zero divisors
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: int abs and sign
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: int min and max
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: the / operator divides by a non-zero integer
@@ -1900,18 +1900,18 @@ T ok <root>/tests/10-generics-and-type-wrappers/bounds_test.nomi :: interface bo
 T ok <root>/tests/10-generics-and-type-wrappers/bounds_test.nomi :: interface-bound aliases name reusable bound conjunctions
 T test result: ok. 2 passed, 0 failed
 T
-C 10-generics-and-type-wrappers/collection_refinements_test.nomi
+C 10-generics-and-type-wrappers/collection_subtypes_test.nomi
 E 0
 N 8
-H a0821efd09a53e62460f8db7a0079863c62fd3cea46407eae590f7b37c4da6ce
-T ok <root>/tests/10-generics-and-type-wrappers/collection_refinements_test.nomi :: a List refinement iterates, matches and passes as its List
-T ok <root>/tests/10-generics-and-type-wrappers/collection_refinements_test.nomi :: a Map refinement iterates, looks up and passes as its Map
-T ok <root>/tests/10-generics-and-type-wrappers/collection_refinements_test.nomi :: a String refinement iterates, calls String and passes as its String
-T ok <root>/tests/10-generics-and-type-wrappers/collection_refinements_test.nomi :: a Vector refinement iterates, calls Vector and passes as its Vector
-T ok <root>/tests/10-generics-and-type-wrappers/collection_refinements_test.nomi :: a Set refinement iterates and spreads as its Set
-T ok <root>/tests/10-generics-and-type-wrappers/collection_refinements_test.nomi :: a refinement passes where an Iter is expected
-T ok <root>/tests/10-generics-and-type-wrappers/collection_refinements_test.nomi :: a literal builds a refinement of a refined collection, and its call form takes one
-T ok <root>/tests/10-generics-and-type-wrappers/collection_refinements_test.nomi :: a value made by try_from iterates as its base
+H fed82b5e17f2b51cb20601683d2548d3ac55a0fdb2ffe6b77bbd6addd33bba9b
+T ok <root>/tests/10-generics-and-type-wrappers/collection_subtypes_test.nomi :: a List subtype iterates, matches and passes as its List
+T ok <root>/tests/10-generics-and-type-wrappers/collection_subtypes_test.nomi :: a Map subtype iterates, looks up and passes as its Map
+T ok <root>/tests/10-generics-and-type-wrappers/collection_subtypes_test.nomi :: a String subtype iterates, calls String and passes as its String
+T ok <root>/tests/10-generics-and-type-wrappers/collection_subtypes_test.nomi :: a Vector subtype iterates, calls Vector and passes as its Vector
+T ok <root>/tests/10-generics-and-type-wrappers/collection_subtypes_test.nomi :: a Set subtype iterates and spreads as its Set
+T ok <root>/tests/10-generics-and-type-wrappers/collection_subtypes_test.nomi :: a subtype passes where an Iter is expected
+T ok <root>/tests/10-generics-and-type-wrappers/collection_subtypes_test.nomi :: a literal builds a subtype of a collection subtype, and its call form takes one
+T ok <root>/tests/10-generics-and-type-wrappers/collection_subtypes_test.nomi :: a value made by try_from iterates as its base
 T test result: ok. 8 passed, 0 failed
 T
 C 10-generics-and-type-wrappers/covariant_conversion_test.nomi
@@ -1984,13 +1984,13 @@ T ok <root>/tests/10-generics-and-type-wrappers/generic_inherent_impl_test.nomi 
 T ok <root>/tests/10-generics-and-type-wrappers/generic_inherent_impl_test.nomi :: a generic enum with an inherent impl
 T test result: ok. 4 passed, 0 failed
 T
-C 10-generics-and-type-wrappers/generic_refinements_test.nomi
+C 10-generics-and-type-wrappers/generic_subtypes_test.nomi
 E 0
 N 3
-H e2f2e72728ae827631416afaa8cdba585f2e565eb1563da0ba5c079c7d5af710
-T ok <root>/tests/10-generics-and-type-wrappers/generic_refinements_test.nomi :: literals are checked at their type arguments
-T ok <root>/tests/10-generics-and-type-wrappers/generic_refinements_test.nomi :: try_from checks every rule at its type arguments
-T ok <root>/tests/10-generics-and-type-wrappers/generic_refinements_test.nomi :: values convert as their parents do
+H aa19d6d42cbd2f0bdfcc57bedf64b90719d7c829d1a866e7d7ac830aa9446952
+T ok <root>/tests/10-generics-and-type-wrappers/generic_subtypes_test.nomi :: literals are checked at their type arguments
+T ok <root>/tests/10-generics-and-type-wrappers/generic_subtypes_test.nomi :: try_from checks every rule at its type arguments
+T ok <root>/tests/10-generics-and-type-wrappers/generic_subtypes_test.nomi :: values convert as their parents do
 T test result: ok. 3 passed, 0 failed
 T
 C 10-generics-and-type-wrappers/generics_test.nomi
@@ -2039,62 +2039,74 @@ H 0ef8acd590713201da9feae80bfd8f745db519b3b41c25693a378be935094c0b
 T --- stderr ---
 T nomi run: <root>/tests/10-generics-and-type-wrappers/opaque_types/status.nomi declares no `fn main`, so there is no program to run
 T
-C 10-generics-and-type-wrappers/refined_types_test.nomi
-E 0
-N 6
-H 0c55320920a127ffcd1a1f8b0f68df0b015a8ce7beceaf227c7c92887f8308f1
-T ok <root>/tests/10-generics-and-type-wrappers/refined_types_test.nomi :: a validated type is built from a checked literal or try_from
-T ok <root>/tests/10-generics-and-type-wrappers/refined_types_test.nomi :: a type over a refinement checks the refinement's rules
-T ok <root>/tests/10-generics-and-type-wrappers/refined_types_test.nomi :: a rule's type implements TryFrom of its base
-T ok <root>/tests/10-generics-and-type-wrappers/refined_types_test.nomi :: an intersection of refinements takes a value of each
-T ok <root>/tests/10-generics-and-type-wrappers/refined_types_test.nomi :: a generic alias is its target
-T ok <root>/tests/10-generics-and-type-wrappers/refined_types_test.nomi :: the checker refuses what converts nowhere
-T test result: ok. 6 passed, 0 failed
-T
-C 10-generics-and-type-wrappers/refinement_modules/refinement_modules_test.nomi
-E 0
-N 2
-H 83bd98e77cc6b42f3f4921c036053f369c3475e8ff7f0e133881a7a0d31a40a6
-T ok <root>/tests/10-generics-and-type-wrappers/refinement_modules/refinement_modules_test.nomi :: a refinement of another file's refinement checks the whole chain
-T ok <root>/tests/10-generics-and-type-wrappers/refinement_modules/refinement_modules_test.nomi :: values of another file's refinements convert up
-T test result: ok. 2 passed, 0 failed
-T
-C 10-generics-and-type-wrappers/refinement_modules/units.nomi
-E 1
-N 0
-H f6cd99c17e637e2fa84262d23367e7c63ddc723229d6063d1ccf2e9ee10a4f6c
-T --- stderr ---
-T nomi run: <root>/tests/10-generics-and-type-wrappers/refinement_modules/units.nomi declares no `fn main`, so there is no program to run
-T
-C 10-generics-and-type-wrappers/refinements_test.nomi
-E 0
-N 11
-H b6a69a5fefbb4f800120a1c185c386fe268938884f09520d75dbe2d980a34c7e
-T ok <root>/tests/10-generics-and-type-wrappers/refinements_test.nomi :: a literal where a refinement is expected is that refinement
-T ok <root>/tests/10-generics-and-type-wrappers/refinements_test.nomi :: try_from checks a value when the program runs
-T ok <root>/tests/10-generics-and-type-wrappers/refinements_test.nomi :: try_from checks every rule up the chain
-T ok <root>/tests/10-generics-and-type-wrappers/refinements_test.nomi :: a refined value converts up to its ancestors and its base
-T ok <root>/tests/10-generics-and-type-wrappers/refinements_test.nomi :: a container of a refinement passes as a container of its base
-T ok <root>/tests/10-generics-and-type-wrappers/refinements_test.nomi :: a refinement's impl keeps its rule with unchecked
-T ok <root>/tests/10-generics-and-type-wrappers/refinements_test.nomi :: division by a NonZeroInt cannot trap
-T ok <root>/tests/10-generics-and-type-wrappers/refinements_test.nomi :: a struct refinement checks its literals and try_from
-T ok <root>/tests/10-generics-and-type-wrappers/refinements_test.nomi :: destructuring a refinement reads its parent
-T ok <root>/tests/10-generics-and-type-wrappers/refinements_test.nomi :: a literal pattern matches a refined value
-T ok <root>/tests/10-generics-and-type-wrappers/refinements_test.nomi :: the checker rejects a value no rule vouched for
-T test result: ok. 11 passed, 0 failed
-T
-C 10-generics-and-type-wrappers/std_refinements_test.nomi
+C 10-generics-and-type-wrappers/std_subtypes_test.nomi
 E 0
 N 7
-H e34418e221dd79947f35e6fcaf3e3d03ee6026f660a137045d1c91b52aec8aee
-T ok <root>/tests/10-generics-and-type-wrappers/std_refinements_test.nomi :: the prelude's numeric refinements take literals
-T ok <root>/tests/10-generics-and-type-wrappers/std_refinements_test.nomi :: a PositiveInt passes as a NonNegativeInt, a NonZeroInt and an Int
-T ok <root>/tests/10-generics-and-type-wrappers/std_refinements_test.nomi :: try_from checks each parent's rule and its own
-T ok <root>/tests/10-generics-and-type-wrappers/std_refinements_test.nomi :: the converted functions take refined arguments
-T ok <root>/tests/10-generics-and-type-wrappers/std_refinements_test.nomi :: a PositiveDuration takes a typed literal
-T ok <root>/tests/10-generics-and-type-wrappers/std_refinements_test.nomi :: a computed value goes through try_from
-T ok <root>/tests/10-generics-and-type-wrappers/std_refinements_test.nomi :: arithmetic keeps the std numeric refinements where they hold
+H 96fcda26b1f50febc76bd1bc8a9f2879c1413deff885a2542def66444c88d110
+T ok <root>/tests/10-generics-and-type-wrappers/std_subtypes_test.nomi :: the prelude's numeric subtypes take literals
+T ok <root>/tests/10-generics-and-type-wrappers/std_subtypes_test.nomi :: a PositiveInt passes as a NonNegativeInt, a NonZeroInt and an Int
+T ok <root>/tests/10-generics-and-type-wrappers/std_subtypes_test.nomi :: try_from checks each parent's rule and its own
+T ok <root>/tests/10-generics-and-type-wrappers/std_subtypes_test.nomi :: the converted functions take subtype arguments
+T ok <root>/tests/10-generics-and-type-wrappers/std_subtypes_test.nomi :: a PositiveDuration takes a typed literal
+T ok <root>/tests/10-generics-and-type-wrappers/std_subtypes_test.nomi :: a computed value goes through try_from
+T ok <root>/tests/10-generics-and-type-wrappers/std_subtypes_test.nomi :: arithmetic keeps the std numeric subtypes where they hold
 T test result: ok. 7 passed, 0 failed
+T
+C 10-generics-and-type-wrappers/subtype_joins_test.nomi
+E 0
+N 6
+H b396e9007c18cee38cc336471b427b670bdf0edd9c66be0b71b8017b5303a1dd
+T ok <root>/tests/10-generics-and-type-wrappers/subtype_joins_test.nomi :: a literal compared with a value of a subtype is its base's
+T ok <root>/tests/10-generics-and-type-wrappers/subtype_joins_test.nomi :: branches join in either order
+T ok <root>/tests/10-generics-and-type-wrappers/subtype_joins_test.nomi :: arguments of one type parameter join in either order
+T ok <root>/tests/10-generics-and-type-wrappers/subtype_joins_test.nomi :: a literal beside spreads of a subtype joins with them
+T ok <root>/tests/10-generics-and-type-wrappers/subtype_joins_test.nomi :: a subtype element reaches a sum as a function value
+T ok <root>/tests/10-generics-and-type-wrappers/subtype_joins_test.nomi :: an operator's operands join in either order
+T test result: ok. 6 passed, 0 failed
+T
+C 10-generics-and-type-wrappers/subtype_modules/subtype_modules_test.nomi
+E 0
+N 2
+H 4ee4f765e6d6fe52740d717567e56b809f2338013fdc216671e562f853ccd7f6
+T ok <root>/tests/10-generics-and-type-wrappers/subtype_modules/subtype_modules_test.nomi :: a subtype of another file's subtype checks the whole chain
+T ok <root>/tests/10-generics-and-type-wrappers/subtype_modules/subtype_modules_test.nomi :: values of another file's subtypes convert up
+T test result: ok. 2 passed, 0 failed
+T
+C 10-generics-and-type-wrappers/subtype_modules/units.nomi
+E 1
+N 0
+H 4a9558ae96714e2bda72f4f2175d6a93b809c81bdbf8c7f736043c27a0fa2769
+T --- stderr ---
+T nomi run: <root>/tests/10-generics-and-type-wrappers/subtype_modules/units.nomi declares no `fn main`, so there is no program to run
+T
+C 10-generics-and-type-wrappers/subtype_rules_test.nomi
+E 0
+N 11
+H 55bbdea14f4ceb09e011788ef5afa26df25110f9b58f46d74ed834fddc792ffe
+T ok <root>/tests/10-generics-and-type-wrappers/subtype_rules_test.nomi :: a literal where a subtype is expected is that subtype
+T ok <root>/tests/10-generics-and-type-wrappers/subtype_rules_test.nomi :: try_from checks a value when the program runs
+T ok <root>/tests/10-generics-and-type-wrappers/subtype_rules_test.nomi :: try_from checks every rule up the chain
+T ok <root>/tests/10-generics-and-type-wrappers/subtype_rules_test.nomi :: a value of a subtype converts up to its ancestors and its base
+T ok <root>/tests/10-generics-and-type-wrappers/subtype_rules_test.nomi :: a container of a subtype passes as a container of its base
+T ok <root>/tests/10-generics-and-type-wrappers/subtype_rules_test.nomi :: a subtype's impl keeps its rule with unchecked
+T ok <root>/tests/10-generics-and-type-wrappers/subtype_rules_test.nomi :: division by a NonZeroInt cannot trap
+T ok <root>/tests/10-generics-and-type-wrappers/subtype_rules_test.nomi :: a validated struct checks its literals and try_from
+T ok <root>/tests/10-generics-and-type-wrappers/subtype_rules_test.nomi :: destructuring a subtype reads its parent
+T ok <root>/tests/10-generics-and-type-wrappers/subtype_rules_test.nomi :: a literal pattern matches a value of a subtype
+T ok <root>/tests/10-generics-and-type-wrappers/subtype_rules_test.nomi :: the checker rejects a value no rule vouched for
+T test result: ok. 11 passed, 0 failed
+T
+C 10-generics-and-type-wrappers/subtypes_test.nomi
+E 0
+N 6
+H cacf4e249de058a7ca224b1bf004e8142c82290fdb3d3b88aef1b0e9071698e0
+T ok <root>/tests/10-generics-and-type-wrappers/subtypes_test.nomi :: a validated type is built from a checked literal or try_from
+T ok <root>/tests/10-generics-and-type-wrappers/subtypes_test.nomi :: a type over a subtype checks the subtype's rules
+T ok <root>/tests/10-generics-and-type-wrappers/subtypes_test.nomi :: a rule's type implements TryFrom of its base
+T ok <root>/tests/10-generics-and-type-wrappers/subtypes_test.nomi :: an intersection of subtypes takes a value of each
+T ok <root>/tests/10-generics-and-type-wrappers/subtypes_test.nomi :: a generic alias is its target
+T ok <root>/tests/10-generics-and-type-wrappers/subtypes_test.nomi :: the checker refuses what converts nowhere
+T test result: ok. 6 passed, 0 failed
 T
 C 10-generics-and-type-wrappers/turbofish_test.nomi
 E 0
@@ -2763,13 +2775,6 @@ H 237c5977cadc3f265580afb495787a9124ed0dcd2f04f9edad205da1586c69e9
 T --- stderr ---
 T nomi run: <root>/tests/12-derives-and-standard-interfaces/ordering/test_helpers.nomi declares no `fn main`, so there is no program to run
 T
-C 12-derives-and-standard-interfaces/refinement_fields_test.nomi
-E 0
-N 1
-H 3b3b1a22a3d010c39bb557088e00bcaae70ecd60484c0754f642263aafafb555
-T ok <root>/tests/12-derives-and-standard-interfaces/refinement_fields_test.nomi :: refinement fields compare and hash as their base values do
-T test result: ok. 1 passed, 0 failed
-T
 C 12-derives-and-standard-interfaces/set_debug_test.nomi
 E 0
 N 3
@@ -2788,6 +2793,13 @@ T ok <root>/tests/12-derives-and-standard-interfaces/std_generics_over_program_t
 T ok <root>/tests/12-derives-and-standard-interfaces/std_generics_over_program_types_test.nomi :: an interface value inside a tuple entering a Map or a default
 T ok <root>/tests/12-derives-and-standard-interfaces/std_generics_over_program_types_test.nomi :: List.compare over tuples holding a program's Comparable
 T test result: ok. 4 passed, 0 failed
+T
+C 12-derives-and-standard-interfaces/subtype_fields_test.nomi
+E 0
+N 1
+H d1f2eda118e9bde1580de5908d0611846b88b0245185b6f14ddd91299404cdd0
+T ok <root>/tests/12-derives-and-standard-interfaces/subtype_fields_test.nomi :: subtype fields compare and hash as their base values do
+T test result: ok. 1 passed, 0 failed
 T
 C 12-derives-and-standard-interfaces/summable_test.nomi
 E 0

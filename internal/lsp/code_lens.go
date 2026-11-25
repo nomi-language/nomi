@@ -27,10 +27,10 @@ const (
 
 // textDocumentCodeLens puts a lens above each `test`, `group` (and
 // each test in it), `//!` attached test and top-level `fn main` of the
-// file, from its parse; no analysis is needed.
-func (s *Server) textDocumentCodeLens(_ *glsp.Context, params *protocol.CodeLensParams) ([]protocol.CodeLens, error) {
+// file, from the parse installed with its analysis. It reads no types.
+func (s *Server) textDocumentCodeLens(gctx *glsp.Context, params *protocol.CodeLensParams) ([]protocol.CodeLens, error) {
 	uri := string(params.TextDocument.URI)
-	doc := s.docs.Snapshot(uri)
+	doc := s.requestDoc(gctx, uri)
 	if doc == nil {
 		return nil, nil
 	}
