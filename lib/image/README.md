@@ -12,8 +12,8 @@ is pure.
 nomi add github.com/nomi-language/nomi/lib/image
 ```
 
-A release `nomi` adds it with that command; before the first release, or with a
-`nomi` built from source, add it by its directory in a checkout of the
+A release `nomi` adds it with that command; with a `nomi` built from source,
+add it by its directory in a checkout of the
 repository: `nomi add ../nomi/lib/image`.
 
 ```nomi

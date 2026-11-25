@@ -33,15 +33,21 @@ func TestDebug_ATaskFailureStopsInTheTaskAndAgainWhereItIsAwaited(t *testing.T) 
 	s.run()
 	st := s.stop()
 	s.at(st, vm.StopTrap, "work:5 <lambda>:11", "n: Int = 0")
-	// The main thread is blocked in Task.await, and shows where.
+	// The main thread shows where it is. The task runs alongside it, so
+	// when the task traps main is either still returning from Task.spawn or
+	// already blocked in Task.await; both are the truth, and which one a
+	// run sees is the scheduler's.
 	var main vm.Thread
 	for _, th := range s.d.Threads() {
 		if th.ID != st.Thread {
 			main = th
 		}
 	}
-	if _, stack := s.stack(main.ID); stack != "Task.await:12 <concurrent>:12 concurrent:10 main:10" {
-		t.Fatalf("the awaiting thread's stack: %s", stack)
+	switch _, stack := s.stack(main.ID); stack {
+	case "Task.await:12 <concurrent>:12 concurrent:10 main:10",
+		"Task.spawn:11 <concurrent>:11 concurrent:10 main:10":
+	default:
+		t.Fatalf("the spawning thread's stack: %s", stack)
 	}
 	s.d.Continue()
 	st = s.stop()

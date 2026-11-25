@@ -10,8 +10,8 @@ is fixed by a new migration.
 nomi add github.com/nomi-language/nomi/lib/sql/migrate
 ```
 
-A release `nomi` adds it with that command; before the first release, or with a
-`nomi` built from source, add it by its directory in a checkout of the
+A release `nomi` adds it with that command; with a `nomi` built from source,
+add it by its directory in a checkout of the
 repository: `nomi add ../nomi/lib/sql/migrate`.
 
 Then `nomi tool migrate up` applies a project's migrations from the

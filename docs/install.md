@@ -5,9 +5,7 @@ editor with it, and run a program. `nomi` is one file. It is the compiler,
 the test runner, the formatter, the language server (`nomi lsp`) and the
 debugger (`nomi dap`).
 
-Nomi is pre-release. The first release, v0.0.1, is not published yet, so
-the commands under "From a release" fail until it is; build `nomi` from
-source until then.
+Nomi is pre-release: every `0.0.x` release may break the one before.
 
 ## Install `nomi`
 
@@ -91,12 +89,11 @@ from it ("What a source build needs" below).
 $ go install github.com/nomi-language/nomi/cmd/nomi@latest
 ```
 
-With no tagged versions, `@latest` is the newest commit on `main`;
-`@<commit>` names another one. `nomi --version` then names the commit by
-its time and revision:
+`@latest` is the newest release, `@v0.0.1` names one, and `@<commit>` a
+commit of `main`. `nomi --version` prints the release it was built at:
 
 ```console
-nomi v0.0.0-20261123094512-0123456789ab (darwin/arm64)
+nomi v0.0.1 (darwin/arm64)
 ```
 
 ## Set up your editor

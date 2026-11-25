@@ -58,17 +58,15 @@ exercised; concurrency, embedding and package management are younger.
 ## Getting started
 
 `nomi` is one file: the compiler, the test runner, the formatter, the
-language server (`nomi lsp`) and the debugger (`nomi dap`). No release is
-published yet, so today you build it from source with git and Go 1.21 or
-newer:
+language server (`nomi lsp`) and the debugger (`nomi dap`). On macOS and
+Linux:
 
 ```sh
-git clone https://github.com/nomi-language/nomi.git
-go install -C nomi ./cmd/nomi
+curl -fsSL https://nomi-lang.org/install.sh | sh
 ```
 
-[Installing Nomi](docs/install.md) covers the rest: putting `nomi` on your
-`PATH`, keeping the checkout, and Windows.
+[Installing Nomi](docs/install.md) covers the rest: Homebrew, Windows,
+putting `nomi` on your `PATH`, and building from source.
 
 Write a first program in a directory of your own, outside the checkout. Save
 this as `~/hello-nomi/hello.nomi`:

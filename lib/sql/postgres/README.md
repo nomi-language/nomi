@@ -10,8 +10,8 @@ interface, so code written against `Conn` runs on it unchanged.
 nomi add github.com/nomi-language/nomi/lib/sql/postgres
 ```
 
-A release `nomi` adds it with that command; before the first release, or with a
-`nomi` built from source, add it by its directory in a checkout of the
+A release `nomi` adds it with that command; with a `nomi` built from source,
+add it by its directory in a checkout of the
 repository: `nomi add ../nomi/lib/sql/postgres`.
 
 ```nomi

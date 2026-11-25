@@ -483,8 +483,8 @@ runs it needs a server and the variable too; with the variable unset,
 
 The generated code runs on a `Conn` from the
 [Postgres driver](../postgres), which a project adds with `nomi add
-github.com/nomi-language/nomi/lib/sql/postgres` (before the first release,
-by its directory in a checkout), and the SQL it sends
+github.com/nomi-language/nomi/lib/sql/postgres` (with a `nomi` built from
+source, by its directory in a checkout), and the SQL it sends
 binds `$1`, `$2`, .... A test gets a fresh database from the driver's
 throwaway server, `postgres.connect(postgres.scratch()?)?`, and
 `sqlkit.migrate` builds the schema there as it does on SQLite.

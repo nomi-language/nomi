@@ -10,8 +10,8 @@ nomi add github.com/nomi-language/nomi/lib/jobs/postgres
 nomi add github.com/nomi-language/nomi/lib/sql/postgres
 ```
 
-A release `nomi` adds them with those commands; before the first release, or
-with a `nomi` built from source, add each by its directory in a checkout of
+A release `nomi` adds them with those commands; with a `nomi` built from
+source, add each by its directory in a checkout of
 the repository: `nomi add ../nomi/lib/jobs/postgres`.
 
 A job is enqueued in the same transaction as the write it follows, and a

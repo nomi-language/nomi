@@ -23,8 +23,8 @@ $ cd notes
 $ nomi add github.com/nomi-language/nomi/lib/sql/sqlite
 ```
 
-Nomi has no release yet, so for now add a first-party library from a clone
-of the Nomi repository: `nomi add ../nomi/lib/sql/sqlite`. The examples run
+A `nomi` built from source adds a first-party library from its clone of the
+Nomi repository instead: `nomi add ../nomi/lib/sql/sqlite`. The examples run
 in this page on a real SQLite. Edit them and they run again.
 
 For Postgres, add `github.com/nomi-language/nomi/lib/sql/postgres` instead
