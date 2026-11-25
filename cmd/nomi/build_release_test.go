@@ -35,7 +35,7 @@ const releaseTestVersion = "v0.0.0-reltest"
 
 // releaseNomiLdflags are the -ldflags scripts/release.sh builds `nomi`
 // with, cut as releaseTestVersion.
-const releaseNomiLdflags = "-s -w -X github.com/nomi-language/nomi/internal/runners.ReleaseVersion=" + releaseTestVersion
+const releaseNomiLdflags = "-s -w -X github.com/nomi-language/nomi/internal/buildversion.stamp=" + releaseTestVersion
 
 var (
 	releaseNomiOnce sync.Once

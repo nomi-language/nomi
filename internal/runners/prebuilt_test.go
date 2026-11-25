@@ -16,6 +16,8 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+
+	"github.com/nomi-language/nomi/internal/buildversion"
 )
 
 func TestCheckRunner(t *testing.T) {
@@ -406,9 +408,7 @@ func TestRunner_OnlyWasip1HasAReactor(t *testing.T) {
 // no release tag says there is nowhere to get a runner from.
 func TestReleaseRunner_NotARelease(t *testing.T) {
 	t.Setenv(CacheRootEnv, t.TempDir())
-	old := ReleaseVersion
-	ReleaseVersion = ""
-	defer func() { ReleaseVersion = old }()
+	t.Cleanup(buildversion.SetStampForTest(""))
 	_, err := releaseRunner(Target{"linux", "amd64"}, Variant{}, nil)
 	if err == nil || !strings.Contains(err.Error(), "it is not a release build") {
 		t.Fatalf("got %v", err)
@@ -438,11 +438,11 @@ func standInReleaseOn(t *testing.T, target Target) prebuiltRelease {
 	const rev = "0cf65c8a453eb7b52dc6e743ed90d1a6aa5f33c5"
 	r := prebuiltRelease{dir: t.TempDir(), cache: t.TempDir(), target: target}
 	r.ranGo = filepath.Join(t.TempDir(), "ran-go")
-	oldVersion, oldExe, oldSelf, oldRead := ReleaseVersion, executablePath, selfIdentity, readIdentity
+	oldExe, oldSelf, oldRead := executablePath, selfIdentity, readIdentity
 	t.Cleanup(func() {
-		ReleaseVersion, executablePath, selfIdentity, readIdentity = oldVersion, oldExe, oldSelf, oldRead
+		executablePath, selfIdentity, readIdentity = oldExe, oldSelf, oldRead
 	})
-	ReleaseVersion = "v9.9.9"
+	t.Cleanup(buildversion.SetStampForTest("v9.9.9"))
 	executablePath = func() (string, error) { return filepath.Join(r.dir, "nomi"), nil }
 	selfIdentity = func() buildIdentity {
 		return buildIdentity{Path: "github.com/nomi-language/nomi/cmd/nomi", Revision: rev}

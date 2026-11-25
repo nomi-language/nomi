@@ -4,8 +4,10 @@
 
 import
     std::compiler
+    std::duration.Duration
     std::io
     std::testing.Clock
+    std::timer
     server
 end
 
@@ -16,8 +18,8 @@ test "a boot that fails returns its Err"
 end
 
 group "a boot that succeeds"
-    // Virtual time: the heartbeat boot spawns sleeps for an hour, and the
-    // drain at the end of each test stops it at once.
+    // Virtual time: a sleep ends once every task waits, so a body's sleep lets
+    // the heartbeat start, and the drain after each test cuts its hour short.
     clock Clock.Virtual
 
     test "returns the app"
@@ -29,6 +31,7 @@ group "a boot that succeeds"
     test "starts work that ends with the test"
         app = server.boot(Startup{env: {"STORE" => "files", "HEARTBEAT" => "on"}})?
         assert app.store == "files"
+        timer.sleep(Duration.seconds(1))
         io.print("test body ends")
     end
 

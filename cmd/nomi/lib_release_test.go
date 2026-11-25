@@ -210,7 +210,9 @@ const libProjectWant = "<h1>Shop</h1>\n\nlogo 60 by 40\norder 1 is paid (1 row c
 
 // checkShopTool runs `nomi tool sqlkit generate` in the lib project at proj
 // with its generated files removed, and checks that it writes them as the
-// shop example commits them, and that `--check` then passes.
+// shop example commits them, and that `--check` then passes. A nomi built
+// from source wrote the committed files, which record sqlkit's release as
+// `unreleased`; the release nomi records its own, libTestVersion.
 func checkShopTool(t *testing.T, env []string, proj, nomi string) {
 	t.Helper()
 	want := map[string]string{}
@@ -219,7 +221,10 @@ func checkShopTool(t *testing.T, env []string, proj, nomi string) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		want[name] = string(data)
+		want[name] = strings.NewReplacer(
+			"// sqlkit release: unreleased\n", "// sqlkit release: "+libTestVersion+"\n",
+			`inputs.mismatch("unreleased",`, `inputs.mismatch("`+libTestVersion+`",`,
+		).Replace(string(data))
 		if err := os.Remove(filepath.Join(proj, name)); err != nil {
 			t.Fatal(err)
 		}

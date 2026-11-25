@@ -264,7 +264,7 @@ func (s *Server) initialize(ctx *glsp.Context, params *protocol.InitializeParams
 		s.docs.SetEditorFolder(root)
 	}
 
-	version := buildversion.Current()
+	version := buildversion.Name()
 	return initializeResult{
 		Capabilities: initCapabilities{
 			ServerCapabilities:  capabilities,

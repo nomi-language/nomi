@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 
+	"github.com/nomi-language/nomi/internal/buildversion"
 	"github.com/nomi-language/nomi/internal/editors"
 )
 
@@ -31,7 +32,7 @@ would write or remove and every command it would run, and changes nothing.
 
 // runEditor is `nomi editor`.
 func runEditor(args []string) error {
-	opts := editors.Options{Out: os.Stdout, Version: imageWriterVersion()}
+	opts := editors.Options{Out: os.Stdout, Version: buildversion.Name()}
 	if len(args) == 0 {
 		editors.Status(opts)
 		return nil

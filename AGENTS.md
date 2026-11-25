@@ -438,7 +438,11 @@ change under test made: check it on `next` before blaming the change, then fix
 it or pin it as a known gap.
 
 **CI and Windows.** CI (`.github/workflows/test.yml`) runs vet and the Go
-tests, including on Windows with `core.autocrlf` off. A test that builds an
+tests, including on Windows with `core.autocrlf` off. `internal/irbuild` is
+a job of its own, and `cmd/nomi` is a job per part on each system: the
+parts `scripts/test-cmd-nomi.sh` defines by test name, whose last part is
+every test the others leave, so each test runs in exactly one part.
+`scripts/check-full.sh` runs the same parts, a step each. A test that builds an
 executable and runs it names it with `exe()` (`cmd/nomi/main_test.go`), since
 Windows runs only a `.exe`, and a test that cannot hold on Windows skips there
 with its reason. A file URI goes through `internal/fileuri`, never
@@ -463,8 +467,8 @@ five minutes, so neither is a per-change check:
   report which wider checks you skipped.
 - **Before squashing a batch to `main`:** `make check-full`, once
   (`scripts/check-full.sh`: gofmt, the tour wasm, build and vet, every package with
-  vmhost, rt and the whole irbuild package each on its own, `TestLibModules`,
-  the tree-sitter tests, every recorded program linked through objects, the
+  vmhost, rt and the whole irbuild package each on its own, cmd/nomi in its
+  parts (`TestLibModules` one of them), the tree-sitter tests, every recorded program linked through objects, the
   expectation suites with every file checked again against interfaces, the
   corpus walks whole (a `walk-*` step each, where a plain run of
   `internal/analysis` and `internal/lsp` takes their samples), and

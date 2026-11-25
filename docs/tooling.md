@@ -37,7 +37,7 @@ usage, and `nomi help` lists them all:
 | `nomi dap` | The debugger editors start ([Debugging](#debugging)). |
 | `nomi mcp` | The compiler as tools for a coding agent ([Coding agents](#coding-agents-nomi-mcp)). |
 | `nomi help [command]` | List the commands, or print one's usage. |
-| `nomi version` | Print the version, as `nomi --version` does. |
+| `nomi version` | Print the version, as `nomi --version` does: the release's tag and the commit for a release ([Distribution](#distribution) says which builds are releases), the commit for a `nomi` built from source, and the platform. |
 
 ### Running a program
 
@@ -723,7 +723,7 @@ Every key `nomi.toml` accepts:
 
 Any other table or key is an error at its line, naming the nearest key when one is close in spelling. In the `[effects]` tables it says what each key holds instead, and a key directly under `[effects]` is an error that names the two tables. The exception is a top-level table named for the package itself or by a key of its `[dependencies]`, which belongs to that package's tools: `nomi tool` runs them under that name, and they read the table by it ([Tools](#tools-nomi-tool)). A dependency's own `[package].name` names no table unless the project's key for it is the same.
 
-A `nomi.toml` with an error, the project's or a dependency's, stops `nomi check`, `run`, `test`, `build` and the language server before they check anything, with that one error, whose code is `manifest`. Imports by the package's name and by its dependencies' names resolve through it, so the files' own errors would only follow from it.
+Every `nomi.toml` a build reads is held to these tables and keys and to the same checks of their values: the project's, each dependency's at any depth, named by `dir` or fetched, and each member's of its workspace. In a dependency's own `nomi.toml` its tools' tables are those named for its own `[package].name` or a key of its own `[dependencies]`, and its `[effects]`, `[i18n]` and `[money]` tables are checked as the project's are, though only `[effects.self]` means anything while it is a dependency. A `nomi.toml` with an error stops `nomi check`, `run`, `test`, `build` and the language server before they check anything, with that one error, whose code is `manifest`. Imports by the package's name and by its dependencies' names resolve through it, so the files' own errors would only follow from it. For a dependency's `nomi.toml` the error names the file and its line, then the `[dependencies]` entry that names the package and, for a dependency of a dependency, the project's entry the build reached it through, or for a member the workspace's `members` entry. A fetched package's file is its place in the package cache, and the error names the repository, directory and version it came from and says the file is not yours to edit, with no fix to apply. The language server shows the error in the project's `nomi.toml` at the entry that leads to the package, in the dependency's own `nomi.toml` at its line when you open it, and in `nomi-workspace.toml` at the member's entry.
 
 ### Effects lists
 
@@ -1343,6 +1343,10 @@ fix = { repo = "github.com/owner/fix", commit = "4f1c0b7e9d2a6c3b8e5f0a1d7c9b2e4
   the repository: `vX.Y.Z`, or a prerelease `vX.Y.Z-...`. The package is
   that directory of the repository at that tag, and it must hold a
   `nomi.toml`.
+- **A dependency's `nomi.toml` is checked as the project's is.** Every
+  table, key and value of it, with its `[package].name` required, and an
+  error in it stops the build with one `manifest` error that names the
+  entry leading to it ([`nomi.toml`](#nomitoml)).
 - **A package at a commit.** `commit` in place of `version` takes the
   package at that commit, all 40 hex digits of it: a short commit is an
   error that says to write all 40, and an entry with both `version` and
@@ -1639,8 +1643,12 @@ updates the libraries at that tag, whatever version `nomi.toml` names
 add` and `nomi update` stop and say the release was published without
 it; a commit (`nomi add
 github.com/nomi-language/nomi/lib/markdown@<commit>`) or a checkout
-(`nomi add <directory>`) still works. A `nomi` built from source has no
-release version: it takes the libraries at the versions written, adds
+(`nomi add <directory>`) still works. A `nomi` is a release when it was
+installed from a release archive, installed with `go install
+github.com/nomi-language/nomi/cmd/nomi@v0.0.2`, or built with `go build`
+in a clean checkout at a release tag; `nomi --version` names its tag. Any
+other build is a `nomi` built from source, with no release version: it
+takes the libraries at the versions written, adds
 one at the latest release tag, and while the repository has none, `nomi
 add` of a library says so: ``github.com/nomi-language/nomi has no
 release yet, so its first-party libraries have no version to take; add
@@ -1695,8 +1703,10 @@ when one is close in spelling, as in `nomi.toml`.
   listed once. `*` matches within one path segment, and the matches are
   sorted; no entry matches across segments. An entry with `*` skips a
   directory that holds no `nomi.toml`; an entry without one names a
-  directory that must hold one. Each member is a package: its `nomi.toml`
-  has a `[package]` name.
+  directory that must hold one. Each member is a package, and every
+  member's `nomi.toml` is read with the workspace and checked as any
+  `nomi.toml` is ([`nomi.toml`](#nomitoml)), so a member in error stops
+  the build of every other member too, naming its `members` entry.
 - **Excluded packages.** `exclude` is for a package under the root that
   cannot share the workspace's versions, such as vendored code, a test
   fixture or a template: it is on its own, with its own `nomi.lock`, as if
@@ -2474,11 +2484,11 @@ nomi build: 1 todo and 2 dbgs remain:
 
 `--target <os>/<arch>` picks the platform, such as `linux/amd64`, `windows/amd64`, `js/wasm` or `wasip1/wasm`; without it the executable is for the platform `nomi` runs on. `nomi-vm` comes in two builds: the full one, and a lean one without the network and WebAssembly modules that `nomi build` uses for a program that reaches neither. It comes from, in order:
 
-1. For its own platform, a release `nomi` carries both builds, compressed, and unpacks the one a build needs into its cache the first time.
+1. For its own platform, the `nomi` from a release archive carries both builds, compressed, and unpacks the one a build needs into its cache the first time.
 2. `nomi-vm` beside `nomi` (or beside the file a symlinked `nomi` resolves to), built for the target.
-3. Not for a release `nomi`: a source checkout of the compiler. `nomi-vm` is built with `go build` and cached. This is how `go install` and a development tree work.
+3. Not for the `nomi` from a release archive: a source checkout of the compiler. `nomi-vm` is built with `go build` and cached. This is how a `nomi` from `go install` and a development tree work.
 4. A `nomi-vm` unpacked or downloaded earlier for this release and target.
-5. Download: the platform's runners archive, `nomi_<version>_<os>_<arch>_runners.tar.gz`, from the release this `nomi` was cut as, verified against the release's checksum file, with only that `nomi-vm` extracted and cached. `nomi build` prints the URL it downloads, and with no network the error names it.
+5. Download: the platform's runners archive, `nomi_<version>_<os>_<arch>_runners.tar.gz`, from the release this `nomi` is, verified against the release's checksum file, with only that `nomi-vm` extracted and cached. `nomi build` prints the URL it downloads, and with no network the error names it.
 
 A release keeps the runners it unpacks or downloads in the runner cache, one directory per release. A release's directory that no build has used for two weeks is removed by a build of another release, which looks at most once a day. If that release builds again, it unpacks or downloads its runners again.
 
@@ -2495,7 +2505,7 @@ A WebAssembly target, `js/wasm` or `wasip1/wasm`, writes `<name>.wasm` by defaul
 
 A `wasip1/wasm` program with at least one `export fn` is written as a WASI reactor instead of a command module (spec §7 *Exported Functions*). The program is appended to `nomi-vm-reactor`, the same VM linked as a reactor, which is found, built, downloaded and checked as `nomi-vm` is. `nomi-wasi.js` and `nomi-wasi.d.ts`, the JavaScript host for it, are written beside the module.
 
-The `js/wasm` build keeps the browser build's limits: its file system is in memory, empty under Node, and a call nests at most 1,000 deep. A command-line program that reads real files belongs on `wasip1/wasm`. Every release ships a runners archive for each WebAssembly target, so a release `nomi` downloads it as it would any other platform's. The `js/wasm` archive also carries the `wasm_exec.js` its `nomi-vm` needs, and the `wasip1/wasm` archive carries `nomi-vm-reactor` beside `nomi-vm`.
+The `js/wasm` build keeps the browser build's limits: its file system is in memory, empty under Node, and a call nests at most 1,000 deep. A command-line program that reads real files belongs on `wasip1/wasm`. Every release ships a runners archive for each WebAssembly target, so a `nomi` from a release archive downloads it as it would any other platform's. The `js/wasm` archive also carries the `wasm_exec.js` its `nomi-vm` needs, and the `wasip1/wasm` archive carries `nomi-vm-reactor` beside `nomi-vm`.
 
 ### Embedded files
 
@@ -3116,7 +3126,7 @@ $ nomi editor install zed
 | `vscode` | Installs the extension with `code --install-extension`. |
 | `zed` | Writes the extension into `extensions/installed/nomi` in Zed's data directory (`~/Library/Application Support/Zed` on macOS, `~/.local/share/zed` or `$XDG_DATA_HOME/zed` on Linux, `%LocalAppData%\Zed` on Windows). Restart Zed to load it. |
 
-A release `nomi` carries the VS Code extension and the Zed extension's
+The `nomi` in a release archive carries the VS Code extension and the Zed extension's
 compiled WebAssembly. A `nomi` built from source carries neither, since
 they are built with Node and with Rust; from a clone, `make
 install-vscode` and `make install-zed` build them and install them the

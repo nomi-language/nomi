@@ -180,22 +180,27 @@ type buildInputs struct {
 const NomiVersionCode = "nomi-version"
 
 // ManifestCode is the error of a build whose packages cannot be read: the
-// project's nomi.toml, or the package graph its dependencies' nomi.toml
-// files make, has a problem (discoverProjectStd). The message names the
-// file, and its line when one writes the problem.
+// project's nomi.toml, the nomi.toml of a package it reaches
+// (pkgcache.PackageManifestError), or the package graph they make, has a
+// problem (discoverProjectStd). The message names the file, and its line
+// when one writes the problem.
 const ManifestCode = "manifest"
 
 // manifestTypeError is the one error a build stopped by err, the problem
 // discoverProjectStd found in the program's packages, answers on its entry.
 // Line and column 1 stand for no place in the entry: the message names the
 // nomi.toml. A package its workspace does not list gets the fix that adds
-// it to the workspace's members.
+// it to the workspace's members. A problem in a fetched package's
+// nomi.toml gets no fix, since that file is not the reader's to edit.
 func manifestTypeError(err error) TypeError {
 	if tooOld := (*pkgcache.NomiVersionError)(nil); errors.As(err, &tooOld) {
 		return TypeError{Line: 1, Col: 1, Message: tooOld.Error(), Code: NomiVersionCode,
 			Args: []string{tooOld.Package, tooOld.Needs, tooOld.Running}}
 	}
 	te := TypeError{Line: 1, Col: 1, Message: err.Error(), Code: ManifestCode}
+	if reached := (*pkgcache.PackageManifestError)(nil); errors.As(err, &reached) && !reached.Fetched.ID.IsZero() {
+		return te
+	}
 	if unlisted := (*pkgcache.UnlistedError)(nil); errors.As(err, &unlisted) {
 		if data, rerr := os.ReadFile(unlisted.Decl); rerr == nil {
 			te.Fix, _ = AddWorkspaceMember(unlisted.Decl, data, unlisted.Entry)

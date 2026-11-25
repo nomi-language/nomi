@@ -607,11 +607,22 @@ func (e *ManifestError) with(format string, args ...any) error {
 	return e
 }
 
-// ManifestErrorAt is where in nomi.toml err, an error ParseManifestIn
-// answers, is: its line, 1-based, or 0 when it has none, and its message
-// without the file's name. A ManifestError's line, or the TOML decoder's
-// for text that is not TOML.
-func ManifestErrorAt(err error) (line int, message string) {
+// ManifestErrorAt is where in data, the text of the nomi.toml or
+// nomi-workspace.toml at path, err is, as an editor shows it in that file:
+// its line, 1-based, or 0 when it has none, and its message. An error
+// ParseManifestIn answers is at a ManifestError's line, or the TOML
+// decoder's for text that is not TOML, with its message without the
+// file's name. A problem in the nomi.toml of a package the file leads to
+// (pkgcache.PackageManifestError) is at the entry that leads there, with
+// the whole message, which names the package's file and its line.
+func ManifestErrorAt(path string, data []byte, err error) (line int, message string) {
+	var reached *pkgcache.PackageManifestError
+	if errors.As(err, &reached) {
+		if key, value, ok := reached.EntryIn(path); ok {
+			return manifestLine(data, key, value), err.Error()
+		}
+		return 0, err.Error()
+	}
 	var me *ManifestError
 	if errors.As(err, &me) {
 		return me.Line, me.Message

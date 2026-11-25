@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/nomi-language/nomi/internal/buildversion"
 	"github.com/nomi-language/nomi/internal/runners"
 	"github.com/nomi-language/nomi/vmhost"
 	"github.com/nomi-language/nomi/vmrunner"
@@ -428,7 +429,7 @@ func writeImageFile(out string, image []byte, sources []vmhost.EmbedSource, uses
 	n, err := imageLen(image)
 	if err == nil {
 		err = writeAtomic(out, 0o644, func(w io.Writer) error {
-			if _, err := w.Write(vmrunner.ImageFileHead(n, flags, imageWriterVersion())); err != nil {
+			if _, err := w.Write(vmrunner.ImageFileHead(n, flags, buildversion.Name())); err != nil {
 				return err
 			}
 			return writeImage(w, image, sources)

@@ -179,9 +179,8 @@
 // The first-party libraries are directories of the compiler's own
 // repository (pkgcache.CompilerRepo), versioned by its release tags, and
 // they name each other by dir entries, which need no version. A release
-// `nomi` has its own version (pkgcache.Release, which cmd/nomi's release
-// records from internal/runners.ReleaseVersion when it is a tag's
-// version), and the walk takes the repository at it whatever version a
+// `nomi` has its own version (buildversion.Release), and the walk takes
+// the repository at it whatever version a
 // requirement names (pkgcache.Pinned). Add and Update ask the same
 // question, so the manifest states the version the build uses: Add of a
 // library takes the release's version, for a version named or `latest`

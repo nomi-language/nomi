@@ -81,7 +81,7 @@ func RunBare(args []string, stdout, stderr io.Writer, stdin io.Reader, handleSig
 			fmt.Fprint(stdout, bareUsage)
 			return 0
 		case arg == "--version":
-			fmt.Fprintf(stdout, "nomi-vm %s (program format %d)\n", buildversion.Current(), ir.FormatVersion)
+			fmt.Fprintf(stdout, "nomi-vm %s (program format %d)\n", buildversion.Name(), ir.FormatVersion)
 			return 0
 		case arg == "-":
 			args = args[1:]

@@ -42,7 +42,7 @@ func ReadManifest(dir string) ([]byte, error) {
 
 // ReadManifestFile is the text of the nomi.toml or nomi-workspace.toml at
 // path: an editor's (SetEditedManifest), else the disk's. A workspace's
-// lookup reads its file through it (pkgcache.WorkspaceReader.Read), so a
+// lookup reads its file through it (pkgcache.ManifestReader.Read), so a
 // member is checked against the text an editor holds.
 func ReadManifestFile(path string) ([]byte, error) {
 	editedManifests.mu.RLock()

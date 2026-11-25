@@ -28,9 +28,10 @@
 // Runner answers a runner for a target and variant without building one
 // when it can: the one this `nomi` carries, then beside `nomi`, then built
 // from a source checkout, then in the cache of runners unpacked or
-// downloaded, then from the release this `nomi` was cut as, which
-// ReleaseVersion names (scripts/release.sh stamps it). A release `nomi`
-// carries its own platform's two tiers, gzipped (built with the
+// downloaded, then from the release this `nomi` is, which
+// buildversion.Release names. A `nomi` scripts/release.sh built
+// (buildversion.BuiltByReleaseScript) carries its own platform's two
+// tiers, gzipped (built with the
 // nomi_hostrunners tag from what internal/runners/hostrunnersgen writes,
 // as the std bundle is built in with nomi_stdbundle), and unpacks one into
 // the cache the first time a build needs it. It skips the source checkout:
@@ -45,9 +46,9 @@
 //
 // A runner built from source needs the compiler module
 // (ResolveCompilerSource, compilersource.go): the checkout this `nomi` was
-// built from; for a versioned `nomi` that is not a release (main module
-// version a tag, or a pseudo-version from `go install ...@version`, no
-// +dirty) that version, which Go fetches; or the checkout
+// built from; for a versioned `nomi` scripts/release.sh did not build
+// (main module version a tag, or a pseudo-version from `go install
+// ...@version`, no +dirty) that version, which Go fetches; or the checkout
 // NOMI_COMPILER_SOURCE names.
 //
 // # The cache

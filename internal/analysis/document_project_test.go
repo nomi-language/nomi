@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/buildversion"
 	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/pkgcache"
 )
@@ -273,8 +274,7 @@ end
 func TestDocumentManager_APackageThatNeedsALaterNomiIsOneError(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv(pkgcache.CacheEnv, filepath.Join(tmp, "cache"))
-	pkgcache.SetRelease("v0.5.0")
-	t.Cleanup(func() { pkgcache.SetRelease("") })
+	t.Cleanup(buildversion.SetStampForTest("v0.5.0"))
 	write := func(rel, content string) string {
 		full := filepath.Join(tmp, rel)
 		if err := os.WriteFile(full, []byte(content), 0o644); err != nil {

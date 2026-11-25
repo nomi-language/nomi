@@ -9,7 +9,6 @@ import (
 	"slices"
 	"sort"
 	"strings"
-	"sync"
 
 	"github.com/BurntSushi/toml"
 )
@@ -29,40 +28,6 @@ type Workspace struct {
 	exclude []string
 }
 
-// WorkspaceReader is how a process reads the text of a nomi-workspace.toml
-// beyond what ParseWorkspace checks: Read answers the text of the file at
-// path, Keys answers the first key of data, the text of the file at path,
-// that the file may not hold, at its line, or nil, and Place answers
-// problem, found in that file, at its line. The analysis package holds the
-// text an editor has open (analysis.ReadManifestFile), the reporting of
-// unknown keys and the finding of lines that nomi.toml's own errors use,
-// and installs its reader (SetWorkspaceReader) when it starts. With none,
-// the file is read from the disk, a problem names the file and not its
-// line, and no key is refused.
-type WorkspaceReader struct {
-	Read  func(path string) ([]byte, error)
-	Keys  func(path string, data []byte) error
-	Place func(path string, data []byte, problem *ManifestProblem) error
-}
-
-var (
-	readerMu sync.Mutex
-	reader   WorkspaceReader
-)
-
-// SetWorkspaceReader installs r (WorkspaceReader).
-func SetWorkspaceReader(r WorkspaceReader) {
-	readerMu.Lock()
-	defer readerMu.Unlock()
-	reader = r
-}
-
-func workspaceReader() WorkspaceReader {
-	readerMu.Lock()
-	defer readerMu.Unlock()
-	return reader
-}
-
 // WorkspaceEntries is what ParseWorkspace reads of a nomi-workspace.toml:
 // its members and exclude entries as written.
 type WorkspaceEntries struct {
@@ -75,7 +40,7 @@ type WorkspaceEntries struct {
 // below the file's directory in which `*` is the only pattern character
 // (entryProblem). Which directories the entries name is the disk's to
 // answer (expand), and the keys the file may hold the installed reader's
-// (WorkspaceReader).
+// (ManifestReader).
 func ParseWorkspace(data []byte) (*WorkspaceEntries, error) {
 	var raw WorkspaceFile
 	md, err := toml.Decode(string(data), &raw)
@@ -153,7 +118,7 @@ type workspaceDecl struct {
 // problem is p, found in d, as an error: at its line when a reader is
 // installed, else naming the file.
 func (d *workspaceDecl) problem(p *ManifestProblem) error {
-	if place := workspaceReader().Place; place != nil {
+	if place := manifestReader().Place; place != nil {
 		return place(d.path, d.data, p)
 	}
 	return fmt.Errorf("%s: %w", d.path, p)
@@ -167,7 +132,7 @@ var errUnreadable = errors.New("cannot read")
 // dir has none (declOf).
 func readWorkspace(dir string) (*workspaceDecl, error) {
 	file := filepath.Join(dir, WorkspaceName)
-	read := workspaceReader().Read
+	read := manifestReader().Read
 	if read == nil {
 		read = os.ReadFile
 	}
@@ -182,11 +147,11 @@ func readWorkspace(dir string) (*workspaceDecl, error) {
 }
 
 // declOf is data, the text of the nomi-workspace.toml at file, as a
-// declaration: every key one the file may hold (WorkspaceReader.Keys),
+// declaration: every key one the file may hold (ManifestReader.Keys),
 // then ParseWorkspace's checks. A directory that holds a nomi.toml too is
 // an error: a workspace's root is not a package.
 func declOf(file string, data []byte) (*workspaceDecl, error) {
-	if keys := workspaceReader().Keys; keys != nil {
+	if keys := manifestReader().Keys; keys != nil {
 		if err := keys(file, data); err != nil {
 			return nil, err
 		}
@@ -216,7 +181,7 @@ func CheckWorkspace(path string, data []byte) (*Workspace, error) {
 	if err != nil {
 		return nil, err
 	}
-	ws, err := expand(filepath.Dir(path), d)
+	ws, err := expand(filepath.Dir(path), d, "")
 	if err != nil {
 		return nil, err
 	}
@@ -247,11 +212,13 @@ func EntryDirs(root, entry string) []string {
 // expand is the workspace dir declares with d: each members entry's
 // directories, sorted. An entry with no `*` names one directory, which must
 // hold a nomi.toml; an entry with `*` names each directory it matches that
-// holds one, and skips the rest. Every directory named holds a package (a
-// nomi.toml with a [package] name), and none holds a nomi-workspace.toml.
-// An exclude entry with no `*` names a directory, and no exclude entry
-// names a member or a directory above one.
-func expand(dir string, d *workspaceDecl) (*Workspace, error) {
+// holds one, and skips the rest. Every directory named holds a package,
+// and none holds a nomi-workspace.toml. Each member's nomi.toml but that
+// of main, the package the lookup is for ("" for none), whose own is its
+// caller's to check, is held to the whole schema (readReached). An
+// exclude entry with no `*` names a directory, and no exclude entry names
+// a member or a directory above one.
+func expand(dir string, d *workspaceDecl, main string) (*Workspace, error) {
 	ws := &Workspace{Root: dir, Decl: d.path, exclude: d.Exclude}
 	seen := map[string]bool{}
 	for _, entry := range d.Members {
@@ -272,12 +239,14 @@ func expand(dir string, d *workspaceDecl) (*Workspace, error) {
 			if isFile(filepath.Join(member, WorkspaceName)) {
 				return nil, at("%s holds a %s of its own; a member is a package, and holds no workspace", rel, WorkspaceName)
 			}
-			var raw rawManifest
-			if _, err := toml.DecodeFile(filepath.Join(member, ManifestName), &raw); err != nil {
-				return nil, fmt.Errorf("%s: %w", filepath.Join(member, ManifestName), err)
-			}
-			if raw.Package.Name == "" {
-				return nil, at("%s's nomi.toml has no [package] name; a member is a package", rel)
+			if main == "" || !sameDir(member, main) {
+				if _, err := readReached(member); err != nil {
+					if tooOld := (*NomiVersionError)(nil); errors.As(err, &tooOld) {
+						tooOld.Package += " (a member of this workspace)"
+						return nil, tooOld
+					}
+					return nil, &PackageManifestError{Err: err, By: d.path, Entry: entry, Member: true}
+				}
 			}
 			if !seen[member] {
 				seen[member] = true
@@ -398,7 +367,7 @@ func NearestWorkspace(root string) (ws *Workspace, member bool, err error) {
 		case err != nil:
 			return nil, false, err
 		case d != nil:
-			ws, err := expand(dir, d)
+			ws, err := expand(dir, d, abs)
 			if err != nil {
 				return nil, false, err
 			}

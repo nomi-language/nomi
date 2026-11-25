@@ -32,12 +32,12 @@ func TestPackages_AWorkspaceSharesOneLock(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	real, err := filepath.EvalSymlinks(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if out := c.must(sub, "fetch"); out != "1 package in the package cache for "+real {
-		t.Errorf("nomi fetch in a member printed %q", out)
+	// The workspace's root is outside the working directory, so it is
+	// named in full, as the process spells it: through a symlink on macOS,
+	// with a short name on Windows. It is the same directory.
+	out := c.must(sub, "fetch")
+	if at, ok := strings.CutPrefix(out, "1 package in the package cache for "); !ok || !sameFile(t, at, root) {
+		t.Errorf("nomi fetch in a member printed %q, want the workspace's root %s", out, root)
 	}
 	if lock := mustRead(t, filepath.Join(root, "nomi.lock")); !strings.Contains(lock, "example.com/kit . v1.1.0 ") {
 		t.Errorf("the workspace's nomi.lock:\n%s", lock)
@@ -49,8 +49,7 @@ func TestPackages_AWorkspaceSharesOneLock(t *testing.T) {
 		t.Errorf("nomi run in billing printed %q, want the workspace's v1.1.0", out)
 	}
 
-	var stderr string
-	_, stderr, err = c.run(root, "add", "example.com/kit")
+	_, stderr, err := c.run(root, "add", "example.com/kit")
 	want := "nomi add: . is a workspace's root, which is not a package; run nomi add in the member whose nomi.toml it changes: billing and shop"
 	if err == nil || stderr != want {
 		t.Errorf("nomi add at the workspace's root: %v\n%s\nwant %s", err, stderr, want)

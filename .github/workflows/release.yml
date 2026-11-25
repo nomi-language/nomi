@@ -30,9 +30,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version string for a dry-run build (no release is published)"
+        description: "Release version for a dry-run build, vX.Y.Z or a prerelease (no release is published)"
         required: true
-        default: "dev"
+        default: "v0.0.0-dryrun"
 
 permissions:
   contents: write
@@ -43,7 +43,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # scripts/release.sh falls back to `git describe`, which needs tags.
+          # Go stamps a binary built at a tag with the tag as its module
+          # version, which scripts/release.sh checks, and that needs tags.
           fetch-depth: 0
 
       - uses: actions/setup-go@v5

@@ -105,6 +105,12 @@ func TestVersionLineFor_ARelease(t *testing.T) {
 			t.Errorf("versionLineFor(%q, _, %q) = %q, want %q", c.release, c.toolchain, got, c.want)
 		}
 	}
+	// `go install ...@v0.1.0` has no revision, so its token is the release
+	// itself, which the line names once.
+	installed := &debug.BuildInfo{Main: debug.Module{Version: "v0.1.0"}}
+	if got, want := versionLineFor("v0.1.0", installed, ""), "nomi v0.1.0 ("+platform+")"; got != want {
+		t.Errorf("versionLineFor of go install @v0.1.0 = %q, want %q", got, want)
+	}
 }
 
 // TestVersion_TheToolchainOnlyForWorkOnTheCompiler: `nomi version` and the

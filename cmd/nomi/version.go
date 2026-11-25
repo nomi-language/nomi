@@ -7,7 +7,6 @@ import (
 	"runtime/debug"
 
 	"github.com/nomi-language/nomi/internal/buildversion"
-	"github.com/nomi-language/nomi/internal/runners"
 )
 
 // Why this reads build info and carries no `-ldflags` plumbing for the revision.
@@ -29,17 +28,18 @@ import (
 // section, and `-trimpath` leaves it alone too; the latter is also recorded
 // at internal/irbuild/irbuild.go's goDirective.
 //
-// One `-X` exists, for the one thing build info cannot hold: the release tag.
-// scripts/release.sh sets internal/runners.ReleaseVersion, because
-// `nomi build --target` downloads the other platform's runner from the release
-// by its tag, and a commit does not name a tag. A binary built any other way
-// leaves it empty and is unaffected.
+// One `-X` exists, for the release tag of a binary built for a release's
+// archives: scripts/release.sh sets internal/buildversion's stamp. Which
+// release a binary is, from that stamp or its module version, is
+// buildversion.Release, and its package doc says what each kind of build
+// answers.
 //
-// Which version is printed. From a checkout, Go also stamps a module version
-// derived from the nearest tag (`v0.1.0+dirty`, or a pseudo-version past it).
-// That names a tag, not the commit, so the revision is printed instead. A
-// build from the module proxy (`go install ...@v0.2.0`) has no revision and
-// prints its module version.
+// Which version is printed. A release prints its tag first and its token
+// beside it. From a checkout, Go also stamps a module version derived from
+// the nearest tag (`v0.1.0+dirty`, or a pseudo-version past it). That names
+// a tag, not the commit, so the revision is the token. A build from the
+// module proxy (`go install ...@v0.2.0`) has no revision, and its token is
+// its module version, the release itself, printed once.
 //
 // A build with no VCS information at all (`-buildvcs=false`, or a build from
 // an unpacked source archive) reports `unknown`. That is a real state, so it
@@ -82,34 +82,29 @@ func versionLine(info *debug.BuildInfo) string {
 	if v := os.Getenv(versionToolchainEnv); v != "" && v != "0" {
 		toolchain = runtime.Version()
 	}
-	return versionLineFor(runners.ReleaseVersion, info, toolchain)
+	return versionLineFor(buildversion.Release(), info, toolchain)
 }
 
-// versionLineFor is versionLine for a binary cut as release (empty when it
-// was not), with the Go toolchain's version before the platform when
-// toolchain is not empty. A release names its tag first and keeps the
-// revision beside it, since the tag is what its runner downloads are
-// fetched by and the revision is what a prebuilt runner is checked against.
+// versionLineFor is versionLine for a binary of release (empty for a build
+// from source), with the Go toolchain's version before the platform when
+// toolchain is not empty. A release names its tag first and keeps its token
+// beside it when the token is a revision, since the tag is what its runner
+// downloads are fetched by and the revision is what a prebuilt runner is
+// checked against.
 func versionLineFor(release string, info *debug.BuildInfo, toolchain string) string {
 	platform := runtime.GOOS + "/" + runtime.GOARCH
 	if toolchain != "" {
 		platform = toolchain + " " + platform
 	}
-	if release != "" {
-		return fmt.Sprintf("nomi %s (%s, %s)", release, versionToken(info), platform)
+	token := versionToken(info)
+	if release != "" && release != token {
+		platform = token + ", " + platform
 	}
-	return fmt.Sprintf("nomi %s (%s)", versionToken(info), platform)
+	if release != "" {
+		token = release
+	}
+	return fmt.Sprintf("nomi %s (%s)", token, platform)
 }
 
 // versionToken is the version itself (internal/buildversion).
 func versionToken(info *debug.BuildInfo) string { return buildversion.Token(info) }
-
-// imageWriterVersion is the version `nomi build --no-vm` records in a .nomic
-// file's header: the release tag and the revision for a release, the version
-// token otherwise.
-func imageWriterVersion() string {
-	if runners.ReleaseVersion != "" {
-		return runners.ReleaseVersion + " (" + buildversion.Current() + ")"
-	}
-	return buildversion.Current()
-}

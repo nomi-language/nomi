@@ -62,12 +62,22 @@ type incrementalProject struct {
 }
 
 // root is where the project's files would be. Nothing is read from there
-// but a project's inputs: every file's text is in texts.
+// but a project's inputs and the files that decide its build (a nomi.toml,
+// a lock, a workspace), which a check looks for and finds missing: every
+// file's text is in texts. The name is one every file system accepts, since
+// a check stops at a nomi.toml it cannot read (buildProjectWithCache), and
+// Windows refuses to read a path with a `:` past its volume rather than
+// answer that the file is not there.
 func (p incrementalProject) root() string {
 	if p.dir != "" {
 		return p.dir
 	}
-	return "/nomi-incremental/" + strings.ReplaceAll(p.name, "/", "_")
+	return "/nomi-incremental/" + strings.Map(func(r rune) rune {
+		if r == '-' || r == '.' || r == '_' || 'a' <= r && r <= 'z' || 'A' <= r && r <= 'Z' || '0' <= r && r <= '9' {
+			return r
+		}
+		return '_'
+	}, p.name)
 }
 
 // newManager is a document manager over the process's stdlib that has

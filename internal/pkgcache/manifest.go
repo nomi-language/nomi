@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/BurntSushi/toml"
 	"golang.org/x/mod/semver"
@@ -144,6 +145,77 @@ func (p *ManifestProblem) Error() string {
 	return p.Msg
 }
 
+// PackageManifestError is a problem in the nomi.toml of a package the
+// main package reaches: a dependency, at any depth, or a member of its
+// workspace. It stops the walk as a problem in the main package's own
+// nomi.toml does, and says which entry names the package.
+type PackageManifestError struct {
+	// Err is the problem, at its line in the package's nomi.toml when a
+	// reader is installed (ManifestReader).
+	Err error
+	// Fetched is the package as fetched, from its repository at a version
+	// into the package cache; zero for a package on disk, whose files are
+	// the reader's to edit.
+	Fetched Package
+	// By is the file that names the package: the nomi.toml whose
+	// [dependencies] has Entry as a key, or with Member set, the
+	// nomi-workspace.toml whose members list holds Entry.
+	By, Entry string
+	Member    bool
+	// Main is the main package's nomi.toml and Top the key of its
+	// [dependencies] entry the walk reached By through, when By is another
+	// package's nomi.toml; both "" when By is Main.
+	Main, Top string
+}
+
+func (e *PackageManifestError) Error() string {
+	var b strings.Builder
+	b.WriteString(e.Err.Error())
+	fetched := !e.Fetched.ID.IsZero()
+	switch {
+	case e.Member:
+		fmt.Fprintf(&b, "; members entry %q of %s names this package", e.Entry, e.By)
+	case fetched:
+		at := "at " + e.Fetched.Version
+		if IsCommit(e.Fetched.Version) {
+			at = "at commit " + e.Fetched.Version
+		}
+		what := e.Fetched.Repo + " " + at
+		if e.Fetched.Subdir != "" {
+			what = "the package in " + e.Fetched.Subdir + " of " + what
+		}
+		fmt.Fprintf(&b, "; this is %s, which [dependencies] %s of %s names", what, e.Entry, e.By)
+	default:
+		fmt.Fprintf(&b, "; [dependencies] %s of %s names this package", e.Entry, e.By)
+	}
+	if e.Top != "" {
+		fmt.Fprintf(&b, ", which the project reaches through its [dependencies] %s", e.Top)
+	}
+	if fetched {
+		b.WriteString("; it was fetched into the package cache, so it is not yours to edit: take another version of it, or tell its authors")
+	}
+	return b.String()
+}
+
+func (e *PackageManifestError) Unwrap() error { return e.Err }
+
+// EntryIn is the entry of the file at path that leads to the package, as a
+// ManifestProblem's Key and Value name a place: By's entry that names it,
+// or the main package's entry the walk reached By through; false when path
+// is neither file.
+func (e *PackageManifestError) EntryIn(path string) (key []string, value string, ok bool) {
+	same := func(a string) bool { return a != "" && (filepath.Clean(a) == filepath.Clean(path) || sameDir(a, path)) }
+	switch {
+	case same(e.By) && e.Member:
+		return []string{"members"}, e.Entry, true
+	case same(e.By):
+		return []string{"dependencies", e.Entry}, "", true
+	case same(e.Main):
+		return []string{"dependencies", e.Top}, "", true
+	}
+	return nil, "", false
+}
+
 // packageName is the form of a name an import path can start with: a
 // [dependencies] key, and the [package].name `nomi new` and `nomi init`
 // write.
@@ -272,8 +344,10 @@ func lineOf(v string) (line, rule string) {
 func releaseOf(v string) string { return strings.TrimSuffix(v, semver.Prerelease(v)) }
 
 // ParseManifest reads data, a nomi.toml's text, for its package name,
-// the nomi it needs and its [dependencies] table. The other tables are
-// analysis's to check (analysis.LoadManifest). An entry holds `repo` and
+// the nomi it needs and its [dependencies] table: the part of the schema
+// this package reads, which analysis's check of the whole file runs too
+// (ManifestReader.Check, analysis.ParseManifestIn), and which the writers
+// of [dependencies] check alone. An entry holds `repo` and
 // `version` or `commit`, with `subdir` when the package is not the
 // repository's root, or `dir`, or all of them; two entries may not name one
 // package, and no entry may take the package's own name or `std`. A
@@ -358,10 +432,66 @@ func ParseManifest(data []byte) (*Manifest, error) {
 	return f, nil
 }
 
+// ManifestReader is how a process reads a nomi.toml and a
+// nomi-workspace.toml beyond what this package checks of them. Check
+// answers the first problem in data, the text of the nomi.toml in dir,
+// against the whole schema, at its line: every table and key, the
+// required [package] name and each table's values, and a package that
+// needs a later nomi as its bare *NomiVersionError. Read answers the text
+// of the nomi-workspace.toml at path, Keys the first key of data, its
+// text, that the file may not hold, at its line, or nil, and Place
+// problem, found in that file, at its line. The analysis package holds
+// the schema and its checks (analysis.ParseManifestIn), the text an
+// editor has open (analysis.ReadManifestFile), and the reporting of
+// unknown keys and the finding of lines, and installs its reader
+// (SetManifestReader) when it starts, since this package cannot import
+// it. With none, a nomi.toml is checked only in the [package] and
+// [dependencies] this package reads (ParseManifest), a
+// nomi-workspace.toml is read from the disk, a problem names the file and
+// not its line, and no key is refused.
+type ManifestReader struct {
+	Check func(dir string, data []byte) error
+	Read  func(path string) ([]byte, error)
+	Keys  func(path string, data []byte) error
+	Place func(path string, data []byte, problem *ManifestProblem) error
+}
+
+var (
+	readerMu sync.Mutex
+	reader   ManifestReader
+)
+
+// SetManifestReader installs r (ManifestReader).
+func SetManifestReader(r ManifestReader) {
+	readerMu.Lock()
+	defer readerMu.Unlock()
+	reader = r
+}
+
+func manifestReader() ManifestReader {
+	readerMu.Lock()
+	defer readerMu.Unlock()
+	return reader
+}
+
 // ReadManifest is ParseManifest of the nomi.toml in dir, or nil and no
-// error when dir has none. A package that needs a later nomi is its
-// *NomiVersionError, which the caller names the package in.
-func ReadManifest(dir string) (*Manifest, error) {
+// error when dir has none: what this package reads of a package whose
+// nomi.toml its caller checks, the main package a walk starts from. The
+// front end checks the project's whole (analysis.LoadManifest), and the
+// commands that edit [dependencies] check only that table, so an error
+// elsewhere in the file never blocks them. A package that needs a later
+// nomi is its *NomiVersionError, which the caller names the package in.
+func ReadManifest(dir string) (*Manifest, error) { return readManifest(dir, false) }
+
+// readReached is ReadManifest of a package the main package reaches, a
+// dependency at any depth or another member of its workspace, held to the
+// whole schema and its checks first (ManifestReader.Check), as the main
+// package's own nomi.toml is by its caller.
+func readReached(dir string) (*Manifest, error) { return readManifest(dir, true) }
+
+// readManifest is the one place a nomi.toml's file is read: ReadManifest,
+// and with check readReached.
+func readManifest(dir string, check bool) (*Manifest, error) {
 	path := filepath.Join(dir, ManifestName)
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -369,6 +499,11 @@ func ReadManifest(dir string) (*Manifest, error) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("read %s: %w", path, err)
+	}
+	if c := manifestReader().Check; check && c != nil {
+		if err := c(dir, data); err != nil {
+			return nil, err
+		}
 	}
 	f, err := ParseManifest(data)
 	var tooOld *NomiVersionError

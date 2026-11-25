@@ -7,7 +7,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"strings"
 	"text/tabwriter"
@@ -16,12 +15,12 @@ import (
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/buildversion"
 	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
 	"github.com/nomi-language/nomi/internal/pkgcache"
 	"github.com/nomi-language/nomi/internal/pkgfetch"
-	"github.com/nomi-language/nomi/internal/runners"
 	"github.com/nomi-language/nomi/vmhost"
 )
 
@@ -77,29 +76,6 @@ func enableDownloads(offline bool, log io.Writer) {
 		return err
 	})
 }
-
-// release is this `nomi`'s release: the version it was cut as
-// (runners.ReleaseVersion) when that is a tag's version, else "". A `nomi`
-// built from source has none, and neither does one stamped with a Go
-// pseudo-version or with `git describe`'s name for a commit past a tag
-// (v0.0.2-3-gabc1234, -dirty). main records it for the module code
-// (pkgcache.SetRelease): a release refuses a module that needs a later
-// one, writes it into the nomi.toml `nomi new` and `nomi init` write, and
-// takes the first-party libraries at it whatever version a requirement
-// names (pkgcache.Pinned); one with none does none of that and takes the
-// libraries as their requirements name them.
-func release() string {
-	v := runners.ReleaseVersion
-	if !pkgcache.IsVersion(v) || describedCommit.MatchString(v) {
-		return ""
-	}
-	return v
-}
-
-// describedCommit matches the suffix `git describe --tags --dirty` gives a
-// commit that is not a tag, or a tree with changes, and the suffix of a Go
-// pseudo-version (v0.0.0-20261120000000-abcdefabcdef).
-var describedCommit = regexp.MustCompile(`-[0-9]+-g[0-9a-f]+(-dirty)?$|-dirty$|[-.][0-9]{14}-[0-9a-f]{12}$`)
 
 func isTerminal(f *os.File) bool {
 	info, err := f.Stat()
@@ -536,7 +512,7 @@ func runNew(args []string) error {
 		return fmt.Errorf("nomi new: %w", err)
 	}
 	files := []struct{ name, text string }{
-		{"nomi.toml", manifestText(name, pkgcache.Release(), []string{"main"})},
+		{"nomi.toml", manifestText(name, buildversion.Release(), []string{"main"})},
 		{"main.nomi", "import std::io\n\nfn main()\n    io.print(\"hello\")\nend\n"},
 		{"AGENTS.md", agentsText(name)},
 	}
@@ -717,11 +693,14 @@ func plural(n int) string {
 	return "s"
 }
 
+// vmDisplay is how a command names path, which may be relative to the
+// working directory: as a report does (vmhost.DisplayPath), relative to the
+// working directory with `/` when under it, else absolute. A workspace's
+// members are named this way, so at its root each is named as
+// nomi-workspace.toml writes it on every platform.
 func vmDisplay(path string) string {
-	if wd, err := os.Getwd(); err == nil {
-		if rel, err := filepath.Rel(wd, path); err == nil && !strings.HasPrefix(rel, "..") {
-			return rel
-		}
+	if abs, err := filepath.Abs(path); err == nil {
+		path = abs
 	}
-	return path
+	return vmhost.DisplayPath(path)
 }

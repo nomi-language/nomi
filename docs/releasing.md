@@ -26,13 +26,17 @@ from it.
 The binaries are not signed and not notarized. Windows is exercised by CI's
 Go tests only.
 
-The version given to `scripts/release.sh` must be the release's tag. It is
-stamped into `nomi`
-(`-X github.com/nomi-language/nomi/internal/runners.ReleaseVersion=<version>`),
-`nomi --version` prints it, and `nomi build` downloads a runner it does not
-carry from the release of that tag. To try the build without publishing,
-`NOMI_RELEASE_DIST=<dir>` writes the archives to another directory and
-`NOMI_RELEASE_TARGETS="darwin/arm64"` builds only the targets it lists:
+The version given to `scripts/release.sh` must be the release's tag, and
+with no version it takes the tag at HEAD. It is stamped into `nomi`
+(`-X github.com/nomi-language/nomi/internal/buildversion.stamp=<version>`),
+which makes that `nomi` the release: `nomi --version` prints it, `nomi
+build` downloads a runner it does not carry from the release of that tag,
+and the first-party libraries are taken at it. The script refuses a version
+that is not a release version (`vX.Y.Z` or a prerelease of it), as
+`scripts/release-tags.sh` does. To try the build without publishing, name a
+prerelease such as `v0.0.0-dryrun`; `NOMI_RELEASE_DIST=<dir>` writes the
+archives to another directory and `NOMI_RELEASE_TARGETS="darwin/arm64"`
+builds only the targets it lists:
 
 ```console
 $ NOMI_RELEASE_DIST="$(mktemp -d)" NOMI_RELEASE_TARGETS="darwin/arm64" scripts/release.sh v0.0.0-dryrun

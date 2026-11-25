@@ -570,7 +570,7 @@ func LoadManifest(dir string) (*Manifest, error) {
 // LoadManifest parses the file there: a table named for a package data's
 // [dependencies] names is its tools'.
 func ParseManifestIn(dir string, data []byte) (*Manifest, error) {
-	return parseManifestData(data, filepath.Join(dir, "nomi.toml"), isStdlibManifestDir(dir), func() []string { return toolTables(data) })
+	return parseManifestData(data, filepath.Join(dir, "nomi.toml"), func() bool { return isStdlibManifestDir(dir) }, func() []string { return toolTables(data) })
 }
 
 // ParseManifestData parses nomi.toml content from a byte slice and
@@ -590,13 +590,15 @@ func ParseManifestIn(dir string, data []byte) (*Manifest, error) {
 //     which belongs to that package's tools; a manifest given as bytes has
 //     no project, so none.
 func ParseManifestData(data []byte, sourceLabel string) (*Manifest, error) {
-	return parseManifestData(data, sourceLabel, false, nil)
+	return parseManifestData(data, sourceLabel, nil, nil)
 }
 
-// parseManifestData is ParseManifestData. tools answers the names of the
-// tables that belong to other packages' tools (toolTables), asked only when
-// the manifest has a table it does not know.
-func parseManifestData(data []byte, sourceLabel string, allowStdName bool, tools func() []string) (*Manifest, error) {
+// parseManifestData is ParseManifestData. isStd answers whether the
+// manifest is this nomi's standard library's, which alone may take the
+// name std, asked only of a manifest that does; nil answers no. tools
+// answers the names of the tables that belong to other packages' tools
+// (toolTables), asked only when the manifest has a table it does not know.
+func parseManifestData(data []byte, sourceLabel string, isStd func() bool, tools func() []string) (*Manifest, error) {
 	var raw manifestFile
 	md, err := toml.Decode(string(data), &raw)
 	if err != nil {
@@ -616,7 +618,7 @@ func parseManifestData(data []byte, sourceLabel string, allowStdName bool, tools
 	if strings.TrimSpace(raw.Package.Name) == "" {
 		return nil, fmt.Errorf("%s: [package] name is required (non-empty, non-whitespace)", sourceLabel)
 	}
-	if raw.Package.Name == "std" && !allowStdName {
+	if raw.Package.Name == "std" && (isStd == nil || !isStd()) {
 		return nil, fmt.Errorf("%s: [package] name %q is reserved for the standard library; choose a different name", sourceLabel, raw.Package.Name)
 	}
 	seen := map[string]bool{}

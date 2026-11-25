@@ -12,17 +12,25 @@ import (
 	"github.com/nomi-language/nomi/internal/pkgcache"
 )
 
-// A workspace's nomi-workspace.toml is read by internal/pkgcache, which
-// finds the workspace that governs a package (pkgcache.WorkspaceOf), and
-// checked with this package's reporting of unknown keys and finding of
-// lines, the ones nomi.toml's errors use, which pkgcache cannot import:
-// this package installs them as pkgcache's WorkspaceReader when it starts,
-// with ReadManifestFile, so the lookup reads the text an editor holds. A
-// problem in the file is then a ManifestError at its line, and a build of
-// a member that meets one stops with that one `manifest` error
+// internal/pkgcache reads the nomi.toml of each package the main package
+// reaches, each dependency at any depth and each other member of its
+// workspace, and the workspace's nomi-workspace.toml, and checks them with
+// this package's code, which it cannot import: this package installs it as
+// pkgcache's ManifestReader when it starts. Check is ParseManifestIn, the
+// one schema and its checks, so a dependency's nomi.toml is held to what
+// the project's own is held to; Read is ReadManifestFile, so the
+// workspace's lookup reads the text an editor holds; Keys and Place are
+// the reporting of unknown keys and the finding of lines nomi.toml's
+// errors use. A problem in a file is then a ManifestError at its line, and
+// a build that meets one stops with that one `manifest` error
 // (manifestTypeError), as a build whose nomi.toml is in error does.
 func init() {
-	pkgcache.SetWorkspaceReader(pkgcache.WorkspaceReader{Read: ReadManifestFile, Keys: workspaceKeys, Place: placeManifestProblem})
+	pkgcache.SetManifestReader(pkgcache.ManifestReader{
+		Check: func(dir string, data []byte) error { _, err := ParseManifestIn(dir, data); return err },
+		Read:  ReadManifestFile,
+		Keys:  workspaceKeys,
+		Place: placeManifestProblem,
+	})
 }
 
 // WorkspaceKeys is the keys a nomi-workspace.toml may hold outside any
@@ -71,12 +79,18 @@ func AddWorkspaceMember(path string, data []byte, entry string) (*parser.Fix, er
 }
 
 // placeManifestProblem is problem, an error pkgcache found in data, the
-// text of the file at path, at the line that writes it: its entry's when
-// it names one (ManifestEntryLine), else its key's.
+// text of the file at path, at the line that writes it (manifestLine).
 func placeManifestProblem(path string, data []byte, problem *pkgcache.ManifestProblem) error {
-	line := ManifestKeyLine(data, problem.Key...)
-	if problem.Value != "" {
-		line = ManifestEntryLine(data, problem.Value, problem.Key...)
+	return (&ManifestError{Path: path, Line: manifestLine(data, problem.Key, problem.Value)}).with("%s", problem.Error())
+}
+
+// manifestLine is the line of data, a manifest's text, that writes the
+// place pkgcache names with a key path and a value
+// (pkgcache.ManifestProblem's Key and Value): the line of value in the
+// list at key when value is set (ManifestEntryLine), else the key's.
+func manifestLine(data []byte, key []string, value string) int {
+	if value != "" {
+		return ManifestEntryLine(data, value, key...)
 	}
-	return (&ManifestError{Path: path, Line: line}).with("%s", problem.Error())
+	return ManifestKeyLine(data, key...)
 }

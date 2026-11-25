@@ -37,7 +37,7 @@ func workspaceTextDiagnostics(path, text string) []protocol.Diagnostic {
 	if err == nil {
 		return nil
 	}
-	line, message := analysis.ManifestErrorAt(err)
+	line, message := analysis.ManifestErrorAt(path, []byte(text), err)
 	if line == 0 {
 		// A problem the lookup places in another file, a member's stray
 		// nomi.lock, names that file in its message.

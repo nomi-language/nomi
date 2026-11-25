@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/nomi-language/nomi/internal/buildversion"
 	"github.com/nomi-language/nomi/internal/pkgcache"
 	"github.com/nomi-language/nomi/internal/pkgfetch/pkgfetchtest"
 )
@@ -379,11 +380,10 @@ func TestAdd_AVersionNamedMovesEveryEntryOfTheRepository(t *testing.T) {
 }
 
 // asRelease makes the test's process a release `nomi` at version v
-// (pkgcache.SetRelease) until the test ends.
+// (buildversion.SetStampForTest) until the test ends.
 func asRelease(t *testing.T, v string) {
 	t.Helper()
-	pkgcache.SetRelease(v)
-	t.Cleanup(func() { pkgcache.SetRelease("") })
+	t.Cleanup(buildversion.SetStampForTest(v))
 }
 
 // libFiles is the first-party libraries' repository at version v.

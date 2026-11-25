@@ -218,11 +218,10 @@ func walk(root string, materialize Materialize, locked, whole bool, from map[str
 		lockDir = ws.Root
 		if whole {
 			mains = nil
+			// The lookup checked each member but root (expand), and names
+			// a member in error.
 			for _, m := range ws.Members {
 				mf, err := ReadManifest(m)
-				if tooOld := (*NomiVersionError)(nil); errors.As(err, &tooOld) {
-					tooOld.Package += " (a member of this workspace)"
-				}
 				if err != nil {
 					return nil, err
 				}
@@ -297,6 +296,8 @@ func walk(root string, materialize Materialize, locked, whole bool, from map[str
 // joined is the graph of a whole workspace (WalkAll) from each member's
 // pass, or the error for two members that one build cannot hold.
 func joined(ws *Workspace, passes []pass) (*Graph, error) {
+	// A member the walk starts from is not checked (expand), so it may
+	// have no name.
 	name := func(p pass) string {
 		if p.mf.Name != "" {
 			return p.mf.Name
@@ -381,6 +382,27 @@ type local struct {
 	// dirs lacks is read by its ID and version.
 	requires []Requirement
 	dirs     map[string]*local
+	// top is the key of the main package's [dependencies] entry the walk
+	// first reached this package through.
+	top string
+}
+
+// reachedError is err, the problem ReadManifest found in the nomi.toml of
+// the package r names, an entry of the nomi.toml in the directory owner,
+// as the walk answers it: a package that needs a later nomi as itself,
+// named by name, and any other problem with the entry that names the
+// package (PackageManifestError). top is the main package's entry the walk
+// reached owner through, "" when owner is the main package, at root.
+func reachedError(err error, name, root, owner string, r Requirement, top string, fetched Package) error {
+	if tooOld := (*NomiVersionError)(nil); errors.As(err, &tooOld) {
+		tooOld.Package = name
+		return tooOld
+	}
+	e := &PackageManifestError{Err: err, Fetched: fetched, By: filepath.Join(owner, ManifestName), Entry: r.Name}
+	if top != "" {
+		e.Main, e.Top = filepath.Join(root, ManifestName), top
+	}
+	return e
 }
 
 // localPackages reads the packages loaded from directories: those the main
@@ -407,7 +429,7 @@ func localPackages(root string, mf *Manifest) (top map[string]*local, byID map[I
 	byDir := map[string]*local{}
 	byID = map[ID]*local{}
 	var queue []*local
-	read := func(owner string, r Requirement) (*local, error) {
+	read := func(owner string, r Requirement, top string) (*local, error) {
 		dir := r.LocalDir(owner)
 		key := dir
 		if real, err := filepath.EvalSymlinks(dir); err == nil {
@@ -423,14 +445,14 @@ func localPackages(root string, mf *Manifest) (top map[string]*local, byID map[I
 		case !info.IsDir():
 			return nil, fmt.Errorf("%s: [dependencies] %s: %s is not a directory", filepath.Join(owner, ManifestName), r.Name, r.Dir)
 		}
-		file, err := ReadManifest(dir)
-		if tooOld := (*NomiVersionError)(nil); errors.As(err, &tooOld) {
-			tooOld.Package = "the package in " + r.Dir
-		}
+		file, err := readReached(dir)
 		if err != nil {
-			return nil, err
+			return nil, reachedError(err, "the package in "+r.Dir, root, owner, r, top, Package{})
 		}
-		l := &local{dir: dir, file: file, req: r, dirs: map[string]*local{}}
+		if top == "" {
+			top = r.Name
+		}
+		l := &local{dir: dir, file: file, req: r, dirs: map[string]*local{}, top: top}
 		if file != nil {
 			l.requires = file.Requires
 		}
@@ -443,7 +465,7 @@ func localPackages(root string, mf *Manifest) (top map[string]*local, byID map[I
 		if r.Dir == "" {
 			continue
 		}
-		l, err := read(root, r)
+		l, err := read(root, r, "")
 		if err != nil {
 			return nil, nil, err
 		}
@@ -459,7 +481,7 @@ func localPackages(root string, mf *Manifest) (top map[string]*local, byID map[I
 			if r.Dir == "" || !r.ID.IsZero() && named[r.ID] || sameDir(r.LocalDir(owner.dir), root) {
 				continue
 			}
-			l, err := read(owner.dir, r)
+			l, err := read(owner.dir, r, owner.top)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -578,7 +600,14 @@ func explore(root string, mf *Manifest, ws *Workspace, selected map[string]strin
 		// via is the Name of the package whose nomi.toml writes req, ""
 		// for the project's.
 		via string
+		// from is the directory of the nomi.toml that writes req, and top
+		// the key of the project's entry the walk reached it through, ""
+		// for the project's own entries (reachedError).
+		from, top string
 	}
+	// The main package's nomi.toml is its caller's to check
+	// (ReadManifest), and a command that edits [dependencies] walks one
+	// with no name as it is.
 	project := "this project"
 	if mf.Name != "" {
 		project = mf.Name
@@ -589,7 +618,7 @@ func explore(root string, mf *Manifest, ws *Workspace, selected map[string]strin
 		if ws != nil {
 			by = fmt.Sprintf("%s ([dependencies] %s)", project, r.Name)
 		}
-		queue = append(queue, item{owner: g.Names, req: r, l: localOf[r.Name], root: true, by: by})
+		queue = append(queue, item{owner: g.Names, req: r, l: localOf[r.Name], root: true, by: by, from: root})
 	}
 	type depKey struct {
 		dir string
@@ -655,11 +684,8 @@ func explore(root string, mf *Manifest, ws *Workspace, selected map[string]strin
 			}
 			if dir == "" {
 				g.Missing = append(g.Missing, dep.Package)
-			} else if file, err = ReadManifest(dir); err != nil {
-				if tooOld := (*NomiVersionError)(nil); errors.As(err, &tooOld) {
-					tooOld.Package = "package " + dep.Package.String()
-				}
-				return nil, nil, nil, nil, err
+			} else if file, err = readReached(dir); err != nil {
+				return nil, nil, nil, nil, reachedError(err, "package "+dep.Package.String(), root, it.from, r, it.top, dep.Package)
 			}
 			dep.Dir = dir
 		}
@@ -679,6 +705,10 @@ func explore(root string, mf *Manifest, ws *Workspace, selected map[string]strin
 			if l != nil {
 				requires, dirs = l.requires, l.dirs
 			}
+			top := it.top
+			if top == "" {
+				top = r.Name
+			}
 			for _, sub := range requires {
 				subBy := by
 				if l == nil && sub.Dir != "" {
@@ -690,7 +720,7 @@ func explore(root string, mf *Manifest, ws *Workspace, selected map[string]strin
 					}
 					subBy = ""
 				}
-				queue = append(queue, item{owner: dep.Names, req: sub, l: dirs[sub.Name], by: subBy, via: name})
+				queue = append(queue, item{owner: dep.Names, req: sub, l: dirs[sub.Name], by: subBy, via: name, from: dep.Dir, top: top})
 			}
 
 		}

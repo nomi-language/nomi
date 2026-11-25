@@ -147,7 +147,7 @@ func runEffects(w io.Writer, args []string) error {
 			if i > 0 {
 				fmt.Fprintln(w)
 			}
-			fmt.Fprintf(w, "%s:\n", filepath.ToSlash(m))
+			fmt.Fprintf(w, "%s:\n", vmDisplay(m))
 		}
 		one := parsed
 		one.path = m

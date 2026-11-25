@@ -112,24 +112,32 @@
 // checks it once the file is saved. Nothing else sets one, so the command
 // line reads the disk.
 //
-// ParseManifestIn answers a problem it can place as a *ManifestError, with
-// its line; ManifestErrorAt places any of its errors, the TOML decoder's
-// among them, as the language server shows them in the file. A build
-// whose packages cannot be read, because the project's nomi.toml has a
-// problem or the package graph of its dependencies' nomi.toml files does,
-// checks nothing, and the entry answers that one error (ManifestCode): an
-// import by a package's name and every dependency resolve through them,
-// so any error past it would follow from it. A package, the project or one
-// it depends on, whose [package].nomi names a later release than the
-// running nomi (pkgcache.NomiVersionError) stops the build the same way,
-// with its own code (NomiVersionCode), since its files are written for
-// that release. So does a problem in the nomi-workspace.toml of the
-// workspace the project is a member of, which internal/pkgcache reads
-// (pkgcache.WorkspaceOf) with this package's reporting of unknown keys
-// and finding of lines, and its reading of the text an editor holds
-// (ReadManifestFile), installed as its WorkspaceReader when this package
-// starts (manifest_workspace.go), so the error is at its line in that
-// file, and so does a package under a workspace that lists it in neither
+// ParseManifestIn is the one schema of a nomi.toml and its checks
+// (manifestFile, unknownManifestKey), and it answers a problem it can
+// place as a *ManifestError, with its line. internal/pkgcache checks every
+// other nomi.toml a build reads with it, each dependency's at any depth,
+// on disk or fetched, and each other member's of the workspace: this
+// package installs it, with its reading of the text an editor holds
+// (ReadManifestFile) and its reporting of unknown keys and finding of
+// lines for nomi-workspace.toml, as pkgcache's ManifestReader when it
+// starts (manifest_workspace.go). A dependency's tools' tables are named
+// by its own text (toolTables). ManifestErrorAt places any of these errors, the
+// TOML decoder's among them, as the language server shows them in a file:
+// a problem in a reached package's nomi.toml
+// (pkgcache.PackageManifestError) at the entry of the file that leads to
+// it. A build whose packages cannot be read, because the project's
+// nomi.toml, a reached package's, or the package graph they make has a
+// problem, checks nothing, and the entry answers that one error
+// (ManifestCode): an import by a package's name and every dependency
+// resolve through them, so any error past it would follow from it. Its
+// fixes are the project's own nomi.toml's, and a fetched package's
+// nomi.toml, not the reader's to edit, gets none. A package, the project
+// or one it depends on, whose [package].nomi names a later release than
+// the running nomi (pkgcache.NomiVersionError) stops the build the same
+// way, with its own code (NomiVersionCode), since its files are written
+// for that release. So does a problem in the nomi-workspace.toml of the
+// workspace the project is a member of, at its line in that file, and so
+// does a package under a workspace that lists it in neither
 // members nor exclude (pkgcache.UnlistedError), reported at the package's
 // nomi.toml with a fix that adds it to members (AddWorkspaceMember). The
 // DocumentManager keeps a program while ManifestTexts, the package's

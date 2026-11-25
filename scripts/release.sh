@@ -40,11 +40,14 @@
 # Built at its tag, every binary carries the tag as its main module's version.
 # This script checks the stamp when HEAD carries the tag being released.
 #
-# `nomi` is stamped with the release tag
-# (`-X github.com/nomi-language/nomi/internal/runners.ReleaseVersion=<version>`): `nomi build --target`
-# downloads another platform's runners archive from the release of that tag
-# and checks it against this script's checksum manifest, and `nomi add` and
-# `nomi update` take the first-party lib/ packages at that version.
+# `nomi` is stamped with the release version
+# (`-X github.com/nomi-language/nomi/internal/buildversion.stamp=<version>`),
+# which is the release it is (internal/buildversion package doc): `nomi
+# --version` names it, `nomi build --target` downloads another platform's
+# runners archive from the release of that tag and checks it against this
+# script's checksum manifest, and `nomi add` and `nomi update` take the
+# first-party lib/ packages at that version. The stamp also tells `nomi`
+# that it carries its runners and builds none.
 #
 # This script makes no tag and pushes nothing, so it is safe to run as a dry
 # run. A release also needs its tag, the one tag that versions the compiler
@@ -74,7 +77,9 @@
 #
 #	scripts/release.sh [version]
 #
-# `version` defaults to `git describe`. Artifacts land in dist/, or in
+# `version` defaults to the tag at HEAD; away from a tag, name one, such as
+# v0.0.0-dryrun for a dry run. It must be a release version (vX.Y.Z or a
+# prerelease of it), since `nomi` is stamped with it. Artifacts land in dist/, or in
 # $NOMI_RELEASE_DIST when it is set (a local dry run into a scratch
 # directory). $NOMI_RELEASE_TARGETS, a space-separated list such as
 # "darwin/arm64", builds only those targets, for a dry run:
@@ -101,8 +106,14 @@ dist_dir="${NOMI_RELEASE_DIST:-$repo_root/dist}"
 
 version="${1:-}"
 if [ -z "$version" ]; then
-	version="$(git -C "$repo_root" describe --tags --always --dirty 2>/dev/null || echo dev)"
+	if ! version="$(git -C "$repo_root" describe --tags --exact-match 2>/dev/null)"; then
+		echo "release.sh: HEAD carries no tag; name the version, such as v0.0.0-dryrun for a dry run" >&2
+		exit 2
+	fi
 fi
+# The version must be a release version, which release-tags.sh checks
+# with the libraries a release needs.
+"$repo_root/scripts/release-tags.sh" "$version" >/dev/null
 
 # Whether this is the real release build: HEAD carries the tag being released.
 at_tag=false
@@ -315,7 +326,7 @@ for target in "${all_targets[@]}"; do
 			mkdir -p "$stage"
 			tags="nomi_stdbundle,nomi_hostrunners,nomi_vsix,nomi_zedwasm"
 			overlay=(-overlay "$embed_dir/overlay.json")
-			ldflags="$ldflags -X github.com/nomi-language/nomi/internal/runners.ReleaseVersion=$version"
+			ldflags="$ldflags -X github.com/nomi-language/nomi/internal/buildversion.stamp=$version"
 			;;
 		esac
 		build_one "$stage" "$name" "$pkg" "$buildmode" "$tags" "$ldflags" ${overlay[@]+"${overlay[@]}"}

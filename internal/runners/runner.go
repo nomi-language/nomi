@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/nomi-language/nomi/internal/buildversion"
 	"github.com/nomi-language/nomi/internal/stdlibbindings/families"
 )
 
@@ -139,14 +140,15 @@ type Record struct {
 // Runner answers the path of a runner of variant v for target: the one this
 // `nomi` carries, unpacked into the cache; one installed beside this `nomi`;
 // one built from the compiler's source and cached; or one from the release
-// this `nomi` was cut as, cached or downloaded, in that order (prebuilt.go).
+// this `nomi` is, cached or downloaded, in that order (prebuilt.go).
 // A download is announced on progress.
 //
-// A release `nomi` (ReleaseVersion set) builds no runner and never runs
-// `go`: it carries its own platform's two runners, and its release ships
-// every other prebuilt. Any other `nomi` builds one from the compiler's
-// source: its checkout, or for a versioned build (`go install ...@version`)
-// that version of the module, which Go fetches.
+// A `nomi` scripts/release.sh built (buildversion.BuiltByReleaseScript)
+// builds no runner and never runs `go`: it carries its own platform's two
+// runners, and its release ships every other prebuilt. Any other `nomi`
+// builds one from the compiler's source: its checkout, or for a versioned
+// build (`go install ...@version`, a release too) that version of the
+// module, which Go fetches.
 func Runner(target Target, v Variant, progress io.Writer) (string, error) {
 	if v.Reactor && (target.GOOS != "wasip1" || target.GOARCH != "wasm") {
 		return "", fmt.Errorf("only wasip1/wasm has a reactor nomi-vm, not %s", target)
@@ -159,7 +161,7 @@ func Runner(target Target, v Variant, progress io.Writer) (string, error) {
 		return releaseRunner(target, v, progress)
 	}
 	nomiRoot, versioned := "", false
-	if ReleaseVersion == "" {
+	if !buildversion.BuiltByReleaseScript() {
 		nomiRoot = LocalCompilerRoot()
 		versioned = currentPlan().versioned()
 	}

@@ -12,7 +12,25 @@
 // # The manifest and the lock
 //
 // A package's nomi.toml is the one file it states its dependencies in
-// (manifest.go). ParseManifest reads its [package].name, its
+// (manifest.go). readManifest is the one place its file is read. The main
+// package a walk starts from is read by ReadManifest, which checks only
+// what ParseManifest reads, since its nomi.toml is its caller's to check:
+// the front end checks the project's whole (analysis.LoadManifest), and
+// the commands that edit [dependencies] check that table alone, so an
+// error elsewhere in the file never blocks them. Every package the walk
+// reaches from it, a dependency at any depth, on disk or fetched, and each
+// other member of its workspace, is read by readReached, which first holds
+// the file to the whole schema and its checks through the installed
+// ManifestReader's Check (analysis.ParseManifestIn, installed when the
+// analysis package starts, since this package cannot import it): the same
+// code the project's own nomi.toml is checked by, its tools' tables named
+// for the package or its own [dependencies] keys. With no reader only
+// ParseManifest checks it. A problem in a reached package's nomi.toml is a
+// PackageManifestError, which names the entry that leads to the package
+// (EntryIn) and, for a fetched one, the repository, directory and version
+// it came from.
+//
+// ParseManifest reads its [package].name, its
 // [package].nomi and its [dependencies] table, whose entries
 // (DependencyEntry, the type analysis's manifest declares the table with)
 // hold `repo` and `version` or `commit` with an optional `subdir`, or
@@ -43,9 +61,10 @@
 // checks that the nomi.toml names itself.
 //
 // [package].nomi is the lowest nomi release the package's source needs
-// (nomi.go). The running nomi's release is what cmd/nomi records as it
-// starts (SetRelease, Release): a release's version, or "" for a `nomi`
-// built from source and for every other process. A release older than a
+// (nomi.go). The running nomi's release is buildversion.Release: a
+// release's version, or "" for a `nomi` built from source (the
+// internal/buildversion package doc says which builds are releases). A
+// release older than a
 // package's [package].nomi refuses the package (NomiNeeded,
 // NomiVersionError), and ParseManifest checks that before anything else
 // in the file, since a package written for a later nomi may write the rest
@@ -81,14 +100,15 @@
 // directories whose packages are on their own, each in which `*` matches
 // within one path segment; it has no other key. ParseWorkspace checks the
 // entries' form; the text an editor holds, the keys the
-// file may hold, and the line of each problem are the analysis package's,
-// which installs them as a WorkspaceReader since this package cannot
-// import it. readWorkspace is the one place that reads the file, declOf
+// file may hold, and the line of each problem are the installed
+// ManifestReader's. readWorkspace is the one place that reads the file, declOf
 // the one that checks its text, EntryDirs the one that answers the
 // directories an entry names, and expand the one that turns the entries
 // into member directories: an entry with no `*` must name a directory
 // with a nomi.toml, an entry with `*` skips one without, and every
-// member's nomi.toml names a package. The root holds no nomi.toml, no
+// member's nomi.toml but the looked-up package's own is held to the whole
+// schema (readReached), so a member in error is a PackageManifestError
+// naming its members entry, from any other member's build. The root holds no nomi.toml, no
 // member holds a nomi-workspace.toml, and no exclude entry names a member
 // or a directory above one. CheckWorkspace is the same checks of a text
 // an editor holds, which the language server reports in the file.

@@ -1,17 +1,29 @@
 # Runs on every push to main and every pull request.
 #
 # internal/irbuild is its own job: it is the longest single package (about
-# 100 s on a laptop), and run alongside cmd/nomi, internal/analysis and
-# internal/lsp it would set the wall time of the whole run. Node 22 is installed so the
+# 100 s on a laptop), and run alongside internal/analysis and internal/lsp
+# it would set the wall time of the whole run. Node 22 is installed so the
 # tests that run a js/wasm build under node (cmd/nomi-wasm,
-# internal/wasmsmoke) run instead of skipping.
+# internal/wasmsmoke, cmd/nomi's web builds) run instead of skipping.
+#
+# cmd/nomi runs in the parts scripts/test-cmd-nomi.sh defines, a job each
+# on Linux and on Windows (the cmdnomi matrix, whose parts the
+# cmdnomi-parts job reads from the script), and the go jobs leave it out.
+# Most of its tests set the environment and so run one at a time. In one
+# binary beside the go job's other packages it passed the go job's
+# 40-minute limit on Linux with five tests left (over 2400 s), took 1970 s
+# on Windows, and held back every later package's result. On a laptop
+# running every step of scripts/check-full.sh at once, part 1 took about
+# 570 s, parts 2 and 3 about 820 s between them, and lib 270 s. A part is
+# expected to take under 20 minutes on a runner; each part's test binary
+# has 30 minutes and its job 40.
+#
+# The lib part (TestLibModules) runs the Nomi tests of the modules under
+# lib/, which hold no Go; its postgres runs skip, with no PostgreSQL on
+# PATH.
 #
 # The tour job builds the tour's wasm bundle, which the go job lacks (the
 # TestTourWasm* tests skip there), and checks it as `make test-tour` does.
-#
-# The go job's cmd/nomi TestLibModules runs the Nomi tests of the modules
-# under lib/, which hold no Go; its postgres runs skip there, with no
-# PostgreSQL on PATH.
 #
 # The windows and windows-irbuild jobs run the go and irbuild jobs' tests on
 # Windows.
@@ -23,8 +35,9 @@
 # (internal/analysis), 1.6 GB (internal/lsp) and 1.5 GB (vmhost), and
 # internal/irbuild at 6.5 GB, 3.3 GB of it live. GOMEMLIMIT is a soft limit
 # per process below the runner's memory, so a binary's collector works
-# harder before the kernel ends the runner: 3GiB for each of the go job's
-# binaries, and 4GiB for irbuild, which runs alone and then peaks at 4.4 GB.
+# harder before the kernel ends the runner: 3GiB for each binary of the go
+# and cmdnomi jobs, and 4GiB for irbuild, which runs alone and then peaks
+# at 4.4 GB.
 #
 # Not covered here: the tree-sitter grammar tests (scripts/tree-sitter.sh
 # test) and the VS Code smoke test, which downloads VS Code.
@@ -45,7 +58,7 @@ concurrency:
 
 jobs:
   go:
-    name: go vet and go test (all but irbuild)
+    name: go vet and go test (all but irbuild and cmd/nomi)
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -64,7 +77,7 @@ jobs:
           node-version: 22
       - run: go vet ./...
       - name: go test
-        run: go test -p 4 -count=1 -timeout 40m $(go list ./... | grep -v '/internal/irbuild$')
+        run: go test -p 4 -count=1 -timeout 40m $(go list ./... | grep -v -e '/internal/irbuild$' -e '/cmd/nomi$')
 
   irbuild:
     name: go test ./internal/irbuild
@@ -83,6 +96,54 @@ jobs:
           go-version-file: go.mod
       - run: go test -count=1 -timeout 40m ./internal/irbuild
 
+  # cmd/nomi's parts, read from the script, so a part it adds runs here
+  # with no change to this file.
+  cmdnomi-parts:
+    name: cmd/nomi's test parts
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      parts: ${{ steps.parts.outputs.parts }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: parts
+        run: echo "parts=$(bash scripts/test-cmd-nomi.sh parts | jq -R . | jq -s -c .)" >> "$GITHUB_OUTPUT"
+
+  # Each part on Linux and on Windows. On Windows, as in the windows job,
+  # autocrlf is off before the checkout and there is no Node; the script
+  # runs under the bash that Git for Windows installs.
+  cmdnomi:
+    name: go test ./cmd/nomi part ${{ matrix.part }} on ${{ matrix.os }}
+    needs: cmdnomi-parts
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        part: ${{ fromJSON(needs.cmdnomi-parts.outputs.parts) }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    env:
+      GOMEMLIMIT: 3GiB
+    steps:
+      - name: runner resources
+        if: runner.os == 'Linux'
+        run: |
+          nproc
+          free -g
+      - if: runner.os == 'Windows'
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - if: runner.os == 'Linux'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: go test
+        shell: bash
+        run: bash scripts/test-cmd-nomi.sh "${{ matrix.part }}" -timeout 30m
+
   # The Windows jobs run what the go and irbuild jobs run, split the same
   # way. Git would check the tree out with CRLF line ends, which every
   # golden file and doctest compares byte for byte, so autocrlf is off
@@ -91,7 +152,7 @@ jobs:
   # runner has the same 4 cores and 16 GB and takes the same GOMEMLIMIT
   # and -p.
   windows:
-    name: go vet and go test on Windows (all but irbuild)
+    name: go vet and go test on Windows (all but irbuild and cmd/nomi)
     runs-on: windows-latest
     timeout-minutes: 60
     env:
@@ -105,7 +166,7 @@ jobs:
       - run: go vet ./...
       - name: go test
         shell: bash
-        run: go test -p 4 -count=1 -timeout 55m $(go list ./... | grep -v '/internal/irbuild$')
+        run: go test -p 4 -count=1 -timeout 55m $(go list ./... | grep -v -e '/internal/irbuild$' -e '/cmd/nomi$')
 
   windows-irbuild:
     name: go test ./internal/irbuild on Windows

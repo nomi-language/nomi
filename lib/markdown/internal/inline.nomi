@@ -708,14 +708,21 @@ fn close_label(st: Ist) -> (Ist, Bool)
 
             if formed then return (st, True)
             st = {..st, c: after_label}
-            reference = Bytes.slice(st.lines.buf, label_stop, close_at)
-            if Bytes.length(reference) > 999 then return give_up(st, last)
 
-            case Map.get(st.refs, reader.reference_key(reference))
+            case definition(st, Bytes.slice(st.lines.buf, label_stop, close_at))
                 None    -> give_up(st, last)
                 Some(r) -> (make_link(st, last, r.destination, r.title), True)
             end
     end
+end
+
+/// The definition `reference` names. A reference over 999 bytes names none,
+/// and with no definitions in the document none is looked for: making a
+/// reference's key reads all of it, and each `]` of a deep nest of labels
+/// would read the labels inside it again.
+fn definition(st: Ist, reference: Bytes) -> Option<Ref>
+    if Map.size(st.refs) == 0 or Bytes.length(reference) > 999 then return None
+    Map.get(st.refs, reader.reference_key(reference))
 end
 
 fn label_of(st: Ist, id: Int) -> (Int, Int, Bool, Int)
@@ -837,9 +844,7 @@ fn reference_link(st: Ist, label: Int, label_stop: Int) -> (Ist, Bool, Bool)
                     reference
                 end
 
-            if Bytes.length(reference) > 999 then return (st, False, True)
-
-            case Map.get(st.refs, reader.reference_key(reference))
+            case definition(st, reference)
                 None    -> (st, False, True)
                 Some(r) -> (make_link(st, label, r.destination, r.title), True, True)
             end

@@ -11,6 +11,7 @@ import (
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/buildversion"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
 	"github.com/nomi-language/nomi/internal/pkgcache"
@@ -20,7 +21,7 @@ const initUsage = "usage: nomi init <name>"
 
 // manifestText is the nomi.toml `nomi new` and `nomi init` write: the
 // module's name, the release it needs, which is the running release
-// (pkgcache.Release) and is left out by a `nomi` built from source, and
+// (buildversion.Release) and is left out by a `nomi` built from source, and
 // its entry points.
 func manifestText(name, release string, entries []string) string {
 	quoted := make([]string, len(entries))
@@ -88,7 +89,7 @@ func runInit(args []string) error {
 	if err != nil {
 		return fmt.Errorf("nomi init: %w", err)
 	}
-	if err := os.WriteFile("nomi.toml", []byte(manifestText(name, pkgcache.Release(), entries)), 0o644); err != nil {
+	if err := os.WriteFile("nomi.toml", []byte(manifestText(name, buildversion.Release(), entries)), 0o644); err != nil {
 		return fmt.Errorf("nomi init: %w", err)
 	}
 	fmt.Println("wrote nomi.toml")

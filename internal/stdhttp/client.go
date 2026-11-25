@@ -179,7 +179,7 @@ func unixDial(path string) func(context.Context, string, string) (net.Conn, erro
 // its headers name none: `nomi/<version>` from a binary built as a release
 // (buildversion.Release), plain `nomi` from any other. Go's client would
 // send its own name.
-var userAgent = sync.OnceValue(func() string { return userAgentOf(buildversion.Release()) })
+func userAgent() string { return userAgentOf(buildversion.Release()) }
 
 // userAgentOf is the User-Agent of a build whose release tag is tag, or
 // plain `nomi` for no tag. A product token's version has no `v`

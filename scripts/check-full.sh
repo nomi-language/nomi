@@ -8,9 +8,10 @@
 #   - pkgs: every other package, without the expectation suites and the
 #     object harnesses, which have steps of their own, and with the
 #     corpus walks' samples;
-#   - cmd/nomi in two parts (cmdnomi-1, cmdnomi-2), vmhost, rt and
-#     internal/irbuild, each alone; lib (TestLibModules); the tree-sitter
-#     tests (when npx is on PATH);
+#   - cmd/nomi in the parts scripts/test-cmd-nomi.sh defines (cmdnomi-1,
+#     cmdnomi-2, cmdnomi-3, and cmdnomi-lib for TestLibModules), vmhost, rt
+#     and internal/irbuild, each alone; the tree-sitter tests (when npx is
+#     on PATH);
 #   - the object harness over the expectation populations in full: every
 #     recorded program linked through objects (objects-link), and with each
 #     of its files lowered again on its own against the others' kept objects
@@ -46,8 +47,9 @@
 #   FUZZTIME=5m       how long each fuzz target runs (default 5m)
 #   TEST_TIMEOUT=30m  the limit for each test binary (default 30m)
 #   STEPS="a b ..."   run only the named steps: gofmt tourwasm buildvet pkgs
-#                     vmhost rt irbuild lib treesitter, cmdnomi-<part>
-#                     (cmdnomi-1 cmdnomi-2), interfaces-<suite>
+#                     vmhost rt irbuild treesitter, cmdnomi-<part>
+#                     (cmdnomi-1 cmdnomi-2 cmdnomi-3 cmdnomi-lib),
+#                     interfaces-<suite>
 #                     (interfaces-corpus interfaces-stdlib interfaces-tour
 #                     interfaces-failure), objects-<part> (objects-link
 #                     objects-perfile objects-irbuild), walk-<test>
@@ -82,10 +84,15 @@ walk-std-base ./internal/analysis TestStdBase_ABuildOverTheBaseMatchesOneThatFol
 walk-open-documents ./internal/analysis TestOpenDocumentEditsMatchFreshBuilds
 walk-record-open ./internal/lsp TestOpenFromRecordMatchesAFullCheck
 walk-record-edits ./internal/lsp TestOpenFromRecordEditsMatchAFullCheck"
-KNOWN="gofmt tourwasm buildvet pkgs cmdnomi cmdnomi-1 cmdnomi-2 vmhost rt irbuild lib treesitter interfaces interfaces-corpus interfaces-stdlib interfaces-tour interfaces-failure objects objects-link objects-perfile objects-irbuild walk race race-rt race-lsp race-vm race-vmhost race-corpus fuzz"
+# CMDNOMI_PARTS are cmd/nomi's parts, a step each (cmdnomi-<part>).
+CMDNOMI_PARTS="$("$ROOT/scripts/test-cmd-nomi.sh" parts)" || exit 2
+KNOWN="gofmt tourwasm buildvet pkgs cmdnomi vmhost rt irbuild treesitter interfaces interfaces-corpus interfaces-stdlib interfaces-tour interfaces-failure objects objects-link objects-perfile objects-irbuild walk race race-rt race-lsp race-vm race-vmhost race-corpus fuzz"
 while read -r name _; do
   KNOWN="$KNOWN $name"
 done <<<"$WALKS"
+for p in $CMDNOMI_PARTS; do
+  KNOWN="$KNOWN cmdnomi-$p"
+done
 for t in $FUZZ_VMHOST FuzzIncrementalMatchesFull FuzzCheckFromInterfacesMatchesFull FuzzLSPSurvivesEdits; do
   KNOWN="$KNOWN fuzz-$t"
 done
@@ -161,19 +168,6 @@ pkgs() {
   list="$(go -C "$ROOT" list ./... | grep -v -e '/internal/irbuild$' -e '/vmhost$' -e '/rt$' -e '/rt/' -e '/cmd/nomi$')" || return
   # shellcheck disable=SC2086 # one package per word
   go -C "$ROOT" test $list -skip '^(TestExpectation_(Corpus|Stdlib|Tour|Failure)|TestObjectsLinkToTheSameProgram|TestFilesLowerOnTheirOwnAsInTheProgram)$' -count=1 -timeout "$TEST_TIMEOUT"
-}
-
-# cmdnomi PART: cmd/nomi's tests but TestLibModules (the lib step), in two
-# processes, since most of them set the environment and so run one at a
-# time: part 1 the tests named Test[A-C]... and the fuzz targets' seeds,
-# part 2 the rest, each about half the package's time.
-cmdnomi() {
-  local part='^(Test[A-C]|Fuzz)'
-  if [[ $1 == 1 ]]; then
-    go -C "$ROOT" test ./cmd/nomi -run "$part" -count=1 -timeout "$TEST_TIMEOUT"
-  else
-    go -C "$ROOT" test ./cmd/nomi -skip "$part|^TestLibModules\$" -count=1 -timeout "$TEST_TIMEOUT"
-  fi
 }
 
 # interfaces SUITE: one expectation suite with every project file checked
@@ -272,12 +266,12 @@ step buildvet buildvet
 step tourwasm tourwasm
 
 pstep pkgs pkgs
-pstep cmdnomi-1 cmdnomi 1
-pstep cmdnomi-2 cmdnomi 2
+for p in $CMDNOMI_PARTS; do
+  pstep "cmdnomi-$p" "$ROOT/scripts/test-cmd-nomi.sh" "$p" -timeout "$TEST_TIMEOUT"
+done
 pstep vmhost env NOMI_TOUR_RUN_BUDGET=1 go -C "$ROOT" test ./vmhost -count=1 -timeout "$TEST_TIMEOUT"
 pstep rt go -C "$ROOT" test ./rt/... -count=1 -timeout "$TEST_TIMEOUT"
 pstep irbuild go -C "$ROOT" test ./internal/irbuild -count=1 -timeout "$TEST_TIMEOUT"
-pstep lib go -C "$ROOT" test ./cmd/nomi -run '^TestLibModules$' -count=1 -timeout "$TEST_TIMEOUT"
 pstep treesitter treesitter
 pstep objects-link env NOMI_OBJECTS_LINK=full go -C "$ROOT" test ./internal/expectation -run '^TestObjectsLinkToTheSameProgram$' -count=1 -timeout "$TEST_TIMEOUT"
 pstep objects-perfile env NOMI_OBJECTS_LINK=full go -C "$ROOT" test ./internal/expectation -run '^TestFilesLowerOnTheirOwnAsInTheProgram$' -count=1 -timeout "$TEST_TIMEOUT"

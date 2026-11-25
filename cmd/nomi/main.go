@@ -6,7 +6,6 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/dap"
 	"github.com/nomi-language/nomi/internal/frontend"
-	"github.com/nomi-language/nomi/internal/pkgcache"
 	"github.com/nomi-language/nomi/internal/termcolor"
 	"github.com/nomi-language/nomi/vmhost"
 	"io"
@@ -335,7 +334,6 @@ func alreadyReported(err error) bool {
 }
 
 func main() {
-	pkgcache.SetRelease(release())
 	if len(os.Args) < 2 {
 		enableDownloads(false, os.Stderr)
 		runReplVM()

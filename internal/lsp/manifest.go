@@ -16,6 +16,7 @@ import (
 	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/parser"
+	"github.com/nomi-language/nomi/internal/pkgcache"
 	"github.com/nomi-language/nomi/vmhost"
 )
 
@@ -69,7 +70,9 @@ func (s *Server) closeManifest(uri string) {
 
 // publishManifestText publishes the error the front end finds in text, the
 // manifest at uri, at its line: what parsing it as the package's manifest
-// answers, or for a nomi-workspace.toml what the workspace lookup answers
+// answers, else a problem the package graph's walk finds in the nomi.toml
+// of a package one of its entries leads to (manifestGraphError), at that
+// entry; or for a nomi-workspace.toml what the workspace lookup answers
 // (workspaceTextDiagnostics). Empty text publishes nothing of its own.
 func (s *Server) publishManifestText(uri, text string) {
 	var diags []protocol.Diagnostic
@@ -79,12 +82,33 @@ func (s *Server) publishManifestText(uri, text string) {
 	case isWorkspaceURI(uri):
 		diags = workspaceTextDiagnostics(path, text)
 	default:
-		if _, err := analysis.ParseManifestIn(filepath.Dir(path), []byte(text)); err != nil {
-			line, message := analysis.ManifestErrorAt(err)
+		_, err := analysis.ParseManifestIn(filepath.Dir(path), []byte(text))
+		if err == nil {
+			err = manifestGraphError(path)
+		}
+		if err != nil {
+			line, message := analysis.ManifestErrorAt(path, []byte(text), err)
 			diags = append(diags, manifestDiagnostic(text, line, message))
 		}
 	}
 	s.publishInputDiagnostics(manifestSource(uri), map[string][]protocol.Diagnostic{uri: diags})
+}
+
+// manifestGraphError is the problem the walk of the package graph a build
+// reads (analysis.BuildPackageIndex) finds in the nomi.toml of a package
+// that an entry of the nomi.toml at path leads to, or nil: an error a
+// build of the package stops with, at an entry of this file. The language
+// server installs no fetcher, so the walk reads the package cache and
+// never fetches.
+func manifestGraphError(path string) error {
+	_, err := analysis.BuildPackageIndex(filepath.Dir(path))
+	var reached *pkgcache.PackageManifestError
+	if errors.As(err, &reached) {
+		if _, _, ok := reached.EntryIn(path); ok {
+			return err
+		}
+	}
+	return nil
 }
 
 // manifestSource is the source key a nomi.toml's own diagnostics are

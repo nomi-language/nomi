@@ -1,60 +1,94 @@
-// Package buildversion names the commit a binary was built from, read from the
-// build-info section Go stamps into it. `nomi --version` prints it, `nomi
-// build --no-vm` writes it into a .nomic file's header, and nomi-vm
-// names it when it refuses a .nomic file another version wrote. Release
-// names the released version a binary was built as, which std/http's
-// client sends in its `User-Agent`. It imports only the standard library,
-// so a runner may link it.
 package buildversion
 
 import (
 	"regexp"
 	"runtime/debug"
 	"sync"
+	"sync/atomic"
 )
 
 // RevisionAbbrev is how many hex digits of the revision the version token
-// carries. scripts/release.sh names its archives from `git describe --tags
-// --always --dirty`, whose abbreviation is git's `core.abbrev` (7 by default
-// and auto-widening with repository size); 12 is what git itself widens to
-// well before a repository this size needs more, so a version token and an
-// archive name refer to the same commit by a prefix of the same length or
-// longer.
+// carries. git's own abbreviation (`core.abbrev`) starts at 7 and widens
+// with repository size; 12 is what git widens to well before a repository
+// this size needs more, so a token names one commit and is a prefix of
+// what `git log` prints for it.
 const RevisionAbbrev = 12
 
-// Current is Token for this binary's own build info.
-func Current() string {
-	info, _ := debug.ReadBuildInfo()
-	return Token(info)
+// stamp is the release scripts/release.sh cuts `nomi` as, set by
+// `-ldflags -X`; "" in every other build.
+var stamp string
+
+// testStamp, when set, stands in for stamp (SetStampForTest).
+var testStamp atomic.Pointer[string]
+
+// SetStampForTest makes this process read v as its stamp, as a binary
+// scripts/release.sh cut as v would, until the returned function restores
+// the stamp before it. A test stands in a release with it: Release and
+// BuiltByReleaseScript, and every reader of them, move together.
+func SetStampForTest(v string) (restore func()) {
+	old := testStamp.Swap(&v)
+	return func() { testStamp.Store(old) }
 }
 
-// Release is ReleaseOf for this binary's own build info.
-var Release = sync.OnceValue(func() string {
+func currentStamp() string {
+	if p := testStamp.Load(); p != nil {
+		return *p
+	}
+	return stamp
+}
+
+var buildInfo = sync.OnceValue(func() *debug.BuildInfo {
 	info, _ := debug.ReadBuildInfo()
-	return ReleaseOf(info)
+	return info
 })
 
+// Release is the release this binary is, or "" for a build from source
+// (ReleaseOf of its stamp and build info).
+func Release() string { return ReleaseOf(currentStamp(), buildInfo()) }
+
+// BuiltByReleaseScript reports whether scripts/release.sh built this
+// binary, which it stamps.
+func BuiltByReleaseScript() bool { return currentStamp() != "" }
+
+// Name is how a message names this binary: its release followed by its
+// Token in parentheses, or the token alone when it is no release or the
+// token is the release itself.
+func Name() string { return NameOf(Release(), Token(buildInfo())) }
+
+// NameOf is Name for a binary of release and token.
+func NameOf(release, token string) string {
+	if release == "" || release == token {
+		return token
+	}
+	return release + " (" + token + ")"
+}
+
 var (
-	tagVersion    = regexp.MustCompile(`^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$`)
+	tagVersion    = regexp.MustCompile(`^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$`)
 	pseudoVersion = regexp.MustCompile(`[0-9]{14}-[0-9a-f]{12}$`)
+	// describedCommit is the suffix `git describe --tags --dirty` gives a
+	// commit past a tag, or a tree with changes.
+	describedCommit = regexp.MustCompile(`-[0-9]+-g[0-9a-f]+(-dirty)?$|-dirty$`)
 )
 
-// ReleaseOf is the released version a binary was built as, "" for any
-// other build. Go stamps the main module's version from the tag at the
-// commit a checkout builds, and from the version `go install` fetched; a
-// release (scripts/release.sh, which builds `nomi` and every runner at the
-// release's tag) is one such version. A modified checkout's version
-// carries `+dirty`, and an untagged commit's is a pseudo-version, which
-// names the nearest tag rather than a release; neither is one.
-func ReleaseOf(info *debug.BuildInfo) string {
-	if info == nil {
-		return ""
+// IsRelease reports whether v is a release version: a tag vX.Y.Z or a
+// prerelease vX.Y.Z-..., as scripts/release-tags.sh accepts, and not a Go
+// pseudo-version or `git describe`'s name for a commit that is not a tag.
+func IsRelease(v string) bool {
+	return tagVersion.MatchString(v) && !pseudoVersion.MatchString(v) && !describedCommit.MatchString(v)
+}
+
+// ReleaseOf is the release of a binary stamped with stamp whose build info
+// is info: the stamp when it is a release version, else the main module's
+// version when that is one, else "".
+func ReleaseOf(stamp string, info *debug.BuildInfo) string {
+	if IsRelease(stamp) {
+		return stamp
 	}
-	v := info.Main.Version
-	if !tagVersion.MatchString(v) || pseudoVersion.MatchString(v) {
-		return ""
+	if info != nil && IsRelease(info.Main.Version) {
+		return info.Main.Version
 	}
-	return v
+	return ""
 }
 
 // Token is the version itself: the revision this binary was built from, with

@@ -96,7 +96,11 @@
 // published as an input's are (inputs.go) under two kinds of source: the
 // file's own text, parsed as the front end parses it
 // (analysis.ParseManifestIn), with its error at its line
-// (analysis.ManifestErrorAt); and each open document's last lowering,
+// (analysis.ManifestErrorAt), and when the text has none, a problem the
+// walk of the package graph a build reads finds in a reached package's
+// nomi.toml, at the entry of this file that leads there
+// (manifestGraphError), as a nomi-workspace.toml shows a member's at its
+// members entry; and each open document's last lowering,
 // whose errors about the [effects] lists are in the file
 // (manifestDiagnostics). The lists' errors therefore follow the programs
 // of the open documents, as `nomi check` of those files reports them.

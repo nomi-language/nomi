@@ -9,17 +9,17 @@ package runners
 // std/compiler's runner (nomi-vm-compiler) is the full one with the front
 // end linked.
 //
-// A release `nomi` carries its own platform's two runners, gzipped
-// (embeddedRunners, built in by scripts/release.sh with the
-// nomi_hostrunners tag). A runner of any variant is looked up in this order
-// (Runner):
+// A release archive's `nomi`, the one scripts/release.sh builds
+// (buildversion.BuiltByReleaseScript), carries its own platform's two
+// runners, gzipped (embeddedRunners, built in with the nomi_hostrunners
+// tag). A runner of any variant is looked up in this order (Runner):
 //
 //  1. The runner this `nomi` carries, when the target is its own platform:
 //     unpacked once into (4)'s directory and taken from there after.
 //  2. The variant's runner beside this `nomi`, and beside the file it
 //     resolves to when it is a symlink, when that runner is built for the
 //     target.
-//  3. Not in a release `nomi`: a source checkout of the compiler. Build the
+//  3. Not in a release archive's `nomi`: a source checkout of the compiler. Build the
 //     runner with `go build` and cache it, as a development tree always has.
 //     A versioned `nomi` that is not a release archive (`go install
 //     ...@version`) builds it the same way from that version in the module
@@ -27,7 +27,7 @@ package runners
 //  4. A runner unpacked or downloaded earlier for this release and target,
 //     under the cache root's `nomi-vm/<version>/<goos>_<goarch>/`.
 //  5. Download: the archive that holds the variant, from the release this
-//     `nomi` was cut as, verified against the release's checksum file, with
+//     `nomi` is (buildversion.Release), verified against the release's checksum file, with
 //     only that runner extracted into (4).
 //
 // Every runner taken from a file (2, 4 and 5) must come from the same commit
@@ -81,17 +81,9 @@ import (
 	"time"
 
 	"github.com/nomi-language/nomi/internal/artifactcache"
+	"github.com/nomi-language/nomi/internal/buildversion"
 	"github.com/nomi-language/nomi/internal/gobuildinfo"
 )
-
-// ReleaseVersion is the release tag this `nomi` was cut as. scripts/release.sh
-// sets it with `-ldflags -X github.com/nomi-language/nomi/internal/runners.ReleaseVersion=<tag>`; it is
-// empty for every other build. It names the release a cross-target runner is
-// downloaded from, which the VCS stamp cannot: a commit is not a tag. When it
-// is a release's semantic version, it is also the release a module's
-// [package].nomi is held to and the version `nomi add` and `nomi update` take
-// the first-party lib/ modules at (cmd/nomi's release, pkgcache.Release).
-var ReleaseVersion string
 
 // releaseBaseURLEnv overrides where releases are downloaded from. Tests point
 // it at a local server; nothing else needs it.
@@ -324,11 +316,11 @@ var unpackRunner = func(gz []byte, bin string) error {
 }
 
 // releaseRunner answers the runner of variant v for target from this
-// `nomi`'s release: the cached one when there is one, otherwise the one this
-// `nomi` carries, unpacked, or a fresh download. Answering one marks the
-// release's directory used (useRelease).
+// `nomi`'s release (buildversion.Release): the cached one when there is
+// one, otherwise the one this `nomi` carries, unpacked, or a fresh
+// download. Answering one marks the release's directory used (useRelease).
 func releaseRunner(target Target, v Variant, progress io.Writer) (string, error) {
-	version := ReleaseVersion
+	version := buildversion.Release()
 	if version == "" {
 		return "", fmt.Errorf("`nomi build` needs a %s for %s. None is installed beside this nomi, "+
 			"it is a development build whose source tree is gone, so it has nothing to build one from, and it "+

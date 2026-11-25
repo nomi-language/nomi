@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/nomi-language/nomi/internal/buildversion"
 	"github.com/nomi-language/nomi/internal/mcp"
 
 	"github.com/tliron/commonlog"
@@ -21,7 +22,7 @@ func runMCP(args []string) int {
 		return 1
 	}
 	commonlog.Configure(0, nil)
-	s := mcp.New(mcp.Options{Version: imageWriterVersion()})
+	s := mcp.New(mcp.Options{Version: buildversion.Name()})
 	if err := s.Serve(context.Background(), os.Stdin, os.Stdout); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1

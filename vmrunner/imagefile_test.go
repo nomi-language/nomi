@@ -126,7 +126,7 @@ func TestRunBare_RefusesAnotherImageFormatNamingBothVersions(t *testing.T) {
 	}
 	for _, want := range []string{
 		"written by nomi v9.9.9 in program format " + fmt.Sprint(ir.FormatVersion+1),
-		"this nomi-vm (nomi " + buildversion.Current() + ") reads format " + fmt.Sprint(ir.FormatVersion),
+		"this nomi-vm (nomi " + buildversion.Name() + ") reads format " + fmt.Sprint(ir.FormatVersion),
 	} {
 		if !strings.Contains(errOut.String(), want) {
 			t.Errorf("stderr %q does not contain %q", errOut.String(), want)

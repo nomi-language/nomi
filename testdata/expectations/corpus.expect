@@ -3694,14 +3694,14 @@ T
 C 15-app-and-defer/boot_called_in_test/server_test.nomi
 E 0
 N 5
-H 5e4dd4d00120f6e25b64967367c504e306d7474c0c98ecc28bd1a12bf072deb0
+H dbd353e91d1d27d080f229a9f28652a7eaacc0c365d038555ec2465d565c5ab1
 T ok <root>/tests/15-app-and-defer/boot_called_in_test/server_test.nomi :: a boot that fails returns its Err
 T ok <root>/tests/15-app-and-defer/boot_called_in_test/server_test.nomi :: a boot that succeeds / returns the app
 T   test body ends
 T   closed the files store
 T ok <root>/tests/15-app-and-defer/boot_called_in_test/server_test.nomi :: a boot that succeeds / starts work that ends with the test
-T   test body ends
 T   heartbeat started
+T   test body ends
 T   heartbeat stopped
 T   closed the files store
 T ok <root>/tests/15-app-and-defer/boot_called_in_test/server_test.nomi :: a boot that succeeds / the next test starts with none of it

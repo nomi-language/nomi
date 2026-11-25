@@ -182,7 +182,7 @@ func OpenImageFile(path string, opts ...Option) (*Image, error) {
 // one it reads, flags it does not know, or a crossing into std/compiler when
 // it does not link those hosts. name says where f came from.
 func (f ImageFile) check(name string, haveCompiler bool) error {
-	self := buildversion.Current()
+	self := buildversion.Name()
 	if f.Format != ir.FormatVersion {
 		return fmt.Errorf("%s was written by nomi %s in program format %d, and this nomi-vm (nomi %s) reads "+
 			"format %d. Rebuild it with `nomi build --no-vm` from this nomi-vm's nomi, or run it with nomi %s's nomi-vm",

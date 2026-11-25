@@ -6,9 +6,9 @@
 # library under lib/. A project names a library by this repository, its
 # directory and the tag (`sqlite = { repo = "github.com/nomi-language/nomi",
 # subdir = "lib/sql/sqlite", version = "v0.0.2" }`), and a release `nomi`
-# takes the libraries at its own version (internal/pkgcache's SetRelease),
-# so a release without its tag fails each `nomi add` of a library with the tag
-# it lacks.
+# takes the libraries at its own version (internal/buildversion's Release,
+# internal/pkgcache's Pinned), so a release without its tag fails each
+# `nomi add` of a library with the tag it lacks.
 #
 # Before tagging, the script checks the libraries, every directory under
 # lib/ that holds a nomi.toml:
@@ -56,9 +56,10 @@ done
 [ -n "$version" ] || usage
 
 # A release version is a vX.Y.Z tag, or a prerelease vX.Y.Z-..., not a Go
-# pseudo-version and not `git describe`'s name for a commit past a tag; a
-# `nomi` stamped with one of those takes the libraries at the latest
-# release instead of its own (cmd/nomi's release).
+# pseudo-version and not `git describe`'s name for a commit past a tag, as
+# internal/buildversion's IsRelease reads a stamp. scripts/release.sh runs
+# this check on the version it stamps `nomi` with, since a `nomi` stamped
+# with anything else is no release.
 if ! [[ "$version" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$ ]] ||
 	[[ "$version" =~ [0-9]{14}-[0-9a-f]{12}$ ]] ||
 	[[ "$version" =~ -[0-9]+-g[0-9a-f]+(-dirty)?$|-dirty$ ]]; then

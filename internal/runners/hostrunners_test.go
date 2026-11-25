@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/nomi-language/nomi/internal/artifactcache"
+	"github.com/nomi-language/nomi/internal/buildversion"
 )
 
 func gzipped(t *testing.T, data string) []byte {
@@ -280,14 +281,14 @@ func TestReleaseRunners_APrunedReleaseUnpacksAgain(t *testing.T) {
 	}
 	setAge(t, filepath.Join(releases, "v9.9.9"), artifactcache.Unused+time.Hour)
 	makePruneDue(t, releases)
-	ReleaseVersion = "v10.0.0"
+	t.Cleanup(buildversion.SetStampForTest("v10.0.0"))
 	if _, err := Runner(host, lean, nil); err != nil {
 		t.Fatal(err)
 	}
 	if got, want := releasesLeft(t, releases), "v10.0.0"; got != want {
 		t.Fatalf("releases left: %q, want %q", got, want)
 	}
-	ReleaseVersion = "v9.9.9"
+	t.Cleanup(buildversion.SetStampForTest("v9.9.9"))
 	got, err := Runner(host, lean, nil)
 	if err != nil {
 		t.Fatal(err)

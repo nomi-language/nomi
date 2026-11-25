@@ -158,8 +158,10 @@ func TestTestCommand_ACaseWaitingOutsideUnderAVirtualClockEndsTheRun(t *testing.
 		"FAIL wait_test.nomi :: outside / waits for a connection\n" +
 			"  did not finish within 500ms and could not be stopped: it was waiting outside the program\n" +
 			"  it was waiting at:\n    ",
-		// The stdlib's path is where this nomi finds it.
-		"std/net.nomi:",
+		// The stdlib's path is where this nomi finds it, outside the
+		// working directory, so a report names it in full and in the
+		// platform's form (rt.DisplayPath), as it names every position.
+		filepath.Join("std", "net.nomi") + ":",
 		" in Listener.accept\n  help: " + vmhost.TestTimeoutHint + "\n" +
 			"FAIL wait_test.nomi :: outside / passes\n" +
 			"  did not run: a case before it was still waiting outside the program when its time ran out, and no other case can start beside it\n" +

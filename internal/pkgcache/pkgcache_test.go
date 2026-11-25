@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/nomi-language/nomi/internal/buildversion"
 )
 
 func writeFile(t *testing.T, path, text string) {
@@ -617,11 +619,10 @@ func TestPrune_RemovesWhatNothingResolves(t *testing.T) {
 }
 
 // asRelease makes the test's process a release `nomi` at version v until
-// the test ends.
+// (buildversion.SetStampForTest) until the test ends.
 func asRelease(t *testing.T, v string) {
 	t.Helper()
-	SetRelease(v)
-	t.Cleanup(func() { SetRelease("") })
+	t.Cleanup(buildversion.SetStampForTest(v))
 }
 
 // [package].nomi is the lowest release a package needs. A release older

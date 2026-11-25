@@ -5,6 +5,11 @@
 //# is the same work for a linear parser, and it must take less than three
 //# times as long: a quadratic parser takes eight.
 //#
+//# The rows of a `subtests` table share one test's time limit, so the
+//# inputs are split by construct into tests that each take under half a
+//# second on an idle machine, and stay inside the limit on one twenty times
+//# slower.
+//#
 //# Timing the same amount of work at both sizes keeps a busy machine out of
 //# the ratio: each measurement runs about as long, so the scheduler slows
 //# both alike. The two are timed in turn, and each one's time is the least
@@ -61,20 +66,36 @@ fn settles(small: String, large: String, pairs: Int, least_small: Int, least_lar
     end
 end
 
-test "long runs and unclosed constructs render in time linear in their length"
+test "brackets and links render in time linear in their length"
     [
         (
             "nested brackets",
             fn n: NonNegativeInt -> String.repeat("[", n) + "a" + String.repeat("]", n),
         ),
-        ("open brackets",       fn n -> String.repeat("[", n) + "a"),
-        ("links",               fn n -> String.repeat("[a](b) ", n)),
-        ("unclosed titles",     fn n -> String.repeat("[a](b \"", n)),
-        ("stars",               fn n -> String.repeat("*", n)),
+        ("open brackets",   fn n -> String.repeat("[", n) + "a"),
+        ("links",           fn n -> String.repeat("[a](b) ", n)),
+        ("unclosed titles", fn n -> String.repeat("[a](b \"", n)),
+    ]
+    |> subtests (name, make), name
+        assert scales_linearly(make, 250)
+    end
+end
+
+test "emphasis delimiters render in time linear in their length"
+    [
+        ("stars",               fn n: NonNegativeInt -> String.repeat("*", n)),
         ("stars between words", fn n -> String.repeat("*a ", n)),
         ("nested emphasis",     fn n -> String.repeat("*a **b ", n) + String.repeat(" c**", n)),
         ("underscores",         fn n -> String.repeat("_a_ ", n)),
-        ("a run of backticks",  fn n -> String.repeat("`", n)),
+    ]
+    |> subtests (name, make), name
+        assert scales_linearly(make, 250)
+    end
+end
+
+test "backticks render in time linear in their length"
+    [
+        ("a run of backticks",  fn n: NonNegativeInt -> String.repeat("`", n)),
         ("unmatched backticks", fn n -> String.repeat("`a ", n)),
         (
             "backtick runs of many lengths",
@@ -83,12 +104,31 @@ test "long runs and unclosed constructs render in time linear in their length"
                 |> String.join("")
             end,
         ),
-        ("unclosed comments", fn n -> String.repeat("<!-- ", n)),
-        ("unclosed tags", fn n -> String.repeat("<a ", n)),
-        ("entities", fn n -> String.repeat("&amp;", n)),
-        ("addresses", fn n -> String.repeat("a@b ", n)),
-        ("table rows", fn n -> "| a | b |\n|---|---|\n" + String.repeat("| x | y |\n", n)),
-        ("definitions", fn n -> Iter.map(0..n, fn k -> "[l${k}]: /u${k}\n") |> String.join("")),
+    ]
+    |> subtests (name, make), name
+        assert scales_linearly(make, 250)
+    end
+end
+
+test "raw HTML, entities and addresses render in time linear in their length"
+    [
+        ("unclosed comments", fn n: NonNegativeInt -> String.repeat("<!-- ", n)),
+        ("unclosed tags",     fn n -> String.repeat("<a ", n)),
+        ("entities",          fn n -> String.repeat("&amp;", n)),
+        ("addresses",         fn n -> String.repeat("a@b ", n)),
+    ]
+    |> subtests (name, make), name
+        assert scales_linearly(make, 250)
+    end
+end
+
+test "long runs of block lines render in time linear in their length"
+    [
+        (
+            "table rows",
+            fn n: NonNegativeInt -> "| a | b |\n|---|---|\n" + String.repeat("| x | y |\n", n),
+        ),
+        ("definitions",  fn n -> Iter.map(0..n, fn k -> "[l${k}]: /u${k}\n") |> String.join("")),
         ("quoted lines", fn n -> String.repeat("> a\n", n)),
     ]
     |> subtests (name, make), name
